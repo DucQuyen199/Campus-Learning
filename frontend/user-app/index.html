@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563EB" />
+    <title>Learning Platform</title>
+    <!-- VNPay Compatibility Script - must be loaded before any other scripts -->
+    <script>
+      // Fix for "timer is not defined" error in VNPay
+      window.timer = null;
+      window.remainingSeconds = 900; // 15 minutes
+      
+      // Implement updateTime to prevent errors
+      window.updateTime = function() {
+        if (window.remainingSeconds <= 0) {
+          clearInterval(window.timer);
+          window.timer = null;
+          return;
+        }
+        window.remainingSeconds--;
+        
+        // Update timer display if available
+        var minutesEl = document.getElementById('minutes');
+        var secondsEl = document.getElementById('seconds');
+        if (minutesEl && secondsEl) {
+          var minutes = Math.floor(window.remainingSeconds / 60);
+          var seconds = window.remainingSeconds % 60;
+          minutesEl.textContent = minutes < 10 ? '0' + minutes : minutes;
+          secondsEl.textContent = seconds < 10 ? '0' + seconds : seconds;
+        }
+      };
+      
+      // Add global error handler to catch timer errors
+      window.addEventListener('error', function(event) {
+        if (event.message && (
+          event.message.includes('timer is not defined') ||
+          event.message.includes('updateTime')
+        )) {
+          event.preventDefault();
+          return true; // Prevents the error from propagating
+        }
+        return false;
+      }, true); // Use capture phase to catch errors early
+      
+      // Specifically fix jQuery.Deferred errors with timer
+      (function patchJQueryWhenLoaded() {
+        if (window.jQuery) {
+          var $ = window.jQuery;
+          
+          // Fix jQuery.Deferred timer error
+          if ($.Deferred && $.Deferred.prototype.then) {
+            var originalThen = $.Deferred.prototype.then;
+            $.Deferred.prototype.then = function(success, failure) {
+              var wrappedSuccess = success ? function(data) {
+                try {
+                  if (typeof window.timer === 'undefined') {
+                    window.timer = null;
+                  }
+                  return success(data);
+                } catch (e) {
+                  return data;
+                }
+              } : success;
+              
+              var wrappedFailure = failure ? function(error) {
+                try {
+                  if (typeof window.timer === 'undefined') {
+                    window.timer = null;
+                  }
+                  return failure(error);
+                } catch (e) {
+                  return error;
+                }
+              } : failure;
+              
+              return originalThen.call(this, wrappedSuccess, wrappedFailure);
+            };
+          }
+        } else {
+          // Check again in 100ms
+          setTimeout(patchJQueryWhenLoaded, 100);
+        }
+      })();
+    </script>
+    
+    <!-- External VNPay fix script -->
+    <script src="/vnpay-fix.js"></script>
+  </head>
+  <body>
+    <!-- Hidden timer elements that VNPay scripts might look for -->
+    <div id="vnpay-timer-container" style="display: none;">
+      <span id="minutes">15</span>:<span id="seconds">00</span>
+    </div>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html> 

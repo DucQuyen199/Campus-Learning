@@ -1,0 +1,182 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const morgan = require('morgan');
+const helmet = require('helmet');
+const compression = require('compression');
+const path = require('path');
+const fs = require('fs');
+
+// Load environment variables first
+dotenv.config();
+
+// Initialize database models and setup associations
+const db = require('./models/index');
+db.sequelize.authenticate()
+  .then(() => {
+    console.log('Connected to database');
+    // Set up model associations after successful authentication
+    db.setupAssociations();
+  })
+  .catch(err => {
+    console.error('Database connection error:', err);
+  });
+
+// Load routes after models are initialized
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const postRoutes = require('./routes/postRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const courseRoutes = require('./routes/courseRoutes');
+const examRoutes = require('./routes/examRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const commentRoutes = require('./routes/commentRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const rankingRoutes = require('./routes/rankingRoutes');
+const competitionRoutes = require('./routes/competitionRoutes');
+const storyRoutes = require('./routes/storyRoutes');
+const callRoutes = require('./routes/callRoutes');
+const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
+const friendshipRoutes = require('./routes/friendshipRoutes');
+const app = express();
+
+// Middleware
+app.use(cors({
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-client-version', 'x-client-platform'],
+  credentials: true
+}));
+app.use(morgan('dev'));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
+}));
+app.use(compression());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Logging middleware for all requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  
+  // If it's a course details request, log additional information
+  if (req.url.match(/^\/api\/courses\/\d+/) || req.url.match(/^\/api\/courses\/[a-zA-Z0-9-]+$/)) {
+    if (req.method === 'GET' && !req.url.includes('/check-enrollment') && !req.url.includes('/content')) {
+      console.log('=== COURSE DETAILS DEBUG ===');
+      console.log('Full URL:', req.url);
+      console.log('Headers:', JSON.stringify({
+        authorization: req.headers.authorization ? 'Present' : 'Not present',
+        'content-type': req.headers['content-type'],
+        'user-agent': req.headers['user-agent']
+      }));
+    }
+  }
+  
+  next();
+});
+
+// Cấu hình static files - di chuyển lên trước routes
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads/stories', express.static(path.join(__dirname, 'uploads/stories')));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api', courseRoutes);
+app.use('/api/exams', examRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/comments', commentRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/rankings', rankingRoutes);
+app.use('/api/competitions', competitionRoutes);
+app.use('/api/stories', storyRoutes);
+app.use('/api/calls', callRoutes);
+app.use('/api', codeExecutionRoutes);
+app.use('/api/friendships', friendshipRoutes);
+
+// Direct route handler for /calls/active to fix 404 error
+app.get('/calls/active', (req, res) => {
+  // Redirect to the proper endpoint
+  const callController = require('./controllers/callController');
+  return callController.getActiveCalls(req, res);
+});
+
+// Log all registered routes for debugging
+console.log('Registered routes:');
+app._router.stack.forEach(middleware => {
+  if (middleware.route) { // routes registered directly on the app
+    console.log(`${Object.keys(middleware.route.methods)} ${middleware.route.path}`);
+  } else if (middleware.name === 'router') { // router middleware
+    middleware.handle.stack.forEach(handler => {
+      if (handler.route) {
+        const path = handler.route.path;
+        const methods = Object.keys(handler.route.methods).join(',').toUpperCase();
+        console.log(`${methods} /api${path}`);
+      }
+    });
+  }
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date() });
+});
+
+// Fallback route for participant answers - backward compatibility
+app.get('/api/participants/:participantId/answers', (req, res) => {
+  // Forward the request to the exam routes handler
+  console.log('Redirecting from /api/participants/:participantId/answers to /api/exams/participants/:participantId/answers');
+  req.url = `/exams/participants/${req.params.participantId}/answers`;
+  app._router.handle(req, res);
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('=== ERROR HANDLER CAUGHT ===');
+  console.error(err.stack || err);
+  
+  // Log full error details including SQL errors and query information
+  if (err.code === 'EREQUEST') {
+    console.error('=== SQL ERROR DETAILS ===');
+    console.error('SQL Error Number:', err.number);
+    console.error('SQL Error State:', err.state);
+    console.error('SQL Error Line Number:', err.lineNumber);
+    console.error('SQL Error Message:', err.originalError?.message);
+    if (err.precedingErrors) {
+      console.error('SQL Preceding Errors:');
+      err.precedingErrors.forEach((pe, i) => {
+        console.error(`  Error ${i+1}:`, pe.message || pe);
+      });
+    }
+  }
+  
+  res.status(err.status || 500).json({
+    success: false,
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  });
+});
+
+// Handle 404
+app.use((req, res) => {
+  res.status(404).json({
+    message: 'Route not found'
+  });
+});
+
+// Đảm bảo thư mục uploads tồn tại
+const uploadDirs = ['uploads', 'uploads/images', 'uploads/videos', 'uploads/chat', 'uploads/stories/images', 'uploads/stories/videos'];
+uploadDirs.forEach(dir => {
+  const dirPath = path.join(__dirname, dir);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+});
+
+module.exports = app; 

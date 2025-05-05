@@ -40,7 +40,7 @@ async function executeCode(code, language, stdin = '') {
     
     // Try connecting to execution service
     try {
-      const response = await executionServiceClient.post('/execute', {
+      const response = await executionServiceClient.post('/api/code-execution/execute', {
         code,
         language,
         stdin
@@ -118,7 +118,7 @@ async function sendInput(executionId, input) {
   try {
     console.log(`Sending input to execution ${executionId}: "${input}"`);
     
-    const response = await axios.post(`${EXECUTION_SERVICE_URL}/send-input`, {
+    const response = await axios.post(`${EXECUTION_SERVICE_URL}/api/code-execution/send-input`, {
       executionId,
       input
     });
@@ -175,7 +175,7 @@ async function stopExecution(executionId) {
   try {
     console.log(`Stopping execution ${executionId}`);
     
-    const response = await axios.post(`${EXECUTION_SERVICE_URL}/stop`, {
+    const response = await axios.post(`${EXECUTION_SERVICE_URL}/api/code-execution/stop`, {
       executionId
     });
     
@@ -206,14 +206,22 @@ async function stopExecution(executionId) {
  */
 async function checkHealth() {
   try {
-    const response = await axios.get(`${EXECUTION_SERVICE_URL}/health`);
-    
-    return response.data;
+    // First try the API prefixed endpoint
+    try {
+      const response = await axios.get(`${EXECUTION_SERVICE_URL}/api/code-execution/health`);
+      return response.data;
+    } catch (apiError) {
+      console.log('API prefixed health check failed, trying root health endpoint...');
+      // If that fails, try the root health endpoint
+      const response = await axios.get(`${EXECUTION_SERVICE_URL}/health`);
+      return response.data;
+    }
   } catch (error) {
     console.error('Error checking execution service health:', error);
     
     return {
       success: false,
+      status: 'error',
       message: error.message || 'Execution service is not available',
       error: error.toString()
     };

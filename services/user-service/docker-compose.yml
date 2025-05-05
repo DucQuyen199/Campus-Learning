@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=development
+      - PORT=5001
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp
+    depends_on:
+      - db
+      - code-execution-service
+    restart: unless-stopped
+    networks:
+      - campust-network
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong@Passw0rd
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    networks:
+      - campust-network
+
+  # Code execution sandbox service
+  code-execution-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.execution
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MAX_EXECUTION_TIME=30000
+      - MAX_MEMORY_LIMIT=512
+    volumes:
+      - ./temp:/app/temp
+      - /tmp:/tmp
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    cap_drop:
+      - ALL
+    stdin_open: true
+    tty: true
+    networks:
+      - campust-network
+      
+  # Docker containers for code execution
+  # Note: The user-service will create docker containers on demand
+  # These are just the base images that need to be pulled
+  code-execution-setup:
+    image: docker:dind
+    privileged: true
+    command: >
+      sh -c "
+        echo 'Pulling images for code execution environment...' &&
+        docker pull node:18-alpine &&
+        docker pull python:3.10-slim &&
+        docker pull gcc:latest &&
+        docker pull openjdk:17-slim &&
+        docker pull mcr.microsoft.com/dotnet/sdk:6.0 &&
+        echo 'Code execution environment setup complete!'
+      "
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - campust-network
+
+networks:
+  campust-network:
+    driver: bridge
+
+volumes:
+  mssql-data: 

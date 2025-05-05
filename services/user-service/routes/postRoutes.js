@@ -1,0 +1,31 @@
+const express = require('express');
+const router = express.Router();
+const postController = require('../controllers/postController');
+const { authenticateToken } = require('../middleware/auth');
+const uploadMiddleware = require('../middleware/upload');
+
+// Public routes - không cần auth
+router.get('/', postController.getPosts);
+// Route to get posts by user ID - must come before /:id route
+router.get('/user/:userId', authenticateToken, postController.getPostsByUserId);
+// Route to get a specific post by ID
+router.get('/:id', postController.getPost);
+
+// Protected routes - cần auth
+router.post('/', 
+  authenticateToken,
+  uploadMiddleware.array('media', 10),
+  postController.createPost
+);
+router.put('/:id', authenticateToken, postController.updatePost);
+router.delete('/:id', authenticateToken, postController.deletePost);
+router.post('/:postId/like', authenticateToken, postController.likePost);
+router.post('/:postId/share', authenticateToken, postController.sharePost);
+
+// Comment routes
+router.get('/:postId/comments', postController.getComments);
+router.post('/:postId/comments', authenticateToken, postController.addComment);
+router.post('/comments/:commentId/like', authenticateToken, postController.likeComment);
+router.delete('/comments/:commentId', authenticateToken, postController.deleteComment);
+
+module.exports = router; 

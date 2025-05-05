@@ -1,0 +1,31 @@
+FROM node:18-alpine
+
+# Install Python and pip
+RUN apk add --no-cache python3 py3-pip
+
+# Install C++ compiler
+RUN apk add --no-cache g++ make
+
+# Create app directory and set permission
+WORKDIR /app
+
+# Install Node.js dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source files
+COPY . .
+
+# Create temp directory for code execution
+RUN mkdir -p /app/temp && chmod 777 /app/temp
+
+# Set environment variable to restrict permissions
+ENV NODE_ENV=production
+ENV MAX_EXECUTION_TIME=30000
+ENV MAX_MEMORY_LIMIT=512
+
+# Expose the execution port
+EXPOSE 3001
+
+# Command to run the execution service
+CMD ["node", "executionService.js"] 

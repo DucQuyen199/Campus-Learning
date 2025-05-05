@@ -1,0 +1,1 @@
+#include <iostream>\n\nint main() {\n    // Vi?t code hi?n th? "Hello, C++ World!"\n    \n    // Tính và hi?n th? t?ng c?a 10 và 25\n    \n    return 0;\n}

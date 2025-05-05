@@ -1,0 +1,105 @@
+// Polyfill for WebRTC compatibility
+window.global = window;
+window.process = { env: {} };
+
+import { Buffer } from 'buffer';
+window.Buffer = Buffer;
+
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { Provider } from 'react-redux'
+import { BrowserRouter } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import { SocketProvider } from './contexts/SocketContext'
+import store from './store'
+import App from './App'
+import './index.css'
+
+// Import error handling utilities
+import { suppressConsoleErrors } from './utils/errorHandling';
+
+// Suppress common network errors in console
+suppressConsoleErrors();
+
+// Fix for VNPay script errors - must be defined before any scripts load
+window.timer = null;
+window.remainingSeconds = 900; // Default 15 minutes (typical VNPay timeout)
+
+// Properly implement updateTime function that VNPay script is looking for
+window.updateTime = function() {
+  try {
+    if (window.remainingSeconds <= 0) {
+      // If timer has expired
+      clearInterval(window.timer);
+      window.timer = null;
+      return;
+    }
+    
+    window.remainingSeconds--;
+    
+    // Update any timer display elements that might exist
+    const minutesElement = document.getElementById('minutes');
+    const secondsElement = document.getElementById('seconds');
+    
+    if (minutesElement && secondsElement) {
+      const minutes = Math.floor(window.remainingSeconds / 60);
+      const seconds = window.remainingSeconds % 60;
+      
+      minutesElement.textContent = minutes < 10 ? '0' + minutes : minutes;
+      secondsElement.textContent = seconds < 10 ? '0' + seconds : seconds;
+    }
+  } catch (error) {
+    // Silently catch any errors to prevent script crashes
+    console.warn('VNPay timer error handled:', error.message);
+  }
+};
+
+// Start timer function that VNPay might call
+window.startTimer = function(seconds) {
+  window.remainingSeconds = seconds || 900;
+  
+  if (window.timer) {
+    clearInterval(window.timer);
+  }
+  
+  window.timer = setInterval(function() {
+    if (typeof window.updateTime === 'function') {
+      window.updateTime();
+    }
+  }, 1000);
+  
+  return window.timer;
+};
+
+// Global error handler for uncaught exceptions
+window.addEventListener('error', (event) => {
+  // Prevent errors from breaking the application
+  if (event.message && (
+    event.message.includes('timer is not defined') ||
+    event.message.includes('updateTime') ||
+    event.message.includes('WebSocket') ||
+    event.message.includes('404') ||
+    event.message.includes('calls/active')
+  )) {
+    event.preventDefault();
+    return true; // Prevents the error from propagating
+  }
+  return false;
+});
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <Provider store={store}>
+      <BrowserRouter future={{ 
+        v7_startTransition: true, 
+        v7_relativeSplatPath: true 
+      }}>
+        <AuthProvider>
+          <SocketProvider>
+            <App />
+          </SocketProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </Provider>
+  </React.StrictMode>
+) 

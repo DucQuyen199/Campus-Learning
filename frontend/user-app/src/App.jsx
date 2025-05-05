@@ -30,7 +30,8 @@ import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
 import AuthMiddleware from './middleware/AuthMiddleware';
 import CompetitionDetail from './pages/Competitions/CompetitionDetail';
-import Arena from './pages/Arena';
+import ArenaRedirect from './pages/Arena';
+import ArenaCode from './pages/Competitions/ArenaCode';
 import StoryCreate from './pages/Stories/StoryCreate';
 import { CallProvider } from './contexts/CallContext';
 import { CallInterface } from './components/Call';
@@ -102,7 +103,13 @@ function App() {
             { path: '/other-courses', element: <OtherCourses /> },
             { path: '/competitions', element: <Competitions /> },
             { path: '/competitions/:id', element: <CompetitionDetail /> },
-            { path: '/arena/:id', element: <Arena /> },
+            { path: '/arena/:id', element: <ArenaRedirect /> },
+            { path: '/competitions/:id/code', element: 
+              <>
+                {console.log('ArenaCode route is being rendered with params:', window.location.pathname)}
+                <ArenaCode />
+              </>
+            },
             { path: '/chat', element: <Chat /> },
             { path: '/reports', element: <Reports /> },
             { path: '/settings', element: <Settings /> },

@@ -2,6 +2,15 @@ import axios from 'axios';
 import { API_URL } from '../config';
 
 /**
+ * Utility function to check if an ID is valid
+ * @param {string|number} id - The ID to validate
+ * @returns {boolean} - True if ID is valid, false otherwise
+ */
+const isValidId = (id) => {
+  return id !== undefined && id !== null && id !== 'undefined' && id !== 'null';
+};
+
+/**
  * Get all competitions with optional filters
  * @param {Object} params - Query parameters for filtering competitions
  * @param {string} params.status - Filter by status (upcoming, ongoing, completed)
@@ -32,6 +41,12 @@ export const getAllCompetitions = async (params = {}, token = null) => {
  * @returns {Promise} - Promise with competition data
  */
 export const getCompetitionById = async (id, token = null) => {
+  // Validate ID before making API call
+  if (!isValidId(id)) {
+    console.error('Invalid competition ID provided to getCompetitionById:', id);
+    return Promise.reject(new Error('Invalid competition ID'));
+  }
+  
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   
   try {
@@ -52,6 +67,15 @@ export const getCompetitionById = async (id, token = null) => {
  * @returns {Promise} - Promise with registration result
  */
 export const registerCompetition = async (id, token) => {
+  // Validate ID before making API call
+  if (!id || id === 'undefined') {
+    console.error('Invalid competition ID provided to registerCompetition:', id);
+    return {
+      success: false,
+      message: 'Invalid competition ID'
+    };
+  }
+  
   if (!token) {
     console.error('No authentication token provided for registration');
     return {
@@ -140,6 +164,12 @@ export const registerCompetition = async (id, token) => {
  * @returns {Promise} - Promise with leaderboard data
  */
 export const getCompetitionLeaderboard = async (id) => {
+  // Validate ID before making API call
+  if (!id || id === 'undefined') {
+    console.error('Invalid competition ID provided to getCompetitionLeaderboard:', id);
+    return Promise.reject(new Error('Invalid competition ID'));
+  }
+  
   try {
     const response = await axios.get(`${API_URL}/api/competitions/${id}/leaderboard`);
     return response.data;
@@ -156,6 +186,12 @@ export const getCompetitionLeaderboard = async (id) => {
  * @returns {Promise} - Promise with competition problems
  */
 export const getCompetitionProblems = async (id, token = null) => {
+  // Validate ID before making API call
+  if (!isValidId(id)) {
+    console.error('Invalid competition ID provided to getCompetitionProblems:', id);
+    return Promise.reject(new Error('Invalid competition ID'));
+  }
+  
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
   
   try {
@@ -199,6 +235,23 @@ export const getProblemById = async (problemId, token = null) => {
  * @returns {Promise<Object>} - Response with success status and message
  */
 export const submitSolution = async (competitionId, problemId, solution, token, language = 'javascript') => {
+  // Validate IDs before making API call
+  if (!competitionId || competitionId === 'undefined') {
+    console.error('Invalid competition ID provided to submitSolution:', competitionId);
+    return {
+      success: false,
+      message: 'Invalid competition ID'
+    };
+  }
+  
+  if (!problemId || problemId === 'undefined') {
+    console.error('Invalid problem ID provided to submitSolution:', problemId);
+    return {
+      success: false,
+      message: 'Invalid problem ID'
+    };
+  }
+  
   try {
     if (!token) {
       console.error('No token provided when submitting solution');
@@ -271,91 +324,48 @@ export const finishCompetition = async (id, token) => {
  * @returns {Promise} - Promise with registration status
  */
 export const checkRegistrationStatus = async (id, token) => {
+  // Validate ID before making API call
+  if (!id || id === 'undefined') {
+    console.error('Invalid competition ID provided to checkRegistrationStatus:', id);
+    return {
+      success: false,
+      isRegistered: false,
+      message: 'Invalid competition ID'
+    };
+  }
+  
   if (!token) {
-    console.warn('No token provided for registration status check');
-    return { isRegistered: false, success: true };
+    console.error('No token provided when checking registration status');
+    return {
+      success: false,
+      isRegistered: false,
+      message: 'Authentication token is required'
+    };
   }
   
   try {
-    // Make sure token is properly formatted
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-    
-    // Verify token format
-    if (formattedToken.split(' ')[1].length < 10) {
-      console.error('Token appears to be invalid (too short)');
-      return {
-        success: false,
-        isRegistered: false,
-        message: 'Invalid authentication token'
-      };
-    }
-    
-    console.log(`Checking registration status for competition ${id}`);
-    
     const response = await axios.get(
       `${API_URL}/api/competitions/${id}/registration-status`,
-      { 
-        headers: { 
-          Authorization: formattedToken,
-          'Content-Type': 'application/json'
-        } 
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       }
     );
     
-    // If the response doesn't include a success flag, add it
-    if (response.data && !response.data.hasOwnProperty('success')) {
-      return {
-        ...response.data,
-        success: true
-      };
-    }
-    
-    return response.data;
+    return {
+      success: true,
+      isRegistered: response.data.isRegistered,
+      registrationData: response.data
+    };
   } catch (error) {
     console.error(`Error checking registration status for competition ${id}:`, error);
     
-    // Log detailed error information for debugging
-    if (error.response) {
-      console.error('Error status:', error.response.status);
-      console.error('Error data:', error.response.data);
-    } else if (error.request) {
-      console.error('No response received:', error.request);
-    }
-    
-    // For auth errors, return appropriate message
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      return { 
-        isRegistered: false, 
-        success: false,
-        message: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-        authError: true
-      };
-    }
-    
-    // For 404, assume the user is not registered
-    if (error.response && error.response.status === 404) {
-      const errorMessage = error.response.data?.message || '';
-      
-      // If user not found
-      if (errorMessage.includes('User not found')) {
-        return {
-          isRegistered: false,
-          success: false,
-          message: 'Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.',
-          authError: true
-        };
-      }
-      
-      // Otherwise, just assume not registered
-      return { isRegistered: false, success: true };
-    }
-    
-    // Generic error - don't break the UI, just return a sensible default
-    return { 
-      isRegistered: false, 
+    return {
       success: false,
-      message: error.message || 'Lỗi khi kiểm tra trạng thái đăng ký',
-      error: true
+      isRegistered: false,
+      message: error.response?.data?.message || 'Failed to check registration status',
+      error: error.message
     };
   }
 };
@@ -484,94 +494,71 @@ export const executeCode = async (code, language, input = '', token = null) => {
  * @returns {Promise} - Promise with completed problems data
  */
 export const getCompletedProblems = async (id, token) => {
+  // Validate ID before making API call
+  if (!id || id === 'undefined') {
+    console.error('Invalid competition ID provided to getCompletedProblems:', id);
+    return Promise.reject(new Error('Invalid competition ID'));
+  }
+  
   if (!token) {
-    console.warn('No token provided for getting completed problems');
-    return [];
+    console.error('No token provided when getting completed problems');
+    return Promise.reject(new Error('Authentication token is required'));
   }
   
   try {
-    // Make sure token is properly formatted
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-    
-    console.log(`Fetching completed problems for competition ${id}`);
-    
     const response = await axios.get(
       `${API_URL}/api/competitions/${id}/completed-problems`,
-      { 
-        headers: { 
-          Authorization: formattedToken,
-          'Content-Type': 'application/json'
-        } 
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       }
     );
     
     return response.data;
   } catch (error) {
-    // Silently handle the error, returning an empty array
-    return [];
+    console.error(`Error fetching completed problems for competition ${id}:`, error);
+    throw error;
   }
 };
 
 /**
  * Get a submitted solution for a competition problem
- * @param {string|number} competitionId - The ID of the competition
- * @param {string|number} problemId - The ID of the problem
- * @param {string} token - Authentication token
- * @returns {Promise<Object>} - Response with solution code
+ * @param {string|number} competitionId - Competition ID
+ * @param {string|number} problemId - Problem ID
+ * @param {string} token - User authentication token
+ * @returns {Promise<Object>} - Submitted solution data
  */
 export const getSubmittedSolution = async (competitionId, problemId, token) => {
+  // Validate IDs before making API call
+  if (!competitionId || competitionId === 'undefined') {
+    console.error('Invalid competition ID provided to getSubmittedSolution:', competitionId);
+    return Promise.reject(new Error('Invalid competition ID'));
+  }
+  
+  if (!problemId || problemId === 'undefined') {
+    console.error('Invalid problem ID provided to getSubmittedSolution:', problemId);
+    return Promise.reject(new Error('Invalid problem ID'));
+  }
+  
+  if (!token) {
+    console.error('No token provided when getting submitted solution');
+    return Promise.reject(new Error('Authentication token is required'));
+  }
+  
   try {
-    if (!token) {
-      console.error('No token provided when fetching submitted solution');
-      return {
-        success: false,
-        message: 'Authentication token is required'
-      };
-    }
-
-    console.log(`Making API request to fetch solution for problem ${problemId} in competition ${competitionId}`);
-    
-    // Make sure token is properly formatted
-    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-    
     const response = await axios.get(
       `${API_URL}/api/competitions/${competitionId}/problems/${problemId}/solution`,
       {
         headers: {
-          'Authorization': formattedToken,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       }
     );
-
-    console.log('Solution fetch response:', response.status);
+    
     return response.data;
   } catch (error) {
     console.error(`Error fetching submitted solution for problem ${problemId} in competition ${competitionId}:`, error);
-    
-    // Log detailed error information for debugging
-    if (error.response) {
-      console.error('Error status:', error.response.status);
-      console.error('Error data:', error.response.data);
-      
-      // Return a structured response instead of throwing an error
-      return {
-        success: false,
-        message: error.response.data?.message || 'Failed to fetch solution',
-        status: error.response.status
-      };
-    } else if (error.request) {
-      console.error('No response received:', error.request);
-      return {
-        success: false,
-        message: 'No response received from server'
-      };
-    }
-    
-    // Generic error case
-    return {
-      success: false,
-      message: error.message || 'Unknown error occurred'
-    };
+    throw error;
   }
 }; 

@@ -38,6 +38,10 @@ const app = express();
 app.use(cors());  // Enable CORS for all routes
 app.use(bodyParser.json({ limit: '5mb' }));
 
+// Add API prefix for all execution routes
+const apiRouter = express.Router();
+app.use('/api/code-execution', apiRouter);
+
 // Map to track running executions
 const runningExecutions = new Map();
 
@@ -67,8 +71,8 @@ const LANGUAGE_CONFIGS = {
 };
 
 // Execute code endpoint
-app.post('/execute', async (req, res) => {
-    const { code, language, stdin = '' } = req.body;
+apiRouter.post('/execute', async (req, res) => {
+    const { code, language, stdin = '', testCases = [] } = req.body;
     
     if (!code || !language) {
         return res.status(400).json({
@@ -341,7 +345,7 @@ app.post('/execute', async (req, res) => {
 });
 
 // Send input to running process
-app.post('/send-input', (req, res) => {
+apiRouter.post('/send-input', (req, res) => {
     const { executionId, input } = req.body;
     
     if (!executionId || input === undefined) {
@@ -420,7 +424,7 @@ app.post('/send-input', (req, res) => {
 });
 
 // Stop execution
-app.post('/stop', async (req, res) => {
+apiRouter.post('/stop', async (req, res) => {
     const { executionId } = req.body;
     
     if (!executionId) {
@@ -500,10 +504,225 @@ async function cleanupExecution(executionId, executionDir) {
 }
 
 // Health check endpoint
+apiRouter.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        message: 'Execution service is running',
+        timestamp: new Date().toISOString(),
+        dockerAvailable: true,
+        features: {
+            languages: Object.keys(LANGUAGE_CONFIGS),
+            interactive: true,
+            testCases: true
+        }
+    });
+});
+
+// Add root health endpoint to fix 404 errors
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'ok',
         message: 'Execution service is running',
+        timestamp: new Date().toISOString(),
+        dockerAvailable: true,
+        features: {
+            languages: Object.keys(LANGUAGE_CONFIGS),
+            interactive: true,
+            testCases: true
+        }
+    });
+});
+
+// Add new endpoint for running code with test cases
+apiRouter.post('/execute-tests', async (req, res) => {
+    const { code, language, testCases = [] } = req.body;
+    
+    if (!code || !language) {
+        return res.status(400).json({
+            success: false,
+            message: 'Code and language are required'
+        });
+    }
+    
+    if (!testCases || testCases.length === 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Test cases are required'
+        });
+    }
+    
+    // Check if language is supported
+    if (!LANGUAGE_CONFIGS[language]) {
+        return res.status(400).json({
+            success: false,
+            message: `Language '${language}' is not supported`
+        });
+    }
+    
+    try {
+        const results = [];
+        let passedCount = 0;
+        
+        // Process each test case
+        for (const testCase of testCases) {
+            // Generate unique ID for this execution
+            const executionId = uuidv4();
+            
+            // Create execution directory
+            const executionDir = path.join(TEMP_DIR, executionId);
+            await mkdirAsync(executionDir, { recursive: true });
+            
+            // Get language configuration
+            const config = LANGUAGE_CONFIGS[language];
+            
+            // Create code file
+            const fileName = `code.${config.extension}`;
+            const filePath = path.join(executionDir, fileName);
+            
+            await writeFileAsync(filePath, code);
+            
+            // Create input file
+            let stdinFilePath = null;
+            if (testCase.input) {
+                stdinFilePath = path.join(executionDir, 'input.txt');
+                await writeFileAsync(stdinFilePath, testCase.input);
+            }
+            
+            // Compile code if needed
+            if (config.compileCommand) {
+                const outputFile = path.basename(filePath, `.${config.extension}`);
+                const outputPath = path.join(executionDir, outputFile);
+                
+                const compileCommand = config.compileCommand(filePath, outputPath);
+                try {
+                    await execAsync(compileCommand, { cwd: executionDir });
+                } catch (compileError) {
+                    // Clean up
+                    await cleanupExecution(executionId, executionDir);
+                    
+                    // Add failed result for all test cases due to compilation error
+                    const testResult = {
+                        input: testCase.input,
+                        expectedOutput: testCase.output,
+                        actualOutput: '',
+                        passed: false,
+                        stderr: compileError.stderr || 'Compilation error',
+                        error: 'Compilation error'
+                    };
+                    
+                    return res.status(200).json({
+                        success: false,
+                        message: 'Compilation error',
+                        data: {
+                            results: [testResult],
+                            passedCount: 0,
+                            totalCount: testCases.length,
+                            score: 0
+                        }
+                    });
+                }
+            }
+            
+            // Execute code
+            const runCommand = config.runCommand(filePath);
+            
+            let stdout = '';
+            let stderr = '';
+            let exitCode = 0;
+            
+            try {
+                if (stdinFilePath) {
+                    // Run with stdin from file
+                    const { stdout: cmdStdout, stderr: cmdStderr } = await execAsync(
+                        `${runCommand} < ${stdinFilePath}`,
+                        { 
+                            cwd: executionDir,
+                            timeout: MAX_EXECUTION_TIME
+                        }
+                    );
+                    stdout = cmdStdout;
+                    stderr = cmdStderr;
+                } else {
+                    // Run without stdin
+                    const { stdout: cmdStdout, stderr: cmdStderr } = await execAsync(
+                        runCommand,
+                        { 
+                            cwd: executionDir,
+                            timeout: MAX_EXECUTION_TIME
+                        }
+                    );
+                    stdout = cmdStdout;
+                    stderr = cmdStderr;
+                }
+            } catch (execError) {
+                stderr = execError.stderr || execError.message;
+                exitCode = execError.code || 1;
+            }
+            
+            // Clean up files
+            await cleanupExecution(executionId, executionDir);
+            
+            // Normalize outputs for comparison
+            const normalizedActual = stdout.trim().replace(/\r\n/g, '\n');
+            const normalizedExpected = testCase.output.trim().replace(/\r\n/g, '\n');
+            
+            // Compare results
+            const passed = normalizedActual === normalizedExpected;
+            if (passed) passedCount++;
+            
+            // Add to results
+            results.push({
+                input: testCase.input,
+                expectedOutput: testCase.output,
+                actualOutput: stdout,
+                passed,
+                stderr,
+                error: stderr ? 'Runtime error' : null
+            });
+        }
+        
+        // Calculate score
+        const score = Math.round((passedCount / testCases.length) * 100);
+        
+        // Return results
+        res.status(200).json({
+            success: true,
+            data: {
+                results,
+                passedCount,
+                totalCount: testCases.length,
+                score
+            }
+        });
+    } catch (error) {
+        console.error('Test execution error:', error);
+        
+        res.status(500).json({
+            success: false,
+            message: 'Error executing tests',
+            error: error.message
+        });
+    }
+});
+
+// Add a global error handler
+app.use((err, req, res, next) => {
+    console.error('Global error handler caught:', err);
+    res.status(500).json({
+        success: false,
+        status: 'error',
+        message: err.message || 'Internal server error',
+        error: err.name || 'UnknownError',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Add a fallback route handler for 404 errors
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        status: 'error',
+        message: `Endpoint not found: ${req.method} ${req.originalUrl}`,
         timestamp: new Date().toISOString()
     });
 });

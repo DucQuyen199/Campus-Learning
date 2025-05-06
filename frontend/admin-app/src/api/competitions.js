@@ -12,7 +12,7 @@ export const competitionsAPI = {
       return { competitions: [] };
     }
   },
-  
+
   // Get competition by ID
   getCompetition: async (id) => {
     try {
@@ -23,7 +23,23 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
+  // Get competition leaderboard
+  getCompetitionLeaderboard: async (id) => {
+    try {
+      const response = await adminApi.get(`/competitions/${id}/leaderboard`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching leaderboard for competition ${id}:`, error);
+      console.warn('Falling back to default leaderboard data');
+      return {
+        success: false,
+        message: 'Failed to fetch leaderboard',
+        data: []
+      };
+    }
+  },
+
   // Create competition
   createCompetition: async (competitionData) => {
     try {
@@ -34,7 +50,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Update competition
   updateCompetition: async (id, competitionData) => {
     try {
@@ -45,7 +61,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Delete competition
   deleteCompetition: async (id) => {
     try {
@@ -56,7 +72,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Update competition status
   updateCompetitionStatus: async (id, status) => {
     try {
@@ -67,7 +83,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Get competition problems
   getProblems: async (competitionId) => {
     try {
@@ -78,18 +94,18 @@ export const competitionsAPI = {
       return { problems: [] };
     }
   },
-  
+
   // Get a specific problem
   getProblem: async (competitionId, problemId) => {
     try {
       const response = await adminApi.get(`/competitions/${competitionId}/problems/${problemId}`);
-      
+
       // Check if response structure is correct
       if (!response.data.problem && response.data) {
         // If the API returns directly the problem data without wrapping in a 'problem' property
-        return { 
+        return {
           success: true,
-          problem: response.data 
+          problem: response.data
         };
       }
       return response.data;
@@ -98,7 +114,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Create problem for competition
   createProblem: async (competitionId, problemData) => {
     try {
@@ -109,7 +125,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Update a problem
   updateProblem: async (competitionId, problemId, problemData) => {
     try {
@@ -120,7 +136,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Delete a problem
   deleteProblem: async (competitionId, problemId) => {
     try {
@@ -131,7 +147,7 @@ export const competitionsAPI = {
       throw error;
     }
   },
-  
+
   // Get competition participants
   getCompetitionParticipants: async (competitionId) => {
     try {
@@ -144,4 +160,4 @@ export const competitionsAPI = {
   }
 };
 
-export default competitionsAPI; 
+export default competitionsAPI;

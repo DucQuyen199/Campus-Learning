@@ -204,4 +204,7 @@ axiosClient.interceptors.response.use(
   }
 );
 
+// Export the API URL for direct use in other files
+export const API_URL = process.env.VITE_API_URL || 'http://localhost:5001';
+
 export default axiosClient; 

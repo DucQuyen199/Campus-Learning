@@ -41,6 +41,7 @@ const storyRoutes = require('./routes/storyRoutes');
 const callRoutes = require('./routes/callRoutes');
 const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
 const friendshipRoutes = require('./routes/friendshipRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const app = express();
 
 // Middleware
@@ -100,6 +101,7 @@ app.use('/api/stories', storyRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api', codeExecutionRoutes);
 app.use('/api/friendships', friendshipRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Direct route handler for /calls/active to fix 404 error
 app.get('/calls/active', (req, res) => {

@@ -16,17 +16,17 @@ exports.getAllCompetitions = async (req, res) => {
   try {
     const { status, difficulty, registered } = req.query;
     const userId = req.user?.id || req.user?.userId || req.user?.UserID;
-    
+
     const whereClause = {};
-    
+
     if (status) {
       whereClause.Status = status;
     }
-    
+
     if (difficulty) {
       whereClause.Difficulty = difficulty;
     }
-    
+
     // Get basic competition data first
     const competitions = await Competition.findAll({
       where: whereClause,
@@ -39,32 +39,32 @@ exports.getAllCompetitions = async (req, res) => {
       ],
       order: [['StartTime', 'ASC']]
     });
-    
+
     // Now get the participant counts and registration status for each competition
     const competitionsWithCounts = await Promise.all(competitions.map(async (competition) => {
       const competitionData = competition.toJSON();
       const competitionId = competitionData.CompetitionID || competitionData.ID;
-      
+
       // Count participants by counting registrations
       const participantCount = await CompetitionRegistration.count({
         where: { CompetitionID: competitionId }
       });
-      
+
       // Check if the current user is registered
       let isRegistered = false;
       let registrationStatus = null;
-      
+
       if (userId) {
         const registration = await CompetitionRegistration.findOne({
           where: { UserID: userId, CompetitionID: competitionId }
         });
-        
+
         if (registration) {
           isRegistered = true;
           registrationStatus = registration.Status;
         }
       }
-      
+
       return {
         ...competitionData,
         ParticipantCount: participantCount,
@@ -73,19 +73,19 @@ exports.getAllCompetitions = async (req, res) => {
         RegistrationStatus: registrationStatus
       };
     }));
-    
+
     // Filter for registered competitions if requested
     let result = competitionsWithCounts;
     if (registered === 'true' && userId) {
       result = competitionsWithCounts.filter(comp => comp.IsRegistered);
     }
-    
+
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching competitions:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi khi tải danh sách cuộc thi', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Lỗi khi tải danh sách cuộc thi',
+      error: error.message
     });
   }
 };
@@ -96,7 +96,7 @@ exports.getAllCompetitions = async (req, res) => {
 exports.getCompetitionById = async (req, res) => {
   try {
     const { competitionId } = req.params;
-    
+
     const competition = await Competition.findByPk(competitionId, {
       include: [
         {
@@ -107,10 +107,10 @@ exports.getCompetitionById = async (req, res) => {
         {
           model: CompetitionProblem,
           attributes: [
-            'ProblemID', 
-            'Title', 
-            'Difficulty', 
-            'Points', 
+            'ProblemID',
+            'Title',
+            'Difficulty',
+            'Points',
             'Description',
             'ImageURL',
             'Instructions',
@@ -119,23 +119,23 @@ exports.getCompetitionById = async (req, res) => {
         }
       ]
     });
-    
+
     if (!competition) {
       return res.status(404).json({ message: 'Không tìm thấy cuộc thi' });
     }
-    
+
     // Get participant count
     const participantCount = await CompetitionParticipant.count({
       where: { CompetitionID: competitionId }
     });
-    
+
     // Calculate real-time status based on current time and competition dates
     const now = new Date();
     const startTime = new Date(competition.StartTime);
     const endTime = new Date(competition.EndTime);
-    
+
     let realTimeStatus = competition.Status;
-    
+
     // Override the stored status with the calculated real-time status
     if (now < startTime) {
       realTimeStatus = 'upcoming';
@@ -144,20 +144,20 @@ exports.getCompetitionById = async (req, res) => {
     } else if (now >= endTime) {
       realTimeStatus = 'completed';
     }
-    
+
     // Format response
     const result = {
       ...competition.toJSON(),
       participantCount,
       Status: realTimeStatus // Override with the real-time status
     };
-    
+
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching competition:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi khi tải thông tin cuộc thi', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Lỗi khi tải thông tin cuộc thi',
+      error: error.message
     });
   }
 };
@@ -170,15 +170,15 @@ exports.registerCompetition = async (req, res) => {
 
   try {
     const { competitionId } = req.params;
-    
+
     // Check for user identification in the request
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    
+
     // Extract userId, supporting different field names
     const userId = req.user.id || req.user.userId || req.user.UserID;
-    
+
     if (!userId) {
       console.error('Cannot determine user ID from req.user:', req.user);
       return res.status(400).json({ message: 'Invalid user identification' });
@@ -240,15 +240,15 @@ exports.registerCompetition = async (req, res) => {
     console.log('Inserting new registration record...');
     // Format the current date to a SQL Server compatible format
     const currentDate = now.toISOString().slice(0, 19).replace('T', ' ');
-    
+
     try {
       // Use a properly formatted date that SQL Server can handle
       await sequelize.query(
-        `INSERT INTO CompetitionRegistrations (UserID, CompetitionID, Status, Score, ProblemsSolved, RegistrationDate, CreatedAt, UpdatedAt) 
+        `INSERT INTO CompetitionRegistrations (UserID, CompetitionID, Status, Score, ProblemsSolved, RegistrationDate, CreatedAt, UpdatedAt)
          VALUES (:userId, :competitionId, 'REGISTERED', 0, 0, :currentDate, :currentDate, :currentDate)`,
         {
-          replacements: { 
-            userId, 
+          replacements: {
+            userId,
             competitionId,
             currentDate
           },
@@ -257,25 +257,25 @@ exports.registerCompetition = async (req, res) => {
         }
       );
       console.log('Insert successful');
-      
+
       // Also create or update a participant record to ensure participant counts are consistent
       const existingParticipant = await CompetitionParticipant.findOne({
         where: { UserID: userId, CompetitionID: competitionId },
         transaction
       });
-      
+
       if (!existingParticipant) {
         // Skip the model and use direct SQL query to avoid date formatting issues
         console.log('Creating participant record with SQL query using date:', currentDate);
         await sequelize.query(
-          `INSERT INTO CompetitionParticipants 
-           (UserID, CompetitionID, Status, RegistrationTime, Score, 
-            TotalProblemsAttempted, TotalProblemsSolved, CreatedAt, UpdatedAt) 
-           VALUES 
+          `INSERT INTO CompetitionParticipants
+           (UserID, CompetitionID, Status, RegistrationTime, Score,
+            TotalProblemsAttempted, TotalProblemsSolved, CreatedAt, UpdatedAt)
+           VALUES
            (:userId, :competitionId, 'registered', :currentDate, 0, 0, 0, :currentDate, :currentDate)`,
           {
-            replacements: { 
-              userId, 
+            replacements: {
+              userId,
               competitionId,
               currentDate
             },
@@ -291,9 +291,9 @@ exports.registerCompetition = async (req, res) => {
     }
 
     console.log(`User ${userId} successfully registered for competition ${competitionId}`);
-    
+
     await transaction.commit();
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'Successfully registered for the competition',
       success: true
     });
@@ -306,17 +306,17 @@ exports.registerCompetition = async (req, res) => {
         console.error('Error rolling back transaction:', rollbackError);
       }
     }
-    
+
     if (error instanceof ValidationError) {
-      return res.status(400).json({ 
-        message: 'Validation error', 
+      return res.status(400).json({
+        message: 'Validation error',
         errors: error.errors,
         success: false
       });
     }
-    
-    res.status(500).json({ 
-      message: 'Failed to register for competition', 
+
+    res.status(500).json({
+      message: 'Failed to register for competition',
       error: error.message,
       success: false
     });
@@ -329,19 +329,19 @@ exports.registerCompetition = async (req, res) => {
 exports.getCompetitionLeaderboard = async (req, res) => {
   try {
     const { competitionId } = req.params;
-    
+
     // Verify competition exists
     const competition = await Competition.findByPk(competitionId);
     if (!competition) {
       return res.status(404).json({ message: 'Không tìm thấy cuộc thi' });
     }
-    
+
     // Sử dụng truy vấn SQL trực tiếp để đảm bảo kết quả nhất quán với cách cập nhật thứ hạng
     const participants = await sequelize.query(`
-      SELECT 
-        cp.ParticipantID, 
-        cp.UserID, 
-        cp.Score, 
+      SELECT
+        cp.ParticipantID,
+        cp.UserID,
+        cp.Score,
         cp.TotalProblemsSolved,
         cp.Rank,
         cp.StartTime,
@@ -350,25 +350,37 @@ exports.getCompetitionLeaderboard = async (req, res) => {
         u.Username,
         u.FullName,
         u.Email,
-        u.Image
-      FROM 
+        u.Image,
+        (
+          SELECT COUNT(DISTINCT ProblemID)
+          FROM CompetitionSubmissions cs
+          WHERE cs.ParticipantID = cp.ParticipantID
+          AND cs.Status = 'accepted'
+        ) AS CompletedProblems
+      FROM
         CompetitionParticipants cp
-      JOIN 
+      JOIN
         Users u ON cp.UserID = u.UserID
-      WHERE 
+      WHERE
         cp.CompetitionID = :competitionId
         AND cp.Status IN ('registered', 'active', 'completed')
-      ORDER BY 
-        cp.Score DESC, 
-        cp.TotalProblemsSolved DESC, 
+      ORDER BY
+        cp.Score DESC,
+        CompletedProblems DESC,
         cp.UpdatedAt ASC
     `, {
       replacements: { competitionId },
       type: sequelize.QueryTypes.SELECT
     });
-    
+
+    // Update ranks based on the current query results
+    // This ensures ranks are consistent with the current sort order
+    participants.forEach((participant, index) => {
+      participant.CurrentRank = index + 1;
+    });
+
     // Format response
-    const leaderboard = participants.map((participant, index) => {
+    const leaderboard = participants.map((participant) => {
       // Tính thời gian giải bài (nếu có)
       let competitionTime = null;
       if (participant.StartTime && participant.EndTime) {
@@ -377,28 +389,31 @@ exports.getCompetitionLeaderboard = async (req, res) => {
         // Nếu đã bắt đầu nhưng chưa kết thúc, dùng thời gian hiện tại
         competitionTime = Math.floor((new Date() - new Date(participant.StartTime)) / 1000 / 60);
       }
-      
+
+      // Use the actual completed problems count from the query
+      const completedProblemsCount = participant.CompletedProblems || 0;
+
       return {
-        rank: participant.Rank || (index + 1), // Ưu tiên sử dụng Rank từ DB, nếu không có thì dùng index
+        rank: participant.CurrentRank, // Use the calculated rank based on current sort order
         id: participant.UserID,
-        userId: participant.UserID, // Thêm trường này để đảm bảo tương thích 
+        userId: participant.UserID, // Thêm trường này để đảm bảo tương thích
         name: participant.FullName || participant.Username,
         avatar: participant.Image,
-        score: participant.Score,
-        problemsSolved: participant.TotalProblemsSolved,
+        score: participant.Score || 0,
+        problemsSolved: completedProblemsCount, // Use the actual count from the query
         competitionTime: competitionTime,
         updatedAt: participant.UpdatedAt
       };
     });
-    
+
     console.log(`Fetched leaderboard for competition ${competitionId} with ${leaderboard.length} participants`);
-    
+
     return res.status(200).json(leaderboard);
   } catch (error) {
     console.error('Error fetching competition leaderboard:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi khi tải bảng xếp hạng', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Lỗi khi tải bảng xếp hạng',
+      error: error.message
     });
   }
 };
@@ -409,7 +424,7 @@ exports.getCompetitionLeaderboard = async (req, res) => {
 exports.submitSolution = async (req, res) => {
   const { competitionId, problemId } = req.params;
   const { solution, language = 'javascript' } = req.body;
-  
+
   // Validate input
   if (!solution) {
     return res.status(400).json({
@@ -417,18 +432,18 @@ exports.submitSolution = async (req, res) => {
       message: 'Solution is required'
     });
   }
-  
+
   try {
     // Get user ID from authentication
     const userId = req.user.id || req.user.userId || req.user.UserID;
-    
+
     if (!userId) {
       return res.status(401).json({
         success: false,
         message: 'User authentication invalid'
       });
     }
-    
+
     // Check if the user is registered for this competition
     const participant = await CompetitionParticipant.findOne({
       where: {
@@ -436,24 +451,24 @@ exports.submitSolution = async (req, res) => {
         CompetitionID: competitionId
       }
     });
-    
+
     if (!participant) {
       return res.status(400).json({
         success: false,
         message: 'You are not registered for this competition'
       });
     }
-    
+
     // Check if the competition is active
     const competition = await Competition.findByPk(competitionId);
-    
+
     if (!competition) {
       return res.status(404).json({
         success: false,
         message: 'Competition not found'
       });
     }
-    
+
     const now = new Date();
     if (now < new Date(competition.StartTime) || now > new Date(competition.EndTime)) {
       return res.status(400).json({
@@ -461,7 +476,7 @@ exports.submitSolution = async (req, res) => {
         message: 'Competition is not active'
       });
     }
-    
+
     // Check if the problem belongs to this competition
     const problem = await CompetitionProblem.findOne({
       where: {
@@ -469,14 +484,14 @@ exports.submitSolution = async (req, res) => {
         CompetitionID: competitionId
       }
     });
-    
+
     if (!problem) {
       return res.status(404).json({
         success: false,
         message: 'Problem not found in this competition'
       });
     }
-    
+
     // Check if the problem has already been solved by this user
     const existingSolution = await CompetitionSubmission.findOne({
       where: {
@@ -485,7 +500,7 @@ exports.submitSolution = async (req, res) => {
         Status: 'accepted'
       }
     });
-    
+
     if (existingSolution) {
       return res.status(200).json({
         success: true,
@@ -498,10 +513,10 @@ exports.submitSolution = async (req, res) => {
         }
       });
     }
-    
+
     // Execute solution against test cases
     const testCases = [];
-    
+
     // Parse visible test cases if available
     if (problem.TestCasesVisible) {
       try {
@@ -511,7 +526,7 @@ exports.submitSolution = async (req, res) => {
         console.error('Error parsing visible test cases:', err);
       }
     }
-    
+
     // Parse hidden test cases if available
     if (problem.TestCasesHidden) {
       try {
@@ -521,7 +536,7 @@ exports.submitSolution = async (req, res) => {
         console.error('Error parsing hidden test cases:', err);
       }
     }
-    
+
     // Use sample input/output as a test case if no test cases are defined
     if (testCases.length === 0 && problem.SampleInput && problem.SampleOutput) {
       testCases.push({
@@ -529,7 +544,7 @@ exports.submitSolution = async (req, res) => {
         output: problem.SampleOutput
       });
     }
-    
+
     // If still no test cases, return error
     if (testCases.length === 0) {
       return res.status(500).json({
@@ -537,35 +552,71 @@ exports.submitSolution = async (req, res) => {
         message: 'No test cases available to evaluate solution'
       });
     }
-    
+
     // Execute the code against each test case
     let allPassed = true;
     let totalScore = 0;
     let executionTime = 0;
     let memoryUsed = 0;
-    
+
     const testResults = await Promise.all(testCases.map(async (testCase) => {
       try {
         // Use the codeExecutionController to run the code
         const { executeCodeInDocker } = require('./codeExecutionController');
-        
+
         const result = await executeCodeInDocker(
           solution,
           language,
           testCase.input
         );
-        
-        // Normalize outputs for comparison (trim whitespace, normalize line endings)
-        const expectedOutput = (testCase.output || '').trim().replace(/\r\n/g, '\n');
-        const actualOutput = (result.stdout || '').trim().replace(/\r\n/g, '\n');
-        
-        const passed = expectedOutput === actualOutput;
-        
+
+        // Enhanced normalization for more accurate comparison
+        const normalizeOutput = (output) => {
+          if (!output) return '';
+          return output
+            .trim()
+            .replace(/\r\n/g, '\n')  // Normalize line endings
+            .replace(/\s+/g, ' ')    // Normalize whitespace
+            .replace(/\n+/g, '\n')   // Remove multiple newlines
+            .replace(/\t/g, ' ')     // Replace tabs with spaces
+            .replace(/\s+$/gm, '')   // Remove trailing whitespace on each line
+            .trim();
+        };
+
+        const expectedOutput = normalizeOutput(testCase.output || '');
+        const actualOutput = normalizeOutput(result.stdout || '');
+
+        // Improved comparison logic for numeric outputs
+        let passed = false;
+
+        // Check if both outputs are numeric
+        const isNumericExpected = !isNaN(parseFloat(expectedOutput)) && isFinite(expectedOutput);
+        const isNumericActual = !isNaN(parseFloat(actualOutput)) && isFinite(actualOutput);
+
+        if (isNumericExpected && isNumericActual) {
+          // Compare as numbers with a small epsilon for floating point comparison
+          const numExpected = parseFloat(expectedOutput);
+          const numActual = parseFloat(actualOutput);
+          const epsilon = 0.0001; // Small tolerance for floating point comparison
+          passed = Math.abs(numExpected - numActual) < epsilon;
+
+          if (!passed) {
+            console.log(`Numeric comparison failed: Expected ${numExpected}, got ${numActual}, difference: ${Math.abs(numExpected - numActual)}`);
+          }
+        } else {
+          // Standard string comparison
+          passed = expectedOutput === actualOutput;
+
+          if (!passed) {
+            console.log(`String comparison failed: Expected "${expectedOutput}", got "${actualOutput}"`);
+          }
+        }
+
         // Update tracking variables
         if (!passed) allPassed = false;
         executionTime = Math.max(executionTime, result.executionTime || 0);
         memoryUsed = Math.max(memoryUsed, result.memoryUsage || 0);
-        
+
         return {
           passed,
           input: testCase.input,
@@ -586,15 +637,18 @@ exports.submitSolution = async (req, res) => {
         };
       }
     }));
-    
+
     // Calculate score based on problem points and number of tests passed
     const basePoints = problem.Points || 100;
     const passedCount = testResults.filter(tr => tr.passed).length;
     const passedRatio = testCases.length > 0 ? passedCount / testCases.length : 0;
-    
-    // Thay đổi logic tính điểm - chỉ nhận điểm khi tất cả test case đều đúng
+
+    // Only award points when ALL test cases pass
     totalScore = allPassed ? basePoints : 0;
-    
+
+    // Calculate percentage score for UI feedback (still show progress even if not all tests pass)
+    const percentageScore = Math.round(passedRatio * 100);
+
     // Create submission record
     const submission = await CompetitionSubmission.create({
       ProblemID: problemId,
@@ -607,21 +661,21 @@ exports.submitSolution = async (req, res) => {
       MemoryUsed: memoryUsed,
       SubmittedAt: new Date()
     });
-    
+
     // If all tests passed, update user's progress
     if (allPassed) {
       // Update participant statistics
       if (!participant.StartTime) {
         participant.StartTime = new Date();
       }
-      
+
       // Update score only if this problem wasn't solved before
       participant.Score += totalScore;
       participant.TotalProblemsSolved += 1;
       participant.UpdatedAt = new Date();
-      
+
       await participant.save();
-      
+
       // Update rankings for all participants
       await sequelize.query(`
         UPDATE CompetitionParticipants cp1
@@ -641,7 +695,7 @@ exports.submitSolution = async (req, res) => {
         type: sequelize.QueryTypes.UPDATE
       });
     }
-    
+
     // Return submission results
     return res.status(200).json({
       success: true,
@@ -650,6 +704,9 @@ exports.submitSolution = async (req, res) => {
         submissionId: submission.SubmissionID,
         passed: allPassed,
         score: totalScore,
+        percentageScore: percentageScore,
+        passedCount: passedCount,
+        totalCount: testCases.length,
         testResults: testResults.map(tr => ({
           passed: tr.passed,
           executionTime: tr.executionTime,
@@ -658,10 +715,10 @@ exports.submitSolution = async (req, res) => {
         completedProblems: await getCompletedProblemsForUser(userId, competitionId)
       }
     });
-    
+
   } catch (error) {
     console.error('Error submitting solution:', error);
-    
+
     return res.status(500).json({
       success: false,
       message: 'Error processing solution',
@@ -675,6 +732,8 @@ exports.submitSolution = async (req, res) => {
  */
 async function getCompletedProblemsForUser(userId, competitionId) {
   try {
+    console.log(`Getting completed problems for user ${userId} in competition ${competitionId}`);
+
     // Get participant ID
     const participant = await CompetitionParticipant.findOne({
       where: {
@@ -682,23 +741,31 @@ async function getCompletedProblemsForUser(userId, competitionId) {
         CompetitionID: competitionId
       }
     });
-    
+
     if (!participant) {
+      console.log(`No participant record found for user ${userId} in competition ${competitionId}`);
       return [];
     }
-    
-    // Get all successful submissions for this participant
-    const submissions = await CompetitionSubmission.findAll({
-      where: {
-        ParticipantID: participant.ParticipantID,
-        Status: 'accepted'
-      },
-      attributes: ['ProblemID'],
-      group: ['ProblemID']
+
+    // Use a direct SQL query for better performance and to avoid any ORM issues
+    const query = `
+      SELECT DISTINCT ProblemID
+      FROM CompetitionSubmissions
+      WHERE ParticipantID = :participantId
+      AND Status = 'accepted'
+    `;
+
+    const results = await sequelize.query(query, {
+      replacements: { participantId: participant.ParticipantID },
+      type: sequelize.QueryTypes.SELECT
     });
-    
-    // Return just the problem IDs
-    return submissions.map(sub => sub.ProblemID);
+
+    // Extract problem IDs from results
+    const problemIds = results.map(result => result.ProblemID);
+
+    console.log(`Found ${problemIds.length} completed problems for user ${userId} in competition ${competitionId}`);
+
+    return problemIds;
   } catch (error) {
     console.error('Error getting completed problems:', error);
     return [];
@@ -710,25 +777,25 @@ async function getCompletedProblemsForUser(userId, competitionId) {
  */
 exports.finishCompetition = async (req, res) => {
   const t = await sequelize.transaction();
-  
+
   try {
     // Check if user is authenticated
     if (!req.user) {
       await t.rollback();
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Bạn cần đăng nhập để hoàn thành cuộc thi.' 
+      return res.status(401).json({
+        success: false,
+        message: 'Bạn cần đăng nhập để hoàn thành cuộc thi.'
       });
     }
 
     // Extract userId from req.user object (could be stored in different properties)
     const userId = req.user.userId || req.user.UserID || req.user.id;
-    
+
     if (!userId) {
       await t.rollback();
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Không thể xác định ID người dùng. Vui lòng đăng nhập lại.' 
+      return res.status(401).json({
+        success: false,
+        message: 'Không thể xác định ID người dùng. Vui lòng đăng nhập lại.'
       });
     }
 
@@ -739,9 +806,9 @@ exports.finishCompetition = async (req, res) => {
     const competition = await Competition.findByPk(competitionId);
     if (!competition) {
       await t.rollback();
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Không tìm thấy cuộc thi này.' 
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy cuộc thi này.'
       });
     }
 
@@ -755,17 +822,17 @@ exports.finishCompetition = async (req, res) => {
 
     if (!participant) {
       await t.rollback();
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Bạn chưa đăng ký cuộc thi này.' 
+      return res.status(404).json({
+        success: false,
+        message: 'Bạn chưa đăng ký cuộc thi này.'
       });
     }
 
     if (participant.Status === 'completed') {
       await t.rollback();
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Bạn đã hoàn thành cuộc thi này rồi.' 
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã hoàn thành cuộc thi này rồi.'
       });
     }
 
@@ -822,8 +889,8 @@ exports.finishCompetition = async (req, res) => {
 
     await t.commit();
 
-    return res.status(200).json({ 
-      success: true, 
+    return res.status(200).json({
+      success: true,
       message: 'Cuộc thi đã hoàn thành!',
       data: {
         score,
@@ -834,10 +901,10 @@ exports.finishCompetition = async (req, res) => {
   } catch (error) {
     await t.rollback();
     console.error('Error finishing competition:', error);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: 'Đã xảy ra lỗi khi hoàn thành cuộc thi.',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -848,21 +915,21 @@ exports.finishCompetition = async (req, res) => {
 exports.getProblemById = async (req, res) => {
   try {
     const { problemId } = req.params;
-    
+
     const problem = await CompetitionProblem.findByPk(problemId, {
       include: [{ model: Competition }]
     });
-    
+
     if (!problem) {
       return res.status(404).json({ message: 'Không tìm thấy bài toán' });
     }
-    
+
     return res.status(200).json(problem);
   } catch (error) {
     console.error('Error fetching problem:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi khi tải thông tin bài toán', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Lỗi khi tải thông tin bài toán',
+      error: error.message
     });
   }
 };
@@ -872,15 +939,15 @@ exports.getProblemById = async (req, res) => {
  */
 exports.createProblem = async (req, res) => {
   let transaction;
-  
+
   try {
     const { competitionId } = req.params;
-    const { 
-      title, 
-      description, 
-      difficulty, 
-      points, 
-      timeLimit, 
+    const {
+      title,
+      description,
+      difficulty,
+      points,
+      timeLimit,
       memoryLimit,
       inputFormat,
       outputFormat,
@@ -895,18 +962,18 @@ exports.createProblem = async (req, res) => {
       tags,
       instructions
     } = req.body;
-    
+
     // Start transaction
     transaction = await sequelize.transaction();
-    
+
     // Check if competition exists
     const competition = await Competition.findByPk(competitionId, { transaction });
-    
+
     if (!competition) {
       await transaction.rollback();
       return res.status(404).json({ message: 'Không tìm thấy cuộc thi' });
     }
-    
+
     // Create new problem
     const problem = await CompetitionProblem.create({
       CompetitionID: competitionId,
@@ -929,16 +996,16 @@ exports.createProblem = async (req, res) => {
       Tags: tags,
       Instructions: instructions
     }, { transaction });
-    
+
     await transaction.commit();
-    
+
     return res.status(201).json({
       message: 'Tạo bài toán thành công',
       problemId: problem.ProblemID
     });
   } catch (error) {
     console.error('Error creating problem:', error);
-    
+
     // Only rollback if a transaction exists and is active
     if (transaction) {
       try {
@@ -947,10 +1014,10 @@ exports.createProblem = async (req, res) => {
         console.error('Error rolling back transaction:', rollbackError);
       }
     }
-    
-    return res.status(500).json({ 
-      message: 'Lỗi khi tạo bài toán', 
-      error: error.message 
+
+    return res.status(500).json({
+      message: 'Lỗi khi tạo bài toán',
+      error: error.message
     });
   }
 };
@@ -960,15 +1027,15 @@ exports.createProblem = async (req, res) => {
  */
 exports.updateProblem = async (req, res) => {
   let transaction;
-  
+
   try {
     const { problemId } = req.params;
-    const { 
-      title, 
-      description, 
-      difficulty, 
-      points, 
-      timeLimit, 
+    const {
+      title,
+      description,
+      difficulty,
+      points,
+      timeLimit,
       memoryLimit,
       inputFormat,
       outputFormat,
@@ -983,18 +1050,18 @@ exports.updateProblem = async (req, res) => {
       tags,
       instructions
     } = req.body;
-    
+
     // Start transaction
     transaction = await sequelize.transaction();
-    
+
     // Check if problem exists
     const problem = await CompetitionProblem.findByPk(problemId, { transaction });
-    
+
     if (!problem) {
       await transaction.rollback();
       return res.status(404).json({ message: 'Không tìm thấy bài toán' });
     }
-    
+
     // Update problem fields
     if (title) problem.Title = title;
     if (description) problem.Description = description;
@@ -1008,7 +1075,7 @@ exports.updateProblem = async (req, res) => {
     if (sampleInput) problem.SampleInput = sampleInput;
     if (sampleOutput) problem.SampleOutput = sampleOutput;
     if (explanation) problem.Explanation = explanation;
-    
+
     // New fields
     if (imageURL !== undefined) problem.ImageURL = imageURL;
     if (starterCode !== undefined) problem.StarterCode = starterCode;
@@ -1016,17 +1083,17 @@ exports.updateProblem = async (req, res) => {
     if (testCasesHidden !== undefined) problem.TestCasesHidden = testCasesHidden;
     if (tags !== undefined) problem.Tags = tags;
     if (instructions !== undefined) problem.Instructions = instructions;
-    
+
     await problem.save({ transaction });
     await transaction.commit();
-    
+
     return res.status(200).json({
       message: 'Cập nhật bài toán thành công',
       problemId: problem.ProblemID
     });
   } catch (error) {
     console.error('Error updating problem:', error);
-    
+
     // Only rollback if a transaction exists and is active
     if (transaction) {
       try {
@@ -1035,10 +1102,10 @@ exports.updateProblem = async (req, res) => {
         console.error('Error rolling back transaction:', rollbackError);
       }
     }
-    
-    return res.status(500).json({ 
-      message: 'Lỗi khi cập nhật bài toán', 
-      error: error.message 
+
+    return res.status(500).json({
+      message: 'Lỗi khi cập nhật bài toán',
+      error: error.message
     });
   }
 };
@@ -1049,26 +1116,26 @@ exports.updateProblem = async (req, res) => {
 exports.getCompetitionProblems = async (req, res) => {
   try {
     const { competitionId } = req.params;
-    
+
     // Check if competition exists
     const competition = await Competition.findByPk(competitionId);
-    
+
     if (!competition) {
       return res.status(404).json({ message: 'Không tìm thấy cuộc thi' });
     }
-    
+
     // Get all problems for this competition
     const problems = await CompetitionProblem.findAll({
       where: { CompetitionID: competitionId },
       order: [['CreatedAt', 'ASC']]
     });
-    
+
     return res.status(200).json(problems);
   } catch (error) {
     console.error('Error fetching competition problems:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi khi tải danh sách bài toán', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Lỗi khi tải danh sách bài toán',
+      error: error.message
     });
   }
 };
@@ -1079,23 +1146,23 @@ exports.getCompetitionProblems = async (req, res) => {
 exports.checkRegistrationStatus = async (req, res) => {
   try {
     const { competitionId } = req.params;
-    
+
     // Check for user identification in the request
     if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Authentication required' 
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
       });
     }
-    
+
     // Extract userId, supporting different field names
     const userId = req.user.id || req.user.userId || req.user.UserID;
-    
+
     if (!userId) {
       console.error('Cannot determine user ID from req.user:', req.user);
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid user identification' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user identification'
       });
     }
 
@@ -1105,23 +1172,23 @@ exports.checkRegistrationStatus = async (req, res) => {
     const user = await User.findByPk(userId);
     if (!user) {
       console.error(`User with ID ${userId} not found in database`);
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'User not found' 
+        message: 'User not found'
       });
     }
 
     // Look for registration
     const registration = await CompetitionRegistration.findOne({
       where: { UserID: userId, CompetitionID: competitionId },
-      include: [{ 
+      include: [{
         model: Competition,
         attributes: ['CompetitionID', 'Title', 'StartTime', 'EndTime']
       }]
     });
 
     if (!registration) {
-      return res.status(200).json({ 
+      return res.status(200).json({
         isRegistered: false,
         success: true,
         message: 'User is not registered for this competition'
@@ -1149,10 +1216,10 @@ exports.checkRegistrationStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Error checking registration status:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to check registration status', 
-      error: error.message 
+      message: 'Failed to check registration status',
+      error: error.message
     });
   }
 };
@@ -1163,15 +1230,15 @@ exports.checkRegistrationStatus = async (req, res) => {
 exports.getUserCompletedProblems = async (req, res) => {
   try {
     const { competitionId } = req.params;
-    
+
     // Check for user identification in the request
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    
+
     // Extract userId, supporting different field names
     const userId = req.user.id || req.user.userId || req.user.UserID;
-    
+
     if (!userId) {
       console.error('Cannot determine user ID from req.user:', req.user);
       return res.status(400).json({ message: 'Invalid user identification' });
@@ -1188,8 +1255,8 @@ exports.getUserCompletedProblems = async (req, res) => {
     });
 
     if (!participant) {
-      return res.status(404).json({ 
-        message: 'Participant not found. User may not be registered for this competition.' 
+      return res.status(404).json({
+        message: 'Participant not found. User may not be registered for this competition.'
       });
     }
 
@@ -1210,7 +1277,7 @@ exports.getUserCompletedProblems = async (req, res) => {
         [sequelize.fn('MAX', sequelize.col('Score')), 'MaxScore'],
         [sequelize.fn('MIN', sequelize.col('ExecutionTime')), 'BestTime']
       ],
-      group: ['ProblemID', 'CompetitionProblem.ProblemID', 'CompetitionProblem.Title', 
+      group: ['ProblemID', 'CompetitionProblem.ProblemID', 'CompetitionProblem.Title',
               'CompetitionProblem.Difficulty', 'CompetitionProblem.Points']
     });
 
@@ -1234,9 +1301,9 @@ exports.getUserCompletedProblems = async (req, res) => {
     return res.status(200).json(formattedProblems);
   } catch (error) {
     console.error('Error fetching completed problems:', error);
-    return res.status(500).json({ 
-      message: 'Lỗi khi tải danh sách bài tập đã hoàn thành', 
-      error: error.message 
+    return res.status(500).json({
+      message: 'Lỗi khi tải danh sách bài tập đã hoàn thành',
+      error: error.message
     });
   }
 };
@@ -1247,78 +1314,62 @@ exports.getUserCompletedProblems = async (req, res) => {
 exports.getCompletedProblems = async (req, res) => {
   try {
     const { competitionId } = req.params;
-    
+
     // Check for user identification in the request
     if (!req.user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Authentication required' 
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
       });
     }
-    
+
     // Extract userId, supporting different field names
     const userId = req.user.id || req.user.userId || req.user.UserID;
-    
+
     if (!userId) {
       console.error('Cannot determine user ID from req.user:', req.user);
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid user identification' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user identification'
       });
     }
 
     console.log(`Getting completed problems for user ${userId} in competition ${competitionId}`);
 
-    // Get the participant record
-    const participant = await CompetitionParticipant.findOne({
-      where: { UserID: userId, CompetitionID: competitionId }
-    });
+    // Use the helper function to get completed problems
+    const problemIds = await getCompletedProblemsForUser(userId, competitionId);
 
-    if (!participant) {
+    if (!problemIds || problemIds.length === 0) {
+      console.log(`No completed problems found for user ${userId} in competition ${competitionId}`);
       return res.status(200).json([]);
     }
 
-    // Get successful submissions - without group by, just get all submissions 
-    // and handle unique filtering in JavaScript
-    const completedSubmissions = await CompetitionSubmission.findAll({
+    // Get problem details for the completed problems
+    const problems = await CompetitionProblem.findAll({
       where: {
-        ParticipantID: participant.ParticipantID,
-        Status: 'accepted'
+        ProblemID: {
+          [Op.in]: problemIds
+        }
       },
-      include: [{
-        model: CompetitionProblem,
-        attributes: ['ProblemID', 'Title']
-      }],
-      attributes: ['SubmissionID', 'ProblemID', 'Score', 'SubmittedAt'],
-      order: [['SubmittedAt', 'DESC']]
+      attributes: ['ProblemID', 'Title', 'Points', 'Difficulty']
     });
 
-    // Filter to get unique problem IDs (keep the latest submission for each problem)
-    const uniqueProblems = new Map();
-    
-    for (const submission of completedSubmissions) {
-      if (!uniqueProblems.has(submission.ProblemID)) {
-        uniqueProblems.set(submission.ProblemID, submission);
-      }
-    }
-    
-    // Extract the problem details from the unique submissions
-    const completedProblems = Array.from(uniqueProblems.values()).map(submission => ({
-      ProblemID: submission.ProblemID,
-      SubmissionID: submission.SubmissionID,
-      Title: submission.CompetitionProblem ? submission.CompetitionProblem.Title : null,
-      Score: submission.Score,
-      CompletedAt: submission.SubmittedAt
+    // Map the problems to the response format
+    const completedProblems = problems.map(problem => ({
+      ProblemID: problem.ProblemID,
+      Title: problem.Title,
+      Points: problem.Points,
+      Difficulty: problem.Difficulty
     }));
 
     return res.status(200).json(completedProblems);
-    
+
   } catch (error) {
     console.error('Error getting completed problems:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Failed to get completed problems', 
-      error: error.message 
+      message: 'Failed to get completed problems',
+      error: error.message
     });
   }
 };
@@ -1329,29 +1380,29 @@ exports.getCompletedProblems = async (req, res) => {
 exports.getSubmittedSolution = async (req, res) => {
   try {
     const { competitionId, problemId } = req.params;
-    
+
     console.log(`Fetching submitted solution for problem ${problemId} in competition ${competitionId}`);
-    
+
     if (!req.user) {
       console.log('Authentication required - user not found in request');
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Authentication required' 
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
       });
     }
-    
+
     const userId = req.user.id || req.user.userId || req.user.UserID;
-    
+
     if (!userId) {
       console.log('Invalid user identification - userId not found');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid user identification' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user identification'
       });
     }
-    
+
     console.log(`Looking up participant record for user ${userId} in competition ${competitionId}`);
-    
+
     // First, try to auto-register the user if they're not registered yet
     try {
       // Check if the user is registered for this competition
@@ -1361,18 +1412,18 @@ exports.getSubmittedSolution = async (req, res) => {
           CompetitionID: competitionId
         }
       });
-      
+
       // If no registration found, register the user
       if (!registration) {
         console.log(`Auto-registering user ${userId} for competition ${competitionId}`);
-        
+
         // Start a transaction
         const transaction = await sequelize.transaction();
-        
+
         try {
           // Create registration record
           await sequelize.query(
-            `INSERT INTO CompetitionRegistrations (UserID, CompetitionID, Status, Score, ProblemsSolved) 
+            `INSERT INTO CompetitionRegistrations (UserID, CompetitionID, Status, Score, ProblemsSolved)
              VALUES (:userId, :competitionId, 'REGISTERED', 0, 0)`,
             {
               replacements: { userId, competitionId },
@@ -1380,7 +1431,7 @@ exports.getSubmittedSolution = async (req, res) => {
               transaction
             }
           );
-          
+
           // Commit the transaction
           await transaction.commit();
           console.log('Registration completed successfully');
@@ -1393,15 +1444,15 @@ exports.getSubmittedSolution = async (req, res) => {
     } catch (regCheckError) {
       console.error('Error checking/creating registration:', regCheckError);
     }
-    
+
     // Get or create participant record
     let participant = await CompetitionParticipant.findOne({
-      where: { 
-        UserID: userId, 
-        CompetitionID: competitionId 
+      where: {
+        UserID: userId,
+        CompetitionID: competitionId
       }
     });
-    
+
     // If no participant record exists, create one
     if (!participant) {
       console.log(`Creating participant record for user ${userId} in competition ${competitionId}`);
@@ -1426,9 +1477,9 @@ exports.getSubmittedSolution = async (req, res) => {
         });
       }
     }
-    
+
     console.log(`Looking up submissions for problem ${problemId} by participant ${participant.ParticipantID}`);
-    
+
     // First check for accepted submissions
     let submission = await CompetitionSubmission.findOne({
       where: {
@@ -1438,7 +1489,7 @@ exports.getSubmittedSolution = async (req, res) => {
       },
       order: [['SubmittedAt', 'DESC']]
     });
-    
+
     // If no accepted submission found, look for any submission
     if (!submission) {
       console.log(`No accepted submission found, checking for any submission`);
@@ -1450,7 +1501,7 @@ exports.getSubmittedSolution = async (req, res) => {
         order: [['SubmittedAt', 'DESC']]
       });
     }
-    
+
     if (submission) {
       console.log(`Found solution submitted at ${submission.SubmittedAt}, status: ${submission.Status}`);
       return res.status(200).json({
@@ -1477,4 +1528,4 @@ exports.getSubmittedSolution = async (req, res) => {
       error: error.message
     });
   }
-}; 
+};

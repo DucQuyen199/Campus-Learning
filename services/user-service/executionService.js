@@ -533,21 +533,14 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Add new endpoint for running code with test cases
+// Execute code against multiple test cases
 apiRouter.post('/execute-tests', async (req, res) => {
-    const { code, language, testCases = [] } = req.body;
+    const { code, language, testCases } = req.body;
     
-    if (!code || !language) {
+    if (!code || !language || !testCases || !Array.isArray(testCases)) {
         return res.status(400).json({
             success: false,
-            message: 'Code and language are required'
-        });
-    }
-    
-    if (!testCases || testCases.length === 0) {
-        return res.status(400).json({
-            success: false,
-            message: 'Test cases are required'
+            message: 'Code, language, and testCases array are required'
         });
     }
     
@@ -562,9 +555,13 @@ apiRouter.post('/execute-tests', async (req, res) => {
     try {
         const results = [];
         let passedCount = 0;
+        const totalCount = testCases.length;
         
         // Process each test case
-        for (const testCase of testCases) {
+        for (let i = 0; i < testCases.length; i++) {
+            const testCase = testCases[i];
+            const { input, output: expectedOutput } = testCase;
+            
             // Generate unique ID for this execution
             const executionId = uuidv4();
             
@@ -581,11 +578,11 @@ apiRouter.post('/execute-tests', async (req, res) => {
             
             await writeFileAsync(filePath, code);
             
-            // Create input file
+            // Create input file if stdin is provided
             let stdinFilePath = null;
-            if (testCase.input) {
+            if (input) {
                 stdinFilePath = path.join(executionDir, 'input.txt');
-                await writeFileAsync(stdinFilePath, testCase.input);
+                await writeFileAsync(stdinFilePath, input);
             }
             
             // Compile code if needed
@@ -600,110 +597,113 @@ apiRouter.post('/execute-tests', async (req, res) => {
                     // Clean up
                     await cleanupExecution(executionId, executionDir);
                     
-                    // Add failed result for all test cases due to compilation error
-                    const testResult = {
-                        input: testCase.input,
-                        expectedOutput: testCase.output,
-                        actualOutput: '',
+                    // Add all test cases as failed due to compilation error
+                    const results = testCases.map(() => ({
                         passed: false,
-                        stderr: compileError.stderr || 'Compilation error',
-                        error: 'Compilation error'
-                    };
+                        actualOutput: '',
+                        error: compileError.stderr || 'Compilation error',
+                        executionTime: 0
+                    }));
                     
                     return res.status(200).json({
                         success: false,
-                        message: 'Compilation error',
                         data: {
-                            results: [testResult],
                             passedCount: 0,
-                            totalCount: testCases.length,
-                            score: 0
+                            totalCount,
+                            results
                         }
                     });
                 }
             }
             
-            // Execute code
-            const runCommand = config.runCommand(filePath);
-            
+            // Execute code for this test case
             let stdout = '';
             let stderr = '';
             let exitCode = 0;
+            const startTime = Date.now();
             
             try {
+                let runCommand;
+                
                 if (stdinFilePath) {
                     // Run with stdin from file
-                    const { stdout: cmdStdout, stderr: cmdStderr } = await execAsync(
-                        `${runCommand} < ${stdinFilePath}`,
-                        { 
-                            cwd: executionDir,
-                            timeout: MAX_EXECUTION_TIME
-                        }
-                    );
-                    stdout = cmdStdout;
-                    stderr = cmdStderr;
+                    runCommand = `${config.runCommand(filePath)} < ${stdinFilePath}`;
                 } else {
                     // Run without stdin
-                    const { stdout: cmdStdout, stderr: cmdStderr } = await execAsync(
-                        runCommand,
-                        { 
-                            cwd: executionDir,
-                            timeout: MAX_EXECUTION_TIME
-                        }
-                    );
-                    stdout = cmdStdout;
-                    stderr = cmdStderr;
+                    runCommand = config.runCommand(filePath);
                 }
-            } catch (execError) {
-                stderr = execError.stderr || execError.message;
-                exitCode = execError.code || 1;
+                
+                // Execute with timeout
+                const { stdout: processStdout, stderr: processStderr } = 
+                    await execAsync(runCommand, { 
+                            cwd: executionDir,
+                        timeout: MAX_EXECUTION_TIME,
+                        maxBuffer: 1024 * 1024  // 1MB buffer
+                    });
+                
+                stdout = processStdout;
+                stderr = processStderr;
+            } catch (runError) {
+                stderr = runError.stderr || 'Execution error';
+                exitCode = runError.code || 1;
             }
             
-            // Clean up files
+            const executionTime = Date.now() - startTime;
+            
+            // Clean up
             await cleanupExecution(executionId, executionDir);
             
             // Normalize outputs for comparison
-            const normalizedActual = stdout.trim().replace(/\r\n/g, '\n');
-            const normalizedExpected = testCase.output.trim().replace(/\r\n/g, '\n');
+            const normalizedActual = normalizeOutput(stdout);
+            const normalizedExpected = normalizeOutput(expectedOutput);
             
-            // Compare results
-            const passed = normalizedActual === normalizedExpected;
-            if (passed) passedCount++;
+            // Check if test case passed
+            const passed = normalizedActual === normalizedExpected && exitCode === 0 && !stderr;
             
-            // Add to results
+            if (passed) {
+                passedCount++;
+            }
+            
+            // Add result
             results.push({
-                input: testCase.input,
-                expectedOutput: testCase.output,
-                actualOutput: stdout,
                 passed,
-                stderr,
-                error: stderr ? 'Runtime error' : null
+                input,
+                expectedOutput,
+                actualOutput: stdout,
+                error: stderr,
+                executionTime
             });
         }
         
-        // Calculate score
-        const score = Math.round((passedCount / testCases.length) * 100);
-        
         // Return results
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             data: {
-                results,
                 passedCount,
-                totalCount: testCases.length,
-                score
+                totalCount,
+                results
             }
         });
     } catch (error) {
-        console.error('Test execution error:', error);
-        
-        res.status(500).json({
+        console.error(`Error executing test cases: ${error.message}`);
+        return res.status(500).json({
             success: false,
-            message: 'Error executing tests',
+            message: 'Failed to execute test cases',
             error: error.message
         });
     }
 });
+
+// Normalize output for comparison
+function normalizeOutput(output) {
+    if (!output) return '';
+    
+    return output
+        .trim()
+        .replace(/\r\n|\r|\n/g, '\n')  // Normalize line endings
+        .replace(/\s+/g, ' ')          // Replace multiple spaces with single space
+        .toLowerCase();                // Case-insensitive comparison
+}
 
 // Add a global error handler
 app.use((err, req, res, next) => {

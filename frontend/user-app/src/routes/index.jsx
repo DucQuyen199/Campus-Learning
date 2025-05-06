@@ -20,12 +20,14 @@ import PaymentCallback from '@/pages/Courses/PaymentCallback';
 import PaymentHistory from '@/pages/Courses/PaymentHistory';
 import CompetitionsPage from '@/pages/Competitions';
 import CompetitionDetail from '@/pages/Competitions/CompetitionDetail';
+import AiTestLocal from '@/pages/AiTestLocal';
 
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<DefaultLayout />}>
         <Route index element={<HomePage />} />
+        <Route path="home" element={<HomePage />} />
         <Route path="about" element={<AboutPage />} />
         <Route path="courses">
           <Route index element={<CoursesPage />} />

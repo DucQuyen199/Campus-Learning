@@ -558,7 +558,7 @@ const ArenaCode = () => {
       console.log('Checking Docker service availability...');
       setDockerStatus({
         available: false,
-        message: 'Đang kiểm tra Docker...',
+        message: 'Đang kết nối...',
         checking: true
       });
 
@@ -587,7 +587,7 @@ const ArenaCode = () => {
           // Update Docker status in UI
           setDockerStatus({
             available: isAvailable,
-            message: isAvailable ? 'Docker đã sẵn sàng' : 'Docker không khả dụng',
+            message: isAvailable ? 'Sẵn sàng' : 'Không khả dụng',
             details: data.details,
             checking: false
           });
@@ -1156,7 +1156,7 @@ const ArenaCode = () => {
     // Check if Docker is available before submitting
     if (!isDockerAvailable && !dockerCheckPerformed) {
         setDockerCheckPerformed(true);
-        addToTerminalHistory('system', 'Đang kiểm tra Docker trước khi nộp bài...');
+        // Silently check Docker availability
         const dockerAvailable = await checkDockerAvailability();
 
         if (!dockerAvailable) {
@@ -1165,8 +1165,8 @@ const ArenaCode = () => {
                 <div className="flex items-center">
                     <XCircleIcon className="w-5 h-5 text-red-500 mr-2" />
                     <div>
-                        <div className="font-medium">Docker không khả dụng</div>
-                        <p className="text-xs">Cần Docker để chạy code. Nhấn để khởi động.</p>
+                        <div className="font-medium">Dịch vụ chạy code không khả dụng</div>
+                        <p className="text-xs">Nhấn để thử kết nối lại</p>
                     </div>
                     <button
                         onClick={async () => {
@@ -1179,7 +1179,7 @@ const ArenaCode = () => {
                         }}
                         className="ml-3 bg-blue-500 text-white px-2 py-1 rounded text-xs"
                     >
-                        Khởi động
+                        Kết nối lại
                     </button>
                 </div>
             ), {
@@ -1187,7 +1187,6 @@ const ArenaCode = () => {
                 id: 'docker-submit-warning'
             });
 
-            addToTerminalHistory('error', 'Docker không khả dụng. Không thể nộp bài.');
             return;
         }
     }
@@ -1331,7 +1330,7 @@ const ArenaCode = () => {
 
       // Check Docker availability first
       if (!isDockerAvailable) {
-        addToTerminalHistory('system', 'Kiểm tra Docker trước khi chạy code...');
+        addToTerminalHistory('system', 'Đang kiểm tra kết nối với dịch vụ chạy code...');
 
         // First check Docker availability using the dedicated endpoint
         try {
@@ -1346,15 +1345,15 @@ const ArenaCode = () => {
 
             if (dockerData.dockerAvailable) {
               setIsDockerAvailable(true);
-              addToTerminalHistory('success', 'Docker đã sẵn sàng!');
+              addToTerminalHistory('success', 'Kết nối thành công!');
             } else {
-              addToTerminalHistory('error', 'Docker không khả dụng');
-              addToTerminalHistory('system', 'Đang thử khởi động Docker...');
+              addToTerminalHistory('error', 'Không thể kết nối đến dịch vụ chạy code');
+              addToTerminalHistory('system', 'Đang thử kết nối lại...');
 
               // Try to start the Docker service
               const started = await startDockerExecutionService();
               if (!started) {
-                addToTerminalHistory('error', 'Không thể khởi động Docker tự động');
+                addToTerminalHistory('error', 'Không thể tự động kết nối đến dịch vụ chạy code');
                 addToTerminalHistory('system', 'Chuyển sang chế độ offline (chỉ nhập input)');
 
                 // If we have inputs detected, still enable manual input collection
@@ -1363,12 +1362,12 @@ const ArenaCode = () => {
                   setTerminalMode('input');
                 } else {
                   setIsRunning(false);
-                  toast.error('Docker không khả dụng, không thể chạy code');
+                  toast.error('Dịch vụ chạy code không khả dụng, không thể chạy code');
                   return { stdout: '', stderr: 'Docker service unavailable' };
                 }
               } else {
                 // If service was started, wait a bit then retry execution
-                addToTerminalHistory('success', 'Docker đã được khởi động! Đang thử chạy code lại...');
+                addToTerminalHistory('success', 'Kết nối thành công! Đang thử chạy code lại...');
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
                 // Recursively call executeCodeWithDocker again
@@ -1377,28 +1376,28 @@ const ArenaCode = () => {
               }
             }
           } else {
-            throw new Error('Không thể kiểm tra trạng thái Docker');
+            throw new Error('Không thể kiểm tra trạng thái kết nối');
           }
         } catch (dockerCheckError) {
           console.error('Error checking Docker status:', dockerCheckError);
-          addToTerminalHistory('error', 'Lỗi khi kiểm tra Docker: ' + dockerCheckError.message);
+          addToTerminalHistory('error', 'Lỗi khi kiểm tra kết nối: ' + dockerCheckError.message);
 
           // Fall back to the regular health check
           const dockerAvailable = await checkDockerAvailability();
           if (!dockerAvailable) {
-            addToTerminalHistory('error', 'Docker không khả dụng');
-            addToTerminalHistory('system', 'Đang thử khởi động Docker...');
+            addToTerminalHistory('error', 'Dịch vụ chạy code không khả dụng');
+            addToTerminalHistory('system', 'Đang thử kết nối lại...');
 
             // Try to start the Docker service
             const started = await startDockerExecutionService();
             if (!started) {
-              addToTerminalHistory('error', 'Không thể khởi động Docker tự động');
+              addToTerminalHistory('error', 'Không thể kết nối tự động');
               setIsRunning(false);
-              toast.error('Docker không khả dụng, không thể chạy code');
+              toast.error('Dịch vụ chạy code không khả dụng, không thể chạy code');
               return { stdout: '', stderr: 'Docker service unavailable' };
             } else {
               // If service was started, wait a bit then retry execution
-              addToTerminalHistory('success', 'Docker đã được khởi động! Đang thử chạy code lại...');
+              addToTerminalHistory('success', 'Kết nối thành công! Đang thử chạy code lại...');
               await new Promise(resolve => setTimeout(resolve, 2000));
 
               // Recursively call executeCodeWithDocker again
@@ -1766,7 +1765,7 @@ const ArenaCode = () => {
             : 'bg-gray-100 text-gray-700 border border-gray-300'
         }`}>
           <span className="animate-spin h-3 w-3 mr-1 border-b-2 border-blue-500 rounded-full"></span>
-          Đang kiểm tra Docker
+          Đang kết nối dịch vụ
         </span>
       );
     }
@@ -1776,15 +1775,15 @@ const ArenaCode = () => {
       if (isDockerAvailable) {
         return (
           <div className="text-xs">
-            <div className="font-bold">Docker đã sẵn sàng</div>
+            <div className="font-bold">Dịch vụ chạy code đã sẵn sàng</div>
             <div>Nhấn để kiểm tra lại trạng thái</div>
           </div>
         );
       } else {
         return (
           <div className="text-xs">
-            <div className="font-bold">Docker không khả dụng</div>
-            <div>Nhấn để khởi động Docker</div>
+            <div className="font-bold">Dịch vụ chạy code không khả dụng</div>
+            <div>Nhấn để kết nối lại</div>
             {dockerStatus?.error && (
               <div className="text-red-300 mt-1">{dockerStatus.error}</div>
             )}
@@ -2565,57 +2564,15 @@ const ArenaCode = () => {
                       <div className="w-3 h-3 rounded-full bg-red-500"></div>
                       <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                       <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                              </div>
+                    </div>
                     <h3 className={`text-sm font-mono ${
                       editorTheme === 'vs-dark' ? 'text-gray-300' : 'text-gray-700'
                     }`}>
                       {activeProblem.Title} — <span className={editorTheme === 'vs-dark' ? 'text-green-400' : 'text-green-600'}>Code Editor</span>
                     </h3>
-                            </div>
-                  <div className="flex items-center space-x-2">
-                    {/* Add Docker status indicator */}
-                    {renderDockerStatus()}
-
-                          <button
-                      onClick={toggleEditorTheme}
-                      className={`px-3 py-1 rounded-md text-xs font-medium ${
-                        editorTheme === 'vs-dark'
-                          ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      } font-medium`}
-                    >
-                      {editorTheme === 'vs-dark' ? 'Light Theme' : 'Dark Theme'}
-                          </button>
-
-                    {!solutionLocked && (
-                      <Tooltip title="Terminal">
-                        <Button
-                          className={`${styles.actionButton} ${
-                            isTerminalVisible ? styles.activeButton : ''
-                          }`}
-                          icon={<CodeBracketIcon />}
-                          onClick={toggleTerminal}
-                          disabled={solutionLocked}
-                        />
-                      </Tooltip>
-                    )}
-
-                    {/* Display language as a simple badge */}
-                    <div className={`px-2 py-1 rounded-full text-xs flex items-center ${
-                      editorTheme === 'vs-dark'
-                        ? 'bg-gray-800 text-gray-300 border border-gray-700'
-                        : 'bg-gray-100 text-gray-700 border border-gray-300'
-                    }`}>
-                      <span className="flex items-center">
-                        <span className="relative w-2 h-2 mr-1">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                        </span>
-                        {selectedLanguage.name}
-                      </span>
-                    </div>
-              </div>
-              </div>
+                  </div>
+                  {/* Removed Docker status indicator, theme toggle button, and language display */}
+                </div>
 
                 {/* Editor toolbar */}
                 <div className="flex items-center justify-between p-2 border-b dark:border-gray-700">
@@ -2674,8 +2631,7 @@ const ArenaCode = () => {
                       )}
                     </button>
 
-                    {/* Docker status indicator */}
-                    {renderDockerStatus()}
+                    {/* Docker status indicator - REMOVED */}
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -2792,34 +2748,8 @@ const ArenaCode = () => {
                                 Stop
                               </button>
                             )}
-                            <button
-                              onClick={handleRunCode}
-                              disabled={isRunning || !isCompetitionActive || solutionLocked} // Thêm điều kiện solutionLocked
-                              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center ${
-                                isRunning || !isCompetitionActive || solutionLocked // Thêm điều kiện solutionLocked
-                                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                  : 'bg-green-600 text-white hover:bg-green-700'
-                              }`}
-                              title={solutionLocked ? "Bài này đã hoàn thành, không thể chạy lại" : ""}
-                            >
-                              {isRunning ? (
-                                <>
-                                  <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></span>
-                                  Running...
-                                </>
-                              ) : solutionLocked ? (
-                                <>
-                                  <CheckCircleIcon className="w-3 h-3 mr-1" />
-                                  Đã hoàn thành
-                                </>
-                              ) : (
-                                <>
-                                  <PlayIcon className="w-3 h-3 mr-1" />
-                                  Run Code
-                                </>
-                              )}
-                            </button>
-            </div>
+                            {/* Run Code button removed */}
+                          </div>
           </div>
 
                         {/* Terminal with history and input */}
@@ -2978,33 +2908,7 @@ const ArenaCode = () => {
                             ? 'bg-gray-900 border-gray-700'
                             : 'bg-gray-100 border-gray-300'
                         }`}>
-                          <button
-                            onClick={handleRunCode}
-                            disabled={isRunning || !isCompetitionActive || solutionLocked} // Thêm điều kiện solutionLocked
-                            className={`px-3 py-1 rounded-md text-xs font-medium flex items-center ${
-                              isRunning || !isCompetitionActive || solutionLocked // Thêm điều kiện solutionLocked
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                : 'bg-green-600 text-white hover:bg-green-700'
-                            }`}
-                            title={solutionLocked ? "Bài này đã hoàn thành, không thể chạy lại" : ""}
-                          >
-                            {isRunning ? (
-                              <>
-                                <span className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></span>
-                                Running...
-                              </>
-                            ) : solutionLocked ? (
-                              <>
-                                <CheckCircleIcon className="w-3 h-3 mr-1" />
-                                Đã hoàn thành
-                              </>
-                            ) : (
-                              <>
-                                <PlayIcon className="w-3 h-3 mr-1" />
-                                Run Code
-                              </>
-                            )}
-                          </button>
+                          {/* Run Code button at the bottom removed */}
 
                           {/* Thông tin xem code đã hoàn thành chưa */}
                           {solutionLocked && (

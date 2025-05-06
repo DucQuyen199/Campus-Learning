@@ -6,7 +6,7 @@ import {
   List, Tooltip, Select, Popconfirm, Dropdown, Menu
 } from 'antd';
 import {
-  ArrowLeftOutlined, EditOutlined, DeleteOutlined, 
+  ArrowLeftOutlined, EditOutlined, DeleteOutlined,
   UserOutlined, EyeOutlined, CodeOutlined, ExclamationCircleOutlined,
   ClockCircleOutlined, TrophyOutlined, LineChartOutlined,
   TeamOutlined, CalendarOutlined, CheckOutlined, MoreOutlined,
@@ -23,7 +23,7 @@ const { Option } = Select;
 const CompetitionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [competition, setCompetition] = useState(null);
   const [problems, setProblems] = useState([]);
   const [participants, setParticipants] = useState([]);
@@ -31,26 +31,62 @@ const CompetitionDetail = () => {
   const [activeTab, setActiveTab] = useState('1');
   const [statusLoading, setStatusLoading] = useState(false);
   const [selectedProblemId, setSelectedProblemId] = useState(null);
-  
+
   useEffect(() => {
     fetchCompetitionData();
   }, [id]);
-  
+
   const fetchCompetitionData = async () => {
     setLoading(true);
     try {
+      // Fetch competition details
       const response = await competitionsAPI.getCompetition(id);
       setCompetition(response.competition);
       setProblems(response.problems || []);
-      setParticipants(response.participants || []);
+
+      // Fetch leaderboard data
+      try {
+        const leaderboardResponse = await competitionsAPI.getCompetitionLeaderboard(id);
+
+        if (leaderboardResponse && leaderboardResponse.success) {
+          // Sort participants by score (descending) and completion time (ascending)
+          const sortedParticipants = (leaderboardResponse.data || [])
+            .sort((a, b) => {
+              // First sort by score (descending)
+              if (b.Score !== a.Score) return b.Score - a.Score;
+
+              // If scores are equal, sort by completion time (ascending)
+              if (a.CompletionTime && b.CompletionTime) {
+                return a.CompletionTime - b.CompletionTime;
+              }
+
+              // If no completion time, sort by completed problems count
+              const aCompleted = Array.isArray(a.CompletedProblems) ? a.CompletedProblems.length : 0;
+              const bCompleted = Array.isArray(b.CompletedProblems) ? b.CompletedProblems.length : 0;
+
+              return bCompleted - aCompleted;
+            });
+
+          setParticipants(sortedParticipants);
+          console.log('Leaderboard data loaded:', sortedParticipants);
+        } else {
+          // Fallback to participants from the main API response
+          setParticipants(response.participants || []);
+        }
+      } catch (leaderboardError) {
+        console.error('Error fetching leaderboard:', leaderboardError);
+        // Fallback to participants from the main API response
+        setParticipants(response.participants || []);
+      }
     } catch (error) {
+      console.error('Error fetching competition data:', error);
       message.error('Không thể tải thông tin cuộc thi');
       navigate('/competitions');
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleDeleteCompetition = () => {
     confirm({
       title: 'Bạn có chắc chắn muốn xóa cuộc thi này?',
@@ -70,7 +106,7 @@ const CompetitionDetail = () => {
       },
     });
   };
-  
+
   const handleUpdateStatus = async (status) => {
     setStatusLoading(true);
     try {
@@ -108,7 +144,7 @@ const CompetitionDetail = () => {
       },
     });
   };
-  
+
   const getStatusTag = (status) => {
     const statusMap = {
       draft: { color: 'default', text: 'Bản nháp' },
@@ -117,7 +153,7 @@ const CompetitionDetail = () => {
       completed: { color: 'warning', text: 'Đã kết thúc' },
       cancelled: { color: 'error', text: 'Đã hủy' },
     };
-    
+
     return {
       tag: (
         <Tag color={statusMap[status]?.color || 'default'}>
@@ -127,21 +163,21 @@ const CompetitionDetail = () => {
       text: statusMap[status]?.text || status
     };
   };
-  
+
   const getDifficultyTag = (difficulty) => {
     const difficultyMap = {
       'Dễ': { color: 'success', text: 'Dễ' },
       'Trung bình': { color: 'warning', text: 'Trung bình' },
       'Khó': { color: 'error', text: 'Khó' },
     };
-    
+
     return (
       <Tag color={difficultyMap[difficulty]?.color || 'default'}>
         {difficultyMap[difficulty]?.text || difficulty}
       </Tag>
     );
   };
-  
+
   const statusOptions = [
     { value: 'draft', label: 'Bản nháp' },
     { value: 'upcoming', label: 'Sắp diễn ra' },
@@ -149,7 +185,7 @@ const CompetitionDetail = () => {
     { value: 'completed', label: 'Đã kết thúc' },
     { value: 'cancelled', label: 'Đã hủy' }
   ];
-  
+
   const problemColumns = [
     {
       title: 'Tiêu đề',
@@ -190,22 +226,22 @@ const CompetitionDetail = () => {
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="Xem chi tiết">
-            <Button 
-              icon={<EyeOutlined />} 
+            <Button
+              icon={<EyeOutlined />}
               size="small"
               onClick={() => navigate(`/competitions/${id}/problems/${record.ProblemID}`)}
             />
           </Tooltip>
           <Tooltip title="Chỉnh sửa">
-            <Button 
-              icon={<EditOutlined />} 
+            <Button
+              icon={<EditOutlined />}
               size="small"
               onClick={() => navigate(`/competitions/${id}/problems/${record.ProblemID}/edit`)}
             />
           </Tooltip>
           <Tooltip title="Xóa">
-            <Button 
-              icon={<DeleteOutlined />} 
+            <Button
+              icon={<DeleteOutlined />}
               size="small"
               danger
               onClick={() => handleDeleteProblem(record.ProblemID)}
@@ -215,15 +251,27 @@ const CompetitionDetail = () => {
       ),
     },
   ];
-  
+
   const participantColumns = [
+    {
+      title: 'Xếp hạng',
+      key: 'rank',
+      width: 80,
+      render: (text, record, index) => {
+        // Rank medals for top 3
+        if (index === 0) return <Tag color="gold" style={{fontWeight: 'bold'}}>🥇 1</Tag>;
+        if (index === 1) return <Tag color="silver" style={{fontWeight: 'bold'}}>🥈 2</Tag>;
+        if (index === 2) return <Tag color="orange" style={{fontWeight: 'bold'}}>🥉 3</Tag>;
+        return <Tag>{index + 1}</Tag>;
+      },
+    },
     {
       title: 'Họ tên',
       key: 'fullName',
       render: (text, record) => (
         <Space>
-          <Avatar src={record.Avatar} icon={<UserOutlined />} />
-          <Text>{record.FullName}</Text>
+          <Avatar src={record.Avatar || record.Image} icon={<UserOutlined />} />
+          <Text>{record.FullName || record.Username}</Text>
         </Space>
       ),
     },
@@ -236,13 +284,51 @@ const CompetitionDetail = () => {
       title: 'Điểm số',
       dataIndex: 'Score',
       key: 'score',
-      sorter: (a, b) => a.Score - b.Score,
+      sorter: (a, b) => b.Score - a.Score, // Sort descending by default
       defaultSortOrder: 'descend',
+      render: (score) => (
+        <Text strong style={{ color: '#1890ff' }}>
+          {score || 0}
+        </Text>
+      ),
     },
     {
       title: 'Bài giải đúng',
-      dataIndex: 'TotalProblemsSolved',
+      dataIndex: 'CompletedProblems',
       key: 'problemsSolved',
+      render: (completedProblems, record) => {
+        const count = Array.isArray(completedProblems)
+          ? completedProblems.length
+          : (record.TotalProblemsSolved || 0);
+
+        return (
+          <Space>
+            <CheckOutlined style={{ color: '#52c41a' }} />
+            <Text>{count}/{problems.length}</Text>
+          </Space>
+        );
+      }
+    },
+    {
+      title: 'Thời gian hoàn thành',
+      key: 'completionTime',
+      render: (text, record) => {
+        // Calculate completion time in minutes if available
+        if (record.StartTime && record.EndTime) {
+          const start = new Date(record.StartTime);
+          const end = new Date(record.EndTime);
+          const diffMinutes = Math.round((end - start) / (1000 * 60));
+
+          return (
+            <Space>
+              <ClockCircleOutlined />
+              <Text>{diffMinutes} phút</Text>
+            </Space>
+          );
+        }
+
+        return 'N/A';
+      },
     },
     {
       title: 'Trạng thái',
@@ -255,19 +341,13 @@ const CompetitionDetail = () => {
           completed: { color: 'success', text: 'Đã hoàn thành' },
           disqualified: { color: 'error', text: 'Bị loại' },
         };
-        
+
         return (
           <Tag color={statusMap[text]?.color || 'default'}>
             {statusMap[text]?.text || text}
           </Tag>
         );
       },
-    },
-    {
-      title: 'Thời gian bắt đầu',
-      dataIndex: 'StartTime',
-      key: 'startTime',
-      render: (text) => text ? new Date(text).toLocaleString('vi-VN') : 'N/A',
     },
     {
       title: 'Thao tác',
@@ -291,7 +371,7 @@ const CompetitionDetail = () => {
       )
     }
   ];
-  
+
   if (loading || !competition) {
     return (
       <MainCard title="Chi tiết cuộc thi">
@@ -299,7 +379,7 @@ const CompetitionDetail = () => {
       </MainCard>
     );
   }
-  
+
   return (
     <MainCard
       title={
@@ -379,7 +459,7 @@ const CompetitionDetail = () => {
                 />
               )}
             </div>
-            
+
             <Paragraph
               style={{
                 textAlign: 'justify',
@@ -389,7 +469,7 @@ const CompetitionDetail = () => {
             >
               {competition.Description}
             </Paragraph>
-            
+
             <Descriptions bordered column={{ xxl: 4, xl: 3, lg: 3, md: 3, sm: 2, xs: 1 }}>
               <Descriptions.Item label="Thời gian bắt đầu">
                 <Space>
@@ -397,21 +477,21 @@ const CompetitionDetail = () => {
                   {new Date(competition.StartTime).toLocaleString('vi-VN')}
                 </Space>
               </Descriptions.Item>
-              
+
               <Descriptions.Item label="Thời gian kết thúc">
                 <Space>
                   <CalendarOutlined />
                   {new Date(competition.EndTime).toLocaleString('vi-VN')}
                 </Space>
               </Descriptions.Item>
-              
+
               <Descriptions.Item label="Thời gian làm bài">
                 <Space>
                   <ClockCircleOutlined />
                   {competition.Duration} phút
                 </Space>
               </Descriptions.Item>
-              
+
               <Descriptions.Item label="Người tổ chức">
                 <Space>
                   <UserOutlined />
@@ -421,7 +501,7 @@ const CompetitionDetail = () => {
             </Descriptions>
           </Card>
         </Col>
-        
+
         <Col xs={24} md={8}>
           <Row gutter={[16, 16]}>
             <Col span={12}>
@@ -434,7 +514,7 @@ const CompetitionDetail = () => {
                 />
               </Card>
             </Col>
-            
+
             <Col span={12}>
               <Card>
                 <Statistic
@@ -444,7 +524,7 @@ const CompetitionDetail = () => {
                 />
               </Card>
             </Col>
-            
+
             <Col span={24}>
               <Card title="Thống kê">
                 <Row gutter={[16, 16]}>
@@ -482,9 +562,9 @@ const CompetitionDetail = () => {
           </Row>
         </Col>
       </Row>
-      
+
       <Divider />
-      
+
       <Tabs activeKey={activeTab} onChange={setActiveTab}>
         <TabPane tab="Bài tập" key="1">
           <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
@@ -494,7 +574,7 @@ const CompetitionDetail = () => {
               </Button>
             </Link>
           </div>
-          
+
           <Table
             columns={problemColumns}
             dataSource={problems}
@@ -502,7 +582,7 @@ const CompetitionDetail = () => {
             pagination={{ pageSize: 5 }}
           />
         </TabPane>
-        
+
         <TabPane tab="Người tham gia" key="2">
           <Table
             columns={participantColumns}
@@ -516,4 +596,4 @@ const CompetitionDetail = () => {
   );
 };
 
-export default CompetitionDetail; 
+export default CompetitionDetail;

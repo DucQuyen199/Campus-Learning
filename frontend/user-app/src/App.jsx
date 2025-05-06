@@ -1,3 +1,4 @@
+import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -40,6 +41,7 @@ import HelpCenter from './pages/Support/HelpCenter';
 import PrivacyPolicy from './pages/Support/PrivacyPolicy';
 import TermsOfUse from './pages/Support/TermsOfUse';
 import Roadmaps from './pages/Roadmaps';
+import AiTestLocal from './pages/AiTestLocal';
 
 // Custom CSS for toast notifications
 import './toast-custom.css';
@@ -100,6 +102,7 @@ function App() {
             { path: '/notifications', element: <Notifications /> },
             { path: '/ranking', element: <Ranking /> },
             { path: '/ai-chat', element: <AIChat /> },
+            { path: '/ai-test-local', element: <AiTestLocal /> },
             { path: '/other-courses', element: <OtherCourses /> },
             { path: '/competitions', element: <Competitions /> },
             { path: '/competitions/:id', element: <CompetitionDetail /> },
@@ -152,7 +155,7 @@ function App() {
             }
           />
 
-          {/* New routes */}
+          {/* Support routes */}
           <Route path="/support/faq" element={<FAQ />} />
           <Route path="/support/help-center" element={<HelpCenter />} />
           <Route path="/support/privacy-policy" element={<PrivacyPolicy />} />

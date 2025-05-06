@@ -9,7 +9,8 @@ import {
   ExclamationTriangleIcon, UserCircleIcon, Cog6ToothIcon,
   SparklesIcon, ChatBubbleBottomCenterTextIcon,
   MagnifyingGlassIcon, XMarkIcon, HeartIcon,
-  Bars3Icon, ChevronLeftIcon, ChevronRightIcon, CodeBracketIcon
+  Bars3Icon, ChevronLeftIcon, ChevronRightIcon, CodeBracketIcon,
+  BeakerIcon
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid, HeartIcon as HeartIconSolid, CalendarIcon as CalendarIconSolid } from '@heroicons/react/24/solid';
 import { Avatar } from '../index';
@@ -129,6 +130,7 @@ const MainLayout = ({ children }) => {
     { name: 'Bài Viết', icon: ChatBubbleLeftRightIcon, href: '/posts' },
     { name: 'Thi Đấu ', icon: CodeBracketIcon, href: '/competitions' },
     { name: 'AI Chat', icon: SparklesIcon, href: '/ai-chat' },
+    { name: 'AI TestCase', icon: BeakerIcon, href: '/ai-test-local' },
     { name: 'Bài Thi', icon: AcademicCapIcon, href: '/exams' },
     { name: 'Chat', icon: ChatBubbleBottomCenterTextIcon, href: '/chat', onClick: () => navigate('/chat') },
     { name: 'Báo Cáo', icon: ExclamationTriangleIcon, href: '/reports' },
@@ -716,7 +718,8 @@ const MainLayout = ({ children }) => {
           {/* Navigation Links */}
           <nav className="flex-1 px-2 py-4 overflow-y-auto">
             {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
+              const isActive = location.pathname === item.href || 
+                              (item.href !== '/home' && location.pathname.startsWith(item.href));
               return (
                 <Link
                   key={item.name}

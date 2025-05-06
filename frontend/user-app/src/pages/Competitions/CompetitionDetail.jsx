@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
-import { 
+import {
   ArrowLeftIcon,
-  UserGroupIcon, 
-  ClockIcon, 
+  UserGroupIcon,
+  ClockIcon,
   TrophyIcon,
   ChartBarIcon,
   CodeBracketIcon,
@@ -14,9 +14,9 @@ import {
   ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import { API_URL } from '../../config';
-import { 
-  getCompetitionById, 
-  getCompetitionLeaderboard, 
+import {
+  getCompetitionById,
+  getCompetitionLeaderboard,
   registerCompetition,
   finishCompetition,
   checkRegistrationStatus as checkRegistrationStatusApi,
@@ -64,15 +64,15 @@ const CompetitionDetail = () => {
           fetchUserRanking();
         }
       });
-    
+
     // Initialize code runtime for competitions
     initializeCodeRuntime();
-    
+
     // Show success toast if user was redirected from registration
     if (location.state?.registered) {
       toast.success('Đăng ký cuộc thi thành công');
     }
-    
+
     // Check if we're returning from the arena
     if (location.state?.fromArena) {
       toast.success('Bạn đã quay trở lại từ đấu trường');
@@ -97,7 +97,7 @@ const CompetitionDetail = () => {
       const now = new Date();
       const startTime = new Date(competition.StartTime);
       const endTime = new Date(competition.EndTime);
-      
+
       setIsCompetitionActive(now >= startTime && now < endTime);
       setIsCompetitionUpcoming(now < startTime);
     }
@@ -115,7 +115,7 @@ const CompetitionDetail = () => {
       // Update participation count whenever leaderboard changes
       if (leaderboard && leaderboard.length > 0) {
         const participantCount = Math.max(competition.CurrentParticipants || 0, leaderboard.length);
-        
+
         if (participantCount !== competition.CurrentParticipants) {
           console.log(`Updating participant count from ${competition.CurrentParticipants} to ${participantCount}`);
           setCompetition(prevComp => ({
@@ -130,12 +130,12 @@ const CompetitionDetail = () => {
   // Add a function to get accurate participant count
   const getParticipantCount = () => {
     if (!competition) return 0;
-    
+
     // If we have a leaderboard, use the higher count between API data and leaderboard entries
     if (leaderboard && leaderboard.length > 0) {
       return Math.max(competition.CurrentParticipants || 0, leaderboard.length);
     }
-    
+
     // Otherwise use the count from API
     return competition.CurrentParticipants || 0;
   };
@@ -143,28 +143,28 @@ const CompetitionDetail = () => {
   const fetchCompetitionData = async () => {
     try {
       setLoading(true);
-      
+
       // Use the imported API function
       const data = await getCompetitionById(id, currentUser?.token);
-      
+
       if (data) {
         console.log('Competition detail data:', data);
-        
+
         // Log participant count changes for debugging
         const oldCount = competition?.CurrentParticipants || 0;
         const newCount = data.CurrentParticipants || 0;
         const leaderboardCount = leaderboard?.length || 0;
-        
+
         console.log(`Participant counts - API: ${newCount}, Previous: ${oldCount}, Leaderboard: ${leaderboardCount}`);
-        
+
         // Ensure we don't lose participants when updating from API
         if (leaderboardCount > newCount) {
           data.CurrentParticipants = leaderboardCount;
           console.log(`Using leaderboard count (${leaderboardCount}) instead of API count (${newCount})`);
         }
-        
+
         setCompetition(data);
-        
+
         // If the participant count changed significantly, refresh the leaderboard
         if (Math.abs(oldCount - newCount) > 1) {
           console.log('Significant participant count change detected, refreshing leaderboard');
@@ -184,18 +184,18 @@ const CompetitionDetail = () => {
 
   const checkRegistrationStatus = async () => {
     if (!currentUser || !id) return;
-    
+
     try {
       const response = await checkRegistrationStatusApi(id, currentUser.token);
-      
+
       if (response && response.isRegistered) {
         setIsRegistered(true);
-        
-        // Nếu người dùng đã đăng ký nhưng không có trong bảng xếp hạng, 
+
+        // Nếu người dùng đã đăng ký nhưng không có trong bảng xếp hạng,
         // cập nhật bảng xếp hạng để bao gồm họ
         if (leaderboard.length > 0) {
           const userInLeaderboard = isUserInLeaderboard(currentUser.id, leaderboard);
-          
+
           if (!userInLeaderboard) {
             // Gọi lại để cập nhật bảng xếp hạng với người dùng hiện tại
             fetchLeaderboard();
@@ -209,12 +209,12 @@ const CompetitionDetail = () => {
       }
     } catch (error) {
       console.error('Error checking registration status:', error);
-      
-      // Nếu không thể kiểm tra trạng thái đăng ký nhưng người dùng xuất hiện 
+
+      // Nếu không thể kiểm tra trạng thái đăng ký nhưng người dùng xuất hiện
       // trong bảng xếp hạng, đánh dấu họ là đã đăng ký
       if (leaderboard.length > 0 && currentUser) {
         const userInLeaderboard = isUserInLeaderboard(currentUser.id, leaderboard);
-        
+
         if (userInLeaderboard) {
           setIsRegistered(true);
         }
@@ -224,10 +224,13 @@ const CompetitionDetail = () => {
 
   const fetchLeaderboard = async () => {
     try {
-      // Use the imported API function
-      const data = await getCompetitionLeaderboard(id);
-      
+      console.log('Fetching competition leaderboard from API...');
+      // Use the imported API function with authentication to get the latest data
+      const data = await getCompetitionLeaderboard(id, currentUser?.token);
+
       if (data && Array.isArray(data)) {
+        console.log('Leaderboard data received:', data);
+
         // Map response data to standardized format first
         const standardizedData = data.map(participant => ({
           id: participant.id || participant.userId || participant.userID || participant.UserID,
@@ -240,22 +243,22 @@ const CompetitionDetail = () => {
           rank: participant.rank || 0,
           isCurrentUser: false
         }));
-        
+
         // Đảm bảo dữ liệu leaderboard được sắp xếp theo thứ hạng
         const sortedLeaderboard = standardizedData.sort((a, b) => {
           // Nếu có thứ hạng từ server, ưu tiên sử dụng
           if (a.rank && b.rank) return a.rank - b.rank;
-          
+
           // Sắp xếp theo điểm cao nhất trước
           if (b.score !== a.score) return b.score - a.score;
-          
+
           // Nếu điểm bằng nhau, người hoàn thành nhiều bài hơn xếp trên
           if (b.problemsSolved !== a.problemsSolved) return b.problemsSolved - a.problemsSolved;
-          
+
           // Nếu số bài giải bằng nhau, người làm nhanh hơn xếp trên
           return a.competitionTime - b.competitionTime;
         });
-        
+
         // Cập nhật thứ hạng nếu không có từ server
         const leaderboardWithRanks = sortedLeaderboard.map((participant, index) => {
           if (!participant.rank) {
@@ -263,17 +266,17 @@ const CompetitionDetail = () => {
           }
           return participant;
         });
-        
+
         // Kiểm tra xem người dùng hiện tại có trong bảng xếp hạng không
         const addCurrentUser = () => {
           if (currentUser && currentUser.id && isRegistered) {
             const currentUserId = String(currentUser.id);
             const userExists = isUserInLeaderboard(currentUserId, leaderboardWithRanks);
-            
+
             // Nếu người dùng không có trong bảng xếp hạng nhưng đã đăng ký thì thêm họ vào
             if (!userExists) {
               console.log('Adding current user to the leaderboard as they are registered but not found');
-              
+
               // Tạo entry mới cho người dùng
               const newUserEntry = {
                 id: currentUserId,
@@ -286,10 +289,10 @@ const CompetitionDetail = () => {
                 isCurrentUser: true,
                 rank: leaderboardWithRanks.length + 1 // Add at the end initially
               };
-              
+
               // Thêm người dùng vào danh sách
               leaderboardWithRanks.push(newUserEntry);
-              
+
               // Cập nhật lại thứ hạng
               leaderboardWithRanks.sort((a, b) => {
                 if (b.score !== a.score) return b.score - a.score;
@@ -298,12 +301,12 @@ const CompetitionDetail = () => {
               }).forEach((participant, index) => {
                 participant.rank = index + 1;
               });
-              
+
               return true;
             } else {
               // Đánh dấu người dùng hiện tại trong bảng xếp hạng
-              const userEntry = leaderboardWithRanks.find(p => 
-                String(p.id) === currentUserId || 
+              const userEntry = leaderboardWithRanks.find(p =>
+                String(p.id) === currentUserId ||
                 String(p.userId) === currentUserId
               );
               if (userEntry) {
@@ -313,46 +316,53 @@ const CompetitionDetail = () => {
           }
           return false;
         };
-        
+
         // Thêm người dùng hiện tại nếu cần và đã đăng ký
         const userAdded = isRegistered ? addCurrentUser() : false;
-        
+
+        // Update the leaderboard state with the latest data
         setLeaderboard(leaderboardWithRanks);
-        
+        console.log('Leaderboard updated with', leaderboardWithRanks.length, 'participants');
+
         // Nếu người dùng xuất hiện trong bảng xếp hạng nhưng chưa được đánh dấu là đã đăng ký
         if (currentUser && currentUser.id) {
           const userInLeaderboard = isUserInLeaderboard(currentUser.id, leaderboardWithRanks);
-          
+
           if (userInLeaderboard && !isRegistered) {
             console.log('User is in the leaderboard but not marked as registered - updating registration status');
             setIsRegistered(true);
           }
         }
-        
+
         // Fetch user ranking from backend to update user tier info
         if (currentUser && currentUser.token) {
           fetchUserRanking();
         }
-        
+
+        // Also fetch completed problems to ensure we have the latest data
+        if (currentUser && currentUser.token) {
+          fetchCompletedProblems();
+        }
+
         return leaderboardWithRanks;
       } else {
         console.error('Failed to fetch leaderboard or invalid data format');
-        
+
         // Nếu không có dữ liệu nhưng người dùng đã đăng ký, tạo bảng xếp hạng với người dùng hiện tại
         if (isRegistered && currentUser) {
           createFallbackLeaderboard();
         }
-        
+
         return [];
       }
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
-      
+
       // Tạo bảng xếp hạng dự phòng nếu có lỗi
       if (isRegistered && currentUser) {
         createFallbackLeaderboard();
       }
-      
+
       return [];
     }
   };
@@ -360,10 +370,10 @@ const CompetitionDetail = () => {
   // Helper function to check if a user is in the leaderboard
   const isUserInLeaderboard = (userId, leaderboardData) => {
     if (!userId || !leaderboardData || !Array.isArray(leaderboardData)) return false;
-    
+
     const userIdStr = String(userId);
-    return leaderboardData.some(entry => 
-      String(entry.id) === userIdStr || 
+    return leaderboardData.some(entry =>
+      String(entry.id) === userIdStr ||
       String(entry.userId) === userIdStr ||
       entry.isCurrentUser === true
     );
@@ -373,7 +383,7 @@ const CompetitionDetail = () => {
   // Đảm bảo người dùng đã đăng ký luôn xuất hiện trong bảng xếp hạng ngay cả khi có lỗi
   const createFallbackLeaderboard = () => {
     if (!currentUser) return;
-    
+
     // Create a basic leaderboard entry for the current user
     const fallbackEntry = {
       id: currentUser.id,
@@ -386,21 +396,21 @@ const CompetitionDetail = () => {
       competitionTime: 0,
       isCurrentUser: true
     };
-    
+
     setLeaderboard([fallbackEntry]);
     console.log('Created fallback leaderboard with current user');
   };
 
   const fetchUserRanking = async () => {
     if (!currentUser || !currentUser.token || !currentUser.user) return;
-    
+
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL}/api/rankings/user/${currentUser.user.id}`, {
         headers: {
           'Authorization': `Bearer ${currentUser.token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setUserRanking(data);
@@ -441,13 +451,13 @@ const CompetitionDetail = () => {
     try {
       setIsRegistering(true);
       setRegistrationMessage({ type: 'info', content: 'Đang đăng ký...' });
-      
+
       if (!currentUser || !currentUser.token) {
         setRegistrationMessage({ type: 'error', content: 'Bạn cần đăng nhập để đăng ký tham gia' });
         setIsRegistering(false);
         return;
       }
-      
+
       // Check real-time status before registration
       const realTimeStatus = getCompetitionStatus();
       if (realTimeStatus === 'completed') {
@@ -455,60 +465,60 @@ const CompetitionDetail = () => {
         setIsRegistering(false);
         return;
       }
-      
+
       console.log('Competition ID for registration:', competition.CompetitionID);
       console.log('User token available:', !!currentUser.token);
       console.log('Real-time competition status:', realTimeStatus);
-      
+
       // Use the imported API function instead of direct fetch
       const response = await registerCompetition(competition.CompetitionID, currentUser.token);
       console.log('Registration response:', response);
-      
+
       if (response.success === false) {
         // Handle specific error cases
         if (response.error && response.error.includes('converting date')) {
           // Temporary database issue with date formatting
-          setRegistrationMessage({ 
-            type: 'error', 
-            content: 'Có lỗi với hệ thống đăng ký. Vui lòng thử lại sau vài phút.' 
+          setRegistrationMessage({
+            type: 'error',
+            content: 'Có lỗi với hệ thống đăng ký. Vui lòng thử lại sau vài phút.'
           });
-          
+
           // Show technical details in console but not to user
           console.error('Technical error details:', response.error);
-          
+
           // Auto-refresh after a delay to attempt to fix any temporary issues
           setTimeout(() => {
             setRegistrationMessage({ type: 'info', content: 'Đang làm mới trang...' });
             window.location.reload();
           }, 5000);
-          
+
           setIsRegistering(false);
           return;
         }
-        
+
         // Other general errors
-        setRegistrationMessage({ 
-          type: 'error', 
-          content: response.message || 'Đăng ký thất bại. Vui lòng thử lại sau.' 
+        setRegistrationMessage({
+          type: 'error',
+          content: response.message || 'Đăng ký thất bại. Vui lòng thử lại sau.'
         });
         setIsRegistering(false);
         return;
       }
-      
+
       // When user is already registered, still mark registration as successful
       if (response.isAlreadyRegistered) {
         setRegistrationMessage({ type: 'success', content: response.message || 'Bạn đã đăng ký cuộc thi này trước đó' });
         setIsRegistered(true);
-        
+
         // Refresh competition status
         fetchCompetitionData();
-        
+
         // Refresh user ranking
         fetchUserRanking();
-        
+
         // Kiểm tra xem người dùng đã có trong bảng xếp hạng chưa
         const userInLeaderboard = isUserInLeaderboard(currentUser.id, leaderboard);
-        
+
         // Nếu chưa có trong bảng xếp hạng, thêm vào ngay
         if (!userInLeaderboard) {
           addUserToLeaderboard();
@@ -516,20 +526,20 @@ const CompetitionDetail = () => {
           // Nếu đã có trong bảng xếp hạng, vẫn refresh để cập nhật thông tin mới nhất
           fetchLeaderboard();
         }
-        
+
         // Auto-switch to the leaderboard tab after registration
         setTimeout(() => {
           setActiveTab('leaderboard');
         }, 1000);
-        
+
         setIsRegistering(false);
         return;
       }
-      
+
       // Success case for new registration
       setRegistrationMessage({ type: 'success', content: 'Đăng ký thành công!' });
       setIsRegistered(true);
-      
+
       // Update the participant count in the UI immediately
       if (competition) {
         // Increment participant count immediately for responsive UI
@@ -537,7 +547,7 @@ const CompetitionDetail = () => {
           // Check if we need to increment
           const currentCount = getParticipantCount();
           let newCount = currentCount + 1;
-          
+
           // Only increment if user isn't already in the leaderboard
           if (leaderboard && isUserInLeaderboard(currentUser.id, leaderboard)) {
             newCount = currentCount;
@@ -545,40 +555,40 @@ const CompetitionDetail = () => {
           } else {
             console.log(`Incrementing participant count from ${currentCount} to ${newCount}`);
           }
-          
+
           return {
             ...prevCompetition,
             CurrentParticipants: newCount
           };
         });
       }
-      
+
       // Refresh competition status
       fetchCompetitionData();
-      
+
       // Refresh user ranking
       fetchUserRanking();
-      
+
       // Thêm người dùng vào bảng xếp hạng ngay lập tức
       addUserToLeaderboard();
-      
+
       // Auto-switch to the leaderboard tab after registration
       setTimeout(() => {
         setActiveTab('leaderboard');
       }, 1000);
-      
+
     } catch (error) {
       console.error('Registration error:', error);
-      
+
       // More detailed error logging
       if (error.response) {
         console.error('Error status:', error.response.status);
         console.error('Error data:', error.response.data);
       }
-      
-      setRegistrationMessage({ 
-        type: 'error', 
-        content: error.message || 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau.' 
+
+      setRegistrationMessage({
+        type: 'error',
+        content: error.message || 'Có lỗi xảy ra khi đăng ký. Vui lòng thử lại sau.'
       });
     } finally {
       setIsRegistering(false);
@@ -593,7 +603,7 @@ const CompetitionDetail = () => {
   // Hàm này được sử dụng để đảm bảo người dùng đã đăng ký sẽ luôn có mặt trong bảng xếp hạng
   const addUserToLeaderboard = () => {
     if (!currentUser) return;
-    
+
     // Tạo entry mới cho người dùng với điểm ban đầu là 0
     const newUserEntry = {
       id: currentUser.id,
@@ -606,28 +616,28 @@ const CompetitionDetail = () => {
       isCurrentUser: true,
       rank: leaderboard.length + 1 // Xếp hạng cuối cùng ban đầu
     };
-    
+
     // Cập nhật state leaderboard ngay lập tức
     setLeaderboard(prevLeaderboard => {
       // Kiểm tra xem người dùng đã có trong bảng xếp hạng chưa
       const userExists = isUserInLeaderboard(currentUser.id, prevLeaderboard);
-      
+
       if (userExists) {
         console.log('User already exists in leaderboard, not adding again');
         return prevLeaderboard; // Không thêm lại nếu đã tồn tại
       }
-      
+
       console.log('Adding user to leaderboard after registration');
-      
+
       // Thêm người dùng vào bảng xếp hạng và sắp xếp lại
       const newLeaderboard = [...prevLeaderboard, newUserEntry]
         .sort((a, b) => {
           // Sắp xếp theo điểm cao nhất trước
           if (b.score !== a.score) return b.score - a.score;
-          
+
           // Nếu điểm bằng nhau, người hoàn thành nhiều bài hơn xếp trên
           if (b.problemsSolved !== a.problemsSolved) return b.problemsSolved - a.problemsSolved;
-          
+
           // Nếu số bài giải bằng nhau, người làm nhanh hơn xếp trên
           return a.competitionTime - b.competitionTime;
         })
@@ -635,10 +645,10 @@ const CompetitionDetail = () => {
           ...participant,
           rank: index + 1
         }));
-        
+
       return newLeaderboard;
     });
-    
+
     // Sau đó vẫn gọi API để lấy bảng xếp hạng chính thức từ server
     fetchLeaderboard();
   };
@@ -646,11 +656,11 @@ const CompetitionDetail = () => {
   const handleFinishCompetition = async () => {
     try {
       setFinishing(true);
-      
+
       const response = await finishCompetition(id, currentUser.token);
-      
+
       toast.success('Hoàn thành cuộc thi thành công');
-      
+
       // Display ranking promotion if provided
       if (response.newTier && response.newTier !== userRanking?.tier) {
         toast.success(`Chúc mừng! Bạn đã thăng hạng lên ${response.newTier}`, {
@@ -658,7 +668,7 @@ const CompetitionDetail = () => {
           icon: '🏆'
         });
       }
-      
+
       fetchCompetitionData();
       fetchLeaderboard();
       fetchUserRanking();
@@ -680,7 +690,7 @@ const CompetitionDetail = () => {
       'DIAMOND': 'bg-blue-400',
       'MASTER': 'bg-purple-600'
     };
-    
+
     return (
       <span className={`px-3 py-1 ${tierColors[tier]} text-white rounded-full text-sm font-medium`}>
         {tier}
@@ -701,18 +711,18 @@ const CompetitionDetail = () => {
 
   const getRemainingTime = () => {
     if (!competition) return '';
-    
+
     const start = new Date(competition.StartTime);
     const end = new Date(start.getTime() + competition.Duration * 60000);
     const now = new Date();
-    
+
     if (now < start) {
       // Competition not started yet
       const diff = start - now;
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      
+
       return `Bắt đầu sau: ${days ? days + 'd ' : ''}${hours}h ${minutes}m`;
     } else if (now < end) {
       // Competition ongoing
@@ -720,7 +730,7 @@ const CompetitionDetail = () => {
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      
+
       return `${hours ? hours + ':' : ''}${minutes < 10 ? '0' + minutes : minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
     } else {
       // Competition ended
@@ -730,11 +740,11 @@ const CompetitionDetail = () => {
 
   const getProgressPercentage = () => {
     if (!competition) return 0;
-    
+
     const start = new Date(competition.StartTime);
     const end = new Date(start.getTime() + competition.Duration * 60000);
     const now = new Date();
-    
+
     if (now < start) {
       return 0;
     } else if (now > end) {
@@ -748,11 +758,11 @@ const CompetitionDetail = () => {
 
   const getCompetitionStatus = () => {
     if (!competition) return 'unknown';
-    
+
     const now = new Date();
     const startTime = new Date(competition.StartTime);
     const endTime = new Date(competition.EndTime);
-    
+
     if (now < startTime) {
       return 'upcoming';
     } else if (now >= startTime && now < endTime) {
@@ -761,10 +771,10 @@ const CompetitionDetail = () => {
       return 'completed';
     }
   };
-  
+
   const competitionStatus = getCompetitionStatus();
   const isCompetitionEnded = competitionStatus === 'completed';
-  
+
   // Set the state variables based on competition status
   useEffect(() => {
     if (competition) {
@@ -772,7 +782,7 @@ const CompetitionDetail = () => {
       setIsCompetitionUpcoming(competitionStatus === 'upcoming');
     }
   }, [competitionStatus, competition]);
-  
+
   // For debugging
   if (competition && competition.Status !== competitionStatus) {
     console.log(`Competition status mismatch: Backend says "${competition.Status}" but real-time status is "${competitionStatus}"`);
@@ -787,10 +797,10 @@ const CompetitionDetail = () => {
           'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
         }
       });
-      
+
       const dockerData = await dockerStatus.json();
       console.log(`Code runtime initialized. Docker available:`, dockerData);
-      
+
       setCodeRuntimeStatus({
         initialized: dockerData.success,
         dockerAvailable: dockerData.success,
@@ -798,7 +808,7 @@ const CompetitionDetail = () => {
         pythonSupported: true,
         cppSupported: true
       });
-      
+
       return dockerData.success;
     } catch (error) {
       console.error('Failed to initialize code runtime:', error);
@@ -815,7 +825,7 @@ const CompetitionDetail = () => {
     setParticipating(true);
     // Show loading state
     const toastId = toast.loading('Đang chuẩn bị đấu trường...');
-    
+
     // First check if competition is still active
     if (!isCompetitionActive) {
       toast.dismiss(toastId);
@@ -823,7 +833,7 @@ const CompetitionDetail = () => {
       setParticipating(false);
       return;
     }
-    
+
     // Ensure leaderboard is up to date
     fetchLeaderboard().then(() => {
       // Check if Docker runtime is initialized
@@ -836,7 +846,7 @@ const CompetitionDetail = () => {
           } else {
             toast.dismiss(toastId);
             console.error('Docker environment is not available');
-            
+
             // Ask user if they want to continue anyway
             if (window.confirm(
               'Môi trường Docker không khả dụng. ' +
@@ -863,7 +873,7 @@ const CompetitionDetail = () => {
       setParticipating(false);
     });
   };
-  
+
   const proceedToArena = async () => {
     // Check if Docker supports the required languages
     try {
@@ -878,18 +888,18 @@ const CompetitionDetail = () => {
       });
 
       let supportedLanguages = ['javascript', 'python']; // Default assumption
-      
+
       if (response.ok) {
         const data = await response.json();
         supportedLanguages = data.languages || supportedLanguages;
       }
-      
+
       // Check if required languages are supported
       const requiredLanguages = ['javascript', 'python'];
       const missingLanguages = requiredLanguages.filter(
         lang => !supportedLanguages.includes(lang)
       );
-      
+
       if (missingLanguages.length > 0) {
         console.warn(`Some required languages are not supported: ${missingLanguages.join(', ')}`);
         toast.warning(
@@ -901,7 +911,7 @@ const CompetitionDetail = () => {
     } catch (error) {
       console.error('Error checking supported languages:', error);
     }
-    
+
     // Navigate programmatically to ensure we're not carrying over any redirects
     setTimeout(() => {
       // Navigate with state to indicate we're coming from the details page
@@ -919,9 +929,9 @@ const CompetitionDetail = () => {
     if (isRegistered) {
       return 'Đã đăng ký';
     }
-    
+
     const status = getCompetitionStatus();
-    
+
     if (status === 'upcoming') {
       return 'Đăng ký tham gia';
     } else if (status === 'ongoing') {
@@ -933,21 +943,21 @@ const CompetitionDetail = () => {
 
   const getRegistrationButtonProps = () => {
     const status = getCompetitionStatus();
-    
+
     if (isRegistered) {
       return {
         disabled: true,
         className: "px-4 py-2 rounded-md bg-gray-400 text-white font-medium cursor-not-allowed"
       };
     }
-    
+
     if (status === 'completed') {
       return {
         disabled: true,
         className: "px-4 py-2 rounded-md bg-gray-400 text-white font-medium cursor-not-allowed"
       };
     }
-    
+
     return {
       disabled: false,
       className: "px-4 py-2 rounded-md bg-green-600 hover:bg-green-700 text-white font-medium"
@@ -957,58 +967,32 @@ const CompetitionDetail = () => {
   const fetchCompletedProblems = async () => {
     try {
       if (!currentUser || !currentUser.token || !competition) return;
-      
-      // Get completed problems from the API
+
+      console.log('Fetching completed problems from API...');
+      // Get completed problems from the API only
       const apiCompletedProblems = await getCompletedProblems(competition.CompetitionID, currentUser.token);
-      
+
       // Process the API response - ensure we have an array of problem IDs
       let problemIds = [];
       if (Array.isArray(apiCompletedProblems)) {
-        problemIds = apiCompletedProblems.map(problem => 
+        problemIds = apiCompletedProblems.map(problem =>
           problem.ProblemID || problem.problemId || problem.id
         );
+        console.log('Completed problems from API:', problemIds);
       }
-      
-      // Also check localStorage for any recently completed problems
-      // This ensures we show problems as completed immediately, even before the backend is updated
-      try {
-        const localStorageKey = `completedProblems_${competition.CompetitionID}`;
-        const localCompletedProblems = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-        
-        // Combine API and localStorage results, removing duplicates
-        if (localCompletedProblems.length > 0) {
-          problemIds = [...new Set([...problemIds, ...localCompletedProblems])];
-          console.log('Combined completed problems:', problemIds);
-        }
-      } catch (err) {
-        console.error('Error reading from localStorage:', err);
-      }
-      
+
       setCompletedProblems(problemIds);
-      
+
       // After getting updated completed problems, refresh the leaderboard
       // to show the user's updated score and ranking
       if (problemIds.length > 0) {
         console.log(`User has completed ${problemIds.length} problems, refreshing leaderboard`);
         fetchLeaderboard();
       }
-      
+
       return problemIds;
     } catch (error) {
       console.error('Error fetching completed problems:', error);
-      
-      // Still try to get data from localStorage as fallback
-      try {
-        const localStorageKey = `completedProblems_${competition.CompetitionID}`;
-        const localCompletedProblems = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-        if (localCompletedProblems.length > 0) {
-          setCompletedProblems(localCompletedProblems);
-          return localCompletedProblems;
-        }
-      } catch (err) {
-        console.error('Error reading from localStorage:', err);
-      }
-      
       setCompletedProblems([]);
       return [];
     }
@@ -1028,16 +1012,16 @@ const CompetitionDetail = () => {
       toast.error('Please write your solution before submitting');
       return;
     }
-    
+
     // Check if problem is already completed
     if (completedProblems.includes(selectedProblem.ProblemID)) {
       toast.info('This problem has already been completed!');
       return;
     }
-    
+
     setIsSubmitting(true);
     setSubmissionResult(null);
-    
+
     try {
       const result = await submitCompetitionSolution(
         selectedProblem.ProblemID,
@@ -1045,42 +1029,38 @@ const CompetitionDetail = () => {
         language,
         currentUser.token
       );
-      
+
       setSubmissionResult(result);
-      
+
       // Check if solution passed
       if (result.success && result.data && result.data.passed) {
         toast.success('Congratulations! Your solution passed all test cases!');
-        
+
         // Update completedProblems state
         if (!completedProblems.includes(selectedProblem.ProblemID)) {
-          const updatedCompletedProblems = [...completedProblems, selectedProblem.ProblemID];
-          setCompletedProblems(updatedCompletedProblems);
-          
-          // Save to localStorage to persist between page refreshes
-          const localStorageKey = `completedProblems_${competition.CompetitionID}`;
-          localStorage.setItem(localStorageKey, JSON.stringify(updatedCompletedProblems));
-          
+          // Fetch the latest completed problems from the API
+          await fetchCompletedProblems();
+
           // Hiển thị điểm đã nhận được
           if (result.data.score) {
             toast.success(`Bạn đã được cộng ${result.data.score} điểm!`, {
               duration: 5000,
               icon: '🎯'
             });
-            
+
             // Thêm thông báo rõ ràng về chính sách tính điểm
             toast.info(`Điểm chỉ được tính khi giải pháp đúng với tất cả các test case.`, {
               duration: 7000,
               icon: 'ℹ️'
             });
           }
-          
+
           // Cập nhật bảng xếp hạng sau khi nộp bài thành công
           const updateLeaderboard = async () => {
             try {
               // Lấy dữ liệu bảng xếp hạng mới nhất
               const updatedLeaderboard = await getCompetitionLeaderboard(id);
-              
+
               if (updatedLeaderboard && Array.isArray(updatedLeaderboard)) {
                 // Chuẩn hóa dữ liệu và cập nhật state
                 const standardizedData = updatedLeaderboard.map(participant => ({
@@ -1094,7 +1074,7 @@ const CompetitionDetail = () => {
                   rank: participant.rank || 0,
                   isCurrentUser: false
                 }));
-                
+
                 // Sắp xếp theo thứ hạng
                 const sortedLeaderboard = standardizedData.sort((a, b) => {
                   if (a.rank && b.rank) return a.rank - b.rank;
@@ -1102,51 +1082,51 @@ const CompetitionDetail = () => {
                   if (b.problemsSolved !== a.problemsSolved) return b.problemsSolved - a.problemsSolved;
                   return a.competitionTime - b.competitionTime;
                 });
-                
+
                 // Đánh dấu người dùng hiện tại
                 if (currentUser && currentUser.id) {
-                  const userEntry = sortedLeaderboard.find(p => 
-                    String(p.id) === String(currentUser.id) || 
+                  const userEntry = sortedLeaderboard.find(p =>
+                    String(p.id) === String(currentUser.id) ||
                     String(p.userId) === String(currentUser.id)
                   );
-                  
+
                   if (userEntry) {
                     userEntry.isCurrentUser = true;
                   }
                 }
-                
+
                 setLeaderboard(sortedLeaderboard);
               }
             } catch (error) {
               console.error('Error updating leaderboard:', error);
             }
           };
-          
+
           // Cập nhật ngay lập tức và sau đó lập lịch các lần cập nhật tiếp theo
           updateLeaderboard();
-          
+
           // Thiết lập lịch cập nhật bảng xếp hạng nhiều lần
           const refreshIntervals = [2000, 5000, 10000];
           refreshIntervals.forEach(interval => {
             setTimeout(updateLeaderboard, interval);
           });
         }
-        
+
         // After a short delay, close the editor and show the leaderboard
         setTimeout(() => {
           setShowSolutionEditor(false);
           // Switch to leaderboard tab
           setActiveTab('leaderboard');
-          
+
           // Thông báo cho người dùng xem bảng xếp hạng
           toast.success('Chuyển sang xem bảng xếp hạng', {
             icon: '🏆'
           });
         }, 3000);
-        
+
       } else if (result.success) {
         toast.error('Your solution did not pass all test cases. Please try again.');
-        
+
         // Nhắc nhở người dùng về chính sách tính điểm
         toast.info('Điểm chỉ được tính khi giải pháp đúng với tất cả các test case.', {
           duration: 5000,
@@ -1167,25 +1147,25 @@ const CompetitionDetail = () => {
   const refreshAllData = async () => {
     try {
       const toastId = toast.loading('Đang cập nhật thông tin cuộc thi...');
-      
+
       // Fetch competition data and leaderboard in parallel
-      const [compData] = await Promise.all([
+      await Promise.all([
         fetchCompetitionData(),
         fetchLeaderboard()
       ]);
-      
+
       // Check if participant count matches the leaderboard length
       if (competition && leaderboard.length > 0) {
         console.log('Comparing participant counts:', {
           ApiParticipants: competition.CurrentParticipants,
           LeaderboardParticipants: leaderboard.length
         });
-        
+
         // If there's a mismatch, update the competition data with the correct count
         // This ensures UI shows accurate count even if the API returns incorrect data
         if (competition.CurrentParticipants !== leaderboard.length) {
           console.log(`Participant count mismatch: API reports ${competition.CurrentParticipants}, but leaderboard has ${leaderboard.length} participants`);
-          
+
           // Only update if leaderboard count is higher (API is missing participants)
           if (leaderboard.length > competition.CurrentParticipants) {
             console.log('Updating participant count in UI to match leaderboard count');
@@ -1196,12 +1176,12 @@ const CompetitionDetail = () => {
           }
         }
       }
-      
+
       // Check registration status after data is fetched
       if (currentUser && currentUser.id) {
         await checkRegistrationStatus();
       }
-      
+
       toast.dismiss(toastId);
       toast.success('Đã cập nhật thông tin cuộc thi');
     } catch (error) {
@@ -1215,20 +1195,20 @@ const CompetitionDetail = () => {
     // Nếu xác định là đã hoàn thành bài tập mới, cập nhật bảng xếp hạng
     if (completedProblems && completedProblems.length > 0) {
       console.log(`User has completed ${completedProblems.length} problems, refreshing leaderboard`);
-      
+
       // Thiết lập một interval để làm mới bảng xếp hạng nhiều lần sau khi người dùng hoàn thành bài tập
       const refreshCount = { current: 0 };
       const maxRefreshes = 3;
       const refreshInterval = setInterval(() => {
         fetchLeaderboard();
         refreshCount.current += 1;
-        
+
         // Dừng làm mới sau số lần quy định
         if (refreshCount.current >= maxRefreshes) {
           clearInterval(refreshInterval);
         }
       }, 3000); // Làm mới mỗi 3 giây
-      
+
       return () => clearInterval(refreshInterval);
     }
   }, [completedProblems]);
@@ -1276,7 +1256,7 @@ const CompetitionDetail = () => {
         </div>
 
         <div className="absolute inset-0">
-          <img 
+          <img
             src={competition?.CoverImageURL || competition?.ThumbnailUrl}
             alt={competition?.Title}
             className="w-full h-full object-cover"
@@ -1296,7 +1276,7 @@ const CompetitionDetail = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-purple-900/90 via-indigo-900/80 to-purple-900/90" />
         </div>
-        
+
         {/* Hero Content - Điều chỉnh padding */}
         <div className="relative h-full max-w-[1920px] mx-auto px-6 sm:px-8 lg:px-12">
           <div className="flex flex-col justify-end h-full pb-8"> {/* Giảm padding bottom */}
@@ -1305,12 +1285,12 @@ const CompetitionDetail = () => {
               <div className="lg:col-span-2">
                 <div className="flex flex-wrap gap-2 mb-3"> {/* Giảm gap và margin */}
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    competition?.Status === 'ongoing' ? 'bg-green-500' : 
-                    competition?.Status === 'upcoming' ? 'bg-blue-500' : 
+                    competition?.Status === 'ongoing' ? 'bg-green-500' :
+                    competition?.Status === 'upcoming' ? 'bg-blue-500' :
                     'bg-gray-500'
                   } text-white`}>
-                    {competition?.Status === 'ongoing' ? 'Đang diễn ra' : 
-                     competition?.Status === 'upcoming' ? 'Sắp diễn ra' : 
+                    {competition?.Status === 'ongoing' ? 'Đang diễn ra' :
+                     competition?.Status === 'upcoming' ? 'Sắp diễn ra' :
                      'Đã kết thúc'}
                   </span>
                   <span className="px-3 py-1 bg-purple-500 rounded-full text-xs font-medium text-white">
@@ -1350,7 +1330,7 @@ const CompetitionDetail = () => {
                 {isRegistered ? (
                   <div className="space-y-4">
                     {isCompetitionActive && (
-                      <button 
+                      <button
                         onClick={handleParticipateCompetition}
                         disabled={participating}
                         className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-medium shadow-lg shadow-blue-500/25 transition-all transform hover:scale-[1.02] flex items-center justify-center"
@@ -1376,7 +1356,7 @@ const CompetitionDetail = () => {
                     )}
                   </div>
                 ) : (
-                  <button 
+                  <button
                     onClick={handleRegister}
                     disabled={isRegistering || isCompetitionEnded}
                     className={`w-full px-6 py-3 rounded-xl font-medium shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center ${
@@ -1404,7 +1384,7 @@ const CompetitionDetail = () => {
                       <span>{getRemainingTime()}</span>
                     </div>
                     <div className="w-full bg-white/20 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-green-400 to-green-500 h-2 rounded-full transition-all duration-1000"
                         style={{ width: `${getProgressPercentage()}%` }}
                       />
@@ -1453,8 +1433,8 @@ const CompetitionDetail = () => {
                       <div className="p-4">
                         <p className="text-sm text-gray-500 mb-1">Độ khó</p>
                         <p className={`font-medium ${
-                          competition.Difficulty === 'Khó' 
-                            ? 'text-red-600' 
+                          competition.Difficulty === 'Khó'
+                            ? 'text-red-600'
                             : competition.Difficulty === 'Trung bình'
                               ? 'text-yellow-600'
                               : 'text-green-600'
@@ -1492,19 +1472,19 @@ const CompetitionDetail = () => {
                       <div className="p-4">
                         <p className="text-sm text-gray-500 mb-1">Trạng thái</p>
                         <p className={`font-medium ${
-                          competitionStatus === 'ongoing' ? 'text-green-600' : 
-                          competitionStatus === 'upcoming' ? 'text-blue-600' : 
+                          competitionStatus === 'ongoing' ? 'text-green-600' :
+                          competitionStatus === 'upcoming' ? 'text-blue-600' :
                           'text-gray-600'
                         }`}>
-                          {competitionStatus === 'ongoing' ? 'Đang diễn ra' : 
-                          competitionStatus === 'upcoming' ? 'Sắp diễn ra' : 
+                          {competitionStatus === 'ongoing' ? 'Đang diễn ra' :
+                          competitionStatus === 'upcoming' ? 'Sắp diễn ra' :
                           'Đã kết thúc'}
                         </p>
                       </div>
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <h2 className="text-xl font-semibold mb-4">Hướng dẫn</h2>
                   <div className="prose max-w-none">
@@ -1517,7 +1497,7 @@ const CompetitionDetail = () => {
                     </ul>
                   </div>
                 </div>
-                
+
                 {userRanking && (
                   <div>
                     <h2 className="text-xl font-semibold mb-4">Thứ hạng của bạn</h2>
@@ -1545,7 +1525,7 @@ const CompetitionDetail = () => {
                 )}
               </div>
             )}
-            
+
             {activeTab === 'problems' && (
               <div>
                 <h2 className="text-xl font-semibold mb-4">Danh sách bài tập</h2>
@@ -1560,7 +1540,7 @@ const CompetitionDetail = () => {
                               <h3 className="text-lg font-semibold mb-1">{problem.Title}</h3>
                               <div className="flex items-center space-x-3">
                                 <span className={`px-2 py-1 text-xs rounded-full ${
-                                  problem.Difficulty === 'Khó' 
+                                  problem.Difficulty === 'Khó'
                                     ? 'bg-red-100 text-red-800'
                                     : problem.Difficulty === 'Trung bình'
                                       ? 'bg-yellow-100 text-yellow-800'
@@ -1588,8 +1568,8 @@ const CompetitionDetail = () => {
                                 )}
                               </div>
                             </div>
-                            
-                            <button 
+
+                            <button
                               onClick={() => handleSolveProblem(problem)}
                               className={`px-4 py-2 rounded-lg text-sm ${
                                 completedProblems.includes(problem.ProblemID)
@@ -1602,18 +1582,18 @@ const CompetitionDetail = () => {
                             </button>
                           </div>
                         </div>
-                        
+
                         {/* Problem Description with optional image */}
                         <div className="p-4">
                           {problem.ImageURL && (
                             <div className="mb-4">
-                              <img 
-                                src={problem.ImageURL} 
-                                alt={problem.Title} 
+                              <img
+                                src={problem.ImageURL}
+                                alt={problem.Title}
                                 className="rounded-lg max-h-64 object-contain mx-auto"
                                 onError={(e) => {
                                   console.log(`Problem image error for ${problem.Title}:`, e);
-                                  
+
                                   // Fallback theo chủ đề bài tập
                                   if (problem.Title.includes("An ninh") || problem.Title.includes("Phát hiện xâm nhập")) {
                                     e.target.src = "https://dhannd.edu.vn/image/catalog/AnNinhMang.jpg";
@@ -1628,18 +1608,18 @@ const CompetitionDetail = () => {
                               />
                             </div>
                           )}
-                          
+
                           {problem.Instructions && (
                             <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                               <h4 className="font-medium text-blue-700 mb-1">Hướng dẫn:</h4>
                               <p className="text-sm text-gray-700">{problem.Instructions}</p>
                             </div>
                           )}
-                          
+
                           <div className="prose max-w-none">
                             <p>{problem.Description}</p>
                           </div>
-                          
+
                           {/* Sample input/output */}
                           {problem.SampleInput && problem.SampleOutput && (
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1665,11 +1645,11 @@ const CompetitionDetail = () => {
                 )}
               </div>
             )}
-            
+
             {activeTab === 'leaderboard' && (
               <div className="bg-white p-6 rounded-xl shadow-sm">
                 <h2 className="text-xl font-semibold mb-4">Bảng xếp hạng</h2>
-                
+
                 {/* Registered users count */}
                 <div className="mb-4 flex items-center text-sm text-gray-600">
                   <UserGroupIcon className="w-4 h-4 mr-2 text-purple-600" />
@@ -1684,7 +1664,7 @@ const CompetitionDetail = () => {
                     </span>
                   )}
                 </div>
-                
+
                 {/* Loading state */}
                 {loading && (
                   <div className="py-10 text-center">
@@ -1692,7 +1672,7 @@ const CompetitionDetail = () => {
                     <p className="mt-2 text-gray-500">Đang tải bảng xếp hạng...</p>
                   </div>
                 )}
-                
+
                 {/* Error state */}
                 {!loading && leaderboard && leaderboard.length === 0 && (
                   <div className="bg-gray-50 p-6 rounded-lg text-center">
@@ -1704,7 +1684,7 @@ const CompetitionDetail = () => {
                       </p>
                     )}
                     {!isRegistered && (
-                      <button 
+                      <button
                         onClick={handleRegister}
                         className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
                         disabled={isRegistering}
@@ -1714,7 +1694,7 @@ const CompetitionDetail = () => {
                     )}
                   </div>
                 )}
-                
+
                 {/* Leaderboard table */}
                 {!loading && leaderboard && leaderboard.length > 0 && (
                   <div className="overflow-x-auto">
@@ -1747,16 +1727,16 @@ const CompetitionDetail = () => {
                         {leaderboard.map((participant) => {
                           const isCurrentUser = participant.isCurrentUser ||
                             (currentUser && (
-                              String(participant.id) === String(currentUser.id) || 
+                              String(participant.id) === String(currentUser.id) ||
                               String(participant.userId) === String(currentUser.id)
                             ));
-                          
+
                           return (
-                            <tr 
-                              key={participant.id || participant.userId} 
+                            <tr
+                              key={participant.id || participant.userId}
                               className={`hover:bg-gray-50 transition-colors ${
-                                isCurrentUser 
-                                  ? 'bg-purple-50 border-l-4 border-purple-500' 
+                                isCurrentUser
+                                  ? 'bg-purple-50 border-l-4 border-purple-500'
                                   : ''
                               }`}
                             >
@@ -1765,8 +1745,8 @@ const CompetitionDetail = () => {
                                 <div className="text-sm font-medium text-gray-900">
                                   {participant.rank <= 3 ? (
                                     <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${
-                                      participant.rank === 1 
-                                        ? 'bg-yellow-400' 
+                                      participant.rank === 1
+                                        ? 'bg-yellow-400'
                                         : participant.rank === 2
                                           ? 'bg-gray-300'
                                           : 'bg-amber-700'
@@ -1778,13 +1758,13 @@ const CompetitionDetail = () => {
                                   )}
                                 </div>
                               </td>
-                              
+
                               {/* User info column */}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center">
                                   {participant.avatar ? (
-                                    <img 
-                                      src={participant.avatar} 
+                                    <img
+                                      src={participant.avatar}
                                       alt={participant.name}
                                       className="w-8 h-8 rounded-full mr-3 object-cover"
                                       onError={(e) => {
@@ -1810,46 +1790,46 @@ const CompetitionDetail = () => {
                                   </div>
                                 </div>
                               </td>
-                              
+
                               {/* Score column */}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className={`text-sm font-medium ${
-                                  participant.score > 0 
-                                    ? 'text-green-600' 
+                                  participant.score > 0
+                                    ? 'text-green-600'
                                     : 'text-gray-500'
                                 }`}>
                                   {participant.score || 0}
                                 </div>
                               </td>
-                              
+
                               {/* Problems solved column */}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className={`text-sm ${
-                                  participant.problemsSolved > 0 
-                                    ? 'text-blue-600 font-medium' 
+                                  participant.problemsSolved > 0
+                                    ? 'text-blue-600 font-medium'
                                     : 'text-gray-500'
                                 }`}>
                                   {participant.problemsSolved || 0}
                                 </div>
                               </td>
-                              
+
                               {/* Time column */}
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm text-gray-500">
-                                  {participant.competitionTime ? 
+                                  {participant.competitionTime ?
                                     (participant.competitionTime >= 60 ?
                                       `${Math.floor(participant.competitionTime / 60)} giờ ${participant.competitionTime % 60} phút` :
-                                      `${participant.competitionTime} phút`) : 
+                                      `${participant.competitionTime} phút`) :
                                     '-'
                                   }
                                 </div>
                               </td>
-                              
+
                               {/* Tier column - only shown if we have user ranking data */}
                               {userRanking && (
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                  {isCurrentUser && userRanking.tier ? 
-                                    renderTierBadge(userRanking.tier) : 
+                                  {isCurrentUser && userRanking.tier ?
+                                    renderTierBadge(userRanking.tier) :
                                     <span className="text-sm text-gray-400">-</span>
                                   }
                                 </td>
@@ -1859,9 +1839,9 @@ const CompetitionDetail = () => {
                         })}
                       </tbody>
                     </table>
-                    
+
                     {/* Message for registered users not in leaderboard */}
-                    {currentUser && isRegistered && 
+                    {currentUser && isRegistered &&
                      !isUserInLeaderboard(currentUser.id, leaderboard) && (
                       <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <div className="flex items-start">
@@ -1874,7 +1854,7 @@ const CompetitionDetail = () => {
                             </h3>
                             <div className="mt-2 text-sm text-blue-700">
                               <p>
-                                Bạn sẽ xuất hiện trên bảng xếp hạng sau khi bắt đầu giải các bài tập. 
+                                Bạn sẽ xuất hiện trên bảng xếp hạng sau khi bắt đầu giải các bài tập.
                                 Mỗi bài tập bạn hoàn thành sẽ cập nhật điểm số của bạn trên bảng xếp hạng.
                               </p>
                             </div>
@@ -1890,7 +1870,7 @@ const CompetitionDetail = () => {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Controls for refreshing leaderboard */}
                     <div className="mt-4 flex justify-end">
                       <button
@@ -1915,20 +1895,20 @@ const CompetitionDetail = () => {
           <div className="bg-white rounded-lg w-full max-w-5xl h-5/6 flex flex-col">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">{selectedProblem.Title}</h3>
-              <button 
+              <button
                 onClick={() => setShowSolutionEditor(false)}
                 className="p-1 rounded-full hover:bg-gray-100"
               >
                 <XCircleIcon className="w-6 h-6 text-gray-500" />
               </button>
             </div>
-            
+
             <div className="flex flex-1 overflow-hidden">
               {/* Problem description sidebar */}
               <div className="w-1/3 p-4 border-r overflow-y-auto">
                 <div className="prose max-w-none text-sm">
                   <p>{selectedProblem.Description}</p>
-                  
+
                   {selectedProblem.SampleInput && selectedProblem.SampleOutput && (
                     <>
                       <h4>Mẫu đầu vào:</h4>
@@ -1937,11 +1917,11 @@ const CompetitionDetail = () => {
                       <pre className="bg-gray-50 p-2 rounded">{selectedProblem.SampleOutput}</pre>
                     </>
                   )}
-                  
+
                   {submissionResult && (
                     <div className={`mt-4 p-3 rounded ${
-                      submissionResult.data?.passed 
-                        ? 'bg-green-50 border border-green-100' 
+                      submissionResult.data?.passed
+                        ? 'bg-green-50 border border-green-100'
                         : 'bg-red-50 border border-red-100'
                     }`}>
                       <h4 className={`font-medium ${
@@ -1949,7 +1929,7 @@ const CompetitionDetail = () => {
                       }`}>
                         {submissionResult.data?.passed ? 'Bài làm đúng!' : 'Bài làm chưa đúng'}
                       </h4>
-                      
+
                       {submissionResult.data?.details && (
                         <>
                           <div className="mt-2">
@@ -1958,14 +1938,14 @@ const CompetitionDetail = () => {
                               {submissionResult.data.details.actualOutput || '(không có đầu ra)'}
                             </pre>
                           </div>
-                          
+
                           <div className="mt-2">
                             <p className="text-xs text-gray-500">Đầu ra mong muốn:</p>
                             <pre className="text-xs bg-white p-2 rounded mt-1 overflow-x-auto">
                               {submissionResult.data.details.expectedOutput}
                             </pre>
                           </div>
-                          
+
                           {submissionResult.data.passed && submissionResult.data.details.metrics && (
                             <div className="mt-2 text-xs text-gray-600">
                               <p>Thời gian chạy: {submissionResult.data.details.metrics.executionTime.toFixed(2)} ms</p>
@@ -1979,12 +1959,12 @@ const CompetitionDetail = () => {
                   )}
                 </div>
               </div>
-              
+
               {/* Code editor */}
               <div className="flex-1 flex flex-col">
                 <div className="p-2 border-b flex items-center">
                   <label className="mr-2 text-sm">Ngôn ngữ:</label>
-                  <select 
+                  <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
                     className="p-1 border rounded text-sm"
@@ -1995,7 +1975,7 @@ const CompetitionDetail = () => {
                     <option value="java">Java</option>
                   </select>
                 </div>
-                
+
                 <div className="flex-1">
                   <CodeEditor
                     code={code}
@@ -2004,7 +1984,7 @@ const CompetitionDetail = () => {
                     theme="vs-dark"
                   />
                 </div>
-                
+
                 <div className="p-3 border-t flex justify-between">
                   <button
                     onClick={() => setShowSolutionEditor(false)}
@@ -2012,13 +1992,13 @@ const CompetitionDetail = () => {
                   >
                     Hủy
                   </button>
-                  
+
                   <button
                     onClick={handleSubmitSolution}
                     disabled={isSubmitting}
                     className={`px-4 py-2 rounded-md ${
-                      isSubmitting 
-                        ? 'bg-gray-400 cursor-not-allowed' 
+                      isSubmitting
+                        ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-green-600 hover:bg-green-700'
                     } text-white font-medium flex items-center`}
                   >
@@ -2041,4 +2021,4 @@ const CompetitionDetail = () => {
   );
 };
 
-export default CompetitionDetail; 
+export default CompetitionDetail;

@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import Editor from '@monaco-editor/react';
-import { 
+import {
   ArrowLeftIcon,
   ClockIcon,
   CodeBracketIcon,
@@ -16,6 +16,9 @@ import {
   ChevronUpIcon,
   InformationCircleIcon,
   ArrowPathIcon,
+  ComputerDesktopIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/outline';
 import { API_URL } from '../../config';
 import {
@@ -141,7 +144,7 @@ public class Main {
         // Giải quyết vấn đề ở đây
         return "Kết quả của bài toán";
     }
-    
+
     // Hàm main để chạy chương trình
     public static void main(String[] args) {
         String result = solveProblem();
@@ -193,7 +196,7 @@ class Program {
         // Giải quyết vấn đề ở đây
         return "Kết quả của bài toán";
     }
-    
+
     // Hàm main để chạy chương trình
     static void Main() {
         string result = SolveProblem();
@@ -259,7 +262,7 @@ main();
 // Add a function to detect programming language from code
 const detectProgrammingLanguage = (code) => {
   if (!code || code.trim() === '') return null;
-  
+
   // Convert code to lowercase for case-insensitive matching
   const codeLC = code.toLowerCase();
   let scores = {
@@ -269,7 +272,7 @@ const detectProgrammingLanguage = (code) => {
     csharp: 0,
     javascript: 0
   };
-  
+
   // Python indicators (more precise patterns)
   if (codeLC.includes('def ') && codeLC.includes(':')) scores.python += 5;
   if (codeLC.includes('print(')) scores.python += 3;
@@ -286,7 +289,7 @@ const detectProgrammingLanguage = (code) => {
   if (colonCount > 2) scores.python += colonCount;
   const indentCount = (code.match(/^[ \t]+/gm) || []).length;
   if (indentCount > 2) scores.python += Math.min(indentCount, 5);
-  
+
   // C++ indicators (more precise patterns)
   if (/#include\s*<[a-zA-Z0-9_./]+>/.test(codeLC)) scores.cpp += 5;
   if (codeLC.includes('using namespace std')) scores.cpp += 5;
@@ -297,7 +300,7 @@ const detectProgrammingLanguage = (code) => {
   if (/#define/.test(codeLC)) scores.cpp += 3;
   if (/\)\s*{\s*$/.test(codeLC)) scores.cpp += 2;
   if (/#include\s*<(vector|string|map|algorithm|iostream|cstdio)>/.test(codeLC)) scores.cpp += 4;
-  
+
   // Java indicators (more precise patterns)
   if (/public\s+class\s+[A-Za-z0-9_]+/.test(codeLC)) scores.java += 5;
   if (/public\s+static\s+void\s+main/.test(codeLC)) scores.java += 5;
@@ -308,7 +311,7 @@ const detectProgrammingLanguage = (code) => {
   if (/@Override/.test(codeLC)) scores.java += 5;
   if (/new\s+[A-Za-z0-9_]+\s*\(/.test(codeLC)) scores.java += 2;
   if (/String\[\]\s+args/.test(codeLC)) scores.java += 3;
-  
+
   // C# indicators (more precise patterns)
   if (/using\s+System;/i.test(codeLC)) scores.csharp += 5;
   if (/namespace\s+[A-Za-z0-9_]+/.test(codeLC)) scores.csharp += 4;
@@ -316,7 +319,7 @@ const detectProgrammingLanguage = (code) => {
   if (/static\s+void\s+Main\s*\(string\[\]\s+args\)/.test(codeLC)) scores.csharp += 5;
   if (/\.(NET|cs|csproj)/.test(codeLC)) scores.csharp += 3;
   if (/public\s+class\s+[A-Za-z0-9_]+/.test(codeLC) && /Console\./.test(codeLC)) scores.csharp += 4;
-  
+
   // JavaScript indicators (more precise patterns)
   if (/console\.log\(/.test(codeLC)) scores.javascript += 4;
   if (/function\s+[A-Za-z0-9_]*\s*\(/.test(codeLC)) scores.javascript += 3;
@@ -328,47 +331,47 @@ const detectProgrammingLanguage = (code) => {
   if (/\$\(/.test(codeLC) || /jQuery\(/.test(codeLC)) scores.javascript += 4;
   if (/Promise\(/.test(codeLC) || /async\s+function/.test(codeLC) || /await\s+/.test(codeLC)) scores.javascript += 4;
   if (/\[.*\]\.map\(/.test(codeLC) || /\[.*\]\.filter\(/.test(codeLC)) scores.javascript += 3;
-  
+
   // Common patterns that can help disambiguate
   // C++, Java & C# have semicolons and braces, Python doesn't
   if (codeLC.includes(';') && codeLC.includes('{') && codeLC.includes('}')) {
     scores.python -= 4;
   }
-  
+
   // JavaScript doesn't usually have types before variables
-  if (/int\s+[a-zA-Z_][a-zA-Z0-9_]*\s*=/.test(codeLC) || 
+  if (/int\s+[a-zA-Z_][a-zA-Z0-9_]*\s*=/.test(codeLC) ||
       /float\s+[a-zA-Z_][a-zA-Z0-9_]*\s*=/.test(codeLC) ||
       /double\s+[a-zA-Z_][a-zA-Z0-9_]*\s*=/.test(codeLC)) {
     scores.javascript -= 3;
   }
-  
+
   // Python doesn't use braces for blocks
   if (codeLC.includes('{') && codeLC.includes('}')) {
     scores.python -= 3;
   }
-  
+
   // JavaScript doesn't usually have strict types
   if (/void\s+/.test(codeLC) || /int\s+/.test(codeLC) || /double\s+/.test(codeLC)) {
     scores.javascript -= 2;
   }
-  
+
   // Find highest scoring language
   let maxScore = 0;
   let detectedLang = null;
-  
+
   for (const [lang, score] of Object.entries(scores)) {
     if (score > maxScore && score >= 3) { // Only consider if score is significant
       maxScore = score;
       detectedLang = lang;
     }
   }
-  
+
   console.log('Language detection scores:', scores, 'Detected:', detectedLang);
-  
+
   if (detectedLang) {
     return PROGRAMMING_LANGUAGES.find(lang => lang.id === detectedLang);
   }
-  
+
   return null;
 };
 
@@ -396,11 +399,17 @@ const ArenaCode = () => {
   const [isDockerAvailable, setIsDockerAvailable] = useState(false);
   const [checkingDocker, setCheckingDocker] = useState(true);
   const [recentlyDetected, setRecentlyDetected] = useState(false); // State to track if we just loaded a submitted solution
-  
+  const [dockerStatus, setDockerStatus] = useState({
+    available: false,
+    message: 'Chưa kiểm tra Docker',
+    checking: false,
+    details: {}
+  });
+
   // Track problems that have been completed
   const [completedProblems, setCompletedProblems] = useState([]);
   const [solutionLocked, setSolutionLocked] = useState(false);
-  
+
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [remainingTime, setRemainingTime] = useState(null);
@@ -454,7 +463,7 @@ const ArenaCode = () => {
         navigate('/competitions');
         return;
       }
-      
+
       try {
         // Check if user is logged in
         if (!currentUser) {
@@ -462,13 +471,13 @@ const ArenaCode = () => {
           navigate('/login', { state: { from: location.pathname } });
           return;
         }
-        
+
         // Check Docker availability
         checkDockerAvailability();
-        
+
         // Fetch competition data
         await fetchCompetitionData();
-        
+
         // Fetch problems for this competition
         await fetchProblems();
       } catch (error) {
@@ -477,11 +486,11 @@ const ArenaCode = () => {
       } finally {
         setInitializing(false);
       }
-      
+
       // Load completed problems from localStorage and API
       fetchCompletedProblems();
     };
-    
+
     fetchInitialData();
   }, [competitionId, navigate, currentUser]);
 
@@ -491,20 +500,20 @@ const ArenaCode = () => {
       // First try to get from localStorage for immediate display
       const localStorageKey = `completedProblems_${competitionId}`;
       const localCompleted = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-      
+
       if (localCompleted.length > 0) {
         setCompletedProblems(localCompleted);
       }
-      
+
       // Then try to get from API if user is logged in
       if (currentUser?.token) {
         const apiCompletedProblems = await getCompletedProblems(competitionId, currentUser.token);
-        
+
         if (apiCompletedProblems && apiCompletedProblems.length > 0) {
           // Combine with local storage, removing duplicates
           const allCompleted = [...new Set([...localCompleted, ...apiCompletedProblems.map(p => p.ProblemID)])];
           setCompletedProblems(allCompleted);
-          
+
           // Update localStorage
           localStorage.setItem(localStorageKey, JSON.stringify(allCompleted));
         }
@@ -521,22 +530,22 @@ const ArenaCode = () => {
     checkDockerAvailability().then(isAvailable => {
       console.log(`Docker availability checked silently: ${isAvailable ? 'Available' : 'Not Available'}`);
     });
-    
+
     // Apply default template for the selected language if no solution exists
     if (!solution) {
       setSolution(LANGUAGE_TEMPLATES[selectedLanguage.id] || '');
     }
-    
+
     // Check if we have the competition title from the details page
     if (location.state?.competitionTitle) {
       document.title = `${location.state.competitionTitle} - Đấu trường`;
     }
-    
+
     // Add the cursor blink animation style to the document
     const styleElement = document.createElement('style');
     styleElement.innerHTML = cursorBlinkStyle;
     document.head.appendChild(styleElement);
-    
+
     // Cleanup style element on component unmount
     return () => {
       document.head.removeChild(styleElement);
@@ -547,59 +556,164 @@ const ArenaCode = () => {
   const checkDockerAvailability = async () => {
     try {
       console.log('Checking Docker service availability...');
-      // Use AbortController for better timeout handling
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const response = await fetch(`${API_URL}/api/code-execution/health`, {
-        headers: {
-          'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
-        },
-        signal: controller.signal
-      }).catch((error) => {
-        console.error('Health check failed:', error);
-        return { ok: false, status: 404, statusText: error.message };
+      setDockerStatus({
+        available: false,
+        message: 'Đang kiểm tra Docker...',
+        checking: true
       });
-      
-      clearTimeout(timeoutId);
-      
-      // Check if response is valid
-      if (!response.ok) {
-        console.warn(`Docker health check failed with status: ${response.status}`);
-        setIsDockerAvailable(false);
-        
-        // Try to auto-start the execution service if it's not running
-        if (response.status === 404) {
-          console.log('Attempting to start Docker execution service...');
-          await startDockerExecutionService();
+
+      // First try the dedicated Docker status endpoint
+      try {
+        // Use AbortController for better timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(`${API_URL}/api/docker-status`, {
+          headers: {
+            'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+          const isAvailable = data.dockerAvailable;
+
+          setIsDockerAvailable(isAvailable);
+          setDockerCheckPerformed(true);
+
+          // Update Docker status in UI
+          setDockerStatus({
+            available: isAvailable,
+            message: isAvailable ? 'Docker đã sẵn sàng' : 'Docker không khả dụng',
+            details: data.details,
+            checking: false
+          });
+
+          if (isAvailable) {
+            console.log('Docker service is available and ready');
+          } else {
+            console.warn('Docker service is not available:', data.message || 'Unknown error');
+
+            // Try to auto-start the execution service if it's not running
+            if (!isAvailable) {
+              console.log('Attempting to start Docker execution service...');
+              await startDockerExecutionService();
+            }
+          }
+
+          return isAvailable;
+        }
+      } catch (dockerStatusError) {
+        console.error('Docker status check failed:', dockerStatusError);
+      }
+
+      // Fall back to the health check endpoint
+      try {
+        // Use AbortController for better timeout handling
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(`${API_URL}/api/code-execution/health`, {
+          headers: {
+            'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
+          },
+          signal: controller.signal
+        }).catch((error) => {
+          console.error('Health check failed:', error);
+          return { ok: false, status: 404, statusText: error.message };
+        });
+
+        clearTimeout(timeoutId);
+
+        // Check if response is valid
+        if (!response.ok) {
+          console.warn(`Docker health check failed with status: ${response.status}`);
+          setIsDockerAvailable(false);
+          setDockerCheckPerformed(true);
+
+          setDockerStatus({
+            available: false,
+            message: 'Docker không khả dụng',
+            error: `Health check failed: ${response.status} ${response.statusText}`,
+            checking: false
+          });
+
+          // Try to auto-start the execution service if it's not running
+          if (response.status === 404) {
+            console.log('Attempting to start Docker execution service...');
+            await startDockerExecutionService();
+          }
+
           return false;
         }
-        
-        return false;
-      }
-      
-      try {
-        const data = await response.json();
-        
-        // Updated to match the format in executionService.js
-        const isAvailable = data.status === 'ok';
-        setIsDockerAvailable(isAvailable);
-        
-        if (isAvailable) {
-          console.log('Docker service is available and ready');
-        } else {
-          console.warn('Docker service responded but is not ready:', data.message || 'Unknown error');
+
+        try {
+          const data = await response.json();
+
+          // Updated to match the format in executionService.js
+          const isAvailable = data.status === 'ok';
+          const dockerAvailable = data.dockerAvailable || false;
+
+          setIsDockerAvailable(isAvailable && dockerAvailable);
+          setDockerCheckPerformed(true);
+
+          setDockerStatus({
+            available: isAvailable && dockerAvailable,
+            message: (isAvailable && dockerAvailable) ? 'Docker đã sẵn sàng' : 'Docker không khả dụng',
+            details: data.dockerStatus || {},
+            checking: false
+          });
+
+          if (isAvailable && dockerAvailable) {
+            console.log('Docker service is available and ready');
+          } else {
+            console.warn('Docker service responded but is not ready:', data.message || 'Unknown error');
+          }
+
+          return isAvailable && dockerAvailable;
+        } catch (parseError) {
+          console.error('Error parsing health check response:', parseError);
+          setIsDockerAvailable(false);
+          setDockerCheckPerformed(true);
+
+          setDockerStatus({
+            available: false,
+            message: 'Lỗi khi kiểm tra Docker',
+            error: parseError.message,
+            checking: false
+          });
+
+          return false;
         }
-        
-        return isAvailable;
-      } catch (parseError) {
-        console.error('Error parsing health check response:', parseError);
+      } catch (error) {
+        console.error('Error checking Docker availability:', error);
         setIsDockerAvailable(false);
+        setDockerCheckPerformed(true);
+
+        setDockerStatus({
+          available: false,
+          message: 'Lỗi khi kiểm tra Docker',
+          error: error.message,
+          checking: false
+        });
+
         return false;
       }
     } catch (error) {
-      console.error('Error checking Docker availability:', error);
+      console.error('Error in Docker availability check:', error);
       setIsDockerAvailable(false);
+      setDockerCheckPerformed(true);
+
+      setDockerStatus({
+        available: false,
+        message: 'Lỗi khi kiểm tra Docker',
+        error: error.message,
+        checking: false
+      });
+
       return false;
     }
   };
@@ -609,23 +723,23 @@ const ArenaCode = () => {
     let timer;
     if (competition && isCompetitionActive) {
       const endTime = new Date(competition.EndTime).getTime();
-      
+
       timer = setInterval(() => {
         const now = new Date().getTime();
         const distance = endTime - now;
-        
+
         if (distance <= 0) {
           clearInterval(timer);
           setIsCompetitionActive(false);
           toast.info('Cuộc thi đã kết thúc!');
           return;
         }
-        
+
         // Calculate time units
         const hours = Math.floor(distance / (1000 * 60 * 60));
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-        
+
         setRemainingTime({
           hours,
           minutes,
@@ -633,7 +747,7 @@ const ArenaCode = () => {
         });
       }, 1000);
     }
-    
+
     return () => {
       if (timer) clearInterval(timer);
     };
@@ -647,7 +761,7 @@ const ArenaCode = () => {
       // Apply language template if no starter code AND no existing solution
       setSolution(LANGUAGE_TEMPLATES[selectedLanguage.id] || '');
     }
-    
+
     // When a new problem is selected, set all problem information sections to expanded
     setExpandedSections({
       description: true,
@@ -655,7 +769,7 @@ const ArenaCode = () => {
       outputFormat: true,
       sampleCases: true,
     });
-    
+
     // If there are visible test cases, load the first one
     if (activeProblem?.TestCasesVisible) {
       try {
@@ -673,17 +787,17 @@ const ArenaCode = () => {
   const fetchCompetitionData = async () => {
     try {
       setLoading(true);
-      
+
       const data = await getCompetitionById(competitionId, currentUser?.token);
-      
+
       if (data) {
         setCompetition(data);
-        
+
         // Check if competition is active
         const now = new Date();
         const startTime = new Date(data.StartTime);
         const endTime = new Date(data.EndTime);
-        
+
         setIsCompetitionActive(now >= startTime && now < endTime);
       } else {
         toast.error('Không thể tải thông tin cuộc thi');
@@ -702,11 +816,11 @@ const ArenaCode = () => {
   const fetchProblems = async () => {
     try {
       const data = await getCompetitionProblems(competitionId, currentUser?.token);
-      
+
       if (data && data.length > 0) {
         setProblems(data);
         setActiveProblem(data[0]);
-        
+
         // Check Docker availability after problems are loaded
         const isDockerAvailable = await checkDockerAvailability();
         if (!isDockerAvailable) {
@@ -718,7 +832,7 @@ const ArenaCode = () => {
                 <div className="font-medium">Docker không khả dụng</div>
                 <p className="text-xs">Không thể chạy code. Nhấn để khởi động.</p>
               </div>
-              <button 
+              <button
                 onClick={async () => {
                   toast.dismiss(t.id);
                   await startDockerExecutionService();
@@ -750,16 +864,16 @@ const ArenaCode = () => {
         addToTerminalHistory('error', 'Bạn cần đăng nhập để xem bài nộp.');
         return null;
       }
-      
+
       console.log(`Fetching submitted solution for problem ${problemId} in competition ${competitionId}`);
       addToTerminalHistory('system', `Đang tải bài nộp cho bài ${problemId}...`);
-      
+
       // Kiểm tra xem đã đăng ký cuộc thi chưa
       try {
         const registrationStatus = await checkRegistrationStatus(competitionId, currentUser.token);
         if (!registrationStatus.isRegistered) {
           addToTerminalHistory('system', 'Bạn chưa đăng ký cuộc thi này. Đang tự động đăng ký...');
-          
+
           // Tự động đăng ký
           try {
             await registerCompetition(competitionId, currentUser.token);
@@ -775,15 +889,15 @@ const ArenaCode = () => {
         addToTerminalHistory('error', 'Không thể kiểm tra trạng thái đăng ký cuộc thi.');
         return null;
       }
-      
+
       try {
         const response = await getSubmittedSolution(competitionId, problemId, currentUser.token);
-        
+
         console.log('Full solution response:', response);
-        
+
         if (response && response.success && response.sourceCode) {
           console.log(`Solution found for problem ${problemId}, status: ${response.status || 'unknown'}`);
-          
+
           // Check if the solution is accepted or not
           const isAccepted = response.status === 'accepted';
           if (isAccepted) {
@@ -791,18 +905,18 @@ const ArenaCode = () => {
           } else {
             addToTerminalHistory('warning', `Đã tìm thấy bài nộp đã nộp trước đó nhưng chưa hoàn thành (${response.status || 'chưa chấp nhận'}).`);
           }
-          
+
           setRecentlyDetected(true);
           return response.sourceCode;
         }
-        
+
         console.log(`No solution found for problem ${problemId}`);
         addToTerminalHistory('warning', 'Không tìm thấy bài nộp cho bài này.');
         setRecentlyDetected(false);
         return null;
       } catch (error) {
         console.error('Error fetching submitted solution:', error);
-        
+
         // API now returns 200 even for errors, so we need to check if we have response data
         if (error.response && error.response.data) {
           // Extract error message from response
@@ -811,7 +925,7 @@ const ArenaCode = () => {
           } else {
           addToTerminalHistory('error', `Lỗi khi tải bài nộp: ${error.message}`);
         }
-        
+
         setRecentlyDetected(false);
         return null;
       }
@@ -827,45 +941,45 @@ const ArenaCode = () => {
   const handleProblemSelect = async (problem) => {
     // Set the new active problem
     setActiveProblem(problem);
-    
+
     // Check if this problem has been completed
     const isProblemCompleted = completedProblems.includes(problem.ProblemID);
     setSolutionLocked(isProblemCompleted);
-    
+
     // Nếu bài tập đã hoàn thành, tự động đóng terminal nếu đang mở
     if (isProblemCompleted && isTerminalVisible) {
       setIsTerminalVisible(false);
     }
-    
+
     // Reset recentlyDetected state
     setRecentlyDetected(false);
-    
+
     // Show debug info
     console.log('Problem selected:', problem);
     console.log('Is problem completed?', isProblemCompleted);
-    
-    // First try to use a submitted solution 
+
+    // First try to use a submitted solution
     let foundSolution = false;
-    
+
     // For completed problems, try to fetch the submitted solution
     if (isProblemCompleted) {
       // First add message to terminal
       addToTerminalHistory('system', 'Đang tải bài nộp đã hoàn thành...');
-      
+
       // Check if we already have the submitted solution cached
       if (submittedSolutions[problem.ProblemID]) {
         console.log('Using cached submitted solution');
         setSolution(submittedSolutions[problem.ProblemID]);
         setRecentlyDetected(true);
         foundSolution = true;
-        
+
         // Detect language from submitted solution
         const detectedLang = detectProgrammingLanguage(submittedSolutions[problem.ProblemID]);
         if (detectedLang && detectedLang.id !== selectedLanguage.id) {
           setSelectedLanguage(detectedLang);
           addToTerminalHistory('system', `Đã phát hiện ngôn ngữ từ bài nộp: ${detectedLang.name}`);
         }
-        
+
         // Add warning that solution is readonly
         addToTerminalHistory('system', 'Bài tập đã hoàn thành, bạn chỉ có thể xem code.');
       } else {
@@ -873,25 +987,25 @@ const ArenaCode = () => {
         try {
           console.log('Fetching submitted solution from API');
           const submittedSolution = await fetchSubmittedSolution(problem.ProblemID);
-          
+
           if (submittedSolution) {
             console.log('Submitted solution found:', submittedSolution.substring(0, 50) + '...');
             // Cache the submitted solution
             setSubmittedSolutions(prev => ({
-        ...prev, 
+        ...prev,
               [problem.ProblemID]: submittedSolution
             }));
-            
+
             setSolution(submittedSolution);
             foundSolution = true;
-            
+
             // Detect language from submitted solution
             const detectedLang = detectProgrammingLanguage(submittedSolution);
             if (detectedLang && detectedLang.id !== selectedLanguage.id) {
               setSelectedLanguage(detectedLang);
               addToTerminalHistory('system', `Đã phát hiện ngôn ngữ từ bài nộp: ${detectedLang.name}`);
             }
-            
+
             addToTerminalHistory('success', 'Đã tải thành công bài nộp đã hoàn thành.');
             // Add warning that solution is readonly
             addToTerminalHistory('system', 'Bài tập đã hoàn thành, bạn chỉ có thể xem code.');
@@ -901,7 +1015,7 @@ const ArenaCode = () => {
         }
       }
     }
-    
+
     // If nothing found, use starter code
     if (!foundSolution) {
       console.log('Using starter code');
@@ -915,10 +1029,10 @@ const ArenaCode = () => {
   const handleEditorChange = (value) => {
     // Không cho phép sửa đổi nếu bài đã hoàn thành
     if (solutionLocked) return;
-    
+
     // Cập nhật giá trị solution
     setSolution(value);
-    
+
     // Thêm logic phát hiện ngôn ngữ
     if (value && value.length > 0) {
       // Nếu chúng ta vừa phát hiện được một solution đã tồn tại, bỏ qua việc phát hiện ngôn ngữ
@@ -926,7 +1040,7 @@ const ArenaCode = () => {
         setRecentlyDetected(false);
       } else {
         // For regular typing, only detect after certain triggers or enough content
-        const shouldAttemptDetection = 
+        const shouldAttemptDetection =
           value.length > 50 || // Enough content overall
           value.includes('#include') || // C/C++ indicator
           value.includes('import ') || // Java, Python, etc. indicator
@@ -934,7 +1048,7 @@ const ArenaCode = () => {
           value.includes('def ') || // Python indicator
           value.includes('class ') || // OOP indicator
           value.includes('public static void main'); // Java indicator
-        
+
         if (shouldAttemptDetection) {
           const detectedLang = detectProgrammingLanguage(value);
           if (detectedLang && detectedLang.id !== selectedLanguage.id) {
@@ -972,7 +1086,7 @@ const ArenaCode = () => {
       if (solution) {
         const detectedLanguage = detectLanguage(solution);
         if (detectedLanguage && detectedLanguage !== selectedLanguage.id) {
-          const langObj = languages.find(l => l.id === detectedLanguage);
+          const langObj = PROGRAMMING_LANGUAGES.find(l => l.id === detectedLanguage);
           if (langObj) {
             setSelectedLanguage(langObj);
             addToTerminalHistory('system', `Đã tự động chuyển sang ngôn ngữ ${langObj.name}`);
@@ -994,17 +1108,17 @@ const ArenaCode = () => {
 
       // Kiểm tra xem bài toán hiện tại có cần input không
       const requiresInput = checkIfProblemRequiresInput();
-      
+
       // Chạy code với Docker
       const result = await executeCodeWithDocker();
-      
+
       // Nếu có kết quả đầu ra và không có input, kiểm tra kết quả ngay lập tức
       if (result && result.stdout && !requiresInput) {
         // Tự động kiểm tra kết quả sau 300ms để đảm bảo output đã được hiển thị
         setTimeout(() => {
           autoCheckSolution(result.stdout);
         }, 300);
-      } 
+      }
       // Nếu cần input nhưng không có kết nối hoặc executionId
       else if (requiresInput && (!executionId || !isDockerAvailable)) {
         // Chỉ hiển thị gợi ý khi cần nhập input
@@ -1016,88 +1130,163 @@ const ArenaCode = () => {
       setIsRunning(false);
     }
   };
-  
+
   // Hàm kiểm tra xem bài toán có cần input không dựa trên test case
   const checkIfProblemRequiresInput = () => {
     if (!activeProblem || !activeProblem.testCases || activeProblem.testCases.length === 0) {
       return false;
     }
-    
+
     // Kiểm tra test case đầu tiên có input không
     const firstTestCase = activeProblem.testCases[0];
     return firstTestCase && firstTestCase.input && firstTestCase.input.trim().length > 0;
   };
 
   const handleSubmitSolution = async () => {
-    if (!selectedProblem) {
+    if (!activeProblem) {
         toast.error('Vui lòng chọn bài tập trước khi nộp');
         return;
     }
 
-    if (!code) {
+    if (!solution || solution.trim() === '') {
         toast.error('Vui lòng viết code trước khi nộp');
         return;
     }
 
+    // Check if Docker is available before submitting
+    if (!isDockerAvailable && !dockerCheckPerformed) {
+        setDockerCheckPerformed(true);
+        addToTerminalHistory('system', 'Đang kiểm tra Docker trước khi nộp bài...');
+        const dockerAvailable = await checkDockerAvailability();
+
+        if (!dockerAvailable) {
+            // Show Docker warning with action button
+            toast((t) => (
+                <div className="flex items-center">
+                    <XCircleIcon className="w-5 h-5 text-red-500 mr-2" />
+                    <div>
+                        <div className="font-medium">Docker không khả dụng</div>
+                        <p className="text-xs">Cần Docker để chạy code. Nhấn để khởi động.</p>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            const started = await startDockerExecutionService();
+                            if (started) {
+                                // If Docker started successfully, try submitting again
+                                setTimeout(() => handleSubmitSolution(), 2000);
+                            }
+                        }}
+                        className="ml-3 bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                    >
+                        Khởi động
+                    </button>
+                </div>
+            ), {
+                duration: 10000,
+                id: 'docker-submit-warning'
+            });
+
+            addToTerminalHistory('error', 'Docker không khả dụng. Không thể nộp bài.');
+            return;
+        }
+    }
+
     try {
         setIsSubmitting(true);
-        setTerminalOutput([]);
+
+        // Show terminal if not visible
+        if (!isTerminalVisible) {
+            setIsTerminalVisible(true);
+        }
+
+        // Clear terminal output and add submission message
+        setTerminalHistory([]);
         addToTerminalHistory('info', 'Đang nộp bài...');
 
         // Get test cases from API
-        const response = await axios.get(`${API_URL}/api/competitions/${competitionId}/problems/${selectedProblem.ProblemID}/test-cases`);
+        const response = await axios.get(`${API_URL}/api/competitions/${competitionId}/problems/${activeProblem.ProblemID}/test-cases`);
         const testCases = response.data;
 
         // Execute code with test cases
-        const executionResponse = await axios.post(`${API_URL}/api/execute`, {
-            code,
-            language: selectedLanguage,
+        addToTerminalHistory('system', 'Đang chạy code với test cases...');
+        const executionResponse = await axios.post(`${API_URL}/api/code-execution/execute`, {
+            code: solution,
+            language: selectedLanguage.id,
             testCases
+        }, {
+            headers: {
+                'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
+            }
         });
+
+        if (!executionResponse.data.success) {
+            throw new Error(executionResponse.data.message || 'Lỗi khi chạy code');
+        }
 
         const { results, score, passedCount, totalCount } = executionResponse.data.data;
 
         // Display results
         addToTerminalHistory('info', `Kết quả: ${passedCount}/${totalCount} test cases đúng (${score}%)`);
-        
+
         results.forEach((result, index) => {
             addToTerminalHistory('info', `\nTest case ${index + 1}:`);
             addToTerminalHistory('info', `Input: ${result.input}`);
             addToTerminalHistory('info', `Expected Output: ${result.expectedOutput}`);
             addToTerminalHistory('info', `Actual Output: ${result.actualOutput}`);
-            addToTerminalHistory(result.passed ? 'success' : 'error', 
+            addToTerminalHistory(result.passed ? 'success' : 'error',
                 result.passed ? '✓ Đúng' : '✗ Sai');
-            
+
             if (result.stderr) {
                 addToTerminalHistory('error', `Lỗi: ${result.stderr}`);
             }
         });
 
         // Submit solution to API
-        const submissionResponse = await submitSolution(competitionId, selectedProblem.ProblemID, {
-            sourceCode: code,
-            language: selectedLanguage,
-            score: score
-        });
+        addToTerminalHistory('system', 'Đang gửi bài nộp lên hệ thống...');
+        const submissionResponse = await submitSolution(
+            competitionId,
+            activeProblem.ProblemID,
+            solution,
+            currentUser.token,
+            selectedLanguage.id
+        );
 
         if (submissionResponse.success) {
             toast.success('Nộp bài thành công!');
+            addToTerminalHistory('success', '🎉 Nộp bài thành công!');
             triggerCelebration();
-            
+
             // Update completed problems
             if (score === 100) {
-                setCompletedProblems(prev => [...prev, selectedProblem.ProblemID]);
+                setCompletedProblems(prev => {
+                    const newCompletedProblems = [...new Set([...prev, activeProblem.ProblemID])];
+                    // Update localStorage
+                    const localStorageKey = `completedProblems_${competitionId}`;
+                    localStorage.setItem(localStorageKey, JSON.stringify(newCompletedProblems));
+                    return newCompletedProblems;
+                });
+
+                // Lock solution since it's now completed
+                setSolutionLocked(true);
+
+                // Cache the submitted solution
+                setSubmittedSolutions(prev => ({
+                    ...prev,
+                    [activeProblem.ProblemID]: solution
+                }));
             }
-            
+
             // Update score and ranking
-            await updateScoreAndRanking(selectedProblem, code, selectedLanguage);
+            await updateScoreAndRanking(activeProblem, solution, selectedLanguage.id);
         } else {
             toast.error('Nộp bài thất bại: ' + submissionResponse.message);
+            addToTerminalHistory('error', `Nộp bài thất bại: ${submissionResponse.message}`);
         }
     } catch (error) {
         console.error('Submit error:', error);
-        addToTerminalHistory('error', 'Lỗi khi nộp bài: ' + error.message);
-        toast.error('Lỗi khi nộp bài: ' + error.message);
+        addToTerminalHistory('error', `Lỗi khi nộp bài: ${error.message}`);
+        toast.error(`Lỗi khi nộp bài: ${error.message}`);
     } finally {
         setIsSubmitting(false);
     }
@@ -1116,72 +1305,117 @@ const ArenaCode = () => {
       toast.error('Vui lòng nhập giải pháp trước khi chạy');
       return;
     }
-    
+
     try {
       setIsRunning(true);
-      
+
       // Parse code for input statements before execution
       const inputs = parseCodeForInputs(solution);
       setDetectedInputs(inputs);
-      
+
       if (inputs.length > 0) {
         // Reset program inputs and start from first input
         setProgramInputs([]);
         setCurrentInputIndex(0);
         setInputPrompt(inputs[0].prompt);
-        
+
         // Show terminal and set to input mode
         setTerminalMode('input');
-        setIsTerminalVisible(true); 
+        setIsTerminalVisible(true);
       }
-      
+
       // Reset terminal output
       setStdout('');
       setStderr('');
       setActualOutput('');
-      
-      // Check if Docker is available before trying to execute
+
+      // Check Docker availability first
       if (!isDockerAvailable) {
-        addToTerminalHistory('system', 'Checking Docker service availability...');
-        const dockerAvailable = await checkDockerAvailability();
-        if (!dockerAvailable) {
-          addToTerminalHistory('error', 'Docker service is not available');
-          addToTerminalHistory('system', 'Attempting to start Docker service...');
-          
-          // Try to start the Docker service
-          const started = await startDockerExecutionService();
-          if (!started) {
-            addToTerminalHistory('error', 'Could not start Docker service automatically');
-            addToTerminalHistory('system', 'Switching to offline mode for input collection only');
-            
-            // If we have inputs detected, still enable manual input collection
-            if (inputs.length > 0) {
-              setIsInputRequested(true);
-              setTerminalMode('input');
+        addToTerminalHistory('system', 'Kiểm tra Docker trước khi chạy code...');
+
+        // First check Docker availability using the dedicated endpoint
+        try {
+          const dockerResponse = await fetch(`${API_URL}/api/docker-status`, {
+            headers: {
+              'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
+            }
+          });
+
+          if (dockerResponse.ok) {
+            const dockerData = await dockerResponse.json();
+
+            if (dockerData.dockerAvailable) {
+              setIsDockerAvailable(true);
+              addToTerminalHistory('success', 'Docker đã sẵn sàng!');
             } else {
+              addToTerminalHistory('error', 'Docker không khả dụng');
+              addToTerminalHistory('system', 'Đang thử khởi động Docker...');
+
+              // Try to start the Docker service
+              const started = await startDockerExecutionService();
+              if (!started) {
+                addToTerminalHistory('error', 'Không thể khởi động Docker tự động');
+                addToTerminalHistory('system', 'Chuyển sang chế độ offline (chỉ nhập input)');
+
+                // If we have inputs detected, still enable manual input collection
+                if (inputs.length > 0) {
+                  setIsInputRequested(true);
+                  setTerminalMode('input');
+                } else {
+                  setIsRunning(false);
+                  toast.error('Docker không khả dụng, không thể chạy code');
+                  return { stdout: '', stderr: 'Docker service unavailable' };
+                }
+              } else {
+                // If service was started, wait a bit then retry execution
+                addToTerminalHistory('success', 'Docker đã được khởi động! Đang thử chạy code lại...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Recursively call executeCodeWithDocker again
+                setIsRunning(false);
+                return executeCodeWithDocker();
+              }
+            }
+          } else {
+            throw new Error('Không thể kiểm tra trạng thái Docker');
+          }
+        } catch (dockerCheckError) {
+          console.error('Error checking Docker status:', dockerCheckError);
+          addToTerminalHistory('error', 'Lỗi khi kiểm tra Docker: ' + dockerCheckError.message);
+
+          // Fall back to the regular health check
+          const dockerAvailable = await checkDockerAvailability();
+          if (!dockerAvailable) {
+            addToTerminalHistory('error', 'Docker không khả dụng');
+            addToTerminalHistory('system', 'Đang thử khởi động Docker...');
+
+            // Try to start the Docker service
+            const started = await startDockerExecutionService();
+            if (!started) {
+              addToTerminalHistory('error', 'Không thể khởi động Docker tự động');
               setIsRunning(false);
               toast.error('Docker không khả dụng, không thể chạy code');
               return { stdout: '', stderr: 'Docker service unavailable' };
+            } else {
+              // If service was started, wait a bit then retry execution
+              addToTerminalHistory('success', 'Docker đã được khởi động! Đang thử chạy code lại...');
+              await new Promise(resolve => setTimeout(resolve, 2000));
+
+              // Recursively call executeCodeWithDocker again
+              setIsRunning(false);
+              return executeCodeWithDocker();
             }
-          } else {
-            // If service was started, wait a bit then retry execution
-            addToTerminalHistory('success', 'Docker service started successfully! Retrying code execution...');
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Recursively call executeCodeWithDocker again
-            setIsRunning(false);
-            return executeCodeWithDocker();
           }
         }
       }
-      
+
       // Attempt to execute code but allow for offline input handling
       let executionFailed = false;
       try {
         // First quick health check with a very short timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000); // Short 2s timeout
-        
+
         // Using the health endpoint from executionService.js
         const healthCheck = await fetch(`${API_URL}/api/code-execution/health`, {
           method: 'GET',
@@ -1193,17 +1427,18 @@ const ArenaCode = () => {
           console.error('Health check failed:', err);
           return { ok: false };
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (!healthCheck || !healthCheck.ok) {
-          throw new Error('Execution service is not available');
+          throw new Error('Dịch vụ chạy code không khả dụng');
         }
-        
+
         // If health check passes, proceed with code execution
+        addToTerminalHistory('system', 'Đang chạy code...');
         const executionController = new AbortController();
         const executionTimeoutId = setTimeout(() => executionController.abort(), 30000);
-        
+
         let response;
         try {
           // Match the endpoint path with executionService.js
@@ -1237,29 +1472,29 @@ const ArenaCode = () => {
             }
           );
         }
-        
+
         clearTimeout(executionTimeoutId);
-        
+
         if (response.data.success) {
           const { data } = response.data;
-          
+
           // Xử lý output để loại bỏ các dấu nhắc command line như "c++$" hoặc các prompt shell
           let cleanOutput = '';
           if (data.stdout) {
             cleanOutput = cleanTerminalOutput(data.stdout);
-            
+
             // Add the output to terminal history
             addToTerminalHistory('output', cleanOutput);
             setStdout(cleanOutput);
             setActualOutput(cleanOutput);
           }
-          
+
           if (data.stderr) {
             const cleanError = cleanTerminalOutput(data.stderr);
             addToTerminalHistory('error', cleanError);
             setStderr(cleanError);
           }
-          
+
           // Check if the execution requires input
           if (data.isWaitingForInput || data.needsInput) {
             setIsInputRequested(true);
@@ -1268,78 +1503,78 @@ const ArenaCode = () => {
           } else {
             setTerminalMode('command');
           }
-          
+
           return { stdout: cleanOutput, stderr: data.stderr };
         } else {
           throw new Error(response.data.message || 'Execution failed');
         }
       } catch (apiError) {
         executionFailed = true;
-        
-        let errorMessage = 'Error connecting to execution service';
-        
+
+        let errorMessage = 'Lỗi kết nối đến dịch vụ chạy code';
+
         // Check if we need to start the Docker service
-        if (apiError.code === 'ECONNREFUSED' || apiError.message?.includes('Failed to fetch') || 
+        if (apiError.code === 'ECONNREFUSED' || apiError.message?.includes('Failed to fetch') ||
             apiError.response?.status === 404 || apiError.message?.includes('404')) {
-          errorMessage = 'Docker execution service is not running';
+          errorMessage = 'Dịch vụ chạy code Docker không hoạt động';
           addToTerminalHistory('error', errorMessage);
-          
+
           // Try to start the service automatically
-          addToTerminalHistory('system', 'Attempting to start Docker service automatically...');
+          addToTerminalHistory('system', 'Đang thử khởi động dịch vụ Docker tự động...');
           const started = await startDockerExecutionService();
-          
+
           if (started) {
-            addToTerminalHistory('success', 'Docker service started! You can run your code now.');
-            
+            addToTerminalHistory('success', 'Dịch vụ Docker đã được khởi động! Bạn có thể chạy code ngay bây giờ.');
+
             // Add clickable command to rerun code
-            addToTerminalHistory('system', 'Type "run" or click the Run button to try again.');
+            addToTerminalHistory('system', 'Gõ "run" hoặc nhấn nút Run để thử lại.');
           } else {
-            addToTerminalHistory('error', 'Could not start Docker service automatically.');
-            addToTerminalHistory('system', 'Make sure Docker is running and restart the execution service:');
+            addToTerminalHistory('error', 'Không thể khởi động dịch vụ Docker tự động.');
+            addToTerminalHistory('system', 'Hãy đảm bảo Docker đang chạy và khởi động lại dịch vụ:');
             addToTerminalHistory('code', 'cd services/user-service && npm run start-execution-service');
-            
+
             // Add clickable terminal command for better UX
-            addToTerminalHistory('system', 'Or type "start-docker" in this terminal to try again.');
+            addToTerminalHistory('system', 'Hoặc gõ "start-docker" trong terminal này để thử lại.');
           }
         } else {
           // Handle other types of errors
           if (apiError.response) {
             if (apiError.response.status === 401) {
-              errorMessage = 'Authentication error. Please log in again.';
+              errorMessage = 'Lỗi xác thực. Vui lòng đăng nhập lại.';
             } else if (apiError.response.status === 404) {
-              errorMessage = 'API endpoint not found. Please check your configuration.';
+              errorMessage = 'Không tìm thấy API endpoint. Vui lòng kiểm tra cấu hình.';
             } else {
-              errorMessage = `Server error: ${apiError.response.data?.message || apiError.message}`;
+              errorMessage = `Lỗi server: ${apiError.response.data?.message || apiError.message}`;
             }
             addToTerminalHistory('error', errorMessage);
           } else {
             addToTerminalHistory('error', errorMessage);
           }
-          
+
           toast.error(errorMessage);
         }
       }
-      
+
       // If execution failed but we have inputs detected, enable manual input mode
       if (executionFailed && inputs.length > 0) {
-        addToTerminalHistory('system', 'Enter your inputs below to test your code logic:');
+        addToTerminalHistory('system', 'Nhập input của bạn bên dưới để kiểm tra logic code:');
         setIsInputRequested(true);
       }
     } catch (error) {
       console.error('Error executing code:', error);
-      addToTerminalHistory('error', `Execution error: ${error.message}`);
-      toast.error('Error executing code');
+      addToTerminalHistory('error', `Lỗi chạy code: ${error.message}`);
+      toast.error('Lỗi khi chạy code');
     } finally {
       setIsRunning(false);
     }
-    
+
     return { stdout: '', stderr: '' };
   };
-  
+
   // Hàm để làm sạch đầu ra terminal
   const cleanTerminalOutput = (output) => {
     if (!output) return '';
-    
+
     // Loại bỏ các dấu nhắc shell như "c++$", "bash$", các ký tự ANSI, v.v.
     let cleaned = output
       // Loại bỏ các dấu nhắc terminal phổ biến
@@ -1349,16 +1584,16 @@ const ArenaCode = () => {
       // Loại bỏ các dấu nhắc như "c++", "python" ở cuối
       .replace(/(c\+\+|python|nodejs|java|bash)\s*$/gi, '')
       .trim();
-      
+
     return cleaned;
   };
-  
+
   // Update the sendInputToExecution function to handle multiple inputs correctly
   const sendInputToExecution = async (input) => {
     if (!executionId) {
       // We're in offline mode, so just collect inputs
       addToTerminalHistory('system', 'Input collected (offline mode)');
-      
+
       // Move to next input if available
       if (currentInputIndex < detectedInputs.length - 1) {
         setCurrentInputIndex(prev => prev + 1);
@@ -1366,7 +1601,7 @@ const ArenaCode = () => {
       } else {
         // Simulate simple output for offline mode
         addToTerminalHistory('system', 'All inputs collected. In offline mode, execution results are not available.');
-        
+
         // Try to show a simple simulation for Python sum example
         if (selectedLanguage.id === 'python' && programInputs.length >= 2 && solution.includes('tong = a + b')) {
           try {
@@ -1376,19 +1611,19 @@ const ArenaCode = () => {
               const sum = a + b;
               addToTerminalHistory('output', `[Offline simulation] Tổng của ${a} và ${b} là: ${sum}`);
               setActualOutput(`[Offline simulation] Tổng của ${a} và ${b} là: ${sum}`);
-              
+
               // Kiểm tra kết quả và cập nhật điểm ngay lập tức
               await autoCheckSolution(input, `${sum}`);
             }
           } catch (e) { /* Ignore simulation errors */ }
         }
-        
+
         setIsInputRequested(false);
         setTerminalMode('command');
       }
       return;
     }
-    
+
     try {
       // Use the send-input endpoint from executionService.js
       let response;
@@ -1415,30 +1650,30 @@ const ArenaCode = () => {
           }
         );
       }
-      
+
       if (response.data.success) {
         const { data } = response.data;
-        
+
         // Add the output to terminal history
         if (data.stdout) {
           addToTerminalHistory('output', data.stdout);
           setStdout(prev => prev + data.stdout);
           setActualOutput(prev => prev + data.stdout);
-          
+
           // Auto-check đáp án với input và output ngay lập tức
           const output = data.stdout.trim();
-          
+
           // Thêm timeout nhỏ để đảm bảo output đã được hiển thị đầy đủ
           setTimeout(async () => {
             await autoCheckSolution(input, output);
           }, 500);
         }
-        
+
         if (data.stderr) {
           addToTerminalHistory('error', data.stderr);
           setStderr(prev => prev + data.stderr);
         }
-        
+
         // Check if the execution requires more input
         if (data.isWaitingForInput || data.needsInput) {
           setIsInputRequested(true);
@@ -1454,11 +1689,11 @@ const ArenaCode = () => {
       addToTerminalHistory('error', `Error sending input: ${error.message}`);
     }
   };
-  
+
   // Add a function to stop execution
   const stopExecution = async () => {
     if (!executionId) return;
-    
+
     try {
       // Use the stop endpoint from executionService.js
       await axios.post(
@@ -1470,7 +1705,7 @@ const ArenaCode = () => {
           }
         }
       );
-      
+
       addToTerminalHistory('system', 'Execution stopped.');
       setIsInputRequested(false);
       setExecutionId(null);
@@ -1488,15 +1723,15 @@ const ArenaCode = () => {
         {problems.map((problem) => {
           const isCompleted = completedProblems.includes(problem.ProblemID);
           const isActive = activeProblem && activeProblem.ProblemID === problem.ProblemID;
-          
+
           return (
             <button
               key={problem.ProblemID}
               onClick={() => handleProblemSelect(problem)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap flex items-center
                 ${isActive ? 'ring-2 ring-offset-1 ' : ''}
-                ${isCompleted 
-                  ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                ${isCompleted
+                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
                   : isActive
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
@@ -1520,9 +1755,10 @@ const ArenaCode = () => {
     }));
   };
 
-  // Update renderDockerStatus to add clickable action
+  // Update renderDockerStatus to add clickable action and show more detailed status
   const renderDockerStatus = () => {
-    if (checkingDocker) {
+    // If Docker status is being checked
+    if (dockerStatus?.checking || checkingDocker) {
       return (
         <span className={`px-2 py-1 rounded-full text-xs flex items-center ${
           editorTheme === 'vs-dark'
@@ -1530,18 +1766,64 @@ const ArenaCode = () => {
             : 'bg-gray-100 text-gray-700 border border-gray-300'
         }`}>
           <span className="animate-spin h-3 w-3 mr-1 border-b-2 border-blue-500 rounded-full"></span>
-          Checking Docker
+          Đang kiểm tra Docker
         </span>
       );
     }
-    
+
+    // Tooltip content with more detailed information
+    const tooltipContent = () => {
+      if (isDockerAvailable) {
+        return (
+          <div className="text-xs">
+            <div className="font-bold">Docker đã sẵn sàng</div>
+            <div>Nhấn để kiểm tra lại trạng thái</div>
+          </div>
+        );
+      } else {
+        return (
+          <div className="text-xs">
+            <div className="font-bold">Docker không khả dụng</div>
+            <div>Nhấn để khởi động Docker</div>
+            {dockerStatus?.error && (
+              <div className="text-red-300 mt-1">{dockerStatus.error}</div>
+            )}
+          </div>
+        );
+      }
+    };
+
     return (
-      <Tooltip title={isDockerAvailable ? "Docker service is running" : "Click to restart Docker service"}>
-        <button 
+      <Tooltip title={tooltipContent}>
+        <button
           onClick={async () => {
             if (!isDockerAvailable) {
               setCheckingDocker(true);
-              await startDockerExecutionService();
+              const started = await startDockerExecutionService();
+              if (!started) {
+                // If Docker couldn't be started, show a more detailed error message
+                toast((t) => (
+                  <div className="flex items-center">
+                    <XCircleIcon className="w-5 h-5 text-red-500 mr-2" />
+                    <div>
+                      <div className="font-medium">Không thể khởi động Docker</div>
+                      <p className="text-xs">Hãy đảm bảo Docker Desktop đang chạy</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        toast.dismiss(t.id);
+                        checkDockerAvailability();
+                      }}
+                      className="ml-3 bg-blue-500 text-white px-2 py-1 rounded text-xs"
+                    >
+                      Kiểm tra lại
+                    </button>
+                  </div>
+                ), {
+                  duration: 10000,
+                  id: 'docker-start-error'
+                });
+              }
               setCheckingDocker(false);
             } else {
               // Manually recheck if it's already available
@@ -1560,7 +1842,7 @@ const ArenaCode = () => {
                 : 'bg-red-100 text-red-700 border border-red-300 hover:bg-red-200'
           }`}>
           <span className={`relative w-2 h-2 mr-1 ${isDockerAvailable ? 'bg-green-500' : 'bg-red-500'} rounded-full`}></span>
-          {isDockerAvailable ? 'Docker Ready' : 'Docker Unavailable'}
+          {isDockerAvailable ? 'Docker sẵn sàng' : 'Docker không khả dụng'}
           {!isDockerAvailable && (
             <ArrowPathIcon className="w-3 h-3 ml-1" />
           )}
@@ -1582,25 +1864,25 @@ const ArenaCode = () => {
   // Add terminal resizing functions
   const startResizing = (mouseDownEvent) => {
     setIsResizing(true);
-    
+
     const startY = mouseDownEvent.clientY;
     const startHeight = terminalHeight;
-    
+
     const handleMouseMove = (mouseMoveEvent) => {
       const deltaY = mouseMoveEvent.clientY - startY;
       const newHeight = Math.max(
-        minTerminalHeight, 
+        minTerminalHeight,
         Math.min(maxTerminalHeight, startHeight + deltaY)
       );
       setTerminalHeight(newHeight);
     };
-    
+
     const handleMouseUp = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       setIsResizing(false);
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
@@ -1614,26 +1896,26 @@ const ArenaCode = () => {
   const handleTerminalSubmit = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      
+
       if (!terminalInput.trim()) return;
-      
+
       if (terminalMode === 'input' && isInputRequested) {
         // Add input to history
         addToTerminalHistory('input', terminalInput);
-        
+
         // Store input for later use
         setProgramInputs(prev => [...prev, terminalInput]);
-        
+
         // Send input to execution service
         sendInputToExecution(terminalInput);
       } else {
         // Handle command
         addToTerminalHistory('command', terminalInput);
-        
+
         // Execute the command using the processTerminalCommand function
         processTerminalCommand(terminalInput);
       }
-      
+
       // Clear input
       setTerminalInput('');
     }
@@ -1653,7 +1935,7 @@ const ArenaCode = () => {
   const addToTerminalHistory = (type, content) => {
     const id = Date.now().toString();
     setTerminalHistory(prev => [...prev, { id, type, content }]);
-    
+
     // Auto-scroll to bottom
     setTimeout(() => {
       if (terminalRef.current) {
@@ -1668,9 +1950,9 @@ const ArenaCode = () => {
   // Function to detect input patterns in code
   const parseCodeForInputs = (code) => {
     if (!code) return [];
-    
+
     const inputs = [];
-    
+
     // Parse different input patterns based on language
     if (selectedLanguage.id === 'javascript') {
       // JavaScript input patterns (e.g., readline, prompt)
@@ -1679,7 +1961,7 @@ const ArenaCode = () => {
       while ((match = promptRegex.exec(code)) !== null) {
         inputs.push({ prompt: match[1] || 'Enter input:' });
       }
-      
+
       // Node.js readline pattern
       if (code.includes('readline') && code.includes('.question')) {
         const readlineRegex = /\.question\(['"]([^'"]*)['"]/g;
@@ -1710,23 +1992,23 @@ const ArenaCode = () => {
         inputs.push({ prompt: `Enter input #${i + 1}:` });
       }
     }
-    
+
     // Add generic inputs if none were detected but code likely needs them
     if (inputs.length === 0 && code.length > 0) {
       // Check if code has keywords that usually involve input
-      const hasInputKeywords = 
-        code.includes('scanf') || 
-        code.includes('readLine') || 
-        code.includes('readline') || 
+      const hasInputKeywords =
+        code.includes('scanf') ||
+        code.includes('readLine') ||
+        code.includes('readline') ||
         code.includes('Console.ReadLine') ||
         code.includes('gets') ||
         code.includes('fgets');
-      
+
       if (hasInputKeywords) {
         inputs.push({ prompt: 'Enter input:' });
       }
     }
-    
+
     return inputs;
   };
 
@@ -1742,6 +2024,27 @@ const ArenaCode = () => {
     return null;
   };
 
+  // Handle language change from dropdown
+  const handleLanguageChange = (languageId) => {
+    const language = PROGRAMMING_LANGUAGES.find(lang => lang.id === languageId);
+    if (language) {
+      setSelectedLanguage(language);
+
+      // If solution is empty or just contains a template, apply the new language template
+      if (!solution || solution.trim() === '' ||
+          Object.values(LANGUAGE_TEMPLATES).some(template =>
+            solution.trim() === template.trim())) {
+        setSolution(LANGUAGE_TEMPLATES[languageId] || getDefaultStarterCode(languageId));
+        addToTerminalHistory('system', `Đã chuyển sang ngôn ngữ ${language.name}`);
+      } else {
+        // If there's custom code, just notify about the language change
+        toast.info(`Đã chuyển sang ngôn ngữ ${language.name}`, {
+          duration: 2000
+        });
+      }
+    }
+  };
+
   // Update logic to hide the "recentlyDetected" notification after a few seconds
   useEffect(() => {
     // If recentlyDetected is true, set a timeout to clear it after 5 seconds
@@ -1749,7 +2052,7 @@ const ArenaCode = () => {
     const timer = setTimeout(() => {
         setRecentlyDetected(false);
       }, 5000);
-      
+
       // Clear the timeout if the component unmounts or recentlyDetected changes
       return () => clearTimeout(timer);
     }
@@ -1776,7 +2079,7 @@ const ArenaCode = () => {
 
         // Tính toán số lượng confetti dựa trên thời gian còn lại
         const particleCount = 50 * (timeLeft / duration);
-        
+
         // Tạo confetti từ các phía khác nhau
         confetti({
           ...defaults,
@@ -1793,31 +2096,31 @@ const ArenaCode = () => {
       console.error('Error triggering celebration effect:', error);
     }
   };
-  
+
   // Hàm cập nhật điểm số và xếp hạng lên server ngay lập tức
   const updateScoreAndRanking = async (problem, solution, language) => {
     if (!currentUser?.token || !problem?.ProblemID) {
       console.error('Missing user token or problem ID');
       return null;
     }
-    
+
     try {
       // Cập nhật điểm số và xếp hạng
       const response = await submitSolution(
-        competitionId, 
-        problem.ProblemID, 
-        solution, 
+        competitionId,
+        problem.ProblemID,
+        solution,
         currentUser.token,
         language
       );
-      
+
       if (response && response.success) {
         // Lấy điểm từ response hoặc từ bài tập
         const score = response.data?.score || problem.Points || 0;
-        
+
         // Hiển thị thông báo cộng điểm
         addToTerminalHistory('success', `💯 BẠN ĐÃ ĐƯỢC CỘNG ${score} ĐIỂM!`);
-        
+
         // Hiệu ứng thông báo đẹp mắt
         toast(
           (t) => (
@@ -1834,10 +2137,10 @@ const ArenaCode = () => {
             icon: false
           }
         );
-        
+
         // Thông báo rõ ràng về cách tính điểm
         addToTerminalHistory('system', `💡 LƯU Ý: Điểm chỉ được tính khi tất cả test cases đều đúng.`);
-        
+
         toast.success(`Thứ hạng của bạn đang được cập nhật!`, {
           duration: 5000,
           icon: '🏆',
@@ -1846,14 +2149,14 @@ const ArenaCode = () => {
             color: 'white'
           }
         });
-        
+
         return response;
           }
         } catch (error) {
       console.error('Error updating score:', error);
       addToTerminalHistory('error', `Lỗi khi cập nhật điểm: ${error.message}`);
     }
-    
+
     return null;
   };
 
@@ -1861,7 +2164,30 @@ const ArenaCode = () => {
   const startDockerExecutionService = async () => {
     try {
       console.log('Attempting to start Docker execution service...');
-      // Try to start the service through a specific endpoint
+      addToTerminalHistory('system', 'Đang cố gắng khởi động dịch vụ Docker...');
+
+      // First try the dedicated Docker status endpoint to check current status
+      try {
+        const statusResponse = await fetch(`${API_URL}/api/docker-status`, {
+          headers: {
+            'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : ''
+          }
+        });
+
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          if (statusData.dockerAvailable) {
+            console.log('Docker is already available, no need to start');
+            setIsDockerAvailable(true);
+            addToTerminalHistory('success', 'Docker đã sẵn sàng!');
+            return true;
+          }
+        }
+      } catch (statusError) {
+        console.warn('Error checking Docker status:', statusError);
+      }
+
+      // Try to start the service through the execution service start endpoint
       const response = await fetch(`${API_URL}/api/code-execution/start`, {
         method: 'POST',
         headers: {
@@ -1870,49 +2196,93 @@ const ArenaCode = () => {
         },
         body: JSON.stringify({ startService: true })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
           console.log('Docker execution service started successfully');
-          toast.success('Code execution service started successfully', { 
+          toast.success('Dịch vụ chạy code đã được khởi động thành công', {
             id: 'docker-start-success',
             duration: 3000
           });
-          
+
           // Wait a bit and recheck availability
-          setTimeout(async () => {
+          addToTerminalHistory('system', 'Đang kiểm tra lại trạng thái Docker...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          const isAvailable = await checkDockerAvailability();
+          if (isAvailable) {
+            setIsDockerAvailable(true);
+            addToTerminalHistory('success', 'Docker đã sẵn sàng!');
+            return true;
+          } else {
+            addToTerminalHistory('warning', 'Docker đã được khởi động nhưng chưa sẵn sàng. Vui lòng đợi thêm...');
+            // Try one more time after a longer delay
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            const secondCheck = await checkDockerAvailability();
+            if (secondCheck) {
+              setIsDockerAvailable(true);
+              addToTerminalHistory('success', 'Docker đã sẵn sàng!');
+              return true;
+            }
+          }
+        }
+      }
+
+      // If the first method failed, try the docker-status endpoint with a POST request
+      try {
+        const startResponse = await fetch(`${API_URL}/api/docker-status/start`, {
+          method: 'POST',
+          headers: {
+            'Authorization': currentUser?.token ? `Bearer ${currentUser.token}` : '',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ force: true })
+        });
+
+        if (startResponse.ok) {
+          const startData = await startResponse.json();
+          if (startData.success) {
+            console.log('Docker started via docker-status/start endpoint');
+            toast.success('Docker đã được khởi động thành công', {
+              id: 'docker-start-success',
+              duration: 3000
+            });
+
+            // Wait and check availability
+            await new Promise(resolve => setTimeout(resolve, 3000));
             const isAvailable = await checkDockerAvailability();
             if (isAvailable) {
               setIsDockerAvailable(true);
-              addToTerminalHistory('success', 'Docker service is now available');
+              addToTerminalHistory('success', 'Docker đã sẵn sàng!');
+              return true;
             }
-          }, 2000);
-          
-          return true;
+          }
         }
+      } catch (startError) {
+        console.warn('Error starting Docker via docker-status/start endpoint:', startError);
       }
-      
+
       console.warn('Failed to start Docker execution service via API');
       // Try alternative method with terminal command suggestion
-      addToTerminalHistory('error', 'Could not start Docker service via API');
-      addToTerminalHistory('system', 'Try running the following command in your terminal:');
+      addToTerminalHistory('error', 'Không thể khởi động Docker qua API');
+      addToTerminalHistory('system', 'Hãy thử chạy lệnh sau trong terminal:');
       addToTerminalHistory('code', 'cd services/user-service && npm run start-execution-service');
-      
+
       return false;
     } catch (error) {
       console.error('Error starting Docker execution service:', error);
-      
+
       // Show helpful instructions to the user
-      toast.error('Không thể tự động khởi động dịch vụ Docker. Hãy chạy "start-docker" trong terminal', { 
+      toast.error('Không thể tự động khởi động dịch vụ Docker. Hãy chạy "start-docker" trong terminal', {
         id: 'docker-start-error',
         duration: 5000
       });
-      
-      addToTerminalHistory('error', 'Could not automatically start Docker service');
-      addToTerminalHistory('system', 'Try running the following command in your terminal:');
+
+      addToTerminalHistory('error', 'Không thể tự động khởi động dịch vụ Docker');
+      addToTerminalHistory('system', 'Hãy thử chạy lệnh sau trong terminal:');
       addToTerminalHistory('code', 'cd services/user-service && npm run start-execution-service');
-      
+
       return false;
     }
   };
@@ -1920,7 +2290,7 @@ const ArenaCode = () => {
   // Process terminal commands
   const processTerminalCommand = async (command) => {
     const cmd = command.trim().toLowerCase();
-    
+
     if (cmd === 'help') {
       addToTerminalHistory('system', 'Available commands:');
       addToTerminalHistory('system', '- run: Execute your code');
@@ -1930,18 +2300,18 @@ const ArenaCode = () => {
       addToTerminalHistory('system', '- themes: Toggle editor theme');
       return;
     }
-    
+
     if (cmd === 'run') {
       addToTerminalHistory('system', 'Running code...');
       handleRunCode();
       return;
     }
-    
+
     if (cmd === 'clear') {
       setTerminalHistory([]);
       return;
     }
-    
+
     if (cmd === 'start-docker') {
       addToTerminalHistory('system', 'Attempting to start Docker execution service...');
       const started = await startDockerExecutionService();
@@ -1954,7 +2324,7 @@ const ArenaCode = () => {
       }
       return;
     }
-    
+
     if (cmd === 'check-docker') {
       addToTerminalHistory('system', 'Checking Docker availability...');
       const isAvailable = await checkDockerAvailability();
@@ -1966,13 +2336,13 @@ const ArenaCode = () => {
       }
       return;
     }
-    
+
     if (cmd === 'themes' || cmd === 'theme') {
       toggleEditorTheme();
       addToTerminalHistory('system', `Switched to ${editorTheme === 'vs-dark' ? 'light' : 'dark'} theme`);
       return;
     }
-    
+
     // Unknown command
     addToTerminalHistory('error', `Unknown command: ${command}`);
     addToTerminalHistory('system', 'Type "help" to see available commands');
@@ -1993,7 +2363,7 @@ const ArenaCode = () => {
           <XCircleIcon className="w-16 h-16 text-red-500 mb-4" />
           <h3 className="text-xl font-medium text-gray-700 mb-2">Không tìm thấy cuộc thi</h3>
           <p className="text-gray-500 mb-6">Cuộc thi này không tồn tại hoặc đã bị xóa</p>
-          <button 
+          <button
             onClick={() => navigate('/competitions')}
             className="text-purple-600 hover:text-purple-700 flex items-center"
           >
@@ -2010,7 +2380,7 @@ const ArenaCode = () => {
       {/* Header with navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 text-sm">
-          <button 
+          <button
             onClick={() => navigate(`/competitions/${competitionId}`)}
             className="text-gray-500 hover:text-gray-700 flex items-center"
           >
@@ -2028,7 +2398,7 @@ const ArenaCode = () => {
                   </div>
         )}
               </div>
-      
+
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left side: Problems list with inline dropdowns */}
@@ -2036,13 +2406,13 @@ const ArenaCode = () => {
           <h2 className="text-lg font-semibold mb-4">Danh sách bài tập</h2>
           <div className="space-y-4">
             {renderProblemSelector()}
-            
+
             {/* Problem details sections */}
             {activeProblem && (
               <div className="bg-gray-50 p-3 border border-gray-200 rounded-lg">
                 {/* Collapsible problem description */}
                 <div className="border border-gray-200 rounded-lg overflow-hidden mb-3 bg-white">
-                  <button 
+                  <button
                     onClick={() => toggleSection('description')}
                     className="w-full flex justify-between items-center p-2 hover:bg-gray-100 transition-colors"
                   >
@@ -2050,28 +2420,28 @@ const ArenaCode = () => {
                       <DocumentTextIcon className="w-4 h-4 mr-2 text-gray-500" />
                       <span className="font-medium text-sm">Mô tả bài toán</span>
                         </div>
-                    {expandedSections.description 
+                    {expandedSections.description
                       ? <ChevronUpIcon className="w-4 h-4 text-gray-500" />
                       : <ChevronDownIcon className="w-4 h-4 text-gray-500" />
                     }
                   </button>
-                  
+
                   {expandedSections.description && (
                     <div className="p-3 border-t border-gray-200">
                       {activeProblem.ImageURL && (
                             <div className="mb-3">
-                          <img 
-                            src={activeProblem.ImageURL} 
-                            alt={activeProblem.Title} 
+                          <img
+                            src={activeProblem.ImageURL}
+                            alt={activeProblem.Title}
                             className="rounded-lg max-h-48 object-contain mx-auto"
                           />
                             </div>
                           )}
-                          
+
                       <div className="prose max-w-none text-sm">
                         <p>{activeProblem.Description}</p>
                           </div>
-                          
+
                       {/* Completion status */}
                       {completedProblems.includes(activeProblem.ProblemID) && (
                         <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center">
@@ -2082,11 +2452,11 @@ const ArenaCode = () => {
                               </div>
                             )}
                 </div>
-                  
+
                 {/* Collapsible input format */}
                 {activeProblem.InputFormat && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden mb-3 bg-white">
-                    <button 
+                    <button
                       onClick={() => toggleSection('inputFormat')}
                       className="w-full flex justify-between items-center p-2 hover:bg-gray-100 transition-colors"
                     >
@@ -2094,12 +2464,12 @@ const ArenaCode = () => {
                         <InformationCircleIcon className="w-4 h-4 mr-2 text-gray-500" />
                         <span className="font-medium text-sm">Định dạng đầu vào</span>
                                 </div>
-                      {expandedSections.inputFormat 
+                      {expandedSections.inputFormat
                         ? <ChevronUpIcon className="w-4 h-4 text-gray-500" />
                         : <ChevronDownIcon className="w-4 h-4 text-gray-500" />
                       }
                     </button>
-                    
+
                     {expandedSections.inputFormat && (
                       <div className="p-3 border-t border-gray-200 text-sm">
                         <p>{activeProblem.InputFormat}</p>
@@ -2107,11 +2477,11 @@ const ArenaCode = () => {
                             )}
                           </div>
                 )}
-                  
+
                 {/* Collapsible output format */}
                 {activeProblem.OutputFormat && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden mb-3 bg-white">
-                    <button 
+                    <button
                       onClick={() => toggleSection('outputFormat')}
                       className="w-full flex justify-between items-center p-2 hover:bg-gray-100 transition-colors"
                     >
@@ -2119,12 +2489,12 @@ const ArenaCode = () => {
                         <InformationCircleIcon className="w-4 h-4 mr-2 text-gray-500" />
                         <span className="font-medium text-sm">Định dạng đầu ra</span>
                                   </div>
-                      {expandedSections.outputFormat 
+                      {expandedSections.outputFormat
                         ? <ChevronUpIcon className="w-4 h-4 text-gray-500" />
                         : <ChevronDownIcon className="w-4 h-4 text-gray-500" />
                       }
                     </button>
-                    
+
                     {expandedSections.outputFormat && (
                       <div className="p-3 border-t border-gray-200 text-sm">
                         <p>{activeProblem.OutputFormat}</p>
@@ -2132,11 +2502,11 @@ const ArenaCode = () => {
                                 )}
                             </div>
                           )}
-                          
+
                 {/* Collapsible sample cases */}
                 {activeProblem.SampleInput && activeProblem.SampleOutput && (
                   <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-                    <button 
+                    <button
                       onClick={() => toggleSection('sampleCases')}
                       className="w-full flex justify-between items-center p-2 hover:bg-gray-100 transition-colors"
                     >
@@ -2144,12 +2514,12 @@ const ArenaCode = () => {
                         <BeakerIcon className="w-4 h-4 mr-2 text-gray-500" />
                         <span className="font-medium text-sm">Mẫu test</span>
                       </div>
-                      {expandedSections.sampleCases 
+                      {expandedSections.sampleCases
                         ? <ChevronUpIcon className="w-4 h-4 text-gray-500" />
                         : <ChevronDownIcon className="w-4 h-4 text-gray-500" />
                       }
                     </button>
-                    
+
                     {expandedSections.sampleCases && (
                       <div className="p-3 border-t border-gray-200">
                         <div className="space-y-3">
@@ -2174,20 +2544,20 @@ const ArenaCode = () => {
             )}
           </div>
         </div>
-        
+
         {/* Right side: Terminal-style code editor */}
         <div className="lg:col-span-3">
           {activeProblem ? (
             <>
               <div className={`rounded-xl shadow-lg overflow-hidden border ${
-                editorTheme === 'vs-dark' 
-                  ? 'bg-black border-gray-700' 
+                editorTheme === 'vs-dark'
+                  ? 'bg-black border-gray-700'
                   : 'bg-white border-gray-300'
               }`}>
                 {/* Terminal header */}
                 <div className={`p-3 flex justify-between items-center border-b ${
-                  editorTheme === 'vs-dark' 
-                    ? 'bg-gray-900 border-gray-700' 
+                  editorTheme === 'vs-dark'
+                    ? 'bg-gray-900 border-gray-700'
                     : 'bg-gray-100 border-gray-300'
                 }`}>
                   <div className="flex items-center">
@@ -2205,8 +2575,8 @@ const ArenaCode = () => {
                   <div className="flex items-center space-x-2">
                     {/* Add Docker status indicator */}
                     {renderDockerStatus()}
-                          
-                          <button 
+
+                          <button
                       onClick={toggleEditorTheme}
                       className={`px-3 py-1 rounded-md text-xs font-medium ${
                         editorTheme === 'vs-dark'
@@ -2216,7 +2586,7 @@ const ArenaCode = () => {
                     >
                       {editorTheme === 'vs-dark' ? 'Light Theme' : 'Dark Theme'}
                           </button>
-                    
+
                     {!solutionLocked && (
                       <Tooltip title="Terminal">
                         <Button
@@ -2229,7 +2599,7 @@ const ArenaCode = () => {
                         />
                       </Tooltip>
                     )}
-                    
+
                     {/* Display language as a simple badge */}
                     <div className={`px-2 py-1 rounded-full text-xs flex items-center ${
                       editorTheme === 'vs-dark'
@@ -2246,7 +2616,91 @@ const ArenaCode = () => {
                     </div>
               </div>
               </div>
-                
+
+                {/* Editor toolbar */}
+                <div className="flex items-center justify-between p-2 border-b dark:border-gray-700">
+                  <div className="flex items-center space-x-2">
+                    <select
+                      value={selectedLanguage.id}
+                      onChange={(e) => handleLanguageChange(e.target.value)}
+                      className="px-2 py-1 text-sm rounded border dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200"
+                    >
+                      {PROGRAMMING_LANGUAGES.map(lang => (
+                        <option key={lang.id} value={lang.id}>{lang.name}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={handleRunCode}
+                      disabled={isRunning || !activeProblem}
+                      className={`px-3 py-1 text-sm rounded flex items-center ${
+                        isRunning
+                          ? 'bg-gray-300 text-gray-600 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
+                          : 'bg-green-500 text-white hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700'
+                      }`}
+                    >
+                      {isRunning ? (
+                        <>
+                          <span className="animate-spin h-4 w-4 mr-1 border-b-2 border-white rounded-full"></span>
+                          Đang chạy...
+                        </>
+                      ) : (
+                        <>
+                          <PlayIcon className="w-4 h-4 mr-1" />
+                          Chạy
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleSubmitSolution}
+                      disabled={isSubmitting || !activeProblem}
+                      className={`px-3 py-1 text-sm rounded flex items-center ${
+                        isSubmitting
+                          ? 'bg-gray-300 text-gray-600 dark:bg-gray-700 dark:text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-500 text-white hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700'
+                      }`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <span className="animate-spin h-4 w-4 mr-1 border-b-2 border-white rounded-full"></span>
+                          Đang nộp...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircleIcon className="w-4 h-4 mr-1" />
+                          Nộp bài
+                        </>
+                      )}
+                    </button>
+
+                    {/* Docker status indicator */}
+                    {renderDockerStatus()}
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setIsTerminalVisible(!isTerminalVisible)}
+                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                      title={isTerminalVisible ? "Ẩn terminal" : "Hiện terminal"}
+                    >
+                      <ComputerDesktopIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    </button>
+
+                    <button
+                      onClick={toggleEditorTheme}
+                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                      title="Đổi theme"
+                    >
+                      {editorTheme === 'vs-dark' ? (
+                        <SunIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                      ) : (
+                        <MoonIcon className="w-5 h-5 text-gray-600" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
                 {/* Code editor */}
                 <div className="relative">
                   <Editor
@@ -2264,7 +2718,7 @@ const ArenaCode = () => {
                       editorTheme === 'vs-dark' ? 'shadow-lg' : 'shadow-md'
                     } ${solutionLocked ? 'editor-readonly' : ''}`}
                   />
-                  
+
                   {/* Hiển thị overlay khi bài đã hoàn thành */}
                   {solutionLocked && (
                     <div className="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 rounded-bl font-medium text-xs shadow-md z-10">
@@ -2280,7 +2734,7 @@ const ArenaCode = () => {
                 {isTerminalVisible && !solutionLocked && (
                   <div className="relative">
                     {/* Resizable handle */}
-                    <div 
+                    <div
                       className={`cursor-row-resize h-4 w-full flex items-center justify-center ${
                         editorTheme === 'vs-dark' ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'
                       }`}
@@ -2292,12 +2746,12 @@ const ArenaCode = () => {
                         {isResizing ? `${Math.round(terminalHeight)}px` : "Drag to resize"}
                       </div>
             </div>
-            
-                    <div 
+
+                    <div
                       ref={resizeRef}
                       className={`border-t ${
-                        editorTheme === 'vs-dark' 
-                          ? 'bg-gray-900 border-gray-700' 
+                        editorTheme === 'vs-dark'
+                          ? 'bg-gray-900 border-gray-700'
                           : 'bg-gray-100 border-gray-300'
                       }`}
                       style={{ height: `${terminalHeight}px`, transition: isResizing ? 'none' : 'height 0.1s ease-out' }}
@@ -2343,7 +2797,7 @@ const ArenaCode = () => {
                               disabled={isRunning || !isCompetitionActive || solutionLocked} // Thêm điều kiện solutionLocked
                               className={`px-3 py-1 rounded-md text-xs font-medium flex items-center ${
                                 isRunning || !isCompetitionActive || solutionLocked // Thêm điều kiện solutionLocked
-                                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                   : 'bg-green-600 text-white hover:bg-green-700'
                               }`}
                               title={solutionLocked ? "Bài này đã hoàn thành, không thể chạy lại" : ""}
@@ -2367,9 +2821,9 @@ const ArenaCode = () => {
                             </button>
             </div>
           </div>
-          
+
                         {/* Terminal with history and input */}
-                        <div 
+                        <div
                           ref={terminalRef}
                           className={`overflow-y-auto border mb-1 rounded-md shadow-sm ${
                             editorTheme === 'vs-dark'
@@ -2395,7 +2849,7 @@ const ArenaCode = () => {
               </div>
 
                           {/* Terminal content */}
-                          <div 
+                          <div
                             className={`p-4 font-mono text-sm ${
                               editorTheme === 'vs-dark'
                                 ? 'bg-black text-gray-300'
@@ -2411,14 +2865,14 @@ const ArenaCode = () => {
                                 <span>Session ID: {executionId.substring(0, 8)}...</span>
             </div>
                             )}
-                            
+
                             {terminalHistory.length > 0 ? (
                               <div className="space-y-1">
                                 {terminalHistory.map(entry => (
                                   <div key={entry.id} className={`${
-                                    entry.type === 'command' 
-                                      ? editorTheme === 'vs-dark' ? 'text-green-400' : 'text-green-600' 
-                                    : entry.type === 'input' 
+                                    entry.type === 'command'
+                                      ? editorTheme === 'vs-dark' ? 'text-green-400' : 'text-green-600'
+                                    : entry.type === 'input'
                                       ? editorTheme === 'vs-dark' ? 'text-cyan-400' : 'text-cyan-600'
                                       : entry.type === 'error'
                                         ? editorTheme === 'vs-dark' ? 'text-red-400' : 'text-red-600'
@@ -2444,7 +2898,7 @@ const ArenaCode = () => {
                                 {`// Terminal ready. Type 'help' for available commands or 'run' to execute code.`}
                               </p>
                             )}
-                            
+
                             {/* Integrated terminal input field */}
                             <div className="flex items-center mt-4 terminal-input-line">
                               <span className={`${
@@ -2464,7 +2918,7 @@ const ArenaCode = () => {
                                       ? 'text-gray-300'
                                       : 'text-black'
                                   }`}
-                                  placeholder={isInputRequested 
+                                  placeholder={isInputRequested
                                     ? (detectedInputs[currentInputIndex]?.prompt || "Enter input...")
                                     : "Type commands here (try 'help')"}
                                   spellCheck="false"
@@ -2478,7 +2932,7 @@ const ArenaCode = () => {
               </div>
                           </div>
                         </div>
-                        
+
                         {/* Test results */}
                         {showTestResults && testResults && (
                           <div className={`p-2 border-t ${
@@ -2486,7 +2940,7 @@ const ArenaCode = () => {
                               ? 'bg-gray-900 border-gray-700'
                               : 'bg-gray-100 border-gray-300'
                           } ${
-                            testResults.success 
+                            testResults.success
                               ? editorTheme === 'vs-dark' ? 'text-green-400' : 'text-green-600'
                               : editorTheme === 'vs-dark' ? 'text-red-400' : 'text-red-600'
                           }`}>
@@ -2502,7 +2956,7 @@ const ArenaCode = () => {
                               )}
                               <div>
                                 <h4 className={`font-medium text-xs ${
-                                  testResults.success 
+                                  testResults.success
                                     ? editorTheme === 'vs-dark' ? 'text-green-300' : 'text-green-600'
                                     : editorTheme === 'vs-dark' ? 'text-red-300' : 'text-red-600'
                                 }`}>
@@ -2517,7 +2971,7 @@ const ArenaCode = () => {
                             </div>
                           </div>
                         )}
-                        
+
                         {/* Action buttons */}
                         <div className={`flex justify-end space-x-3 p-3 border-t ${
                           editorTheme === 'vs-dark'
@@ -2529,7 +2983,7 @@ const ArenaCode = () => {
                             disabled={isRunning || !isCompetitionActive || solutionLocked} // Thêm điều kiện solutionLocked
                             className={`px-3 py-1 rounded-md text-xs font-medium flex items-center ${
                               isRunning || !isCompetitionActive || solutionLocked // Thêm điều kiện solutionLocked
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                 : 'bg-green-600 text-white hover:bg-green-700'
                             }`}
                             title={solutionLocked ? "Bài này đã hoàn thành, không thể chạy lại" : ""}
@@ -2551,7 +3005,7 @@ const ArenaCode = () => {
                               </>
                             )}
                           </button>
-                          
+
                           {/* Thông tin xem code đã hoàn thành chưa */}
                           {solutionLocked && (
                             <div className={`px-3 py-1 rounded-md text-xs font-medium flex items-center bg-green-100 text-green-800`}>
@@ -2559,7 +3013,7 @@ const ArenaCode = () => {
                               Đã hoàn thành
                             </div>
                           )}
-                          
+
                           {/* Hướng dẫn về việc tự động kiểm tra */}
                           <div className="flex-1 flex items-center">
                             <InformationCircleIcon className={`w-3 h-3 mr-1 ${

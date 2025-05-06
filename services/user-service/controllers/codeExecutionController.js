@@ -93,7 +93,7 @@ exports.executeCode = async (req, res) => {
 
   try {
     console.log(`Executing ${language} code${stdin ? ' with stdin' : ''}${input ? ' with input' : ''}`);
-    
+
     // Use the execution helper to execute code
     const executionHelper = require('../utils/executionHelper');
     const result = await executionHelper.executeCode(code, language, stdin || input);
@@ -101,7 +101,7 @@ exports.executeCode = async (req, res) => {
     // Check if the code is waiting for input
     if (result.success && result.data && result.data.isWaitingForInput) {
       console.log('Program is waiting for input. Prompting user for input.');
-      
+
       return res.status(200).json({
         success: true,
         data: {
@@ -115,7 +115,7 @@ exports.executeCode = async (req, res) => {
 
     // Return the normal result
     return res.status(200).json(result);
-    
+
   } catch (error) {
     console.error('Error executing code:', error);
     return res.status(500).json({
@@ -131,7 +131,7 @@ exports.executeCode = async (req, res) => {
  */
 exports.submitCode = async (req, res) => {
   const { code, language, lessonId, exerciseId } = req.body;
-  
+
   // Validate request data
   if (!code || !language || !lessonId) {
     return res.status(400).json({
@@ -139,21 +139,21 @@ exports.submitCode = async (req, res) => {
       message: 'Code, language, and lessonId are required'
     });
   }
-  
+
   // In a real implementation, you would:
   // 1. Fetch test cases from the database for the lesson/exercise
   // 2. Run the code against each test case
   // 3. Evaluate the results
   // 4. Store the submission and results
-  
+
   try {
     // For now, just execute the code
     // In production, implement test case validation
     const result = await executeCodeInDocker(code, language, '');
-    
+
     // Record the submission in the database here
     // ...
-    
+
     return res.status(200).json({
       success: true,
       data: {
@@ -179,7 +179,7 @@ exports.submitCode = async (req, res) => {
  */
 exports.evaluateCompetitionSolution = async (req, res) => {
   const { code, language, problemId } = req.body;
-  
+
   // Validate request data
   if (!code || !language || !problemId) {
     return res.status(400).json({
@@ -191,10 +191,10 @@ exports.evaluateCompetitionSolution = async (req, res) => {
   try {
     // Start tracking performance metrics
     const startTime = process.hrtime();
-    
+
     // Get the problem details including test cases
     const problem = await getProblemDetails(problemId);
-    
+
     if (!problem) {
       return res.status(404).json({
         success: false,
@@ -205,16 +205,16 @@ exports.evaluateCompetitionSolution = async (req, res) => {
     // Parse test cases
     let visibleTestCases = [];
     let hiddenTestCases = [];
-    
+
     try {
       if (problem.TestCasesVisible) {
         visibleTestCases = JSON.parse(problem.TestCasesVisible);
       }
-      
+
       if (problem.TestCasesHidden) {
         hiddenTestCases = JSON.parse(problem.TestCasesHidden);
       }
-      
+
       // If no test cases are defined, use sample input/output
       if (visibleTestCases.length === 0 && problem.SampleInput && problem.SampleOutput) {
         visibleTestCases.push({
@@ -229,17 +229,17 @@ exports.evaluateCompetitionSolution = async (req, res) => {
         message: 'Error parsing test cases'
       });
     }
-    
+
     // Combine test cases for evaluation
     const allTestCases = [
       ...visibleTestCases.map(tc => ({ ...tc, isHidden: false })),
       ...hiddenTestCases.map(tc => ({ ...tc, isHidden: true }))
     ];
-    
+
     // Execute code against each test case
     const testCaseResults = [];
     let passedAllTests = true;
-    
+
     for (const testCase of allTestCases) {
       // Execute code with the test input
       const executionResult = await executeCodeInDocker(
@@ -247,18 +247,18 @@ exports.evaluateCompetitionSolution = async (req, res) => {
         language,
         testCase.input || ''
       );
-      
+
       // Normalize outputs for comparison (trim whitespace, normalize line endings)
       const expectedOutput = (testCase.output || '').trim().replace(/\r\n/g, '\n');
       const actualOutput = (executionResult.stdout || '').trim().replace(/\r\n/g, '\n');
-      
+
       // Check if output matches
       const outputMatches = expectedOutput === actualOutput;
-      
+
       if (!outputMatches) {
         passedAllTests = false;
       }
-      
+
       // Add test case result
       testCaseResults.push({
         passed: outputMatches,
@@ -269,27 +269,27 @@ exports.evaluateCompetitionSolution = async (req, res) => {
         outputMatch: outputMatches
       });
     }
-    
+
     // Calculate execution time
     const endTime = process.hrtime(startTime);
     const executionTimeMs = (endTime[0] * 1000) + (endTime[1] / 1000000);
-    
+
     // Calculate score based on number of test cases passed
     const baseScore = problem.Points || 100;
     const passedCount = testCaseResults.filter(tc => tc.passed).length;
     const totalCount = testCaseResults.length;
-    
+
     // Score is proportional to number of tests passed
     const percentPassed = totalCount > 0 ? passedCount / totalCount : 0;
-    
+
     // Apply time bonus for faster solutions (up to 10% bonus)
     const timeLimit = problem.TimeLimit || 1; // in seconds
     const timeRatio = Math.min(1, timeLimit / (executionTimeMs / 1000));
     const timeBonus = passedAllTests ? baseScore * 0.1 * timeRatio : 0;
-    
+
     // Final score (rounded to nearest integer)
     const score = Math.round(baseScore * percentPassed + timeBonus);
-    
+
     // Create response object
     const result = {
       success: true,
@@ -302,7 +302,7 @@ exports.evaluateCompetitionSolution = async (req, res) => {
         memoryUsage: executionResult?.memoryUsage || 0
       }
     };
-    
+
     // If the user is logged in, record their submission
     if (req.user && req.user.id) {
       try {
@@ -313,7 +313,7 @@ exports.evaluateCompetitionSolution = async (req, res) => {
           language,
           result
         );
-        
+
         // Update the user's and competition's statistics
         await updateCompetitionProblemStatus(
           req.user.id,
@@ -325,7 +325,7 @@ exports.evaluateCompetitionSolution = async (req, res) => {
         // Continue with response even if recording fails
       }
     }
-    
+
     return res.status(200).json({
       success: true,
       data: result
@@ -346,14 +346,14 @@ exports.evaluateCompetitionSolution = async (req, res) => {
 async function recordCompetitionSubmission(userId, problemId, code, language, result) {
   try {
     const { CompetitionSubmission, CompetitionProblem } = require('../models');
-    
+
     // Get problem details to link to the correct competition
     const problem = await CompetitionProblem.findByPk(problemId);
-    
+
     if (!problem) {
       throw new Error('Problem not found');
     }
-    
+
     // Create submission record
     await CompetitionSubmission.create({
       ProblemID: problemId,
@@ -366,7 +366,7 @@ async function recordCompetitionSubmission(userId, problemId, code, language, re
       MemoryUsed: result.performanceMetrics.memoryUsage,
       SubmittedAt: new Date()
     });
-    
+
     return true;
   } catch (error) {
     console.error('Error recording submission:', error);
@@ -380,9 +380,9 @@ async function recordCompetitionSubmission(userId, problemId, code, language, re
 async function getProblemDetails(problemId) {
   try {
     const { CompetitionProblem } = require('../models');
-    
+
     const problem = await CompetitionProblem.findByPk(problemId);
-    
+
     return problem;
   } catch (error) {
     console.error('Error fetching problem details:', error);
@@ -395,23 +395,23 @@ async function getProblemDetails(problemId) {
  */
 async function updateCompetitionProblemStatus(userId, problemId, result) {
   try {
-    const { 
-      CompetitionProblem, 
-      CompetitionParticipant, 
+    const {
+      CompetitionProblem,
+      CompetitionParticipant,
       sequelize
     } = require('../models');
-    
+
     // Start a transaction
     const transaction = await sequelize.transaction();
-    
+
     try {
       // Get the problem to find the competition ID and points
       const problem = await CompetitionProblem.findByPk(problemId, { transaction });
-      
+
       if (!problem) {
         throw new Error('Problem not found');
       }
-      
+
       // Get participant record
       const participant = await CompetitionParticipant.findOne({
         where: {
@@ -420,11 +420,11 @@ async function updateCompetitionProblemStatus(userId, problemId, result) {
         },
         transaction
       });
-      
+
       if (!participant) {
         throw new Error('Participant not found');
       }
-      
+
       // Chỉ cập nhật điểm nếu solution đúng tất cả test case
       if (result.passed) {
         // Check if the participant has already solved this problem
@@ -438,29 +438,29 @@ async function updateCompetitionProblemStatus(userId, problemId, result) {
             transaction
           }
         );
-        
+
         const firstTimeSolved = alreadySolved[0].count === 0;
-        
+
         if (firstTimeSolved) {
           // Cập nhật điểm - chỉ tính điểm khi tất cả test case đều đúng
           // Lấy điểm từ bảng CompetitionProblems thay vì result.score
           const pointsToAdd = problem.Points || 0;
-          
+
           participant.Score += pointsToAdd;
           participant.TotalProblemsSolved += 1;
           participant.TotalProblemsAttempted += 1;
           participant.UpdatedAt = new Date();
-          
+
           // Nếu chưa có StartTime, ghi lại thời điểm bắt đầu
           if (!participant.StartTime) {
             participant.StartTime = new Date();
           }
-          
+
           await participant.save({ transaction });
-          
+
           // Cập nhật tổng số lượt nộp và số bài giải của cuộc thi
           await sequelize.query(
-            `UPDATE Competitions 
+            `UPDATE Competitions
              SET CurrentParticipants = (
                SELECT COUNT(DISTINCT UserID) FROM CompetitionParticipants WHERE CompetitionID = :competitionId
              ),
@@ -472,7 +472,7 @@ async function updateCompetitionProblemStatus(userId, problemId, result) {
               transaction
             }
           );
-          
+
           // Cập nhật thứ hạng cho tất cả người tham gia trong cuộc thi này
           // Dựa trên Score, TotalProblemsSolved, và thời gian nộp bài
           await sequelize.query(`
@@ -493,9 +493,9 @@ async function updateCompetitionProblemStatus(userId, problemId, result) {
             type: sequelize.QueryTypes.UPDATE,
             transaction
           });
-          
+
           console.log(`Updated rankings for competition ${problem.CompetitionID} after user ${userId} solved problem ${problemId} with ${pointsToAdd} points`);
-          
+
           // Cập nhật bảng UserRankings nếu cần
           await updateUserRanking(userId, pointsToAdd, transaction);
         }
@@ -505,10 +505,10 @@ async function updateCompetitionProblemStatus(userId, problemId, result) {
         participant.UpdatedAt = new Date();
         await participant.save({ transaction });
       }
-      
+
       // Commit transaction
       await transaction.commit();
-      
+
       return true;
     } catch (error) {
       // Rollback on error
@@ -527,15 +527,15 @@ async function updateCompetitionProblemStatus(userId, problemId, result) {
 async function updateUserRanking(userId, pointsEarned, transaction) {
   try {
     const { UserRanking, sequelize } = require('../models');
-    
+
     // Kiểm tra xem người dùng đã có bản ghi xếp hạng chưa
     let userRanking = await UserRanking.findOne({
       where: { UserID: userId },
       transaction
     });
-    
+
     const now = new Date();
-    
+
     if (!userRanking) {
       // Tạo mới bản ghi nếu chưa có
       userRanking = await UserRanking.create({
@@ -557,7 +557,7 @@ async function updateUserRanking(userId, pointsEarned, transaction) {
       userRanking.WeeklyScore += pointsEarned;
       userRanking.MonthlyScore += pointsEarned;
       userRanking.LastCalculatedAt = now;
-      
+
       // Cập nhật tier dựa trên tổng điểm
       if (userRanking.TotalPoints >= 10000) {
         userRanking.Tier = 'MASTER';
@@ -572,10 +572,10 @@ async function updateUserRanking(userId, pointsEarned, transaction) {
       } else {
         userRanking.Tier = 'BRONZE';
       }
-      
+
       await userRanking.save({ transaction });
     }
-    
+
     // Ghi lại lịch sử điểm ranking
     await sequelize.query(`
       INSERT INTO RankingHistory (UserID, Type, RelatedID, PointsEarned, Reason, CreatedAt)
@@ -585,7 +585,7 @@ async function updateUserRanking(userId, pointsEarned, transaction) {
       type: sequelize.QueryTypes.INSERT,
       transaction
     });
-    
+
     return true;
   } catch (error) {
     console.error('Error updating user ranking:', error);
@@ -602,13 +602,13 @@ async function executeCodeInDocker(code, language, stdin = '') {
   if (!langConfig) {
     throw new Error(`Language '${language}' is not supported`);
   }
-  
+
   // Check if Docker is available and can execute this language
   if (!dockerAvailable || !canExecuteLanguage(language.toLowerCase())) {
     console.log(`Docker unavailable or cannot execute ${language}, using fallback execution method`);
     return executeCodeWithFallback(code, language, stdin);
   }
-  
+
   // Create unique session ID
   const sessionId = uuidv4();
   const sessionDir = path.join(BASE_TEMP_DIR, sessionId);
@@ -618,18 +618,18 @@ async function executeCodeInDocker(code, language, stdin = '') {
   let currentInput = '';
   let inputBuffer = '';
   let memoryUsage = 0;
-  
+
   try {
     console.log(`Creating session directory: ${sessionDir}`);
     // Create session directory
     await mkdirAsync(sessionDir, { recursive: true });
-    
+
     // Write code file
     let filename = 'code';
     if (language.toLowerCase() === 'java') {
       filename = 'Main'; // Java requires class name to match filename
     }
-    
+
     // Add UTF-8 BOM for C++ files to ensure correct encoding of Vietnamese characters
     if (language.toLowerCase() === 'cpp') {
       // Add appropriate includes and encoding for C++ files
@@ -640,7 +640,7 @@ async function executeCodeInDocker(code, language, stdin = '') {
         // Add locale settings right after the includes
         const includeIndex = code.lastIndexOf('#include');
         const nextLineIndex = code.indexOf('\n', includeIndex) + 1;
-        code = code.substring(0, nextLineIndex) + 
+        code = code.substring(0, nextLineIndex) +
               'int main() {\n' +
               '    setlocale(LC_ALL, "en_US.UTF-8");\n' +
               '    std::cout.imbue(std::locale("en_US.UTF-8"));\n' +
@@ -656,19 +656,19 @@ async function executeCodeInDocker(code, language, stdin = '') {
               '}';
       }
     }
-    
+
     const filePath = path.join(sessionDir, `${filename}.${langConfig.extension}`);
     await writeFileAsync(filePath, code, 'utf8');
     console.log(`Code file written to: ${filePath}`);
-    
+
     // For C++ specifically update the container creation with locale support
     if (language.toLowerCase() === 'cpp') {
       // Modify C++ command to include proper locale support
-      langConfig.runCommand = ['/bin/sh', '-c', 
+      langConfig.runCommand = ['/bin/sh', '-c',
         'apt-get update -y && ' +
         'apt-get install -y locales && ' +
         'localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8 && ' +
-        'export LANG=en_US.UTF-8 && ' + 
+        'export LANG=en_US.UTF-8 && ' +
         'export LC_ALL=en_US.UTF-8 && ' +
         'g++ -o output code.cpp -std=c++11 && ' +
         './output'
@@ -683,7 +683,7 @@ async function executeCodeInDocker(code, language, stdin = '') {
       const formattedStdin = stdin.split('\n').map(line => line.trim()).join('\n') + '\n';
       await writeFileAsync(stdinPath, formattedStdin);
     }
-    
+
     // Create container with proper stdin handling
     container = await docker.createContainer({
       Image: langConfig.image,
@@ -707,11 +707,11 @@ async function executeCodeInDocker(code, language, stdin = '') {
       OpenStdin: true,
       StdinOnce: false
     });
-    
+
     // Start container
     console.log(`Starting Docker container...`);
     await container.start();
-    
+
     // Attach to container streams
     const stream = await container.attach({
       stream: true,
@@ -737,7 +737,7 @@ async function executeCodeInDocker(code, language, stdin = '') {
           isWaitingForInput = true;
         }
         // Check for common input prompts
-        if (data.includes('Enter') || data.includes('Nhập') || data.includes('nhập') || 
+        if (data.includes('Enter') || data.includes('Nhập') || data.includes('nhập') ||
             data.includes('choice') || data.includes('lựa chọn') || data.includes('chọn')) {
           isWaitingForInput = true;
         }
@@ -764,7 +764,7 @@ async function executeCodeInDocker(code, language, stdin = '') {
         inputBuffer = '';
       }
     };
-    
+
     // Wait for container to finish with timeout
     const executionTimeout = setTimeout(async () => {
       try {
@@ -776,13 +776,13 @@ async function executeCodeInDocker(code, language, stdin = '') {
         console.error('Error stopping container after timeout:', err);
       }
     }, langConfig.timeout);
-    
+
     // Wait for container to exit
     console.log(`Waiting for container to finish execution...`);
     const result = await container.wait();
     clearTimeout(executionTimeout);
     console.log(`Container exited with status code: ${result.StatusCode}`);
-    
+
     // Get container memory stats if available
     try {
       const stats = await container.stats({ stream: false });
@@ -793,19 +793,19 @@ async function executeCodeInDocker(code, language, stdin = '') {
       // Just log the error but don't fail the operation
       console.log('Warning: Unable to get container stats:', err.message);
     }
-    
+
     // Clean up container - check if it's still running first to avoid the 304 error
     if (container) {
       try {
         // Check container state before stopping
         const containerInfo = await container.inspect();
         const isRunning = containerInfo.State.Running;
-        
+
         if (isRunning) {
           // Only try to stop if it's still running
           await container.stop();
         }
-        
+
         try {
           // Try to remove container regardless of state
           await container.remove({ force: true });
@@ -818,10 +818,10 @@ async function executeCodeInDocker(code, language, stdin = '') {
         console.log('Note: Unable to inspect container state:', inspectError.message);
       }
     }
-    
+
     // Clean up temp files
     await cleanupSession(sessionDir);
-    
+
     // Extract the last prompt if waiting for input
     let lastPrompt = '';
     if (isWaitingForInput) {
@@ -846,7 +846,7 @@ async function executeCodeInDocker(code, language, stdin = '') {
     };
   } catch (error) {
     console.error('Error executing code in Docker:', error);
-    
+
     // Attempt to clean up container if it exists
     if (container) {
       try {
@@ -854,7 +854,7 @@ async function executeCodeInDocker(code, language, stdin = '') {
           // Check if container still exists and is running
           const containerInfo = await container.inspect();
           const isRunning = containerInfo.State.Running;
-          
+
           if (isRunning) {
             // Only try to stop if it's still running
             await container.stop().catch(err => console.log('Note: Unable to stop container:', err.message));
@@ -863,19 +863,19 @@ async function executeCodeInDocker(code, language, stdin = '') {
           // Container might be gone already, just log and continue
           console.log('Note: Unable to inspect container state:', inspectError.message);
         }
-        
+
         // Always try to remove with force option
         await container.remove({ force: true }).catch(err => console.log('Note: Unable to remove container:', err.message));
       } catch (cleanupError) {
         console.log('Note: Container cleanup failed:', cleanupError.message);
       }
     }
-    
+
     // Clean up temp files
     if (sessionDir) {
       await cleanupSession(sessionDir).catch(err => console.log('Note: Session cleanup failed:', err.message));
     }
-    
+
     throw error;
   }
 }
@@ -885,26 +885,26 @@ async function executeCodeInDocker(code, language, stdin = '') {
  */
 async function executeCodeWithFallback(code, language, stdin = '') {
   console.log(`Using fallback execution for ${language}`);
-  
+
   try {
     let result = { stdout: '', stderr: '', exitCode: null };
-    
+
     switch (language.toLowerCase()) {
       case 'javascript':
         // Execute JS code in Node.js VM
         result = executeJavaScriptInVM(code, stdin);
         break;
-        
+
       case 'python':
         // Check if Python is installed on the host system
         try {
           // Create temp file
           const tempFile = path.join(BASE_TEMP_DIR, `python_${uuidv4()}.py`);
           await writeFileAsync(tempFile, code);
-          
+
           // Execute using Python interpreter if available
           try {
-            const stdout = execSync(`python3 ${tempFile}`, { 
+            const stdout = execSync(`python3 ${tempFile}`, {
               input: stdin || undefined,
               timeout: 5000,
               encoding: 'utf8'
@@ -914,14 +914,14 @@ async function executeCodeWithFallback(code, language, stdin = '') {
             result.stderr = err.stderr?.toString() || err.message;
             result.exitCode = err.status || 1;
           }
-          
+
           // Clean up
           await unlinkAsync(tempFile);
         } catch (err) {
           result.stderr = 'Failed to execute Python code: ' + err.message;
         }
         break;
-        
+
       case 'java':
         // Thêm kiểm tra cú pháp Java
         if (!code.includes('public class Main') || !code.includes('public static void main')) {
@@ -975,12 +975,12 @@ async function executeCodeWithFallback(code, language, stdin = '') {
           throw new Error(`Java execution error: ${error.message}`);
         }
         break;
-        
+
       default:
         result.stderr = `Language ${language} is not supported in fallback mode. Docker is required for this language.`;
         result.exitCode = 1;
     }
-    
+
     return {
       stdout: result.stdout || '',
       stderr: result.stderr || '',
@@ -1006,22 +1006,22 @@ async function executeCodeWithFallback(code, language, stdin = '') {
  */
 async function executeJavaScriptInVM(code, stdin = '') {
   console.log(`Using fallback execution for JavaScript`);
-  
+
   try {
     let result = { stdout: '', stderr: '', exitCode: null };
-    
+
     // Create a new context for the VM
     const context = vm.createContext({});
-    
+
     // Create a new script for the code
     const script = new vm.Script(code);
-    
+
     // Execute the script
     const scriptResult = script.runInContext(context, {
       timeout: 5000,
       displayErrors: true
     });
-    
+
     if (scriptResult instanceof Error) {
       result.stderr = scriptResult.message;
       result.exitCode = 1;
@@ -1029,7 +1029,7 @@ async function executeJavaScriptInVM(code, stdin = '') {
       result.stdout = scriptResult.toString();
       result.exitCode = 0;
     }
-    
+
     return result;
   } catch (error) {
     console.error('Error executing JavaScript in VM:', error);
@@ -1055,10 +1055,10 @@ async function cleanupSession(sessionDir) {
       const filePath = path.join(sessionDir, file);
       await fs.promises.unlink(filePath);
     }
-    
+
     // Remove the session directory itself
     await fs.promises.rmdir(sessionDir);
-    
+
     return true;
   } catch (error) {
     console.error('Error cleaning up session:', error);
@@ -1071,18 +1071,18 @@ async function cleanupSession(sessionDir) {
  */
 exports.sendInput = async (req, res) => {
   const { executionId, input } = req.body;
-  
+
   if (!executionId || input === undefined) {
     return res.status(400).json({
       success: false,
       message: 'Execution ID and input are required'
     });
   }
-  
+
   try {
     const executionHelper = require('../utils/executionHelper');
     const result = await executionHelper.sendInput(executionId, input);
-    
+
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error sending input:', error);
@@ -1099,18 +1099,18 @@ exports.sendInput = async (req, res) => {
  */
 exports.stopExecution = async (req, res) => {
   const { executionId } = req.body;
-  
+
   if (!executionId) {
     return res.status(400).json({
       success: false,
       message: 'Execution ID is required'
     });
   }
-  
+
   try {
     const executionHelper = require('../utils/executionHelper');
     const result = await executionHelper.stopExecution(executionId);
-    
+
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error stopping execution:', error);
@@ -1129,16 +1129,22 @@ exports.healthCheck = async (req, res) => {
   try {
     // Check if execution service is available
     const executionHelper = require('../utils/executionHelper');
-    
+    const { checkDockerStatus } = require('../utils/dockerManager');
+
+    // Check Docker status first
+    const dockerStatus = await checkDockerStatus();
+
     try {
       const healthStatus = await executionHelper.checkHealth();
-      
+
       // The execution service returns { status: 'ok' } when healthy
       if (healthStatus && (healthStatus.status === 'ok' || healthStatus.success)) {
         return res.status(200).json({
           success: true,
           status: 'ok',
           message: 'Code execution service is running',
+          dockerAvailable: dockerStatus.available,
+          dockerStatus: dockerStatus,
           timestamp: new Date().toISOString()
         });
       } else {
@@ -1146,6 +1152,8 @@ exports.healthCheck = async (req, res) => {
           success: false,
           status: 'error',
           message: 'Code execution service is not available',
+          dockerAvailable: dockerStatus.available,
+          dockerStatus: dockerStatus,
           error: healthStatus.message || 'Unknown error',
           timestamp: new Date().toISOString()
         });
@@ -1155,14 +1163,16 @@ exports.healthCheck = async (req, res) => {
       try {
         const axios = require('axios');
         const EXECUTION_SERVICE_URL = process.env.EXECUTION_SERVICE_URL || 'http://localhost:3001';
-        
+
         const response = await axios.get(`${EXECUTION_SERVICE_URL}/health`, { timeout: 2000 });
-        
+
         if (response.data && response.data.status === 'ok') {
           return res.status(200).json({
             success: true,
             status: 'ok',
             message: 'Code execution service is running (direct connection)',
+            dockerAvailable: dockerStatus.available,
+            dockerStatus: dockerStatus,
             timestamp: new Date().toISOString()
           });
         } else {
@@ -1173,6 +1183,8 @@ exports.healthCheck = async (req, res) => {
           success: false,
           status: 'error',
           message: 'Code execution service is not available',
+          dockerAvailable: dockerStatus.available,
+          dockerStatus: dockerStatus,
           error: directError.message || 'Direct connection failed',
           timestamp: new Date().toISOString()
         });
@@ -1190,6 +1202,54 @@ exports.healthCheck = async (req, res) => {
 };
 
 /**
+ * Check Docker availability
+ * This endpoint specifically checks if Docker is available and ready for code execution
+ */
+exports.checkDockerAvailability = async (req, res) => {
+  try {
+    const { checkDockerStatus, initializeDocker } = require('../utils/dockerManager');
+
+    // Check if force parameter is provided to force Docker initialization
+    const forceInit = req.query.force === 'true' || (req.body && req.body.force === true);
+
+    if (forceInit) {
+      console.log('Force initializing Docker...');
+      const initResult = await initializeDocker();
+
+      return res.status(initResult.success ? 200 : 503).json({
+        success: initResult.success,
+        dockerAvailable: initResult.success,
+        message: initResult.message,
+        details: initResult.status || {},
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Regular Docker status check
+    const dockerStatus = await checkDockerStatus();
+
+    return res.status(200).json({
+      success: true,
+      dockerAvailable: dockerStatus.available,
+      message: dockerStatus.available
+        ? 'Docker is available for code execution'
+        : 'Docker is not available, code execution will use fallback methods',
+      details: dockerStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Docker availability check error:', error);
+    return res.status(500).json({
+      success: false,
+      dockerAvailable: false,
+      message: 'Error checking Docker availability',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+/**
  * Get supported programming languages
  */
 exports.getSupportedLanguages = async (req, res) => {
@@ -1200,7 +1260,7 @@ exports.getSupportedLanguages = async (req, res) => {
       name: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize first letter
       available: canExecuteLanguage(key)
     }));
-    
+
     return res.status(200).json({
       success: true,
       data: languages
@@ -1221,7 +1281,7 @@ exports.getSupportedLanguages = async (req, res) => {
 exports.getCodeExercise = async (req, res) => {
   const { courseId, lessonId } = req.params;
   const userId = req.user ? req.user.UserID : null;
-  
+
   // Validate parameters
   if (!courseId || !lessonId) {
     return res.status(400).json({
@@ -1229,7 +1289,7 @@ exports.getCodeExercise = async (req, res) => {
       message: 'Course ID and Lesson ID are required'
     });
   }
-  
+
   try {
     // Check if user is authenticated
     if (!userId) {
@@ -1238,36 +1298,36 @@ exports.getCodeExercise = async (req, res) => {
         message: 'Authentication required'
       });
     }
-    
+
     // Fetch the lesson details from the database
     let lessonTitle = '';
     let lessonContent = '';
     let moduleTitle = '';
     let initialCode = '// Hãy viết code của bạn ở đây\n\n';
-    
+
     try {
       // Connect to the database using the appropriate method
       const { sql, query } = require('../config/db');
-      
+
       // Query to get lesson and module details
       // Removed CodeSnippet column since it doesn't exist in the CourseLessons table
       const lessonResults = await query(`
-        SELECT l.Title, l.Content, l.Type, l.VideoUrl, 
+        SELECT l.Title, l.Content, l.Type, l.VideoUrl,
                m.Title as ModuleTitle, c.Title as CourseTitle
         FROM CourseLessons l
         JOIN CourseModules m ON l.ModuleID = m.ModuleID
         JOIN Courses c ON m.CourseID = c.CourseID
         WHERE l.LessonID = @lessonId
-      `, { 
-        lessonId: lessonId 
+      `, {
+        lessonId: lessonId
       });
-      
+
       if (lessonResults && lessonResults.length > 0) {
         const lessonData = lessonResults[0];
         lessonTitle = lessonData.Title || '';
         lessonContent = lessonData.Content || '';
         moduleTitle = lessonData.ModuleTitle || '';
-        
+
         console.log('Successfully fetched lesson data:', {
           title: lessonTitle,
           moduleTitle: moduleTitle
@@ -1281,33 +1341,33 @@ exports.getCodeExercise = async (req, res) => {
       lessonTitle = `Bài học ${lessonId}`;
       lessonContent = 'Nội dung bài học không khả dụng.';
     }
-    
+
     // Try to get a coding exercise linked to this lesson
     let language = 'javascript';
     let tests = [];
-    
+
     try {
       // Check if there's a CodingExercise for this lesson
       const { query } = require('../config/db');
-      
+
       const exerciseResults = await query(`
-        SELECT ExerciseID, Title, Description, ProgrammingLanguage, 
+        SELECT ExerciseID, Title, Description, ProgrammingLanguage,
                InitialCode, TestCases
         FROM CodingExercises
         WHERE LessonID = @lessonId
-      `, { 
-        lessonId: lessonId 
+      `, {
+        lessonId: lessonId
       });
-      
+
       if (exerciseResults && exerciseResults.length > 0) {
         const exerciseData = exerciseResults[0];
-        
+
         // If we find an exercise, use its data
         if (exerciseData.Title) lessonTitle = exerciseData.Title;
         if (exerciseData.Description) lessonContent = exerciseData.Description;
         if (exerciseData.ProgrammingLanguage) language = exerciseData.ProgrammingLanguage.toLowerCase();
         if (exerciseData.InitialCode) initialCode = exerciseData.InitialCode;
-        
+
         // Parse test cases if available
         if (exerciseData.TestCases) {
           try {
@@ -1317,14 +1377,14 @@ exports.getCodeExercise = async (req, res) => {
             tests = [];
           }
         }
-        
+
         console.log('Found coding exercise:', exerciseData.ExerciseID);
       }
     } catch (exError) {
       console.error('Error fetching coding exercise:', exError);
       // Continue with lesson data if exercise fetch fails
     }
-    
+
     // Create exercise object with the fetched data
     const exercise = {
       title: lessonTitle,
@@ -1334,7 +1394,7 @@ exports.getCodeExercise = async (req, res) => {
       moduleTitle: moduleTitle,
       tests: tests
     };
-    
+
     return res.status(200).json({
       success: true,
       data: exercise
@@ -1356,7 +1416,7 @@ exports.runCode = async (req, res) => {
   const { courseId, lessonId } = req.params;
   const { code, language = 'cpp' } = req.body;
   const userId = req.user ? req.user.UserID : null;
-  
+
   // Validate parameters
   if (!courseId || !lessonId || !code) {
     return res.status(400).json({
@@ -1364,7 +1424,7 @@ exports.runCode = async (req, res) => {
       message: 'Course ID, Lesson ID, and code are required'
     });
   }
-  
+
   try {
     // Check if user is authenticated
     if (!userId) {
@@ -1373,14 +1433,14 @@ exports.runCode = async (req, res) => {
         message: 'Authentication required'
       });
     }
-    
+
     console.log(`Running code execution for user ${userId}, course ${courseId}, lesson ${lessonId}, language ${language}`);
-    
+
     try {
       // Use the execution helper instead of calling Docker directly
       const executionHelper = require('../utils/executionHelper');
       const result = await executionHelper.executeCode(code, language, '');
-      
+
       return res.status(200).json({
         success: true,
         data: result.data || {

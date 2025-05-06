@@ -23,19 +23,46 @@ router.post('/code-execution/test-input', codeExecutionController.sendInput);
 router.post('/lessons/:lessonId/submit-code', authMiddleware, codeExecutionController.submitCode);
 
 // Docker execution health/status endpoint - use Docker-specific health check
-router.get('/code-execution/docker-status', async (req, res) => {
+router.get('/code-execution/docker-status', codeExecutionController.checkDockerAvailability);
+router.get('/docker-status', codeExecutionController.checkDockerAvailability);
+
+// Endpoint to start Docker execution service
+router.post('/code-execution/start', async (req, res) => {
   try {
-    const status = await checkDockerStatus();
-    return res.status(status.available ? 200 : 503).json({
-      success: status.available,
-      message: status.available ? 'Docker code execution is available' : 'Docker is not available',
-      details: status
+    const { initializeDocker } = require('../utils/dockerManager');
+    const result = await initializeDocker();
+
+    return res.status(200).json({
+      success: result.success,
+      message: result.message,
+      details: result.status
     });
   } catch (error) {
-    console.error('Error checking Docker status:', error);
+    console.error('Error starting Docker execution service:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error checking Docker status',
+      message: 'Error starting Docker execution service',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Endpoint to start Docker execution service (alternative path)
+router.post('/docker-status/start', async (req, res) => {
+  try {
+    const { initializeDocker } = require('../utils/dockerManager');
+    const result = await initializeDocker();
+
+    return res.status(200).json({
+      success: result.success,
+      message: result.message,
+      details: result.status
+    });
+  } catch (error) {
+    console.error('Error starting Docker execution service:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error starting Docker execution service',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
@@ -75,7 +102,7 @@ router.get('/code-execution/test', async (req, res) => {
   try {
     const language = req.query.language || 'python';
     let code;
-    
+
     // Sample code for each language
     switch (language) {
       case 'python':
@@ -110,7 +137,7 @@ int main() {
       default:
         code = 'print("Hello from Docker!")';
     }
-    
+
     // Execute the test code
     await codeExecutionController.executeCode({
       body: {
@@ -119,7 +146,7 @@ int main() {
         stdin: 'Test input from Docker'
       }
     }, res);
-    
+
   } catch (error) {
     console.error('Error in Docker test execution:', error);
     return res.status(500).json({
@@ -148,4 +175,4 @@ router.post('/courses/:courseId/lessons/:lessonId/submit-code', authMiddleware, 
 // Legacy endpoint (deprecated but kept for backward compatibility)
 router.post('/lessons/:lessonId/submit-code', authMiddleware, codeExecutionController.submitCode);
 
-module.exports = router; 
+module.exports = router;

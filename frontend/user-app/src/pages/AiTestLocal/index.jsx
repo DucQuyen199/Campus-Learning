@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { PaperAirplaneIcon, ArrowPathIcon, PlayIcon, BeakerIcon, CheckIcon, XMarkIcon, ChatBubbleLeftRightIcon, ClockIcon, DocumentArrowDownIcon, PlusCircleIcon, ArrowUpTrayIcon, SparklesIcon } from '@heroicons/react/24/outline';
-import CodeEditor from './components/CodeEditor';
+import CodeServerEditor from './components/CodeServerEditor';
 import TestCasePanel from './components/TestCasePanel';
 import { initGeminiChat, sendMessageToGemini } from '../../services/geminiService';
 import { executeCode } from '../../api/codeExecutionApi';
@@ -738,102 +738,11 @@ const AiTestLocal = () => {
         <div className="w-4/5 flex flex-col overflow-hidden">
           {/* Code Editor */}
           <div className="flex-1 overflow-hidden rounded-lg shadow-lg bg-white backdrop-blur-sm bg-opacity-90">
-            <div className="p-2 bg-blue-600 text-white text-sm font-medium flex justify-between items-center">
-              <span>Code Editor ({LANGUAGES.find(l => l.id === selectedLanguage)?.name})</span>
-              <button
-                onClick={handleRunCode}
-                disabled={isRunning || isGeneratingProblem}
-                className="flex items-center px-3 py-1 bg-white hover:bg-gray-100 text-blue-600 rounded text-xs transition-all"
-              >
-                {isRunning ? (
-                  <>
-                    <BeakerIcon className="h-3 w-3 mr-1 animate-spin" />
-                    <span>Running...</span>
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="h-3 w-3 mr-1" />
-                    <span>Run Code</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <CodeEditor 
+            <CodeServerEditor 
               code={code} 
               language={selectedLanguage} 
               onChange={handleCodeChange} 
             />
-          </div>
-
-          {/* Results area - split into two columns */}
-          <div className="mt-3 grid grid-cols-2 gap-3 h-[300px]">
-            {/* Test Cases and Results */}
-            <div className="overflow-hidden rounded-lg shadow-lg bg-white backdrop-blur-sm bg-opacity-90">
-              <div className="p-2 bg-indigo-600 text-white text-sm font-medium flex justify-between items-center">
-                <span>Test Cases & Results</span>
-                <div className="flex items-center space-x-2">
-                  {testResults.length > 0 && testSummary.passed > 0 && (
-                    <div className={`text-xs py-0.5 px-2 rounded font-medium ${
-                      testSummary.passed === testSummary.total 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {testSummary.passed === testSummary.total 
-                        ? 'Đã giải quyết thành công!' 
-                        : `Đã đúng ${testSummary.passed}/${testSummary.total} test cases`}
-                    </div>
-                  )}
-                  {testResults.length > 0 && (
-                    <div className="flex items-center space-x-2 text-xs bg-white text-gray-800 py-0.5 px-2 rounded">
-                      <span className="font-medium">Total: {testSummary.total}</span>
-                      <div className="h-3 w-px bg-gray-300"></div>
-                      <span className="text-green-600 font-medium">✓ {testSummary.passed}</span>
-                      <div className="h-3 w-px bg-gray-300"></div>
-                      <span className="text-red-600 font-medium">✗ {testSummary.failed}</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={addCustomTestCase}
-                    className="flex items-center text-xs bg-white hover:bg-gray-50 text-indigo-700 font-medium py-0.5 px-2 rounded"
-                  >
-                    <PlusCircleIcon className="h-3 w-3 mr-1" />
-                    Add
-                  </button>
-                </div>
-              </div>
-              <div className="h-[calc(100%-32px)] overflow-y-auto p-2">
-                {testCases.length > 0 ? (
-                  <TestCasePanel 
-                    testCases={testCases} 
-                    testResults={testResults} 
-                    userTestCases={userTestCases}
-                    updateTestCases={setTestCases}
-                  />
-                ) : (
-                  <div className="text-center text-gray-500 py-3 text-sm">
-                    {isGeneratingProblem 
-                      ? 'Đang tạo bài toán và test cases...'
-                      : 'Chưa có test case nào. Nhấn "Tạo bài toán mới" để bắt đầu.'}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Code Output */}
-            <div className="overflow-hidden rounded-lg shadow-lg bg-white backdrop-blur-sm bg-opacity-90">
-              <div className="p-2 bg-gray-700 text-white text-sm font-medium">
-                Output
-              </div>
-              <div className="h-[calc(100%-32px)] overflow-y-auto p-2 font-mono text-xs">
-                {codeOutput ? (
-                  <pre className="whitespace-pre-wrap">{codeOutput}</pre>
-                ) : (
-                  <div className="text-center text-gray-500 py-3">
-                    Run code to see output here
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </div>

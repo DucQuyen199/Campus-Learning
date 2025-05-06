@@ -2,6 +2,22 @@
 window.global = window;
 window.process = { env: {} };
 
+// Polyfill for browser API
+if (typeof window !== 'undefined' && typeof window.browser === 'undefined') {
+  window.browser = window.browser || window.chrome || {};
+  
+  // Add browser.runtime
+  if (!window.browser.runtime) {
+    window.browser.runtime = {
+      sendMessage: () => Promise.resolve({}),
+      onMessage: {
+        addListener: () => {},
+        removeListener: () => {}
+      }
+    };
+  }
+}
+
 import { Buffer } from 'buffer';
 window.Buffer = Buffer;
 
@@ -71,21 +87,20 @@ window.startTimer = function(seconds) {
   return window.timer;
 };
 
-// Global error handler for uncaught exceptions
+// Global error handler specifically for VS Code/code-server 
 window.addEventListener('error', (event) => {
-  // Prevent errors from breaking the application
   if (event.message && (
-    event.message.includes('timer is not defined') ||
-    event.message.includes('updateTime') ||
-    event.message.includes('WebSocket') ||
-    event.message.includes('404') ||
-    event.message.includes('calls/active')
+    event.message.includes('browser is not defined') ||
+    event.message.includes('vsda') ||
+    event.message.includes('Workspace does not exist') ||
+    event.message.includes('404 (Not Found)')
   )) {
+    console.warn('Suppressing VS Code/code-server error:', event.message);
     event.preventDefault();
-    return true; // Prevents the error from propagating
+    return true;
   }
   return false;
-});
+}, true);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

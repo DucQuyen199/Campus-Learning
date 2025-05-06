@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Avatar } from '../../components';
 import axios from 'axios';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
-import ReactMonacoEditor from 'react-monaco-editor';
+import CodeServerEditor from '../AiTestLocal/components/CodeServerEditor';
 
 const CourseLearning = () => {
   const { courseId } = useParams();
@@ -852,7 +852,6 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) =>
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testResults, setTestResults] = useState(null);
-  const editorRef = useRef(null);
 
   useEffect(() => {
     // Reset code when exercise changes
@@ -970,6 +969,11 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) =>
     }
   };
 
+  // Handle code changes from the CodeServerEditor component
+  const handleCodeChange = (newCode) => {
+    setCode(newCode);
+  };
+
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
       <div className="mb-4">
@@ -996,33 +1000,11 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) =>
       </div>
 
       <div className="mb-6 border rounded-md overflow-hidden" style={{ height: '400px' }}>
-        {typeof window !== 'undefined' && (
-          <React.Suspense fallback={<div className="p-4">Loading editor...</div>}>
-            <ReactMonacoEditor
-              language={language}
-              value={code}
-              onChange={setCode}
-              height="400px"
-              width="100%"
-              theme="vs-dark"
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-                automaticLayout: true,
-                scrollbar: {
-                  vertical: 'auto',
-                  horizontal: 'auto',
-                },
-              }}
-              editorDidMount={(editor) => {
-                editorRef.current = editor;
-                editor.focus();
-              }}
-            />
-          </React.Suspense>
-        )}
+        <CodeServerEditor 
+          code={code}
+          language={language}
+          onChange={handleCodeChange}
+        />
       </div>
 
       <div className="flex justify-between mb-6">

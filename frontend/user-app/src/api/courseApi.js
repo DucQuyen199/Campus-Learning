@@ -729,6 +729,20 @@ const courseApi = {
       xhr.send(JSON.stringify({ code }));
     });
   },
+  
+  // Initialize a new code-server session for a specific exercise
+  initializeCodeServer: async (courseId, lessonId) => {
+    try {
+      const response = await axiosClient.post(`/courses/${courseId}/lessons/${lessonId}/code-server`);
+      return response.data;
+    } catch (error) {
+      console.error('Error initializing code-server:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Không thể khởi tạo môi trường code'
+      };
+    }
+  },
 };
 
 export default courseApi;

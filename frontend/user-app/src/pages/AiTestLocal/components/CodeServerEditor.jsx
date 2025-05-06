@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { startCodeServer, injectCommunicationScript, configureCodeServer } from './code-server-bridge';
+import { startCodeServer, injectCommunicationScript, configureCodeServer, createFile, createFolder } from './code-server-bridge';
 import { setupWorkspaceForCodeServer } from './create-workspace';
 import WorkspaceErrorHandler from './WorkspaceErrorHandler';
 
@@ -83,6 +83,9 @@ const CodeServerEditor = ({ code, language, onChange }) => {
             data: { code, language }
           }, '*');
         }
+        
+        // Create sample files after editor is ready
+        createSampleFiles();
       } else if (type === 'workspace-error') {
         console.log('Workspace error detected, attempting to fix...');
         handleWorkspaceError();
@@ -183,6 +186,15 @@ const CodeServerEditor = ({ code, language, onChange }) => {
         } catch (err) {
           console.error('Error processing configure-editor message:', err);
         }
+      } else if (type === 'file-creation-result' || type === 'folder-creation-result') {
+        // Log file/folder creation results
+        console.log(`${type === 'file-creation-result' ? 'File' : 'Folder'} creation result:`, data);
+        
+        if (data.success) {
+          console.log(`Successfully created ${type === 'file-creation-result' ? 'file' : 'folder'} at: ${data.path}`);
+        } else {
+          console.error(`Failed to create ${type === 'file-creation-result' ? 'file' : 'folder'}:`, data.error);
+        }
       }
     };
 
@@ -214,6 +226,137 @@ const CodeServerEditor = ({ code, language, onChange }) => {
       }
     } else {
       console.error(`Failed to fix workspace after ${maxRetries} attempts`);
+    }
+  };
+
+  // Create sample files to demonstrate file creation functionality
+  const createSampleFiles = async () => {
+    if (!iframeRef.current || !isEditorReady) return;
+    
+    try {
+      // Create a CAMPUST examples directory
+      await createFolder(iframeRef.current, 'campust-examples');
+      console.log('Created campust-examples folder');
+      
+      // Create example file types with syntax highlighting
+      const fileContents = {
+        'html-example.html': `<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAMPUST Demo Page</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 40px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Chào mừng đến với CAMPUST</h1>
+    <p>Đây là một ví dụ trang HTML đơn giản được tạo bởi CAMPUST Code Editor.</p>
+    <p>Bạn có thể chỉnh sửa tệp này để học HTML và CSS.</p>
+  </div>
+</body>
+</html>`,
+        'js-example.js': `// Ví dụ JavaScript
+class CAMPUSTDemo {
+  constructor(name) {
+    this.name = name;
+  }
+  
+  sayHello() {
+    return \`Xin chào, tôi là \${this.name} từ CAMPUST!\`;
+  }
+  
+  createList(items) {
+    return items.map((item, index) => {
+      return \`Item \${index + 1}: \${item}\`;
+    });
+  }
+}
+
+// Tạo đối tượng demo mới
+const demo = new CAMPUSTDemo('Học viên');
+console.log(demo.sayHello());
+
+// Tạo danh sách
+const items = ['HTML', 'CSS', 'JavaScript', 'Python'];
+const formattedItems = demo.createList(items);
+console.log('Các khóa học:', formattedItems);`,
+        'python-example.py': `# Ví dụ Python
+
+class CAMPUSTDemo:
+    def __init__(self, name):
+        self.name = name
+    
+    def say_hello(self):
+        return f"Xin chào, tôi là {self.name} từ CAMPUST!"
+    
+    def create_list(self, items):
+        return [f"Item {i+1}: {item}" for i, item in enumerate(items)]
+
+# Tạo đối tượng demo mới
+demo = CAMPUSTDemo("Học viên")
+print(demo.say_hello())
+
+# Tạo danh sách
+items = ["HTML", "CSS", "JavaScript", "Python"]
+formatted_items = demo.create_list(items)
+print("Các khóa học:")
+for item in formatted_items:
+    print(item)`
+      };
+      
+      // Create each file
+      for (const [filename, content] of Object.entries(fileContents)) {
+        const filePath = `campust-examples/${filename}`;
+        const result = await createFile(iframeRef.current, filePath, content);
+        console.log(`Created file: ${filePath}`, result);
+      }
+      
+      // Create a README.md file in the examples folder
+      await createFile(iframeRef.current, 'campust-examples/README.md', 
+        `# CAMPUST Code Examples
+        
+## Hướng dẫn sử dụng
+
+Thư mục này chứa các ví dụ mã nguồn để giúp bạn làm quen với trình soạn thảo code CAMPUST:
+
+1. **html-example.html** - Ví dụ về cú pháp HTML và CSS cơ bản
+2. **js-example.js** - Ví dụ về JavaScript với class và các hàm
+3. **python-example.py** - Ví dụ về Python với class và các phương thức
+
+## Cách tạo tệp mới
+
+Để tạo một tệp mới:
+1. Nhấp chuột phải vào explorer bên trái
+2. Chọn "New File" hoặc "New Folder"
+3. Nhập tên tệp và nhấn Enter
+
+## Tính năng chính
+
+- Làm việc với nhiều loại tệp khác nhau
+- Tự động highlight cú pháp
+- Autocompletion (gợi ý hoàn thành mã)
+- Mở nhiều tệp cùng lúc với tabs`
+      );
+    } catch (error) {
+      console.error('Error creating sample files:', error);
     }
   };
 

@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "lib": ["es2020", "dom", "dom.iterable"],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./out",
+    "declaration": false,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
+    "tsBuildInfoFile": "./.cache/tsbuildinfo",
+    "incremental": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./typings",
+      "./test/node_modules/@types",
+      "./lib/vscode/src/vs/server/@types"
+    ],
+    "downlevelIteration": true,
+    "resolveJsonModule": true
+  },
+  "include": ["./src/**/*"],
+  "exclude": ["/test", "/lib", "/ci", "/doc"]
+}

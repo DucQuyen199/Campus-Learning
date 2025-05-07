@@ -1,0 +1,25 @@
+.tsbuildinfo
+.cache
+/out*/
+release/
+release-npm-package/
+release-standalone/
+release-packages/
+release-gcp/
+release-images/
+node_modules
+/plugins
+/lib/coder-cloud-agent
+.home
+coverage
+**/.DS_Store
+
+# Code packages itself here.
+/lib/vscode-reh-web-*
+
+# Failed e2e test videos are saved here
+test/test-results
+
+# Quilt's internal data.
+/.pc
+/patches/*.diff~

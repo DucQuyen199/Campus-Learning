@@ -1,0 +1,67 @@
+body {
+  min-height: 568px;
+  min-width: 320px;
+  overflow: auto;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: center;
+}
+
+.login-form > .field {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .login-form > .field {
+    flex-direction: column;
+  }
+}
+
+.login-form > .error {
+  color: red;
+  margin-top: 16px;
+}
+
+.login-form > .field > .password {
+  background-color: rgb(244, 247, 252);
+  background-color: light-dark(rgb(244, 247, 252), #374151);
+  border-radius: 5px;
+  border: 1px solid #ddd;
+  border: 1px solid light-dark(#ddd, #4b5563);
+  box-sizing: border-box;
+  flex: 1;
+  padding: 16px;
+}
+
+.login-form > .field > .password::placeholder {
+  color: rgb(148 163 184);
+}
+
+.login-form > .field > .password:focus {
+  outline: 2px solid rgb(63, 131, 248);
+}
+
+.login-form > .user {
+  display: none;
+}
+
+.login-form > .field > .submit {
+  margin-left: 20px;
+}
+
+@media (max-width: 600px) {
+  .login-form > .field > .submit {
+    margin-left: 0px;
+    margin-top: 16px;
+  }
+}
+
+input {
+  -webkit-appearance: none;
+}

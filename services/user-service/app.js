@@ -36,12 +36,12 @@ const commentRoutes = require('./routes/commentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const rankingRoutes = require('./routes/rankingRoutes');
-const competitionRoutes = require('./routes/competitionRoutes');
 const storyRoutes = require('./routes/storyRoutes');
 const callRoutes = require('./routes/callRoutes');
 const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
 const friendshipRoutes = require('./routes/friendshipRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const competitionRoutes = require('./routes/competitionRoutes');
 const app = express();
 
 // Middleware
@@ -96,12 +96,12 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/rankings', rankingRoutes);
-app.use('/api/competitions', competitionRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api', codeExecutionRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api', competitionRoutes);
 
 // Direct route handler for /calls/active to fix 404 error
 app.get('/calls/active', (req, res) => {

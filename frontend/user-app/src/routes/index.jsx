@@ -18,8 +18,6 @@ import EventDetail from '@/pages/Events/EventDetail';
 import ChatPage from '@/components/chat/ChatPage';
 import PaymentCallback from '@/pages/Courses/PaymentCallback';
 import PaymentHistory from '@/pages/Courses/PaymentHistory';
-import CompetitionsPage from '@/pages/Competitions';
-import CompetitionDetail from '@/pages/Competitions/CompetitionDetail';
 import AiTestLocal from '@/pages/AiTestLocal';
 
 const AppRoutes = () => {
@@ -37,10 +35,6 @@ const AppRoutes = () => {
               <CourseLearning />
             </PrivateRoute>
           } />
-        </Route>
-        <Route path="competitions">
-          <Route index element={<CompetitionsPage />} />
-          <Route path=":id" element={<CompetitionDetail />} />
         </Route>
         <Route path="payment/:courseId" element={
           <PrivateRoute>

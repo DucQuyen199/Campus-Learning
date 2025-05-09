@@ -1,30 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const competitionController = require('../controllers/competitionController');
-const codeExecutionController = require('../controllers/codeExecutionController');
-const { authenticateToken } = require('../middleware/auth');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 // Public routes
-router.get('/', competitionController.getAllCompetitions);
-router.get('/:competitionId', competitionController.getCompetitionById);
-router.get('/:competitionId/leaderboard', competitionController.getCompetitionLeaderboard);
-router.get('/:competitionId/problems', competitionController.getCompetitionProblems);
-router.get('/problems/:problemId', competitionController.getProblemById);
+router.get('/competitions', competitionController.getAllCompetitions);
+router.get('/competitions/:id', competitionController.getCompetitionDetails);
+router.get('/competitions/:competitionId/problems/:problemId', competitionController.getProblemDetails);
 
-// Protected routes (require authentication)
-router.post('/:competitionId/register', authenticateToken, competitionController.registerCompetition);
-router.get('/:competitionId/registration-status', authenticateToken, competitionController.checkRegistrationStatus);
-router.get('/:competitionId/completed-problems', authenticateToken, competitionController.getCompletedProblems);
-router.get('/:competitionId/problems/:problemId/solution', authenticateToken, competitionController.getSubmittedSolution);
-router.post('/problems/:problemId/submit', authenticateToken, competitionController.submitSolution);
-router.post('/:competitionId/finish', authenticateToken, competitionController.finishCompetition);
+// Protected routes
+router.post('/competitions/:competitionId/register', authMiddleware, competitionController.registerForCompetition);
+router.post('/competitions/:competitionId/start', authMiddleware, competitionController.startCompetition);
+router.post('/competitions/:competitionId/problems/:problemId/submit', authMiddleware, competitionController.submitSolution);
+router.get('/competitions/:competitionId/scoreboard', authMiddleware, competitionController.getScoreboard);
+router.get('/competitions/submissions/:submissionId', authMiddleware, competitionController.getSubmissionDetails);
+router.get('/user/competitions', authMiddleware, competitionController.getUserCompetitions);
 
-// Enhanced code execution routes for competitions
-router.post('/problems/:problemId/evaluate', authenticateToken, codeExecutionController.evaluateCompetitionSolution);
-router.get('/:competitionId/completed-problems', authenticateToken, competitionController.getUserCompletedProblems);
-
-// Admin routes (require authentication)
-router.post('/:competitionId/problems', authenticateToken, competitionController.createProblem);
-router.put('/problems/:problemId', authenticateToken, competitionController.updateProblem);
-
-module.exports = router;
+module.exports = router; 

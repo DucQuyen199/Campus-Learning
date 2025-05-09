@@ -80,7 +80,6 @@ const Ranking = () => {
         >
           <option value="all">Tất cả</option>
           <option value="courses">Khóa học</option>
-          <option value="competitions">Thi đấu</option>
         </select>
       </div>
 
@@ -99,7 +98,6 @@ const Ranking = () => {
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Cấp bậc</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Điểm số</th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Khóa học</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-500">Thi đấu</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -145,12 +143,6 @@ const Ranking = () => {
                     <div className="flex items-center">
                       <AcademicCapIcon className="w-5 h-5 text-green-500 mr-2" />
                       {item.completedCourses || 0}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <TrophyIcon className="w-5 h-5 text-yellow-500 mr-2" />
-                      {item.competitions || 0}
                     </div>
                   </td>
                 </tr>

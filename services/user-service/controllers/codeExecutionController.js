@@ -86,513 +86,137 @@ const LANGUAGE_CONFIGS = {
 };
 
 /**
- * Execute code in a Docker container or fallback to alternative methods
+ * Execute code snippet with custom input
+ * This endpoint executes a code snippet with custom input and returns the result
  */
 exports.executeCode = async (req, res) => {
-  const { code, language, stdin = '', input = '' } = req.body;
-
   try {
-    console.log(`Executing ${language} code${stdin ? ' with stdin' : ''}${input ? ' with input' : ''}`);
-
-    // Use the execution helper to execute code
-    const executionHelper = require('../utils/executionHelper');
-    const result = await executionHelper.executeCode(code, language, stdin || input);
-
-    // Check if the code is waiting for input
-    if (result.success && result.data && result.data.isWaitingForInput) {
-      console.log('Program is waiting for input. Prompting user for input.');
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          ...result.data,
-          needsInput: true,
-          prompt: result.data.waitingPrompt || result.data.stdout.split('\n').pop() || 'Input:',
-          executionId: result.executionId
-        }
+    const { code, language, input } = req.body;
+    
+    if (!code || !language) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code and language are required'
       });
     }
-
-    // Return the normal result
-    return res.status(200).json(result);
-
+    
+    console.log(`Executing ${language} code...`);
+    
+    // Validate language support
+    if (!isSupportedLanguage(language)) {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported language: ${language}`
+      });
+    }
+    
+    // Execute code
+    const result = await executeCodeInternal(code, language, input);
+    
+    return res.status(200).json({
+      success: true,
+      result
+    });
   } catch (error) {
     console.error('Error executing code:', error);
     return res.status(500).json({
       success: false,
       message: 'Error executing code',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: error.message
     });
   }
 };
 
 /**
- * Submit code for evaluation (similar to executeCode but with test cases)
+ * Execute code submission for course lesson
+ * This endpoint handles code submissions for course lessons
  */
-exports.submitCode = async (req, res) => {
-  const { code, language, lessonId, exerciseId } = req.body;
-
-  // Validate request data
-  if (!code || !language || !lessonId) {
-    return res.status(400).json({
-      success: false,
-      message: 'Code, language, and lessonId are required'
-    });
-  }
-
-  // In a real implementation, you would:
-  // 1. Fetch test cases from the database for the lesson/exercise
-  // 2. Run the code against each test case
-  // 3. Evaluate the results
-  // 4. Store the submission and results
-
+exports.executeCodeSubmission = async (req, res) => {
   try {
-    // For now, just execute the code
-    // In production, implement test case validation
-    const result = await executeCodeInDocker(code, language, '');
-
-    // Record the submission in the database here
-    // ...
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        ...result,
-        passed: true, // Simulate passing test cases
-        lessonId,
-        exerciseId: exerciseId || null
-      }
-    });
-  } catch (error) {
-    console.error('Error submitting code:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Error submitting code',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-};
-
-/**
- * Evaluate a competition solution against test cases
- * This endpoint handles competition code submissions and runs them against test cases
- */
-exports.evaluateCompetitionSolution = async (req, res) => {
-  const { code, language, problemId } = req.body;
-
-  // Validate request data
-  if (!code || !language || !problemId) {
-    return res.status(400).json({
-      success: false,
-      message: 'Code, language, and problemId are required'
-    });
-  }
-
-  try {
-    // Start tracking performance metrics
-    const startTime = process.hrtime();
-
-    // Get the problem details including test cases
-    const problem = await getProblemDetails(problemId);
-
-    if (!problem) {
+    const { code, language, lessonId } = req.body;
+    const userId = req.user.id;
+    
+    if (!code || !language || !lessonId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Code, language, and lessonId are required'
+      });
+    }
+    
+    console.log(`Executing ${language} code submission for lesson ${lessonId}...`);
+    
+    // Validate language support
+    if (!isSupportedLanguage(language)) {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported language: ${language}`
+      });
+    }
+    
+    // Get lesson details
+    const { CourseLesson, LessonProgress } = require('../models');
+    const lesson = await CourseLesson.findByPk(lessonId);
+    
+    if (!lesson) {
       return res.status(404).json({
         success: false,
-        message: 'Problem not found'
+        message: 'Lesson not found'
       });
     }
-
-    // Parse test cases
-    let visibleTestCases = [];
-    let hiddenTestCases = [];
-
-    try {
-      if (problem.TestCasesVisible) {
-        visibleTestCases = JSON.parse(problem.TestCasesVisible);
-      }
-
-      if (problem.TestCasesHidden) {
-        hiddenTestCases = JSON.parse(problem.TestCasesHidden);
-      }
-
-      // If no test cases are defined, use sample input/output
-      if (visibleTestCases.length === 0 && problem.SampleInput && problem.SampleOutput) {
-        visibleTestCases.push({
-          input: problem.SampleInput,
-          output: problem.SampleOutput
-        });
-      }
-    } catch (error) {
-      console.error('Error parsing test cases:', error);
-      return res.status(500).json({
+    
+    // Check if lesson has test cases
+    if (!lesson.TestCases || lesson.TestCases.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: 'Error parsing test cases'
+        message: 'Lesson has no test cases'
       });
     }
-
-    // Combine test cases for evaluation
-    const allTestCases = [
-      ...visibleTestCases.map(tc => ({ ...tc, isHidden: false })),
-      ...hiddenTestCases.map(tc => ({ ...tc, isHidden: true }))
-    ];
-
-    // Execute code against each test case
-    const testCaseResults = [];
-    let passedAllTests = true;
-
-    for (const testCase of allTestCases) {
-      // Execute code with the test input
-      const executionResult = await executeCodeInDocker(
-        code,
-        language,
-        testCase.input || ''
-      );
-
-      // Normalize outputs for comparison (trim whitespace, normalize line endings)
-      const expectedOutput = (testCase.output || '').trim().replace(/\r\n/g, '\n');
-      const actualOutput = (executionResult.stdout || '').trim().replace(/\r\n/g, '\n');
-
-      // Check if output matches
-      const outputMatches = expectedOutput === actualOutput;
-
-      if (!outputMatches) {
-        passedAllTests = false;
+    
+    const testCases = JSON.parse(lesson.TestCases);
+    let allTestsPassed = true;
+    let results = [];
+    
+    // Run each test case
+    for (const testCase of testCases) {
+      const input = testCase.input || '';
+      const expectedOutput = testCase.output ? testCase.output.trim() : '';
+      
+      // Execute code with test case input
+      const result = await executeCodeInternal(code, language, input);
+      
+      const actualOutput = result.output ? result.output.trim() : '';
+      const testPassed = actualOutput === expectedOutput;
+      
+      // If this test case failed, the overall submission fails
+      if (!testPassed) {
+        allTestsPassed = false;
       }
-
-      // Add test case result
-      testCaseResults.push({
-        passed: outputMatches,
-        input: testCase.input,
-        expectedOutput: testCase.isHidden && outputMatches ? '[Hidden]' : expectedOutput,
-        actualOutput: actualOutput,
-        isHidden: testCase.isHidden,
-        outputMatch: outputMatches
+      
+      results.push({
+        ...result,
+        input,
+        expectedOutput,
+        passed: testPassed
       });
     }
-
-    // Calculate execution time
-    const endTime = process.hrtime(startTime);
-    const executionTimeMs = (endTime[0] * 1000) + (endTime[1] / 1000000);
-
-    // Calculate score based on number of test cases passed
-    const baseScore = problem.Points || 100;
-    const passedCount = testCaseResults.filter(tc => tc.passed).length;
-    const totalCount = testCaseResults.length;
-
-    // Score is proportional to number of tests passed
-    const percentPassed = totalCount > 0 ? passedCount / totalCount : 0;
-
-    // Apply time bonus for faster solutions (up to 10% bonus)
-    const timeLimit = problem.TimeLimit || 1; // in seconds
-    const timeRatio = Math.min(1, timeLimit / (executionTimeMs / 1000));
-    const timeBonus = passedAllTests ? baseScore * 0.1 * timeRatio : 0;
-
-    // Final score (rounded to nearest integer)
-    const score = Math.round(baseScore * percentPassed + timeBonus);
-
-    // Create response object
-    const result = {
-      success: true,
-      passed: passedAllTests,
-      score: score,
-      testCases: testCaseResults,
-      executionTime: executionTimeMs,
-      performanceMetrics: {
-        executionTime: executionTimeMs.toFixed(2),
-        memoryUsage: executionResult?.memoryUsage || 0
-      }
-    };
-
-    // If the user is logged in, record their submission
-    if (req.user && req.user.id) {
-      try {
-        await recordCompetitionSubmission(
-          req.user.id,
-          problemId,
-          code,
-          language,
-          result
-        );
-
-        // Update the user's and competition's statistics
-        await updateCompetitionProblemStatus(
-          req.user.id,
-          problemId,
-          result
-        );
-      } catch (error) {
-        console.error('Error recording submission:', error);
-        // Continue with response even if recording fails
-      }
-    }
-
+    
+    // Update lesson progress
+    await updateLessonProgress(userId, lessonId, allTestsPassed);
+    
     return res.status(200).json({
       success: true,
-      data: result
+      passed: allTestsPassed,
+      results
     });
   } catch (error) {
-    console.error('Error evaluating competition solution:', error);
+    console.error('Error executing code submission:', error);
     return res.status(500).json({
       success: false,
-      message: 'Error evaluating competition solution',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Error executing code submission',
+      error: error.message
     });
   }
 };
-
-/**
- * Record a competition submission in the database
- */
-async function recordCompetitionSubmission(userId, problemId, code, language, result) {
-  try {
-    const { CompetitionSubmission, CompetitionProblem } = require('../models');
-
-    // Get problem details to link to the correct competition
-    const problem = await CompetitionProblem.findByPk(problemId);
-
-    if (!problem) {
-      throw new Error('Problem not found');
-    }
-
-    // Create submission record
-    await CompetitionSubmission.create({
-      ProblemID: problemId,
-      ParticipantID: userId,
-      SourceCode: code,
-      Language: language,
-      Status: result.passed ? 'accepted' : 'wrong_answer',
-      Score: result.score,
-      ExecutionTime: result.executionTime,
-      MemoryUsed: result.performanceMetrics.memoryUsage,
-      SubmittedAt: new Date()
-    });
-
-    return true;
-  } catch (error) {
-    console.error('Error recording submission:', error);
-    throw error;
-  }
-}
-
-/**
- * Get problem details from the database
- */
-async function getProblemDetails(problemId) {
-  try {
-    const { CompetitionProblem } = require('../models');
-
-    const problem = await CompetitionProblem.findByPk(problemId);
-
-    return problem;
-  } catch (error) {
-    console.error('Error fetching problem details:', error);
-    throw error;
-  }
-}
-
-/**
- * Update the user's competition problem status after submission
- */
-async function updateCompetitionProblemStatus(userId, problemId, result) {
-  try {
-    const {
-      CompetitionProblem,
-      CompetitionParticipant,
-      sequelize
-    } = require('../models');
-
-    // Start a transaction
-    const transaction = await sequelize.transaction();
-
-    try {
-      // Get the problem to find the competition ID and points
-      const problem = await CompetitionProblem.findByPk(problemId, { transaction });
-
-      if (!problem) {
-        throw new Error('Problem not found');
-      }
-
-      // Get participant record
-      const participant = await CompetitionParticipant.findOne({
-        where: {
-          CompetitionID: problem.CompetitionID,
-          UserID: userId
-        },
-        transaction
-      });
-
-      if (!participant) {
-        throw new Error('Participant not found');
-      }
-
-      // Chỉ cập nhật điểm nếu solution đúng tất cả test case
-      if (result.passed) {
-        // Check if the participant has already solved this problem
-        const alreadySolved = await sequelize.query(
-          `SELECT COUNT(*) as count FROM CompetitionSubmissions cs
-           JOIN CompetitionParticipants cp ON cs.ParticipantID = cp.ParticipantID
-           WHERE cp.UserID = :userId AND cs.ProblemID = :problemId AND cs.Status = 'accepted'`,
-          {
-            replacements: { userId, problemId },
-            type: sequelize.QueryTypes.SELECT,
-            transaction
-          }
-        );
-
-        const firstTimeSolved = alreadySolved[0].count === 0;
-
-        if (firstTimeSolved) {
-          // Cập nhật điểm - chỉ tính điểm khi tất cả test case đều đúng
-          // Lấy điểm từ bảng CompetitionProblems thay vì result.score
-          const pointsToAdd = problem.Points || 0;
-
-          participant.Score += pointsToAdd;
-          participant.TotalProblemsSolved += 1;
-          participant.TotalProblemsAttempted += 1;
-          participant.UpdatedAt = new Date();
-
-          // Nếu chưa có StartTime, ghi lại thời điểm bắt đầu
-          if (!participant.StartTime) {
-            participant.StartTime = new Date();
-          }
-
-          await participant.save({ transaction });
-
-          // Cập nhật tổng số lượt nộp và số bài giải của cuộc thi
-          await sequelize.query(
-            `UPDATE Competitions
-             SET CurrentParticipants = (
-               SELECT COUNT(DISTINCT UserID) FROM CompetitionParticipants WHERE CompetitionID = :competitionId
-             ),
-             UpdatedAt = GETDATE()
-             WHERE CompetitionID = :competitionId`,
-            {
-              replacements: { competitionId: problem.CompetitionID },
-              type: sequelize.QueryTypes.UPDATE,
-              transaction
-            }
-          );
-
-          // Cập nhật thứ hạng cho tất cả người tham gia trong cuộc thi này
-          // Dựa trên Score, TotalProblemsSolved, và thời gian nộp bài
-          await sequelize.query(`
-            UPDATE CompetitionParticipants cp1
-            SET Rank = (
-              SELECT COUNT(*) + 1
-              FROM CompetitionParticipants cp2
-              WHERE cp2.CompetitionID = cp1.CompetitionID
-              AND (
-                cp2.Score > cp1.Score
-                OR (cp2.Score = cp1.Score AND cp2.TotalProblemsSolved > cp1.TotalProblemsSolved)
-                OR (cp2.Score = cp1.Score AND cp2.TotalProblemsSolved = cp1.TotalProblemsSolved AND cp2.UpdatedAt < cp1.UpdatedAt)
-              )
-            )
-            WHERE cp1.CompetitionID = :competitionId
-          `, {
-            replacements: { competitionId: problem.CompetitionID },
-            type: sequelize.QueryTypes.UPDATE,
-            transaction
-          });
-
-          console.log(`Updated rankings for competition ${problem.CompetitionID} after user ${userId} solved problem ${problemId} with ${pointsToAdd} points`);
-
-          // Cập nhật bảng UserRankings nếu cần
-          await updateUserRanking(userId, pointsToAdd, transaction);
-        }
-      } else {
-        // Ngay cả khi bài làm không đúng, vẫn cập nhật số lượt thử
-        participant.TotalProblemsAttempted += 1;
-        participant.UpdatedAt = new Date();
-        await participant.save({ transaction });
-      }
-
-      // Commit transaction
-      await transaction.commit();
-
-      return true;
-    } catch (error) {
-      // Rollback on error
-      await transaction.rollback();
-      throw error;
-    }
-  } catch (error) {
-    console.error('Error updating competition problem status:', error);
-    throw error;
-  }
-}
-
-/**
- * Cập nhật bảng UserRankings sau khi người dùng hoàn thành bài tập
- */
-async function updateUserRanking(userId, pointsEarned, transaction) {
-  try {
-    const { UserRanking, sequelize } = require('../models');
-
-    // Kiểm tra xem người dùng đã có bản ghi xếp hạng chưa
-    let userRanking = await UserRanking.findOne({
-      where: { UserID: userId },
-      transaction
-    });
-
-    const now = new Date();
-
-    if (!userRanking) {
-      // Tạo mới bản ghi nếu chưa có
-      userRanking = await UserRanking.create({
-        UserID: userId,
-        Tier: 'BRONZE', // Tier mặc định cho người dùng mới
-        TotalPoints: pointsEarned,
-        EventPoints: pointsEarned, // Cuộc thi được xem là sự kiện
-        ProblemsSolved: 1,
-        Accuracy: 100, // Bài đầu tiên và đã giải đúng
-        WeeklyScore: pointsEarned,
-        MonthlyScore: pointsEarned,
-        LastCalculatedAt: now
-      }, { transaction });
-    } else {
-      // Cập nhật bản ghi hiện có
-      userRanking.TotalPoints += pointsEarned;
-      userRanking.EventPoints += pointsEarned;
-      userRanking.ProblemsSolved += 1;
-      userRanking.WeeklyScore += pointsEarned;
-      userRanking.MonthlyScore += pointsEarned;
-      userRanking.LastCalculatedAt = now;
-
-      // Cập nhật tier dựa trên tổng điểm
-      if (userRanking.TotalPoints >= 10000) {
-        userRanking.Tier = 'MASTER';
-      } else if (userRanking.TotalPoints >= 5000) {
-        userRanking.Tier = 'DIAMOND';
-      } else if (userRanking.TotalPoints >= 2000) {
-        userRanking.Tier = 'PLATINUM';
-      } else if (userRanking.TotalPoints >= 1000) {
-        userRanking.Tier = 'GOLD';
-      } else if (userRanking.TotalPoints >= 500) {
-        userRanking.Tier = 'SILVER';
-      } else {
-        userRanking.Tier = 'BRONZE';
-      }
-
-      await userRanking.save({ transaction });
-    }
-
-    // Ghi lại lịch sử điểm ranking
-    await sequelize.query(`
-      INSERT INTO RankingHistory (UserID, Type, RelatedID, PointsEarned, Reason, CreatedAt)
-      VALUES (:userId, 'EVENT', :problemId, :pointsEarned, 'Problem solved correctly', GETDATE())
-    `, {
-      replacements: { userId, problemId, pointsEarned },
-      type: sequelize.QueryTypes.INSERT,
-      transaction
-    });
-
-    return true;
-  } catch (error) {
-    console.error('Error updating user ranking:', error);
-    // Không throw exception ở đây để không ảnh hưởng đến transaction chính
-    return false;
-  }
-}
 
 /**
  * Execute code in a Docker container or fallback to alternative methods
@@ -1466,3 +1090,40 @@ exports.runCode = async (req, res) => {
     });
   }
 };
+
+/**
+ * Update lesson progress after a code submission
+ */
+async function updateLessonProgress(userId, lessonId, passed) {
+  const { LessonProgress, sequelize } = require('../models');
+  
+  try {
+    // Find or create progress record
+    const [progress, created] = await LessonProgress.findOrCreate({
+      where: {
+        UserID: userId,
+        LessonID: lessonId
+      },
+      defaults: {
+        Status: passed ? 'completed' : 'in-progress',
+        LastAttemptAt: new Date(),
+        CompletedAt: passed ? new Date() : null
+      }
+    });
+    
+    // If not created, update the existing record
+    if (!created) {
+      await progress.update({
+        Status: passed ? 'completed' : 'in-progress',
+        LastAttemptAt: new Date(),
+        CompletedAt: passed ? new Date() : progress.CompletedAt
+      });
+    }
+    
+    console.log(`Updated lesson progress for user ${userId}, lesson ${lessonId}, passed: ${passed}`);
+    return true;
+  } catch (error) {
+    console.error('Error updating lesson progress:', error);
+    return false;
+  }
+}

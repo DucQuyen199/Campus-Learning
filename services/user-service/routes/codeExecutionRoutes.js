@@ -3,6 +3,7 @@ const router = express.Router();
 const codeExecutionController = require('../controllers/codeExecutionController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { checkDockerStatus } = require('../utils/dockerManager');
+const { authenticateToken } = require('../middleware/auth');
 
 // Code execution endpoints
 router.post('/execute-code', authMiddleware, codeExecutionController.executeCode);
@@ -18,9 +19,6 @@ router.get('/code-execution/health', codeExecutionController.healthCheck);
 // Test execution endpoint without auth (for testing purposes only)
 router.post('/code-execution/test-execute', codeExecutionController.executeCode);
 router.post('/code-execution/test-input', codeExecutionController.sendInput);
-
-// Submit code endpoint (for lesson exercises and challenges)
-router.post('/lessons/:lessonId/submit-code', authMiddleware, codeExecutionController.submitCode);
 
 // Docker execution health/status endpoint - use Docker-specific health check
 router.get('/code-execution/docker-status', codeExecutionController.checkDockerAvailability);
@@ -169,10 +167,10 @@ router.get('/courses/:courseId/lessons/:lessonId/code-exercise', authMiddleware,
 // Run code for a specific exercise (run tests)
 router.post('/courses/:courseId/lessons/:lessonId/run-code', authMiddleware, codeExecutionController.runCode);
 
-// Submit code endpoint (for lesson exercises and challenges)
-router.post('/courses/:courseId/lessons/:lessonId/submit-code', authMiddleware, codeExecutionController.submitCode);
+// Execution endpoint for general code execution with input
+router.post('/execute', authenticateToken, codeExecutionController.executeCode);
 
-// Legacy endpoint (deprecated but kept for backward compatibility)
-router.post('/lessons/:lessonId/submit-code', authMiddleware, codeExecutionController.submitCode);
+// Code submission for course lessons
+router.post('/lessons/:lessonId/submit', authenticateToken, codeExecutionController.executeCodeSubmission);
 
 module.exports = router;

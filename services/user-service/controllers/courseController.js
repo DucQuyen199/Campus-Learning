@@ -14,12 +14,12 @@ const paypalClient = require('../utils/paypalClient');
 const { formatDateForSqlServer, createSqlServerDate } = require('../utils/dateHelpers');
 const LessonProgress = require('../models/LessonProgress');
 
-// Get all published courses
+// Get all courses (public)
 exports.getAllCourses = async (req, res) => {
   try {
     console.log('Fetching all courses');
     
-    // Log data from database first
+    // Count published courses
     const courseCount = await Course.count({
       where: {
         IsPublished: true,
@@ -30,33 +30,27 @@ exports.getAllCourses = async (req, res) => {
     
     console.log(`Found ${courseCount} published courses in database`);
     
-    // Nếu không có khóa học nào, trả về khóa học mẫu
+    // Return sample data for development/testing
     if (courseCount === 0) {
-      console.log('No courses found, returning sample courses');
       const sampleCourses = [
         {
           CourseID: 1,
-          Title: 'Khóa học Web cơ bản',
-          Slug: 'khoa-hoc-web-co-ban',
-          ShortDescription: 'Học lập trình web từ cơ bản đến nâng cao',
+          Title: 'Lập trình Python cho người mới bắt đầu',
+          Slug: 'lap-trinh-python-co-ban',
+          ShortDescription: 'Khóa học Python từ cơ bản đến nâng cao dành cho người mới',
           Level: 'beginner',
-          Category: 'Web Development',
-          Duration: 1200,
-          EnrolledCount: 25,
-          Rating: 4.5,
-          RatingCount: 10,
-          Price: 0,
-          DiscountPrice: null,
-          ImageUrl: 'https://placehold.co/600x400?text=Web+Development',
-          Instructor: {
-            UserID: 1,
-            FullName: 'Giảng viên mẫu',
-            Image: 'https://placehold.co/100x100?text=Avatar'
-          }
+          Category: 'Programming',
+          Duration: 2400,
+          EnrolledCount: 245,
+          Rating: 4.8,
+          RatingCount: 120,
+          Price: 499000,
+          DiscountPrice: 399000,
+          ImageUrl: 'https://placehold.co/600x400?text=Python'
         },
         {
           CourseID: 2,
-          Title: 'Khóa học Java',
+          Title: 'Lập trình Java chuyên sâu',
           Slug: 'khoa-hoc-java',
           ShortDescription: 'Lập trình Java chuyên sâu',
           Level: 'intermediate',
@@ -67,12 +61,7 @@ exports.getAllCourses = async (req, res) => {
           RatingCount: 8,
           Price: 299000,
           DiscountPrice: 199000,
-          ImageUrl: 'https://placehold.co/600x400?text=Java',
-          Instructor: {
-            UserID: 2,
-            FullName: 'Giảng viên mẫu 2',
-            Image: 'https://placehold.co/100x100?text=Avatar'
-          }
+          ImageUrl: 'https://placehold.co/600x400?text=Java'
         }
       ];
       
@@ -88,14 +77,7 @@ exports.getAllCourses = async (req, res) => {
       attributes: [
         'CourseID', 'Title', 'Slug', 'ShortDescription', 
         'Level', 'Category', 'Duration', 'EnrolledCount',
-        'Rating', 'Price', 'DiscountPrice', 'ImageUrl'
-      ],
-      include: [
-        {
-          model: User,
-          as: 'Instructor',
-          attributes: ['UserID', 'FullName', 'Image']
-        }
+        'Rating', 'Price', 'DiscountPrice', 'ImageUrl', 'InstructorID'
       ]
     });
 

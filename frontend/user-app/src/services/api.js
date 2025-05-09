@@ -219,23 +219,6 @@ const examServices = {
   autoRegisterForAllExams: () => api.post('/api/exams/auto-register'),
 };
 
-// =================== COMPETITION SERVICES ===================
-const competitionServices = {
-  getAllCompetitions: (params) => api.get('/api/competitions', { params }),
-  getCompetitionById: (competitionId) => api.get(`/api/competitions/${competitionId}`),
-  joinCompetition: (competitionId) => api.post(`/api/competitions/${competitionId}/join`),
-  getCompetitionProblems: (competitionId) => api.get(`/api/competitions/${competitionId}/problems`),
-  getProblemById: (problemId) => api.get(`/api/problems/${problemId}`),
-  submitProblemSolution: (problemId, solution) => api.post(`/api/problems/${problemId}/submissions`, solution),
-  getSubmissionResults: (submissionId) => api.get(`/api/submissions/${submissionId}/results`),
-  getCompetitionLeaderboard: (competitionId) => api.get(`/api/competitions/${competitionId}/leaderboard`),
-  getCompetitionHistory: () => api.get('/api/competitions/history'),
-  createChallenge: (userId, problemId) => api.post('/api/competitions/challenge', { userId, problemId }),
-  acceptChallenge: (challengeId) => api.post(`/api/competitions/challenges/${challengeId}/accept`),
-  rejectChallenge: (challengeId) => api.post(`/api/competitions/challenges/${challengeId}/reject`),
-  getChallenges: (status) => api.get('/api/competitions/challenges', { params: { status } }),
-};
-
 // =================== CHAT SERVICES ===================
 const chatServices = {
   getConversations: () => api.get('/conversations'),
@@ -272,7 +255,6 @@ export {
   notificationServices,
   rankingServices,
   examServices,
-  competitionServices,
   chatServices,
   aiChatServices,
   api

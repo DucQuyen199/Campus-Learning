@@ -36,7 +36,6 @@ exports.getAllRankings = async (req, res) => {
               ranking.TotalPoints,
       tier: ranking.Tier,
       completedCourses: null, // This would come from a course enrollment count
-      competitions: ranking.Wins
     }));
     
     res.status(200).json(formattedRankings);

@@ -19,7 +19,6 @@ import Ranking from './pages/Ranking';
 import AIChat from './pages/AIChat';
 import Exams from './pages/Exams';
 import OtherCourses from './pages/OtherCourses';
-import Competitions from './pages/Competitions';
 import Chat from './pages/Chat';
 import Reports from './pages/Reports/index';
 import Profile from './pages/Profile';
@@ -30,9 +29,6 @@ import Register from './pages/Auth/Register';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
 import AuthMiddleware from './middleware/AuthMiddleware';
-import CompetitionDetail from './pages/Competitions/CompetitionDetail';
-import ArenaRedirect from './pages/Arena';
-import ArenaCode from './pages/Competitions/ArenaCode';
 import StoryCreate from './pages/Stories/StoryCreate';
 import { CallProvider } from './contexts/CallContext';
 import { CallInterface } from './components/Call';
@@ -42,6 +38,9 @@ import PrivacyPolicy from './pages/Support/PrivacyPolicy';
 import TermsOfUse from './pages/Support/TermsOfUse';
 import Roadmaps from './pages/Roadmaps';
 import AiTestLocal from './pages/AiTestLocal';
+import CompetitionsPage from './pages/Competitions';
+import CompetitionDetail from './pages/Competitions/CompetitionDetail';
+import ProblemDetail from './pages/Competitions/ProblemDetail';
 
 // Custom CSS for toast notifications
 import './toast-custom.css';
@@ -104,19 +103,13 @@ function App() {
             { path: '/ai-chat', element: <AIChat /> },
             { path: '/ai-test-local', element: <AiTestLocal /> },
             { path: '/other-courses', element: <OtherCourses /> },
-            { path: '/competitions', element: <Competitions /> },
-            { path: '/competitions/:id', element: <CompetitionDetail /> },
-            { path: '/arena/:id', element: <ArenaRedirect /> },
-            { path: '/competitions/:id/code', element: 
-              <>
-                {console.log('ArenaCode route is being rendered with params:', window.location.pathname)}
-                <ArenaCode />
-              </>
-            },
             { path: '/chat', element: <Chat /> },
             { path: '/reports', element: <Reports /> },
             { path: '/settings', element: <Settings /> },
             { path: '/exams/*', element: <Exams /> },
+            { path: '/competitions', element: <CompetitionsPage /> },
+            { path: '/competitions/:id', element: <CompetitionDetail /> },
+            { path: '/competitions/:competitionId/problems/:problemId', element: <ProblemDetail /> },
             { path: '/courses/:courseId/learn', element: <CourseLearning /> },
             { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
             { path: '/payment/:courseId', element: <Payment /> }

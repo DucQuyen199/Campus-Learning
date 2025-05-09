@@ -81,7 +81,6 @@ export * from './courseApi';
 export * from './chatApi';
 export * from './reports';
 export * from './settings';
-export * from './competitionApi';
 export * from './examApi';
 
 export default api; 

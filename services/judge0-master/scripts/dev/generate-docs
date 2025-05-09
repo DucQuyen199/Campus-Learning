@@ -1,0 +1,6 @@
+#!/bin/bash
+# Script for generating Judge0 documentation.
+#
+# Usage: ./scripts/dev/generate-docs
+#
+aglio --theme-full-width -i docs/api/docs.md -o public/docs.html

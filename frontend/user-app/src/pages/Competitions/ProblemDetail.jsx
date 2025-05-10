@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getProblemDetails, submitSolution, getSubmissionDetails } from '@/api/competitionService';
+import { getProblemDetails, submitSolution, getSubmissionDetails, getCompetitionDetails } from '@/api/competitionService';
 import { toast } from 'react-toastify';
 import Editor from '@monaco-editor/react';
 import { format } from 'date-fns';
@@ -9,6 +9,7 @@ const ProblemDetail = () => {
   const { competitionId, problemId } = useParams();
   const navigate = useNavigate();
   const [problem, setProblem] = useState(null);
+  const [problemList, setProblemList] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -59,35 +60,79 @@ public class Main {
   };
 
   useEffect(() => {
+    const fetchCompetitionDetails = async () => {
+      try {
+        const response = await getCompetitionDetails(competitionId);
+        if (response.success && response.data.problems) {
+          setProblemList(response.data.problems);
+        } else {
+          console.error('Failed to fetch problem list');
+        }
+      } catch (err) {
+        console.error('Error fetching competition details:', err);
+      }
+    };
+
+    fetchCompetitionDetails();
+  }, [competitionId]);
+
+  useEffect(() => {
     const fetchProblemDetails = async () => {
       try {
         setLoading(true);
         const response = await getProblemDetails(competitionId, problemId);
         
-        // Handle server error responses that getProblemDetails now returns instead of throwing
-        if (response.isServerError) {
-          toast.error(response.message || 'Server error occurred');
+        // Handle different error types
+        if (!response.success) {
+          if (response.isAuthError) {
+            toast.error('Please log in to view problem details');
+            navigate('/login', { state: { from: `/competitions/${competitionId}/problems/${problemId}` } });
+            setLoading(false);
+            return;
+          }
+          
+          if (response.isPermissionError) {
+            toast.error(response.message || 'You do not have permission to view this problem');
+            setLoading(false);
+            return;
+          }
+          
+          if (response.isServerError) {
+            toast.error(response.message || 'Server error occurred');
+            setLoading(false);
+            return;
+          }
+          
+          // Handle any other error
+          toast.error(response.message || 'Failed to load problem details');
           setLoading(false);
           return;
         }
         
-        if (response.success) {
-          setProblem(response.data);
-          
-          // Set submissions
-          if (response.data.userSubmissions) {
-            setSubmissions(response.data.userSubmissions);
-          }
-          
-          // Set initial code from starter code or language template
-          if (response.data.StarterCode) {
-            setCode(response.data.StarterCode);
-          } else {
-            setCode(starterCodes[language]);
-          }
-        } else {
-          toast.error(response.message || 'Failed to load problem details');
+        setProblem(response.data);
+        
+        // Set submissions from the correct location in the response
+        if (response.userSubmissions) {
+          setSubmissions(response.userSubmissions);
         }
+        
+        // Set initial code from starter code or language template
+        if (response.data.StarterCode) {
+          setCode(response.data.StarterCode);
+        } else {
+          setCode(starterCodes[language]);
+        }
+
+        // Parse test cases if available
+        try {
+          if (response.data.TestCasesVisible) {
+            const visibleTestCases = JSON.parse(response.data.TestCasesVisible);
+            response.data.TestCasesVisible = visibleTestCases;
+          }
+        } catch (error) {
+          console.error('Error parsing visible test cases:', error);
+        }
+        
       } catch (err) {
         console.error('Error fetching problem details:', err);
         toast.error('An error occurred while fetching problem details');
@@ -97,7 +142,7 @@ public class Main {
     };
 
     fetchProblemDetails();
-  }, [competitionId, problemId, language]);
+  }, [competitionId, problemId, language, navigate]);
 
   // Handle language change
   const handleLanguageChange = (e) => {
@@ -126,94 +171,102 @@ public class Main {
       setSubmitting(true);
       setResults(null);
       
-      const response = await submitSolution(competitionId, problemId, {
-        sourceCode: code,
-        language: language
-      });
+      const response = await submitSolution(competitionId, problemId, code, language);
       
       if (response.success) {
         toast.success('Solution submitted successfully');
-        // Poll for submission results
-        pollSubmissionStatus(response.data.submissionId);
+        
+        // Polling for submission results
+        let submissionStatus = 'pending';
+        let attempts = 0;
+        const maxAttempts = 10;
+        const pollingInterval = 2000; // 2 seconds
+        
+        const checkSubmissionStatus = async () => {
+          try {
+            attempts++;
+            console.log(`Checking submission status (attempt ${attempts}/${maxAttempts})...`);
+            
+            // Fetch the latest problem data including submissions
+            const problemData = await getProblemDetails(competitionId, problemId);
+            
+            if (problemData.isServerError) {
+              toast.error(problemData.message || 'Server error occurred');
+              setSubmitting(false);
+              return;
+            }
+            
+            if (!problemData.success) {
+              toast.error(problemData.message || 'Failed to fetch submission status');
+              setSubmitting(false);
+              return;
+            }
+            
+            // Find the latest submission
+            const latestSubmission = problemData.userSubmissions?.[0];
+            
+            if (!latestSubmission) {
+              console.error('No submissions found after submitting code');
+              setSubmitting(false);
+              return;
+            }
+            
+            console.log('Latest submission status:', latestSubmission.Status);
+            submissionStatus = latestSubmission.Status.toLowerCase();
+            
+            // Update UI with the latest submission
+            setSubmissions(problemData.userSubmissions || []);
+            
+            // If still pending/running and we haven't exceeded max attempts, poll again
+            if (['pending', 'running'].includes(submissionStatus) && attempts < maxAttempts) {
+              setTimeout(checkSubmissionStatus, pollingInterval);
+            } else {
+              // Final status update
+              setSubmitting(false);
+              
+              // Handle the final submission status
+              if (submissionStatus === 'accepted') {
+                toast.success('Solution accepted! 🎉');
+              } else if (submissionStatus === 'wrong_answer') {
+                toast.error('Wrong answer. Try again!');
+              } else if (submissionStatus === 'compilation_error') {
+                toast.error('Compilation error. Check your code syntax.');
+              } else if (submissionStatus === 'runtime_error') {
+                toast.error('Runtime error. Check your code logic.');
+              } else if (submissionStatus === 'time_limit_exceeded') {
+                toast.error('Time limit exceeded. Optimize your solution.');
+              } else if (submissionStatus === 'memory_limit_exceeded') {
+                toast.error('Memory limit exceeded. Optimize your solution.');
+              } else if (submissionStatus === 'error') {
+                toast.error('An error occurred while judging your submission.');
+              }
+              
+              // Display detailed results
+              setResults({
+                status: submissionStatus,
+                message: latestSubmission.ErrorMessage,
+                score: latestSubmission.Score,
+                executionTime: latestSubmission.ExecutionTime,
+                memoryUsed: latestSubmission.MemoryUsed
+              });
+            }
+          } catch (error) {
+            console.error('Error checking submission status:', error);
+            setSubmitting(false);
+            toast.error('Failed to check submission status');
+          }
+        };
+        
+        // Start polling
+        setTimeout(checkSubmissionStatus, 1000);
       } else {
         toast.error(response.message || 'Failed to submit solution');
+        setSubmitting(false);
       }
-    } catch (err) {
-      console.error('Error submitting solution:', err);
-      toast.error(err.response?.data?.message || 'Error submitting solution');
-    } finally {
+    } catch (error) {
+      console.error('Error submitting code:', error);
+      toast.error(error.response?.data?.message || 'Error submitting code');
       setSubmitting(false);
-    }
-  };
-
-  // Poll for submission status
-  const pollSubmissionStatus = async (submissionId) => {
-    const maxAttempts = 30; // 30 attempts * 2 seconds = up to 60 seconds of polling
-    let attempts = 0;
-    
-    const checkStatus = async () => {
-      try {
-        const response = await getSubmissionDetails(submissionId);
-        
-        if (response.success) {
-          const submission = response.data;
-          
-          // If the submission is still running/pending, poll again
-          if (submission.Status === 'pending' || submission.Status === 'running' || submission.Status === 'compiling') {
-            if (attempts < maxAttempts) {
-              attempts++;
-              setTimeout(checkStatus, 2000); // Poll every 2 seconds
-            } else {
-              toast.warning('Submission is taking longer than expected. Check submissions tab later.');
-              refreshSubmissions();
-            }
-          } else {
-            // Submission completed, update the UI
-            setResults(submission);
-            refreshSubmissions();
-            
-            // Show appropriate toast based on status
-            if (submission.Status === 'accepted') {
-              toast.success('✅ Solution accepted! Score: ' + submission.Score);
-            } else if (submission.Status === 'wrong_answer') {
-              toast.error('❌ Wrong answer');
-            } else if (submission.Status === 'compilation_error') {
-              toast.error('Compilation error');
-            } else if (submission.Status === 'runtime_error') {
-              toast.error('Runtime error');
-            } else if (submission.Status === 'time_limit_exceeded') {
-              toast.error('Time limit exceeded');
-            } else if (submission.Status === 'memory_limit_exceeded') {
-              toast.error('Memory limit exceeded');
-            }
-          }
-        } else {
-          toast.error('Failed to get submission status');
-        }
-      } catch (err) {
-        console.error('Error polling submission status:', err);
-        if (attempts < maxAttempts) {
-          attempts++;
-          setTimeout(checkStatus, 2000);
-        } else {
-          toast.error('Error checking submission status');
-        }
-      }
-    };
-    
-    // Start polling
-    setTimeout(checkStatus, 2000);
-  };
-
-  // Refresh submissions list
-  const refreshSubmissions = async () => {
-    try {
-      const response = await getProblemDetails(competitionId, problemId);
-      if (response.success && response.data.userSubmissions) {
-        setSubmissions(response.data.userSubmissions);
-      }
-    } catch (err) {
-      console.error('Error refreshing submissions:', err);
     }
   };
 
@@ -303,9 +356,9 @@ public class Main {
         </Link>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Problem description */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Problem description - now 35% */}
+        <div className="lg:col-span-4 bg-white rounded-lg shadow-md overflow-hidden">
           <div className="flex border-b">
             <button
               className={`flex-1 py-3 px-4 text-center ${
@@ -329,7 +382,7 @@ public class Main {
             </button>
           </div>
           
-          <div className="p-6 overflow-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
+          <div className="p-4 overflow-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
             {tabActive === 'problem' ? (
               <>
                 <div className="flex justify-between items-start mb-4">
@@ -343,6 +396,26 @@ public class Main {
                       {problem.Difficulty}
                     </span>
                     <span className="ml-2 text-sm text-gray-500">{problem.Points} points</span>
+                  </div>
+                </div>
+                
+                {/* Add problem list section to allow selection */}
+                <div className="mb-6 border-b pb-4">
+                  <h3 className="text-md font-semibold mb-2">Problem List</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {problemList && problemList.map((p) => (
+                      <button
+                        key={p.ProblemID}
+                        onClick={() => p.ProblemID !== parseInt(problemId) && navigate(`/competitions/${competitionId}/problems/${p.ProblemID}`)}
+                        className={`px-3 py-1 text-sm rounded-full ${
+                          p.ProblemID === parseInt(problemId)
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        }`}
+                      >
+                        {p.Title}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 
@@ -375,7 +448,7 @@ public class Main {
                   {(problem.SampleInput || problem.SampleOutput) && (
                     <div className="mb-4">
                       <h3 className="text-lg font-semibold mb-2">Examples</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4">
                         {problem.SampleInput && (
                           <div>
                             <h4 className="text-sm font-medium mb-2">Sample Input</h4>
@@ -406,7 +479,7 @@ public class Main {
                       <div className="space-y-4">
                         {problem.TestCasesVisible.map((testCase, index) => (
                           <div key={index} className="border rounded-md p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                               <div>
                                 <h4 className="text-sm font-medium mb-2">Input</h4>
                                 <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{testCase.input}</pre>
@@ -554,8 +627,8 @@ public class Main {
           </div>
         </div>
         
-        {/* Code editor */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {/* Code editor - now 65% */}
+        <div className="lg:col-span-8 bg-white rounded-lg shadow-md overflow-hidden">
           <div className="border-b px-4 py-3 flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <label htmlFor="language" className="text-sm font-medium text-gray-700">Language:</label>
@@ -598,7 +671,7 @@ public class Main {
           
           <div className="border-b">
             <Editor
-              height="400px"
+              height="500px"
               language={language}
               value={code}
               onChange={setCode}
@@ -618,33 +691,33 @@ public class Main {
               <div className="space-y-3">
                 <div className="flex items-center">
                   <span className="text-sm font-medium mr-2">Status:</span>
-                  {getStatusBadge(results.Status)}
+                  {getStatusBadge(results.status)}
                 </div>
                 
                 <div className="flex items-center">
                   <span className="text-sm font-medium mr-2">Score:</span>
-                  <span className="text-sm font-medium">{results.Score} / {problem.Points}</span>
+                  <span className="text-sm font-medium">{results.score} / {problem.Points}</span>
                 </div>
                 
-                {results.ExecutionTime && (
+                {results.executionTime && (
                   <div>
                     <span className="text-sm font-medium mr-2">Execution Time:</span>
-                    <span className="text-sm">{results.ExecutionTime} seconds</span>
+                    <span className="text-sm">{results.executionTime} seconds</span>
                   </div>
                 )}
                 
-                {results.MemoryUsed && (
+                {results.memoryUsed && (
                   <div>
                     <span className="text-sm font-medium mr-2">Memory Used:</span>
-                    <span className="text-sm">{results.MemoryUsed} KB</span>
+                    <span className="text-sm">{results.memoryUsed} KB</span>
                   </div>
                 )}
                 
-                {results.ErrorMessage && (
+                {results.message && (
                   <div>
                     <span className="text-sm font-medium text-red-600 mb-1 block">Error:</span>
                     <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
-                      {results.ErrorMessage}
+                      {results.message}
                     </pre>
                   </div>
                 )}

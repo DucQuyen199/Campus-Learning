@@ -4,8 +4,11 @@ const { sequelize } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
 // Judge0 API configuration
-const JUDGE0_API_URL = process.env.JUDGE0_API_URL || 'http://localhost:2358';
-const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY || '';
+const JUDGE0_API_URL = process.env.JUDGE0_API_URL || 'https://judge0-ce.p.rapidapi.com';
+const JUDGE0_API_KEY = process.env.JUDGE0_API_KEY; // You'll need to get a RapidAPI key
+
+// Add an API host constant for RapidAPI
+const JUDGE0_API_HOST = process.env.JUDGE0_API_HOST || 'judge0-ce.p.rapidapi.com';
 
 /**
  * Get list of all competitions
@@ -141,82 +144,134 @@ exports.getProblemDetails = async (req, res) => {
       });
     }
     
-    // Get problem details - Ensure we're using input binding correctly
-    const problemRequest = pool.request();
-    problemRequest.input('problemId', sql.BigInt, problemId);
-    problemRequest.input('competitionId', sql.BigInt, competitionId);
+    const competition = competitionResult.recordset[0];
+    const now = new Date();
     
-    const problemResult = await problemRequest.query(`
-      SELECT 
-        ProblemID, CompetitionID, Title, Description, Difficulty, Points,
-        TimeLimit, MemoryLimit, InputFormat, OutputFormat,
-        Constraints, SampleInput, SampleOutput, Explanation,
-        ImageURL, StarterCode, TestCasesVisible, Tags, Instructions
-      FROM CompetitionProblems
-      WHERE ProblemID = @problemId AND CompetitionID = @competitionId
-    `);
+    // User comes from auth middleware, safely extract isAdmin property
+    const isAdmin = req.user?.isAdmin || false;
     
-    if (problemResult.recordset.length === 0) {
-      return res.status(404).json({
+    // Check if competition has started - only for non-admin users
+    if (!isAdmin && competition.Status !== 'ongoing' && now < competition.StartTime) {
+      return res.status(403).json({
         success: false,
-        message: 'Problem not found'
+        message: 'Competition has not started yet'
       });
     }
     
-    // Get user's submissions for this problem if authenticated
-    const userId = req.user?.id;
-    let userSubmissions = [];
+    // Check if user is registered for the competition
+    const userId = req.user.id;
     
-    if (userId) {
-      // Check if user is registered for this competition
-      const participantRequest = pool.request();
-      participantRequest.input('competitionId', sql.BigInt, competitionId);
-      participantRequest.input('userId', sql.BigInt, userId);
-      
-      const participantResult = await participantRequest.query(`
+    const participantResult = await pool.request()
+      .input('competitionId', sql.BigInt, competitionId)
+      .input('userId', sql.BigInt, userId)
+      .query(`
         SELECT ParticipantID, Status
         FROM CompetitionParticipants
         WHERE CompetitionID = @competitionId AND UserID = @userId
       `);
-      
-      if (participantResult.recordset.length > 0) {
-        const participantId = participantResult.recordset[0].ParticipantID;
-        
-        // Get user's submissions
-        const submissionsRequest = pool.request();
-        submissionsRequest.input('problemId', sql.BigInt, problemId);
-        submissionsRequest.input('participantId', sql.BigInt, participantId);
-        
-        const submissionsResult = await submissionsRequest.query(`
-          SELECT 
-            SubmissionID, Status, Score, ExecutionTime, MemoryUsed,
-            ErrorMessage, SubmittedAt, Language
-          FROM CompetitionSubmissions
-          WHERE ProblemID = @problemId AND ParticipantID = @participantId
-          ORDER BY SubmittedAt DESC
-        `);
-        
-        userSubmissions = submissionsResult.recordset;
-      }
+    
+    if (participantResult.recordset.length === 0 && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not registered for this competition'
+      });
     }
     
-    // Parse test cases if they exist
+    // Get problem details
+    const problemResult = await pool.request()
+      .input('competitionId', sql.BigInt, competitionId)
+      .input('problemId', sql.BigInt, problemId)
+      .query(`
+        SELECT 
+            p.ProblemID, p.Title, p.Description, p.Difficulty, 
+            p.Points, p.TimeLimit, p.MemoryLimit, 
+            p.InputFormat, p.OutputFormat, p.Constraints, p.SampleInput,
+            p.SampleOutput, p.Explanation, p.StarterCode, p.Tags,
+            p.TestCasesVisible, p.Instructions
+        FROM CompetitionProblems p
+        WHERE p.CompetitionID = @competitionId AND p.ProblemID = @problemId
+      `);
+    
+    if (problemResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Problem not found or not active in this competition'
+      });
+    }
+    
     const problem = problemResult.recordset[0];
-    if (problem.TestCasesVisible) {
+    
+    // Get test cases (Admin only - regular users only see sample cases)
+    let testCases = [];
+    
+    if (isAdmin) {
       try {
-        problem.TestCasesVisible = JSON.parse(problem.TestCasesVisible);
-      } catch (e) {
-        console.error('Error parsing test cases:', e);
-        problem.TestCasesVisible = [];
+        const testCaseResult = await pool.request()
+          .input('problemId', sql.BigInt, problemId)
+          .query(`
+            SELECT TestCaseID, Input, Output, IsHidden
+            FROM ProblemTestCases
+            WHERE ProblemID = @problemId
+            ORDER BY TestCaseID
+          `);
+        
+        testCases = testCaseResult.recordset;
+      } catch (error) {
+        console.error('Error fetching test cases:', error);
+        // Continue without test cases, don't fail the entire request
       }
     }
+
+    // Format sample input/output for display
+    try {
+      if (problem.SampleInput) {
+        const sampleInput = JSON.parse(problem.SampleInput);
+        const sampleOutput = JSON.parse(problem.SampleOutput);
+        
+        problem.Samples = sampleInput.map((input, i) => ({
+          input,
+          output: sampleOutput[i] || ''
+        }));
+      } else {
+        problem.Samples = [];
+      }
+    } catch (error) {
+      console.error('Error parsing sample input/output:', error);
+      problem.Samples = [];
+    }
+    
+    // Get user submissions for this problem
+    let userSubmissions = [];
+    
+    if (participantResult.recordset.length > 0) {
+      const participant = participantResult.recordset[0];
+      
+      const submissionsResult = await pool.request()
+        .input('participantId', sql.BigInt, participant.ParticipantID)
+        .input('problemId', sql.BigInt, problemId)
+        .query(`
+          SELECT 
+            SubmissionID, Status, Score, Language, 
+            SubmittedAt, JudgedAt, ErrorMessage,
+            ExecutionTime, MemoryUsed
+          FROM CompetitionSubmissions
+          WHERE ParticipantID = @participantId AND ProblemID = @problemId
+          ORDER BY SubmissionID DESC
+        `);
+      
+      userSubmissions = submissionsResult.recordset;
+    }
+    
+    // Hide test cases that should not be visible to users
+    const formattedProblem = {
+      ...problem,
+      testCases: isAdmin ? testCases : undefined
+    };
     
     return res.status(200).json({
       success: true,
-      data: {
-        ...problem,
-        userSubmissions
-      }
+      data: formattedProblem,
+      userSubmissions
     });
   } catch (error) {
     console.error('Error fetching problem details:', error);
@@ -538,6 +593,26 @@ exports.submitSolution = async (req, res) => {
       });
     }
     
+    // Check if problem exists and is part of the competition
+    const problemRequest = pool.request();
+    problemRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
+    problemRequest.input('problemId', sql.BigInt, bigIntProblemId);
+    
+    const problemResult = await problemRequest.query(`
+      SELECT ProblemID, Title, Description, Points, TimeLimit, MemoryLimit
+      FROM CompetitionProblems
+      WHERE CompetitionID = @competitionId AND ProblemID = @problemId AND IsActive = 1
+    `);
+    
+    if (problemResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Problem not found or not part of this competition'
+      });
+    }
+    
+    const problem = problemResult.recordset[0];
+    
     // Check if user is registered and active
     const participantRequest = pool.request();
     participantRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
@@ -558,35 +633,58 @@ exports.submitSolution = async (req, res) => {
     
     const participant = participantResult.recordset[0];
     
-    // If not active or time has expired
+    // Check if the competition time window is valid for this participant
     const now = new Date();
-    if (participant.Status !== 'active' || now > new Date(participant.EndTime)) {
+    
+    if (participant.Status !== 'active') {
       return res.status(400).json({
         success: false,
-        message: 'Competition time has ended or you have not started'
+        message: 'You have not started this competition yet'
       });
     }
     
-    // Check if problem exists and belongs to this competition
-    const problemRequest = pool.request();
-    problemRequest.input('problemId', sql.BigInt, bigIntProblemId);
-    problemRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
+    if (now > participant.EndTime) {
+      return res.status(400).json({
+        success: false,
+        message: 'Your competition time has expired'
+      });
+    }
     
-    const problemResult = await problemRequest.query(`
-      SELECT 
-        ProblemID, TimeLimit, MemoryLimit, TestCasesVisible, TestCasesHidden, Points
-      FROM CompetitionProblems
-      WHERE ProblemID = @problemId AND CompetitionID = @competitionId
+    // Get the Judge0 language ID
+    const languageId = getJudge0LanguageId(language);
+    
+    if (!languageId) {
+      return res.status(400).json({
+        success: false,
+        message: `Unsupported programming language: ${language}`
+      });
+    }
+    
+    // Fetch all test cases for this problem
+    const testCasesRequest = pool.request();
+    testCasesRequest.input('problemId', sql.BigInt, bigIntProblemId);
+    
+    const testCasesResult = await testCasesRequest.query(`
+      SELECT TestCaseID, Input, Output, IsHidden
+      FROM ProblemTestCases
+      WHERE ProblemID = @problemId
+      ORDER BY TestCaseID
     `);
     
-    if (problemResult.recordset.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Problem not found'
-      });
+    // Check if we have test cases
+    if (testCasesResult.recordset.length === 0) {
+      console.warn(`No test cases found for problem ${problemId}`);
+      // Create a single default test case if none exist
+      testCasesResult.recordset = [{ 
+        TestCaseID: 1, 
+        Input: '', 
+        Output: '', 
+        IsHidden: false 
+      }];
     }
     
-    const problem = problemResult.recordset[0];
+    const testCases = testCasesResult.recordset;
+    console.log(`Found ${testCases.length} test cases for problem ${problemId}`);
     
     // Create a record for the submission
     const submissionRequest = pool.request();
@@ -604,68 +702,27 @@ exports.submitSolution = async (req, res) => {
     
     const submissionId = submissionResult.recordset[0].SubmissionID;
     
-    // Update participant stats
-    await pool.request()
-      .input('participantId', sql.BigInt, participant.ParticipantID)
-      .query(`
-        UPDATE CompetitionParticipants
-        SET TotalProblemsAttempted = CASE 
-                                       WHEN EXISTS (SELECT 1 FROM CompetitionSubmissions WHERE ParticipantID = @participantId AND ProblemID = ${bigIntProblemId}) 
-                                       THEN TotalProblemsAttempted 
-                                       ELSE TotalProblemsAttempted + 1 
-                                     END,
-            UpdatedAt = GETDATE()
-        WHERE ParticipantID = @participantId
-      `);
-    
-    // Process submission in the background
-    try {
-      // Parse test cases
-      let testCases = [];
-      if (problem.TestCasesVisible) {
-        try {
-          const visibleCases = JSON.parse(problem.TestCasesVisible);
-          testCases = testCases.concat(visibleCases);
-        } catch (e) {
-          console.error('Error parsing visible test cases:', e);
-        }
-      }
-      if (problem.TestCasesHidden) {
-        try {
-          const hiddenCases = JSON.parse(problem.TestCasesHidden);
-          testCases = testCases.concat(hiddenCases);
-        } catch (e) {
-          console.error('Error parsing hidden test cases:', e);
-        }
-      }
-      
-      // Execute asynchronously
-      const languageId = getJudge0LanguageId(language);
-      processSubmission(submissionId, sourceCode, languageId, testCases, problem)
-        .catch(err => console.error(`Error processing submission ${submissionId}:`, err));
-    } catch (err) {
-      console.error('Error preparing submission for execution:', err);
-    }
+    // Process the submission asynchronously
+    processSubmission(submissionId, sourceCode, languageId, testCases, problem)
+      .catch(error => {
+        console.error(`Error in submission processing: ${error.message}`, error);
+      });
     
     return res.status(200).json({
       success: true,
       message: 'Solution submitted successfully',
-      data: { submissionId }
+      data: {
+        submissionId,
+        status: 'pending',
+        language,
+        submittedAt: new Date()
+      }
     });
   } catch (error) {
     console.error('Error submitting solution:', error);
-    
-    // Provide more detailed error for debugging
-    let errorMessage = 'Error submitting solution';
-    if (error.name === 'RangeError') {
-      errorMessage = 'Invalid competition, problem, or user ID format';
-    } else if (error.code && error.message) {
-      errorMessage = `${error.message} (Code: ${error.code})`;
-    }
-    
     return res.status(500).json({
       success: false,
-      message: errorMessage,
+      message: 'Error submitting solution',
       error: error.message
     });
   }
@@ -845,24 +902,54 @@ exports.getScoreboard = async (req, res) => {
 };
 
 /**
- * Helper function to get Judge0 language ID
+ * Get Judge0 language ID based on language name
  */
 function getJudge0LanguageId(language) {
-  // This mapping might need adjustments based on the actual Judge0 configuration
+  // Updated language IDs for Judge0 CE on RapidAPI
+  // Reference: https://rapidapi.com/judge0-official/api/judge0-ce/
   const languageMap = {
-    'c': 50,          // C (GCC 9.2.0)
-    'cpp': 54,        // C++ (GCC 9.2.0)
-    'java': 62,       // Java (OpenJDK 13.0.1)
-    'python': 71,     // Python (3.8.1)
-    'javascript': 63, // JavaScript (Node.js 12.14.0)
-    'csharp': 51,     // C# (Mono 6.6.0.161)
-    'php': 68,        // PHP (7.4.1)
-    'ruby': 72,       // Ruby (2.7.0)
-    'go': 60,         // Go (1.13.5)
-    'rust': 73        // Rust (1.40.0)
+    'c': 50,             // C (GCC 9.2.0)
+    'cpp': 54,           // C++ (GCC 9.2.0)
+    'java': 62,          // Java (OpenJDK 13.0.1)
+    'python': 71,        // Python (3.8.1)
+    'python2': 70,       // Python (2.7.17)
+    'python3': 71,       // Python (3.8.1)
+    'javascript': 63,    // JavaScript (Node.js 12.14.0)
+    'nodejs': 63,        // JavaScript (Node.js 12.14.0)
+    'csharp': 51,        // C# (Mono 6.6.0.161)
+    'php': 68,           // PHP (7.4.1)
+    'ruby': 72,          // Ruby (2.7.0)
+    'go': 60,            // Go (1.13.5)
+    'rust': 73,          // Rust (1.40.0)
+    'kotlin': 78,        // Kotlin (1.3.70)
+    'swift': 83,         // Swift (5.2.3)
+    'typescript': 74,    // TypeScript (3.7.4)
+    'bash': 46,          // Bash (5.0.0)
+    'r': 80,             // R (4.0.0)
+    'scala': 81,         // Scala (2.13.2)
+    'sql': 82,           // SQL (SQLite 3.27.2)
+    'perl': 67,          // Perl (5.28.1)
+    'objectivec': 79,    // Objective-C (Clang 7.0.1)
+    'clojure': 86,       // Clojure (1.10.1)
+    'pascal': 67,        // Pascal (FPC 3.0.4)
+    'fortran': 59,       // Fortran (GFortran 9.2.0)
+    'haskell': 61,       // Haskell (GHC 8.8.1)
+    'lua': 64,           // Lua (5.3.5)
+    'assembly': 45,      // Assembly (NASM 2.14.02)
+    'elixir': 57,        // Elixir (1.9.4)
+    'erlang': 58,        // Erlang (OTP 22.2)
+    'd': 55,             // D (DMD 2.089.1)
+    'lisp': 84,          // Common Lisp (SBCL 2.0.0)
+    'prolog': 69         // Prolog (GNU Prolog 1.4.5)
   };
   
-  return languageMap[language.toLowerCase()];
+  // Convert input language to lowercase and handle common aliases
+  const lang = language.toLowerCase();
+  
+  // Log language detection
+  console.log(`Mapping language '${language}' to Judge0 language ID: ${languageMap[lang] || 'Unknown'}`);
+  
+  return languageMap[lang] || 54; // Default to C++ if language not found
 }
 
 /**
@@ -871,6 +958,7 @@ function getJudge0LanguageId(language) {
 async function processSubmission(submissionId, sourceCode, languageId, testCases, problem) {
   try {
     console.log(`Processing submission ${submissionId} with ${testCases.length} test cases`);
+    console.log(`Using Judge0 API: ${JUDGE0_API_URL}`);
     
     // Update submission status to processing
     await pool.request()
@@ -892,18 +980,34 @@ async function processSubmission(submissionId, sourceCode, languageId, testCases
       const testCase = testCases[i];
       
       try {
+        console.log(`Submitting test case ${i + 1}/${testCases.length} to Judge0`);
+        
+        // Set up headers for RapidAPI
+        const headers = {
+          'Content-Type': 'application/json',
+          'X-RapidAPI-Host': JUDGE0_API_HOST
+        };
+        
+        // Add API key if available
+        if (JUDGE0_API_KEY) {
+          headers['X-RapidAPI-Key'] = JUDGE0_API_KEY;
+        }
+        
         // Submit to Judge0
         const response = await axios.post(`${JUDGE0_API_URL}/submissions`, {
           source_code: sourceCode,
           language_id: languageId,
           stdin: testCase.input || '',
           expected_output: testCase.output || '',
-          cpu_time_limit: problem.TimeLimit,
-          memory_limit: problem.MemoryLimit * 1024
+          cpu_time_limit: problem.TimeLimit || 2,
+          memory_limit: (problem.MemoryLimit || 128) * 1024
         }, {
-          headers: JUDGE0_API_KEY ? { 'X-Auth-Token': JUDGE0_API_KEY } : {},
+          headers: headers,
           params: { base64_encoded: false, wait: true }  // Wait for the result directly
         });
+        
+        // Log the response for debugging
+        console.log(`Judge0 response for test case ${i + 1}:`, JSON.stringify(response.data));
         
         const result = response.data;
         
@@ -916,6 +1020,7 @@ async function processSubmission(submissionId, sourceCode, languageId, testCases
         
         // Check submission status
         const status = result.status?.id;
+        console.log(`Test case ${i + 1} status: ${status}, status description: ${result.status?.description}`);
         
         // Status codes from Judge0:
         // 3: Accepted, 4: Wrong Answer, 5: Time Limit Exceeded, 6: Compilation Error,
@@ -924,31 +1029,59 @@ async function processSubmission(submissionId, sourceCode, languageId, testCases
         if (status === 3) {
           // Test case passed
           totalScore += Math.floor(problem.Points / testCases.length);
+          console.log(`Test case ${i + 1} passed. Score: +${Math.floor(problem.Points / testCases.length)}`);
         } else {
           // Test case failed - update overall status based on the error
-          if (status === 4) overallStatus = 'wrong_answer';
-          else if (status === 5) overallStatus = 'time_limit_exceeded';
-          else if (status === 6) {
+          if (status === 4) {
+            overallStatus = 'wrong_answer';
+            errorMessage = 'Your output did not match the expected output.';
+          } else if (status === 5) {
+            overallStatus = 'time_limit_exceeded';
+            errorMessage = `Your solution took too long to execute. Time limit: ${problem.TimeLimit}s.`;
+          } else if (status === 6) {
             overallStatus = 'compilation_error';
             errorMessage = result.compile_output || 'Compilation error';
+            console.log(`Compilation error: ${result.compile_output}`);
             break; // Stop processing more test cases on compilation error
           } else if (status >= 7 && status <= 12) {
             overallStatus = 'runtime_error';
             errorMessage = result.stderr || 'Runtime error';
+            console.log(`Runtime error: ${result.stderr}`);
           } else if (status === 13) {
             overallStatus = 'memory_limit_exceeded';
+            errorMessage = `Your solution used too much memory. Memory limit: ${problem.MemoryLimit}MB.`;
+          } else {
+            overallStatus = 'error';
+            errorMessage = `Unknown error. Status: ${result.status?.description || status}`;
           }
+          console.log(`Test case ${i + 1} failed. Status: ${overallStatus}, Error: ${errorMessage}`);
         }
       } catch (error) {
-        console.error(`Error processing test case ${i} for submission ${submissionId}:`, error);
-        overallStatus = 'runtime_error';
-        errorMessage = error.message;
+        console.error(`Error processing test case ${i + 1} for submission ${submissionId}:`, error);
+        
+        // Extract the most relevant error information
+        let errorDetails = error.message;
+        if (error.response) {
+          console.error('Error response:', {
+            status: error.response.status,
+            data: error.response.data
+          });
+          errorDetails = `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`;
+        } else if (error.request) {
+          console.error('No response received:', error.request);
+          errorDetails = 'No response from Judge0 service. The service may be down.';
+        }
+        
+        overallStatus = 'error';
+        errorMessage = `Error evaluating submission: ${errorDetails}`;
         break;
       }
     }
     
     // Ensure score is not negative
     if (totalScore < 0) totalScore = 0;
+    
+    console.log(`Submission ${submissionId} final results: status=${overallStatus}, score=${totalScore}, executionTime=${maxExecutionTime}, memoryUsed=${maxMemoryUsed}`);
     
     // Update submission with final results
     const updateResult = await pool.request()

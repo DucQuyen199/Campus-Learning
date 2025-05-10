@@ -51,6 +51,24 @@ export const getProblemDetails = async (competitionId, problemId) => {
         data: error.response.data
       } : error.message);
     
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      return {
+        success: false,
+        message: 'You must be logged in to view problem details.',
+        isAuthError: true
+      };
+    }
+
+    // Handle permission errors
+    if (error.response?.status === 403) {
+      return {
+        success: false,
+        message: error.response.data.message || 'You do not have permission to view this problem.',
+        isPermissionError: true
+      };
+    }
+    
     // Handle 500 error
     if (error.response?.status === 500) {
       return {
@@ -60,8 +78,21 @@ export const getProblemDetails = async (competitionId, problemId) => {
       };
     }
     
-    // Rethrow for other error handling
-    throw error;
+    // Return a consistent error format for other errors
+    if (error.response) {
+      return {
+        success: false,
+        message: error.response.data.message || 'An error occurred while fetching problem details.',
+        status: error.response.status
+      };
+    }
+    
+    // Generic network/connection errors
+    return {
+      success: false,
+      message: 'Unable to connect to the server. Please check your internet connection.',
+      isNetworkError: true
+    };
   }
 };
 
@@ -175,14 +206,32 @@ export const startCompetition = async (competitionId) => {
 };
 
 /**
- * Submit a solution to a problem
+ * Submit a solution for a competition problem
  */
-export const submitSolution = async (competitionId, problemId, data) => {
-  const response = await apiClient.post(
-    `/competitions/${competitionId}/problems/${problemId}/submit`, 
-    data
-  );
-  return response.data;
+export const submitSolution = async (competitionId, problemId, sourceCode, language) => {
+  try {
+    console.log(`Submitting solution for competition ${competitionId}, problem ${problemId}`);
+    const response = await apiClient.post(
+      `/competitions/${competitionId}/problems/${problemId}/submit`, 
+      { 
+        sourceCode,
+        language
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Error submitting solution for competition ${competitionId}, problem ${problemId}:`, 
+      error.response ? {
+        status: error.response.status,
+        data: error.response.data
+      } : error.message);
+    
+    if (error.response) {
+      return error.response.data;
+    }
+    
+    throw error;
+  }
 };
 
 /**

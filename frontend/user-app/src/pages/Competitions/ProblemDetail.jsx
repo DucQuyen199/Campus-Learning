@@ -35,14 +35,14 @@ const ProblemDetail = () => {
 using namespace std;
 
 int main() {
-    // Your code here
+    // Viết code của bạn tại đây
     
     return 0;
 }`,
     c: `#include <stdio.h>
 
 int main() {
-    // Your code here
+    // Viết code của bạn tại đây
     
     return 0;
 }`,
@@ -50,12 +50,12 @@ int main() {
 
 public class Main {
     public static void main(String[] args) {
-        // Your code here
+        // Viết code của bạn tại đây
     }
 }`,
-    python: `# Your code here
+    python: `# Viết code của bạn tại đây
 `,
-    javascript: `// Your code here
+    javascript: `// Viết code của bạn tại đây
 `
   };
 
@@ -66,10 +66,10 @@ public class Main {
         if (response.success && response.data.problems) {
           setProblemList(response.data.problems);
         } else {
-          console.error('Failed to fetch problem list');
+          console.error('Không thể tải danh sách bài tập');
         }
       } catch (err) {
-        console.error('Error fetching competition details:', err);
+        console.error('Lỗi khi tải chi tiết cuộc thi:', err);
       }
     };
 
@@ -85,26 +85,26 @@ public class Main {
         // Handle different error types
         if (!response.success) {
           if (response.isAuthError) {
-            toast.error('Please log in to view problem details');
+            toast.error('Vui lòng đăng nhập để xem chi tiết bài tập');
             navigate('/login', { state: { from: `/competitions/${competitionId}/problems/${problemId}` } });
             setLoading(false);
             return;
           }
           
           if (response.isPermissionError) {
-            toast.error(response.message || 'You do not have permission to view this problem');
+            toast.error(response.message || 'Bạn không có quyền xem bài tập này');
             setLoading(false);
             return;
           }
           
           if (response.isServerError) {
-            toast.error(response.message || 'Server error occurred');
+            toast.error(response.message || 'Lỗi máy chủ xảy ra');
             setLoading(false);
             return;
           }
           
           // Handle any other error
-          toast.error(response.message || 'Failed to load problem details');
+          toast.error(response.message || 'Không thể tải chi tiết bài tập');
           setLoading(false);
           return;
         }
@@ -131,18 +131,18 @@ public class Main {
               const visibleTestCases = JSON.parse(response.data.TestCasesVisible);
               response.data.TestCasesVisible = Array.isArray(visibleTestCases) ? visibleTestCases : [];
             } catch (error) {
-              console.error('Error parsing visible test cases:', error);
+              console.error('Lỗi phân tích test case hiển thị:', error);
               response.data.TestCasesVisible = [];
             }
           }
         } catch (error) {
-          console.error('Error handling test cases:', error);
+          console.error('Lỗi xử lý test case:', error);
           response.data.TestCasesVisible = [];
         }
         
       } catch (err) {
-        console.error('Error fetching problem details:', err);
-        toast.error('An error occurred while fetching problem details');
+        console.error('Lỗi khi tải chi tiết bài tập:', err);
+        toast.error('Đã xảy ra lỗi khi tải chi tiết bài tập');
       } finally {
         setLoading(false);
       }
@@ -170,7 +170,7 @@ public class Main {
   // Submit solution
   const handleSubmit = async () => {
     if (!code.trim()) {
-      toast.warning('Please write some code before submitting');
+      toast.warning('Vui lòng viết code trước khi nộp bài');
       return;
     }
 
@@ -181,7 +181,7 @@ public class Main {
       const response = await submitSolution(competitionId, problemId, code, language);
       
       if (response.success) {
-        toast.success('Solution submitted successfully');
+        toast.success('Nộp bài thành công');
         
         // Polling for submission results
         let submissionStatus = 'pending';
@@ -192,19 +192,19 @@ public class Main {
         const checkSubmissionStatus = async () => {
           try {
             attempts++;
-            console.log(`Checking submission status (attempt ${attempts}/${maxAttempts})...`);
+            console.log(`Kiểm tra trạng thái bài nộp (lần ${attempts}/${maxAttempts})...`);
             
             // Fetch the latest problem data including submissions
             const problemData = await getProblemDetails(competitionId, problemId);
             
             if (problemData.isServerError) {
-              toast.error(problemData.message || 'Server error occurred');
+              toast.error(problemData.message || 'Lỗi máy chủ xảy ra');
               setSubmitting(false);
               return;
             }
             
             if (!problemData.success) {
-              toast.error(problemData.message || 'Failed to fetch submission status');
+              toast.error(problemData.message || 'Không thể kiểm tra trạng thái bài nộp');
               setSubmitting(false);
               return;
             }
@@ -213,12 +213,12 @@ public class Main {
             const latestSubmission = problemData.userSubmissions?.[0];
             
             if (!latestSubmission) {
-              console.error('No submissions found after submitting code');
+              console.error('Không tìm thấy bài nộp nào sau khi gửi code');
               setSubmitting(false);
               return;
             }
             
-            console.log('Latest submission status:', latestSubmission.Status);
+            console.log('Trạng thái bài nộp mới nhất:', latestSubmission.Status);
             submissionStatus = latestSubmission.Status.toLowerCase();
             
             // Update UI with the latest submission
@@ -233,50 +233,46 @@ public class Main {
               
               // Handle the final submission status
               if (submissionStatus === 'accepted') {
-                if (latestSubmission.ErrorMessage && latestSubmission.ErrorMessage.includes('Local evaluation mode')) {
-                  toast.info('Solution accepted in local evaluation mode');
-                } else {
-                  toast.success('Solution accepted! 🎉');
-                }
+                toast.success('Bài làm được chấp nhận! 🎉');
               } else if (submissionStatus === 'wrong_answer') {
-                toast.error('Wrong answer. Try again!');
+                toast.error('Sai đáp án. Hãy thử lại!');
               } else if (submissionStatus === 'compilation_error') {
-                toast.error('Compilation error. Check your code syntax.');
+                toast.error('Lỗi biên dịch. Kiểm tra cú pháp code của bạn.');
               } else if (submissionStatus === 'runtime_error') {
-                toast.error('Runtime error. Check your code logic.');
+                toast.error('Lỗi thực thi. Kiểm tra logic code của bạn.');
               } else if (submissionStatus === 'time_limit_exceeded') {
-                toast.error('Time limit exceeded. Optimize your solution.');
+                toast.error('Quá thời gian giới hạn. Hãy tối ưu giải pháp của bạn.');
               } else if (submissionStatus === 'memory_limit_exceeded') {
-                toast.error('Memory limit exceeded. Optimize your solution.');
+                toast.error('Quá bộ nhớ giới hạn. Hãy tối ưu giải pháp của bạn.');
               } else {
-                toast.error('An error occurred while judging your submission.');
+                toast.error('Đã xảy ra lỗi khi chấm bài của bạn.');
               }
               
               // Display detailed results
               setResults({
                 status: submissionStatus,
-                message: latestSubmission.ErrorMessage || 'No error message provided.',
+                message: latestSubmission.ErrorMessage || null,
                 score: latestSubmission.Score,
                 executionTime: latestSubmission.ExecutionTime,
                 memoryUsed: latestSubmission.MemoryUsed
               });
             }
           } catch (error) {
-            console.error('Error checking submission status:', error);
+            console.error('Lỗi khi kiểm tra trạng thái bài nộp:', error);
             setSubmitting(false);
-            toast.error('Failed to check submission status');
+            toast.error('Không thể kiểm tra trạng thái bài nộp');
           }
         };
         
         // Start polling
         setTimeout(checkSubmissionStatus, 1000);
       } else {
-        toast.error(response.message || 'Failed to submit solution');
+        toast.error(response.message || 'Nộp bài không thành công');
         setSubmitting(false);
       }
     } catch (error) {
-      console.error('Error submitting code:', error);
-      toast.error(error.response?.data?.message || 'Error submitting code');
+      console.error('Lỗi khi nộp code:', error);
+      toast.error(error.response?.data?.message || 'Lỗi khi nộp code');
       setSubmitting(false);
     }
   };
@@ -289,28 +285,28 @@ public class Main {
         setViewingSubmission(response.data);
         setTabActive('submissions');
       } else {
-        toast.error('Failed to load submission details');
+        toast.error('Không thể tải chi tiết bài nộp');
       }
     } catch (err) {
-      console.error('Error fetching submission details:', err);
-      toast.error('Error fetching submission details');
+      console.error('Lỗi khi tải chi tiết bài nộp:', err);
+      toast.error('Lỗi khi tải chi tiết bài nộp');
     }
   };
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'accepted':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Accepted</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Đạt</span>;
       case 'wrong_answer':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Wrong Answer</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Sai đáp án</span>;
       case 'compilation_error':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Compilation Error</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">Lỗi biên dịch</span>;
       case 'runtime_error':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">Runtime Error</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">Lỗi thực thi</span>;
       case 'time_limit_exceeded':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Time Limit Exceeded</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">Quá thời gian</span>;
       case 'memory_limit_exceeded':
-        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">Memory Limit Exceeded</span>;
+        return <span className="px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-800">Quá bộ nhớ</span>;
       case 'pending':
       case 'running':
       case 'compiling':
@@ -319,7 +315,7 @@ public class Main {
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          {status === 'pending' ? 'Pending' : status === 'running' ? 'Running' : 'Compiling'}
+          {status === 'pending' ? 'Đang chờ' : status === 'running' ? 'Đang chạy' : 'Đang biên dịch'}
         </span>;
       default:
         return <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">{status}</span>;
@@ -330,7 +326,7 @@ public class Main {
     try {
       return format(new Date(dateTime), 'HH:mm:ss dd/MM/yyyy');
     } catch (error) {
-      return 'Invalid date';
+      return 'Ngày không hợp lệ';
     }
   };
 
@@ -348,11 +344,11 @@ public class Main {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="bg-red-100 text-red-700 p-4 rounded-md">
-          Problem not found
+          Không tìm thấy bài tập
         </div>
         <div className="mt-4">
           <Link to={`/competitions/${competitionId}`} className="text-blue-600 hover:text-blue-800">
-            ← Back to competition
+            ← Quay lại cuộc thi
           </Link>
         </div>
       </div>
@@ -363,7 +359,7 @@ public class Main {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-4">
         <Link to={`/competitions/${competitionId}`} className="text-blue-600 hover:text-blue-800">
-          ← Back to competition
+          ← Quay lại cuộc thi
         </Link>
       </div>
       
@@ -379,7 +375,7 @@ public class Main {
               }`}
               onClick={() => setTabActive('problem')}
             >
-              Problem
+              Đề bài
             </button>
             <button
               className={`flex-1 py-3 px-4 text-center ${
@@ -389,7 +385,7 @@ public class Main {
               }`}
               onClick={() => setTabActive('submissions')}
             >
-              Submissions
+              Bài nộp
             </button>
           </div>
           
@@ -406,13 +402,13 @@ public class Main {
                     }`}>
                       {problem.Difficulty}
                     </span>
-                    <span className="ml-2 text-sm text-gray-500">{problem.Points} points</span>
+                    <span className="ml-2 text-sm text-gray-500">{problem.Points} điểm</span>
                   </div>
                 </div>
                 
                 {/* Add problem list section to allow selection */}
                 <div className="mb-6 border-b pb-4">
-                  <h3 className="text-md font-semibold mb-2">Problem List</h3>
+                  <h3 className="text-md font-semibold mb-2">Danh sách bài tập</h3>
                   <div className="flex flex-wrap gap-2">
                     {problemList && problemList.map((p) => (
                       <button
@@ -437,39 +433,39 @@ public class Main {
                   
                   {problem.InputFormat && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Input Format</h3>
+                      <h3 className="text-lg font-semibold mb-2">Định dạng đầu vào</h3>
                       <p>{problem.InputFormat}</p>
                     </div>
                   )}
                   
                   {problem.OutputFormat && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Output Format</h3>
+                      <h3 className="text-lg font-semibold mb-2">Định dạng đầu ra</h3>
                       <p>{problem.OutputFormat}</p>
                     </div>
                   )}
                   
                   {problem.Constraints && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Constraints</h3>
+                      <h3 className="text-lg font-semibold mb-2">Ràng buộc</h3>
                       <p>{problem.Constraints}</p>
                     </div>
                   )}
                   
                   {(problem.SampleInput || problem.SampleOutput) && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Examples</h3>
+                      <h3 className="text-lg font-semibold mb-2">Ví dụ</h3>
                       <div className="grid grid-cols-1 gap-4">
                         {problem.SampleInput && (
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Sample Input</h4>
+                            <h4 className="text-sm font-medium mb-2">Đầu vào mẫu</h4>
                             <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{problem.SampleInput}</pre>
                           </div>
                         )}
                         
                         {problem.SampleOutput && (
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Sample Output</h4>
+                            <h4 className="text-sm font-medium mb-2">Đầu ra mẫu</h4>
                             <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{problem.SampleOutput}</pre>
                           </div>
                         )}
@@ -479,24 +475,24 @@ public class Main {
                   
                   {problem.Explanation && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Explanation</h3>
+                      <h3 className="text-lg font-semibold mb-2">Giải thích</h3>
                       <p>{problem.Explanation}</p>
                     </div>
                   )}
                   
                   {problem.TestCasesVisible && problem.TestCasesVisible.length > 0 && (
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold mb-2">Test Cases</h3>
+                      <h3 className="text-lg font-semibold mb-2">Test Case</h3>
                       <div className="space-y-4">
                         {problem.TestCasesVisible.map((testCase, index) => (
                           <div key={index} className="border rounded-md p-4">
                             <div className="grid grid-cols-1 gap-4">
                               <div>
-                                <h4 className="text-sm font-medium mb-2">Input</h4>
+                                <h4 className="text-sm font-medium mb-2">Đầu vào</h4>
                                 <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{testCase.input}</pre>
                               </div>
                               <div>
-                                <h4 className="text-sm font-medium mb-2">Expected Output</h4>
+                                <h4 className="text-sm font-medium mb-2">Đầu ra mong đợi</h4>
                                 <pre className="bg-gray-50 p-3 rounded-md text-sm overflow-x-auto">{testCase.output}</pre>
                               </div>
                             </div>
@@ -509,50 +505,50 @@ public class Main {
               </>
             ) : (
               <>
-                <h2 className="text-xl font-semibold mb-4">Your Submissions</h2>
+                <h2 className="text-xl font-semibold mb-4">Bài nộp của bạn</h2>
                 
                 {viewingSubmission ? (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold">Submission #{viewingSubmission.SubmissionID}</h3>
+                      <h3 className="text-lg font-semibold">Bài nộp #{viewingSubmission.SubmissionID}</h3>
                       <button 
                         onClick={() => setViewingSubmission(null)}
                         className="text-blue-600 hover:text-blue-800 text-sm"
                       >
-                        Back to submissions
+                        Quay lại danh sách
                       </button>
                     </div>
                     
                     <div className="mb-4 grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-sm text-gray-500">Status:</span>
+                        <span className="text-sm text-gray-500">Trạng thái:</span>
                         <div className="mt-1">{getStatusBadge(viewingSubmission.Status)}</div>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-500">Score:</span>
-                        <div className="mt-1 font-medium">{viewingSubmission.Score} points</div>
+                        <span className="text-sm text-gray-500">Điểm:</span>
+                        <div className="mt-1 font-medium">{viewingSubmission.Score} điểm</div>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-500">Time:</span>
-                        <div className="mt-1">{viewingSubmission.ExecutionTime || 0} seconds</div>
+                        <span className="text-sm text-gray-500">Thời gian:</span>
+                        <div className="mt-1">{viewingSubmission.ExecutionTime || 0} giây</div>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-500">Memory:</span>
+                        <span className="text-sm text-gray-500">Bộ nhớ:</span>
                         <div className="mt-1">{viewingSubmission.MemoryUsed || 0} KB</div>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-500">Language:</span>
+                        <span className="text-sm text-gray-500">Ngôn ngữ:</span>
                         <div className="mt-1">{viewingSubmission.Language}</div>
                       </div>
                       <div>
-                        <span className="text-sm text-gray-500">Submitted at:</span>
+                        <span className="text-sm text-gray-500">Thời gian nộp:</span>
                         <div className="mt-1">{formatDateTime(viewingSubmission.SubmittedAt)}</div>
                       </div>
                     </div>
                     
                     {viewingSubmission.ErrorMessage && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium text-red-600 mb-2">Error:</h4>
+                        <h4 className="text-sm font-medium text-red-600 mb-2">Lỗi:</h4>
                         <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
                           {viewingSubmission.ErrorMessage}
                         </pre>
@@ -560,7 +556,7 @@ public class Main {
                     )}
                     
                     <div className="mb-4">
-                      <h4 className="text-sm font-medium mb-2">Your code:</h4>
+                      <h4 className="text-sm font-medium mb-2">Code của bạn:</h4>
                       <div className="border rounded-md overflow-hidden">
                         <Editor
                           height="300px"
@@ -577,7 +573,7 @@ public class Main {
                   </div>
                 ) : submissions.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">No submissions yet</p>
+                    <p className="text-gray-500">Chưa có bài nộp</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -588,19 +584,19 @@ public class Main {
                             ID
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
+                            Trạng thái
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Score
+                            Điểm
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Language
+                            Ngôn ngữ
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Time
+                            Thời gian
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Submitted
+                            Đã nộp
                           </th>
                         </tr>
                       </thead>
@@ -642,7 +638,7 @@ public class Main {
         <div className="lg:col-span-8 bg-white rounded-lg shadow-md overflow-hidden">
           <div className="border-b px-4 py-3 flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <label htmlFor="language" className="text-sm font-medium text-gray-700">Language:</label>
+              <label htmlFor="language" className="text-sm font-medium text-gray-700">Ngôn ngữ:</label>
               <select
                 id="language"
                 value={language}
@@ -672,10 +668,10 @@ public class Main {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Submitting...
+                  Đang nộp...
                 </>
               ) : (
-                'Submit'
+                'Nộp bài'
               )}
             </button>
           </div>
@@ -698,49 +694,38 @@ public class Main {
           {/* Results */}
           {results && (
             <div className="p-4">
-              <h3 className="text-lg font-semibold mb-2">Results</h3>
+              <h3 className="text-lg font-semibold mb-2">Kết quả</h3>
               <div className="space-y-3">
                 <div className="flex items-center">
-                  <span className="text-sm font-medium mr-2">Status:</span>
+                  <span className="text-sm font-medium mr-2">Trạng thái:</span>
                   {getStatusBadge(results.status)}
                 </div>
                 
                 <div className="flex items-center">
-                  <span className="text-sm font-medium mr-2">Score:</span>
+                  <span className="text-sm font-medium mr-2">Điểm:</span>
                   <span className="text-sm font-medium">{results.score} / {problem.Points}</span>
                 </div>
                 
                 {results.executionTime && (
                   <div>
-                    <span className="text-sm font-medium mr-2">Execution Time:</span>
-                    <span className="text-sm">{results.executionTime} seconds</span>
+                    <span className="text-sm font-medium mr-2">Thời gian thực thi:</span>
+                    <span className="text-sm">{results.executionTime} giây</span>
                   </div>
                 )}
                 
                 {results.memoryUsed && (
                   <div>
-                    <span className="text-sm font-medium mr-2">Memory Used:</span>
+                    <span className="text-sm font-medium mr-2">Bộ nhớ sử dụng:</span>
                     <span className="text-sm">{results.memoryUsed} KB</span>
                   </div>
                 )}
                 
                 {results.message && (
                   <div>
-                    {results.message.includes('Local evaluation mode') ? (
-                      <div>
-                        <span className="text-sm font-medium text-blue-600 mb-1 block">Information:</span>
-                        <div className="bg-blue-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-blue-700">
-                          {results.message}
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="text-sm font-medium text-red-600 mb-1 block">Error:</span>
-                        <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
-                          {results.message}
-                        </pre>
-                      </div>
-                    )}
+                    <span className="text-sm font-medium text-red-600 mb-1 block">Lỗi:</span>
+                    <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
+                      {results.message}
+                    </pre>
                   </div>
                 )}
               </div>

@@ -285,7 +285,7 @@ const CompetitionDetail = () => {
             to={`/competitions/${id}/problems/${competition.problems[0]?.ProblemID}`}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md block text-center"
           >
-            Tiếp tục làm bài
+            Tiếp tục thi đấu
           </Link>
           <div className="mt-2 text-sm text-gray-500 text-center">
             Cuộc thi kết thúc vào: {formatDateTime(participantStatus.EndTime)}
@@ -317,7 +317,7 @@ const CompetitionDetail = () => {
               disabled={starting}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md"
             >
-              {starting ? 'Đang khởi tạo...' : 'Bắt đầu làm bài ngay'}
+              {starting ? 'Đang khởi tạo...' : 'Vào thi đấu ngay'}
             </button>
           </div>
         );
@@ -458,13 +458,13 @@ const CompetitionDetail = () => {
               </div>
             ) : competition.participantStatus?.Status !== 'active' ? (
               <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">Bạn cần bắt đầu làm bài để xem chi tiết</p>
+                <p className="text-gray-500 mb-4">Bạn cần vào thi đấu để xem chi tiết</p>
                 <button
                   onClick={handleStart}
                   disabled={starting || getCompetitionStatus() !== 'ongoing'}
                   className={`bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md ${getCompetitionStatus() !== 'ongoing' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {starting ? 'Đang khởi tạo...' : 'Bắt đầu làm bài'}
+                  {starting ? 'Đang khởi tạo...' : 'Vào thi đấu ngay'}
                 </button>
               </div>
             ) : (

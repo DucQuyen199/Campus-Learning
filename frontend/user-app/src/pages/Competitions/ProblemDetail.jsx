@@ -126,11 +126,18 @@ public class Main {
         // Parse test cases if available
         try {
           if (response.data.TestCasesVisible) {
-            const visibleTestCases = JSON.parse(response.data.TestCasesVisible);
-            response.data.TestCasesVisible = visibleTestCases;
+            try {
+              // Try to parse as JSON
+              const visibleTestCases = JSON.parse(response.data.TestCasesVisible);
+              response.data.TestCasesVisible = Array.isArray(visibleTestCases) ? visibleTestCases : [];
+            } catch (error) {
+              console.error('Error parsing visible test cases:', error);
+              response.data.TestCasesVisible = [];
+            }
           }
         } catch (error) {
-          console.error('Error parsing visible test cases:', error);
+          console.error('Error handling test cases:', error);
+          response.data.TestCasesVisible = [];
         }
         
       } catch (err) {
@@ -218,7 +225,7 @@ public class Main {
             setSubmissions(problemData.userSubmissions || []);
             
             // If still pending/running and we haven't exceeded max attempts, poll again
-            if (['pending', 'running'].includes(submissionStatus) && attempts < maxAttempts) {
+            if (['pending', 'running', 'compiling'].includes(submissionStatus) && attempts < maxAttempts) {
               setTimeout(checkSubmissionStatus, pollingInterval);
             } else {
               // Final status update
@@ -237,14 +244,14 @@ public class Main {
                 toast.error('Time limit exceeded. Optimize your solution.');
               } else if (submissionStatus === 'memory_limit_exceeded') {
                 toast.error('Memory limit exceeded. Optimize your solution.');
-              } else if (submissionStatus === 'error') {
+              } else {
                 toast.error('An error occurred while judging your submission.');
               }
               
               // Display detailed results
               setResults({
                 status: submissionStatus,
-                message: latestSubmission.ErrorMessage,
+                message: latestSubmission.ErrorMessage || 'No error message provided.',
                 score: latestSubmission.Score,
                 executionTime: latestSubmission.ExecutionTime,
                 memoryUsed: latestSubmission.MemoryUsed

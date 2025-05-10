@@ -32,8 +32,38 @@ export const getAllCompetitions = async () => {
  * Get competition details by ID
  */
 export const getCompetitionDetails = async (id) => {
-  const response = await apiClient.get(`/competitions/${id}`);
-  return response.data;
+  try {
+    console.log(`Fetching competition ${id} details`);
+    const response = await apiClient.get(`/competitions/${id}`);
+    
+    // Debug competition participants count
+    console.log('Competition API response:', response.data);
+    console.log('Current participants count:', response.data?.data?.CurrentParticipants);
+    
+    // Ensure we have valid data structure
+    if (!response.data?.data) {
+      console.error('Invalid competition response format:', response.data);
+      return {
+        success: false,
+        message: 'Invalid competition data format returned from server'
+      };
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching competition ${id}:`, 
+      error.response ? {
+        status: error.response.status,
+        data: error.response.data
+      } : error.message);
+    
+    // Return an error response in a consistent format
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Error fetching competition details',
+      error: error.message
+    };
+  }
 };
 
 /**

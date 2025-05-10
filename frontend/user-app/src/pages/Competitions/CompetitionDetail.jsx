@@ -5,6 +5,7 @@ import { format, formatDistance } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { toast } from 'react-toastify';
 import { useAuth } from '@/contexts/AuthContext';
+import Avatar from '../../components/common/Avatar';
 
 const CompetitionDetail = () => {
   const { id } = useParams();
@@ -19,33 +20,39 @@ const CompetitionDetail = () => {
   const [scoreboard, setScoreboard] = useState(null);
   const [scoreboardLoading, setScoreboardLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0); // Add a refresh key state
+
+  // Function to refresh competition data
+  const refreshCompetitionData = async () => {
+    try {
+      console.log('Manually refreshing competition data');
+      setLoading(true);
+      const response = await getCompetitionDetails(id);
+      if (response.success) {
+        console.log('Refreshed competition data:', response.data);
+        console.log('Refreshed participant count:', response.data.CurrentParticipants);
+        setCompetition(response.data);
+        
+        // If the competition data shows the user is already registered,
+        // log this information for debugging
+        if (response.data.isRegistered) {
+          console.log('User is already registered for this competition');
+        }
+      } else {
+        console.error('Failed to refresh competition data:', response);
+        setError('Failed to load competition details');
+      }
+    } catch (err) {
+      console.error('Error refreshing competition data:', err);
+      setError('An error occurred while fetching competition details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCompetitionDetails = async () => {
-      try {
-        setLoading(true);
-        const response = await getCompetitionDetails(id);
-        if (response.success) {
-          setCompetition(response.data);
-          
-          // If the competition data shows the user is already registered,
-          // update UI to reflect this instead of trying to register again
-          if (response.data.isRegistered) {
-            console.log('User is already registered for this competition');
-          }
-        } else {
-          setError('Failed to load competition details');
-        }
-      } catch (err) {
-        console.error('Error fetching competition details:', err);
-        setError('An error occurred while fetching competition details');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCompetitionDetails();
-  }, [id]);
+    refreshCompetitionData();
+  }, [id, refreshKey]);
 
   const fetchScoreboard = async () => {
     if (!competition) return;
@@ -97,15 +104,11 @@ const CompetitionDetail = () => {
           setJustRegistered(true); // Set the just registered state to true
         }
         
-        // Refresh competition data
-        console.log('Refreshing competition data after registration');
-        const updatedCompetition = await getCompetitionDetails(id);
-        if (updatedCompetition.success) {
-          setCompetition({
-            ...updatedCompetition.data,
-            isRegistered: true // Ensure isRegistered is true even if the backend hasn't updated yet
-          });
-        }
+        // Refresh competition data after a short delay to allow database update
+        setTimeout(() => {
+          console.log('Triggering competition data refresh after registration');
+          setRefreshKey(prev => prev + 1);
+        }, 1000);
       } else {
         console.log('Registration response indicates failure:', response);
         toast.error(response.message || 'Failed to register for the competition');
@@ -137,7 +140,10 @@ const CompetitionDetail = () => {
               // Refresh the competition details to show registration status
               const updatedCompetition = await getCompetitionDetails(id);
               if (updatedCompetition.success) {
-                setCompetition(updatedCompetition.data);
+                setCompetition({
+                  ...updatedCompetition.data,
+                  isRegistered: true // Ensure isRegistered is true
+                });
               }
               break;
             }
@@ -563,9 +569,12 @@ const CompetitionDetail = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-8 w-8">
-                              <img className="h-8 w-8 rounded-full" src={participant.Image || 'https://via.placeholder.com/40'} alt="" />
-                            </div>
+                            <Avatar 
+                              src={participant.Image} 
+                              alt={participant.FullName || "Người dùng"}
+                              name={participant.FullName}
+                              size="small"
+                            />
                             <div className="ml-3">
                               <div className="text-sm font-medium text-gray-900">
                                 {participant.FullName}

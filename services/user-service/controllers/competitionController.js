@@ -51,6 +51,8 @@ exports.getCompetitionDetails = async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log(`[getCompetitionDetails] Fetching details for competition ${id}`);
+    
     const result = await pool.request()
       .input('competitionId', sql.BigInt, id)
       .query(`
@@ -65,11 +67,17 @@ exports.getCompetitionDetails = async (req, res) => {
       `);
     
     if (result.recordset.length === 0) {
+      console.log(`[getCompetitionDetails] Competition ${id} not found`);
       return res.status(404).json({
         success: false,
         message: 'Competition not found'
       });
     }
+    
+    // Get competition data and explicitly log participant count
+    const competition = result.recordset[0];
+    const participantCount = competition.CurrentParticipants;
+    console.log(`[getCompetitionDetails] Competition ${id} has ${participantCount}/${competition.MaxParticipants} participants`);
     
     // Get competition problems
     const problemsResult = await pool.request()
@@ -107,7 +115,7 @@ exports.getCompetitionDetails = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: {
-        ...result.recordset[0],
+        ...competition,
         problems: problemsResult.recordset,
         isRegistered,
         participantStatus
@@ -413,14 +421,27 @@ exports.registerForCompetition = async (req, res) => {
           (@competitionId, @userId, 'registered', @now, @now, @now)
       `);
     
-    // Update competition participant count
-    await pool.request()
-      .input('competitionId', sql.BigInt, bigIntCompetitionId)
-      .query(`
-        UPDATE Competitions
-        SET CurrentParticipants = CurrentParticipants + 1, UpdatedAt = GETDATE()
-        WHERE CompetitionID = @competitionId
-      `);
+    // Update competition participant count with explicit debugging
+    console.log(`[registerForCompetition] Updating participant count for competition ${competitionId}`);
+    try {
+      const updateResult = await pool.request()
+        .input('competitionId', sql.BigInt, bigIntCompetitionId)
+        .query(`
+          UPDATE Competitions
+          SET CurrentParticipants = CurrentParticipants + 1, UpdatedAt = GETDATE()
+          WHERE CompetitionID = @competitionId;
+
+          SELECT CurrentParticipants 
+          FROM Competitions 
+          WHERE CompetitionID = @competitionId;
+        `);
+      
+      // Log the updated participant count
+      const updatedCount = updateResult.recordset[0]?.CurrentParticipants;
+      console.log(`[registerForCompetition] Updated participant count: ${updatedCount}`);
+    } catch (updateError) {
+      console.error(`[registerForCompetition] Error updating participant count: ${updateError.message}`);
+    }
     
     console.log(`[registerForCompetition] Successfully registered user ${userId} for competition ${competitionId}`);
     return res.status(200).json({

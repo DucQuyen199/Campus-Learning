@@ -4,6 +4,7 @@ import { getProblemDetails, submitSolution, getSubmissionDetails, getCompetition
 import { toast } from 'react-toastify';
 import Editor from '@monaco-editor/react';
 import { format } from 'date-fns';
+import Avatar from '../../components/common/Avatar';
 
 const ProblemDetail = () => {
   const { competitionId, problemId } = useParams();
@@ -510,7 +511,16 @@ public class Main {
                 {viewingSubmission ? (
                   <div>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold">Bài nộp #{viewingSubmission.SubmissionID}</h3>
+                      <div className="flex items-center">
+                        <Avatar 
+                          src={viewingSubmission.UserImage} 
+                          alt={viewingSubmission.UserName || "Người dùng"} 
+                          name={viewingSubmission.UserName || "Người dùng"}
+                          size="small" 
+                          className="mr-3" 
+                        />
+                        <h3 className="text-lg font-semibold">Bài nộp #{viewingSubmission.SubmissionID}</h3>
+                      </div>
                       <button 
                         onClick={() => setViewingSubmission(null)}
                         className="text-blue-600 hover:text-blue-800 text-sm"
@@ -606,7 +616,16 @@ public class Main {
                               className="hover:bg-gray-50 cursor-pointer" 
                               onClick={() => handleViewSubmission(submission.SubmissionID)}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {submission.SubmissionID}
+                              <div className="flex items-center">
+                                <Avatar 
+                                  src={submission.UserImage} 
+                                  alt={submission.UserName || "Người dùng"} 
+                                  name={submission.UserName || "Người dùng"}
+                                  size="small" 
+                                  className="mr-2" 
+                                />
+                                {submission.SubmissionID}
+                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               {getStatusBadge(submission.Status)}

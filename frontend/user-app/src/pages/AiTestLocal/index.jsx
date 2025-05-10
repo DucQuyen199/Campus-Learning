@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { PaperAirplaneIcon, ArrowPathIcon, PlayIcon, BeakerIcon, CheckIcon, XMarkIcon, ChatBubbleLeftRightIcon, ClockIcon, DocumentArrowDownIcon, PlusCircleIcon, ArrowUpTrayIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon, ArrowPathIcon, PlayIcon, BeakerIcon, CheckIcon, XMarkIcon, ChatBubbleLeftRightIcon, ClockIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import CodeServerEditor from './components/CodeServerEditor';
 import TestCasePanel from './components/TestCasePanel';
 import { initGeminiChat, sendMessageToGemini } from '../../services/geminiService';
@@ -38,7 +38,6 @@ const AiTestLocal = () => {
   const [isGeneratingProblem, setIsGeneratingProblem] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState('trung bình');
   const [selectedProblemType, setSelectedProblemType] = useState('xử lý chuỗi');
-  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   // List of possible problem types and difficulties
@@ -344,25 +343,28 @@ const AiTestLocal = () => {
   };
 
   const handleReset = () => {
-    // Clear chat history
-    const welcomeMessage = {
+    // Reset all state variables
+    setMessages([{
       role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI của CampusT. Tôi có thể giúp bạn tạo các test case để kiểm tra code của bạn. Hãy mô tả bài toán hoặc yêu cầu, và tôi sẽ tạo test case phù hợp.'
-    };
-    setMessages([welcomeMessage]);
-    localStorage.setItem('aiTestLocalMessages', JSON.stringify([welcomeMessage]));
-    
-    // Clear test cases
+      content: 'Xin chào! Tôi là trợ lý AI của CampusT. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
+    }]);
+    setInput('');
     setTestCases([]);
-    localStorage.removeItem('aiTestLocalTestCases');
-    
-    // Reset code output and test results
+    setCode(DEFAULT_CODE[selectedLanguage]);
     setCodeOutput('');
     setTestResults([]);
-  };
-
-  const handleLanguageChange = (e) => {
-    setSelectedLanguage(e.target.value);
+    setProblemDescription('');
+    
+    // Clear local storage
+    localStorage.removeItem('aiTestLocalMessages');
+    localStorage.removeItem('aiTestLocalTestCases');
+    localStorage.removeItem('aiTestLocalProblemDescription');
+    
+    // Set default welcome message
+    localStorage.setItem('aiTestLocalMessages', JSON.stringify([{
+      role: 'assistant',
+      content: 'Xin chào! Tôi là trợ lý AI của CampusT. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
+    }]));
   };
 
   const handleCodeChange = (newCode) => {
@@ -433,77 +435,6 @@ const AiTestLocal = () => {
     setActiveTab('chat');
   };
 
-  // Export test cases to a file
-  const exportTestCases = () => {
-    if (testCases.length === 0) return;
-    
-    const dataStr = JSON.stringify(testCases, null, 2);
-    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-    
-    const exportFileDefaultName = `testcases_${selectedLanguage}_${new Date().toISOString().slice(0, 10)}.json`;
-    
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
-  
-  // Import test cases from a file
-  const importTestCases = (event) => {
-    const file = event.target.files[0];
-    
-    if (!file) {
-      return;
-    }
-    
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const content = e.target.result;
-        const parsedTestCases = JSON.parse(content);
-        
-        // Validate the imported test cases
-        if (Array.isArray(parsedTestCases) && parsedTestCases.length > 0) {
-          // Check if each test case has input and expected properties
-          const validTestCases = parsedTestCases.filter(tc => 
-            tc && typeof tc === 'object' && tc.hasOwnProperty('input') && tc.hasOwnProperty('expected')
-          );
-          
-          if (validTestCases.length > 0) {
-            // Mark all imported test cases as user test cases
-            setUserTestCases(prevUserTestCases => [...prevUserTestCases, ...validTestCases]);
-            
-            // Add to current test cases
-            setTestCases(prevTestCases => [...prevTestCases, ...validTestCases]);
-            
-            // Show success message in code output
-            setCodeOutput(`Successfully imported ${validTestCases.length} test cases from ${file.name}`);
-          } else {
-            setCodeOutput(`Error: The file does not contain valid test cases with 'input' and 'expected' properties.`);
-          }
-        } else {
-          setCodeOutput(`Error: The file does not contain a valid array of test cases.`);
-        }
-      } catch (error) {
-        console.error('Error parsing test case file:', error);
-        setCodeOutput(`Error parsing file: ${error.message}`);
-      }
-      
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    };
-    
-    reader.readAsText(file);
-  };
-  
-  // Trigger file input click
-  const handleImportClick = () => {
-    fileInputRef.current.click();
-  };
-  
   // Add a custom test case
   const addCustomTestCase = () => {
     const newTestCase = {
@@ -553,37 +484,6 @@ const AiTestLocal = () => {
           >
             <SparklesIcon className="h-4 w-4 mr-1" />
             <span>{isGeneratingProblem ? 'Đang tạo...' : 'Tạo bài toán mới'}</span>
-          </button>
-          <select
-            value={selectedLanguage}
-            onChange={handleLanguageChange}
-            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {LANGUAGES.map(lang => (
-              <option key={lang.id} value={lang.id}>{lang.name}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleImportClick}
-            className="flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 rounded-lg transition-all shadow-sm border border-gray-200 hover:shadow"
-          >
-            <ArrowUpTrayIcon className="h-4 w-4 mr-1 text-blue-600" />
-            <span className="text-gray-700">Import</span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={importTestCases}
-            className="hidden"
-          />
-          <button
-            onClick={exportTestCases}
-            disabled={testCases.length === 0}
-            className="flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 rounded-lg transition-all shadow-sm border border-gray-200 hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <DocumentArrowDownIcon className="h-4 w-4 mr-1 text-blue-600" />
-            <span className="text-gray-700">Export</span>
           </button>
           <button
             onClick={handleReset}

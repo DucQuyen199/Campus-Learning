@@ -6,7 +6,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
 // Public routes
 router.get('/competitions', competitionController.getAllCompetitions);
 router.get('/competitions/:id', competitionController.getCompetitionDetails);
-router.get('/competitions/:competitionId/problems/:problemId', competitionController.getProblemDetails);
+router.get('/competitions/:competitionId/problems/:problemId', authMiddleware, competitionController.getProblemDetails);
 
 // Protected routes
 router.post('/competitions/:competitionId/register', authMiddleware, competitionController.registerForCompetition);

@@ -233,7 +233,11 @@ public class Main {
               
               // Handle the final submission status
               if (submissionStatus === 'accepted') {
-                toast.success('Solution accepted! 🎉');
+                if (latestSubmission.ErrorMessage && latestSubmission.ErrorMessage.includes('Local evaluation mode')) {
+                  toast.info('Solution accepted in local evaluation mode');
+                } else {
+                  toast.success('Solution accepted! 🎉');
+                }
               } else if (submissionStatus === 'wrong_answer') {
                 toast.error('Wrong answer. Try again!');
               } else if (submissionStatus === 'compilation_error') {
@@ -722,10 +726,21 @@ public class Main {
                 
                 {results.message && (
                   <div>
-                    <span className="text-sm font-medium text-red-600 mb-1 block">Error:</span>
-                    <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
-                      {results.message}
-                    </pre>
+                    {results.message.includes('Local evaluation mode') ? (
+                      <div>
+                        <span className="text-sm font-medium text-blue-600 mb-1 block">Information:</span>
+                        <div className="bg-blue-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-blue-700">
+                          {results.message}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-sm font-medium text-red-600 mb-1 block">Error:</span>
+                        <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
+                          {results.message}
+                        </pre>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

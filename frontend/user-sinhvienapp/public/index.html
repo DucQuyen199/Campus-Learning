@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="Hệ thống quản lý sinh viên - Campus Hub"
+      content="Campus-T Student Portal Application"
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <!--
@@ -24,18 +24,58 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>Hệ thống quản lý sinh viên</title>
-    <!-- Fix for browser reference error -->
+    <title>Campus-T Student Portal</title>
+    
+    <!-- Critical browser polyfill - MUST load before any other scripts -->
     <script>
-      if (typeof browser === 'undefined') {
-        window.browser = {
-          runtime: {
-            connect: () => ({ onMessage: { addListener: () => {} } }),
-            sendMessage: () => {},
-            onMessage: { addListener: () => {} }
+      // Create browser variable early in the global scope
+      var browser = window.browser || window.chrome || {};
+      
+      // Define it on all possible objects to ensure it's always available
+      window.browser = browser;
+      window.globalThis = window;
+      window.globalThis.browser = browser;
+      
+      // Define a global start function to catch onpage-dialog.preload.js calls
+      window.start = function() {
+        console.log('Browser polyfill start() called');
+        return {
+          browser: window.browser,
+          init: function() { return {}; },
+          dispose: function() { return {}; },
+          connect: function() { return {}; }
+        };
+      };
+      
+      // Basic runtime implementation 
+      if (!window.browser.runtime) {
+        window.browser.runtime = {
+          sendMessage: function() { return Promise.resolve({}); },
+          onMessage: {
+            addListener: function() {},
+            removeListener: function() {}
+          },
+          connect: function() {
+            return {
+              onMessage: { addListener: function() {} },
+              postMessage: function() {},
+              disconnect: function() {}
+            };
           }
         };
       }
+      
+      // Error handler to prevent browser-related errors
+      window.addEventListener('error', function(event) {
+        if (event.message && 
+            (event.message.includes('browser is not defined') || 
+             event.message.includes('start is not defined'))) {
+          console.warn('Suppressed browser error:', event.message);
+          event.preventDefault();
+          return true;
+        }
+        return false;
+      }, true);
     </script>
   </head>
   <body>

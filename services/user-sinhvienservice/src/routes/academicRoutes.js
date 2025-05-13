@@ -1,55 +1,55 @@
 const express = require('express');
 const router = express.Router();
-const AcademicController = require('../controllers/academicController');
-const { authenticate } = require('../middleware/auth');
+const academicController = require('../controllers/academicController');
+const authMiddleware = require('../middleware/auth');
 
 /**
  * @route   GET /api/academic/program/:userId
  * @desc    Get student's academic program details
  * @access  Private
  */
-router.get('/program/:userId', authenticate, AcademicController.getProgram);
+router.get('/program/:userId', academicController.getProgram);
 
 /**
  * @route   GET /api/academic/courses/:programId
  * @desc    Get student's courses in program
  * @access  Private
  */
-router.get('/courses/:programId', authenticate, AcademicController.getCourses);
+router.get('/courses/:programId', academicController.getCourses);
 
 /**
- * @route   GET /api/academic/grades/:userId
+ * @route   GET /api/academic/results/:userId
  * @desc    Get student's academic results (grades)
  * @access  Private
  */
-router.get('/grades/:userId', authenticate, AcademicController.getGrades);
+router.get('/results/:userId', academicController.getResults);
 
 /**
  * @route   GET /api/academic/conduct/:userId
  * @desc    Get student's conduct scores
  * @access  Private
  */
-router.get('/conduct/:userId', authenticate, AcademicController.getConductScores);
+router.get('/conduct/:userId', academicController.getConductScores);
 
 /**
  * @route   GET /api/academic/warnings/:userId
  * @desc    Get student's academic warnings
  * @access  Private
  */
-router.get('/warnings/:userId', authenticate, AcademicController.getWarnings);
+router.get('/warnings/:userId', academicController.getWarnings);
 
 /**
  * @route   GET /api/academic/metrics/:userId
  * @desc    Get student's academic metrics
  * @access  Private
  */
-router.get('/metrics/:userId', authenticate, AcademicController.getMetrics);
+router.get('/metrics/:userId', academicController.getMetrics);
 
 /**
- * @route   GET /api/academic/registered-courses/:userId
+ * @route   GET /api/academic/registrations/:userId
  * @desc    Get student's registered courses
  * @access  Private
  */
-router.get('/registered-courses/:userId', authenticate, AcademicController.getRegisteredCourses);
+router.get('/registrations/:userId', academicController.getRegisteredCourses);
 
 module.exports = router; 

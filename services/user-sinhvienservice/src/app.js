@@ -1,45 +1,36 @@
 const express = require('express');
 const cors = require('cors');
-const morgan = require('morgan');
+const bodyParser = require('body-parser');
 const helmet = require('helmet');
+const morgan = require('morgan');
 const compression = require('compression');
-
 const { apiPrefix } = require('./config/app');
-const { errorHandler, notFoundHandler, dbErrorHandler } = require('./middleware/errorHandler');
 
 // Import routes
 const profileRoutes = require('./routes/profileRoutes');
 const academicRoutes = require('./routes/academicRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
+const tuitionRoutes = require('./routes/tuitionRoutes');
+const authRoutes = require('./routes/authRoutes');
+const notificationsRoutes = require('./routes/notificationsRoutes');
 
 // Initialize Express app
 const app = express();
 
-// Apply middleware
+// Set up middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(compression());
-
-// Debug middleware for development
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    if (req.body && Object.keys(req.body).length > 0) {
-      console.log('Request body:', JSON.stringify(req.body, null, 2).substring(0, 200) + '...');
-    }
-    next();
-  });
-}
+app.use(morgan('dev'));
 
 // Root route for API health check
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Student API is running',
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
+    version: '1.0.0'
   });
 });
 
@@ -48,17 +39,50 @@ app.get('/api/version', (req, res) => {
   res.json({
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'development',
-    serverTime: new Date().toISOString()
+    serverTime: new Date().toISOString(),
+    demoMode: app.locals.demoMode || false
   });
 });
 
-// Apply API routes
+// Handle fallbacks for missing routes by making mock data
+app.use(apiPrefix, (req, res, next) => {
+  app.locals.useFallbacks = app.locals.demoMode || false;
+  next();
+});
+
+// Register API routes
 app.use(`${apiPrefix}/profile`, profileRoutes);
 app.use(`${apiPrefix}/academic`, academicRoutes);
+app.use(`${apiPrefix}/schedule`, scheduleRoutes);
+app.use(`${apiPrefix}/tuition`, tuitionRoutes);
+app.use(`${apiPrefix}/auth`, authRoutes);
+app.use(`${apiPrefix}/notifications`, notificationsRoutes);
 
-// Apply error handling middleware
-app.use(dbErrorHandler);
-app.use(notFoundHandler);
-app.use(errorHandler);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  
+  // Handle specific error types
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      success: false,
+      message: 'Invalid token'
+    });
+  }
+  
+  // Generic error response
+  return res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal Server Error'
+  });
+});
+
+// 404 handler (for routes that don't match any of the above)
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
+});
 
 module.exports = app; 

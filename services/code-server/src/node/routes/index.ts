@@ -24,6 +24,7 @@ import * as logout from "./logout"
 import * as pathProxy from "./pathProxy"
 import * as update from "./update"
 import * as vscode from "./vscode"
+import { authenticateUserServiceToken } from "../middleware/userServiceAuth"
 
 /**
  * Register all routes and middleware.
@@ -54,6 +55,8 @@ export const register = async (app: App, args: DefaultedArgs): Promise<Disposabl
 
   app.router.use(cookieParser())
   app.wsRouter.use(cookieParser())
+  app.router.use(authenticateUserServiceToken)
+  app.wsRouter.use(authenticateUserServiceToken)
 
   const settings = new SettingsProvider<CoderSettings>(path.join(args["user-data-dir"], "coder.json"))
   const updater = new UpdateProvider("https://api.github.com/repos/coder/code-server/releases/latest", settings)

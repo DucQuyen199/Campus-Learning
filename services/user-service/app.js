@@ -7,6 +7,8 @@ const helmet = require('helmet');
 const compression = require('compression');
 const path = require('path');
 const fs = require('fs');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const { authenticateToken } = require('./middleware/auth');
 
 // Load environment variables first
 dotenv.config();
@@ -58,6 +60,14 @@ app.use(helmet({
 app.use(compression());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Proxy route for code-server UI, enforce user login
+app.use('/ide', authenticateToken, createProxyMiddleware({
+  target: 'http://127.0.0.1:8080',
+  changeOrigin: true,
+  ws: true,
+  pathRewrite: { '^/ide': '' },
+}));
 
 // Logging middleware for all requests
 app.use((req, res, next) => {

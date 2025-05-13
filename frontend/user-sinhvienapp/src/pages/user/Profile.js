@@ -20,7 +20,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Snackbar
+  Snackbar,
+  useTheme,
+  useMediaQuery,
+  alpha,
+  Card,
+  CardContent
 } from '@mui/material';
 import {
   Email,
@@ -33,7 +38,10 @@ import {
   Person,
   Edit,
   Save,
-  Close
+  Close,
+  AccountCircle,
+  Badge,
+  Assignment
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/api';
@@ -68,6 +76,8 @@ function a11yProps(index) {
 
 const Profile = () => {
   const { currentUser } = useAuth();
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   
   // State
   const [value, setValue] = useState(0);
@@ -245,24 +255,43 @@ const Profile = () => {
   // Loading state
   if (loading && !profileData) {
     return (
-      <Container sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Container>
+      <Box sx={{ 
+        height: '80vh', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center' 
+      }}>
+        <CircularProgress size={60} thickness={4} />
+      </Box>
     );
   }
   
   // Error state
   if (error && !profileData) {
     return (
-      <Container sx={{ mt: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Container>
+      <Box sx={{ m: 4 }}>
+        <Alert severity="error" variant="filled" sx={{ borderRadius: 2 }}>{error}</Alert>
+      </Box>
     );
   }
   
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ 
+      py: 4, 
+      px: { xs: 2, sm: 4 },
+      backgroundColor: alpha(theme.palette.background.default, 0.6),
+      minHeight: '100vh'
+    }}>
+      <Typography 
+        variant="h4" 
+        gutterBottom 
+        sx={{ 
+          fontWeight: 'bold', 
+          color: theme.palette.primary.main,
+          mb: 3,
+          textAlign: { xs: 'center', md: 'left' }
+        }}
+      >
         Sơ yếu lý lịch
       </Typography>
       
@@ -658,7 +687,7 @@ const Profile = () => {
         onClose={handleCloseSnackbar}
         message={snackbar.message}
       />
-    </Container>
+    </Box>
   );
 };
 

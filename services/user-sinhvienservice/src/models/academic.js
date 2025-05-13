@@ -126,6 +126,26 @@ const AcademicModel = {
   // Get student's academic metrics
   async getMetrics(userId) {
     try {
+      // Check if in mock mode to properly handle demo/mock data
+      if (sqlConnection.mockMode) {
+        console.log('[MOCK DB] Returning mocked metrics data');
+        return [
+          {
+            MetricID: 1,
+            UserID: parseInt(userId),
+            SemesterID: 1,
+            TotalCredits: 140,
+            EarnedCredits: 45,
+            SemesterGPA: 3.5,
+            CumulativeGPA: 3.5,
+            AcademicStanding: 'Good Standing',
+            RankInClass: 15,
+            SemesterName: 'Học kỳ 1',
+            AcademicYear: '2023-2024'
+          }
+        ];
+      }
+      
       const poolConnection = await sqlConnection.connect();
       
       // Query academic metrics
@@ -146,38 +166,11 @@ const AcademicModel = {
         .input('userId', sqlConnection.sql.BigInt, userId)
         .query(query);
       
-      // If no data found, return mock data
-      if (result.recordset.length === 0) {
-        return [{
-          UserID: parseInt(userId),
-          SemesterID: 1,
-          TotalCredits: 140,
-          EarnedCredits: 45,
-          SemesterGPA: 3.5,
-          CumulativeGPA: 3.5,
-          AcademicStanding: 'Good Standing',
-          RankInClass: 15,
-          SemesterName: 'Học kỳ 1',
-          AcademicYear: '2023-2024'
-        }];
-      }
-      
       return result.recordset;
     } catch (error) {
       console.error('Error in getMetrics:', error);
-      // Return mock data on error
-      return [{
-        UserID: parseInt(userId),
-        SemesterID: 1,
-        TotalCredits: 140,
-        EarnedCredits: 45,
-        SemesterGPA: 3.5,
-        CumulativeGPA: 3.5,
-        AcademicStanding: 'Good Standing',
-        RankInClass: 15,
-        SemesterName: 'Học kỳ 1',
-        AcademicYear: '2023-2024'
-      }];
+      // Return empty array instead of throwing
+      return [];
     }
   },
 

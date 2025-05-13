@@ -2,10 +2,19 @@
  * Polyfills for browser-related functionality
  */
 
+// Immediately define browser in global scope
+if (typeof globalThis === 'undefined') {
+  window.globalThis = window;
+}
+
+if (typeof browser === 'undefined') {
+  globalThis.browser = window.browser || window.chrome || {};
+}
+
 // Polyfill for browser if it doesn't exist
 if (typeof window !== 'undefined') {
-  // Global browser polyfill
-  window.browser = window.browser || window.chrome || {};
+  // Define browser in global scope first - ensure it exists BEFORE any code tries to use it
+  window.browser = window.browser || globalThis.browser || window.chrome || {};
   
   // Global polyfill for browser.runtime
   if (!window.browser.runtime) {
@@ -25,11 +34,11 @@ if (typeof window !== 'undefined') {
     };
   }
   
-  // Add start function to window object
-  // This is used by onpage-dialog.preload.js
+  // Add start function to global object - this is what onpage-dialog.preload.js uses
   if (typeof window.start === 'undefined') {
     window.start = function() {
       console.log('Polyfill for window.start called');
+      // Return a reference to browser to avoid "browser is not defined" in onpage-dialog.preload.js
       return {
         browser: window.browser,
         init: () => {},
@@ -39,19 +48,7 @@ if (typeof window !== 'undefined') {
     };
   }
   
-  // Set the browser variable globally to avoid "browser is not defined" error
-  if (typeof browser === 'undefined') {
-    window.browser = window.browser;
-    try {
-      // This is a hack to make browser available in the global scope
-      // It won't work in strict mode, but the try/catch will prevent errors
-      browser = window.browser;
-    } catch (e) {
-      console.warn('Could not set global browser variable:', e);
-    }
-  }
-  
-  // Handle onpage-dialog.preload.js error
+  // Handle onpage-dialog.preload.js errors more aggressively
   window.addEventListener('error', (event) => {
     if (event.message && 
         (event.message.includes('browser is not defined') || 

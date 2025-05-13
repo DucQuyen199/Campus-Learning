@@ -1,114 +1,197 @@
-const AcademicModel = require('../models/academic');
+const academicModel = require('../models/academic');
 
-// Controller for handling academic operations
-const AcademicController = {
-  // Get student's academic program details
-  async getProgram(req, res, next) {
+// Controller for academic operations
+const academicController = {
+  // Get academic program
+  getProgram: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const program = await AcademicModel.getProgram(userId);
+      const userId = parseInt(req.params.userId);
       
-      res.json(program);
+      if (isNaN(userId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid user ID' 
+        });
+      }
+      
+      const program = await academicModel.getProgram(userId);
+      
+      return res.json({
+        success: true,
+        data: program
+      });
     } catch (error) {
-      console.error('Error fetching academic program:', error);
-      next(error);
+      console.error('Error in getProgram controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching academic program' 
+      });
     }
   },
-
-  // Get student's courses in program
-  async getCourses(req, res, next) {
+  
+  // Get courses in program
+  getCourses: async (req, res) => {
     try {
-      const { programId } = req.params;
-      const courses = await AcademicModel.getCourses(programId);
+      const programId = parseInt(req.params.programId);
       
-      res.json(courses);
+      if (isNaN(programId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid program ID' 
+        });
+      }
+      
+      const courses = await academicModel.getCourses(programId);
+      
+      return res.json({
+        success: true,
+        data: courses
+      });
     } catch (error) {
-      console.error('Error fetching program courses:', error);
-      next(error);
+      console.error('Error in getCourses controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching program courses' 
+      });
     }
   },
-
-  // Get student's academic results (grades)
-  async getGrades(req, res, next) {
+  
+  // Get academic results (grades)
+  getResults: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const { semesterId } = req.query;
+      const userId = parseInt(req.params.userId);
+      const semesterId = req.query.semesterId ? parseInt(req.query.semesterId) : null;
       
-      const grades = await AcademicModel.getGrades(userId, semesterId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid user ID' 
+        });
+      }
       
-      res.json(grades);
+      const grades = await academicModel.getGrades(userId, semesterId);
+      
+      return res.json({
+        success: true,
+        data: grades
+      });
     } catch (error) {
-      console.error('Error fetching grades:', error);
-      next(error);
+      console.error('Error in getResults controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching academic results' 
+      });
     }
   },
-
-  // Get student's conduct scores
-  async getConductScores(req, res, next) {
+  
+  // Get conduct scores
+  getConductScores: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const conductScores = await AcademicModel.getConductScores(userId);
+      const userId = parseInt(req.params.userId);
       
-      res.json(conductScores);
+      if (isNaN(userId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid user ID' 
+        });
+      }
+      
+      const conductScores = await academicModel.getConductScores(userId);
+      
+      return res.json({
+        success: true,
+        data: conductScores
+      });
     } catch (error) {
-      console.error('Error fetching conduct scores:', error);
-      next(error);
+      console.error('Error in getConductScores controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching conduct scores' 
+      });
     }
   },
-
-  // Get student's academic warnings
-  async getWarnings(req, res, next) {
+  
+  // Get academic warnings
+  getWarnings: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const warnings = await AcademicModel.getWarnings(userId);
+      const userId = parseInt(req.params.userId);
       
-      res.json(warnings);
+      if (isNaN(userId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid user ID' 
+        });
+      }
+      
+      const warnings = await academicModel.getWarnings(userId);
+      
+      return res.json({
+        success: true,
+        data: warnings
+      });
     } catch (error) {
-      console.error('Error fetching academic warnings:', error);
-      next(error);
+      console.error('Error in getWarnings controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching academic warnings' 
+      });
     }
   },
-
-  // Get student's academic metrics
-  async getMetrics(req, res, next) {
+  
+  // Get academic metrics
+  getMetrics: async (req, res) => {
     try {
-      const { userId } = req.params;
+      const userId = parseInt(req.params.userId);
       
-      const metrics = await AcademicModel.getMetrics(userId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid user ID' 
+        });
+      }
       
-      res.json(metrics);
+      const metrics = await academicModel.getMetrics(userId);
+      
+      return res.json({
+        success: true,
+        data: metrics
+      });
     } catch (error) {
-      console.error('Error fetching academic metrics:', error);
-      // Return mock data on error
-      res.json([{
-        UserID: parseInt(req.params.userId),
-        SemesterID: 1,
-        TotalCredits: 140,
-        EarnedCredits: 45,
-        SemesterGPA: 3.5,
-        CumulativeGPA: 3.5,
-        AcademicStanding: 'Good Standing',
-        RankInClass: 15,
-        SemesterName: 'Học kỳ 1',
-        AcademicYear: '2023-2024'
-      }]);
+      console.error('Error in getMetrics controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching academic metrics' 
+      });
     }
   },
-
-  // Get student's registered courses
-  async getRegisteredCourses(req, res, next) {
+  
+  // Get registered courses
+  getRegisteredCourses: async (req, res) => {
     try {
-      const { userId } = req.params;
-      const { semesterId } = req.query;
+      const userId = parseInt(req.params.userId);
+      const semesterId = req.query.semesterId ? parseInt(req.query.semesterId) : null;
       
-      const registeredCourses = await AcademicModel.getRegisteredCourses(userId, semesterId);
+      if (isNaN(userId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Invalid user ID' 
+        });
+      }
       
-      res.json(registeredCourses);
+      const registeredCourses = await academicModel.getRegisteredCourses(userId, semesterId);
+      
+      return res.json({
+        success: true,
+        data: registeredCourses
+      });
     } catch (error) {
-      console.error('Error fetching registered courses:', error);
-      next(error);
+      console.error('Error in getRegisteredCourses controller:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Server error while fetching registered courses' 
+      });
     }
   }
 };
 
-module.exports = AcademicController; 
+module.exports = academicController; 

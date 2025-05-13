@@ -40,6 +40,38 @@ const authenticate = (req, res, next) => {
   }
 };
 
+// Optional authentication middleware
+const optional = (req, res, next) => {
+  // Get auth header
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader) {
+    // Continue without authentication
+    return next();
+  }
+  
+  // Check if auth header has the right format
+  if (!authHeader.startsWith('Bearer ')) {
+    // Invalid format but still continue
+    return next();
+  }
+  
+  // Extract token
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, jwtSecret);
+    
+    // Add user to request object
+    req.user = decoded.user;
+    next();
+  } catch (err) {
+    // Invalid token but still continue
+    next();
+  }
+};
+
 // Middleware to check user role
 const authorize = (roles = []) => {
   // Convert single role to array
@@ -77,5 +109,6 @@ const demoMode = (req, res, next) => {
 module.exports = {
   authenticate,
   authorize,
+  optional,
   demoMode
 }; 

@@ -1,132 +1,180 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { authService } from '../services/api';
-import jwtDecode from 'jwt-decode';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import axiosInstance from '../utils/axiosConfig';
+import { toast } from 'react-hot-toast';
 
-const AuthContext = createContext();
+// API endpoints
+const API_ENDPOINTS = {
+  validateToken: '/auth/validate-token',
+  login: '/auth/login',
+  loginGmail: '/auth/login-gmail'
+};
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [gmailLoading, setGmailLoading] = useState(false);
 
-  // Check if a stored token exists and is valid
-  const checkAuthStatus = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setCurrentUser(null);
-        setLoading(false);
-        return;
-      }
-
-      // Check if token is expired
-      const decoded = jwtDecode(token);
-      const currentTime = Date.now() / 1000;
-      
-      if (decoded.exp < currentTime) {
-        // Token expired, remove it and log out
-        localStorage.removeItem('auth_token');
-        setCurrentUser(null);
-        setLoading(false);
-        return;
-      }
-
-      // Validate token with backend
-      try {
-        const response = await authService.validateToken();
-        setCurrentUser(response.user);
-      } catch (error) {
-        console.error('Token validation failed:', error);
-        localStorage.removeItem('auth_token');
-        setCurrentUser(null);
-      }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      localStorage.removeItem('auth_token');
-      setCurrentUser(null);
-    } finally {
+  useEffect(() => {
+    // Check if token exists in localStorage
+    const token = localStorage.getItem('token');
+    if (token) {
+      validateToken(token);
+    } else {
       setLoading(false);
     }
   }, []);
 
-  // Login user
+  const validateToken = async (token) => {
+    try {
+      setLoading(true);
+      console.log('Validating token at endpoint:', API_ENDPOINTS.validateToken);
+      const response = await axiosInstance.get(API_ENDPOINTS.validateToken);
+
+      if (response.data.success) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+      } else {
+        localStorage.removeItem('token');
+        setIsAuthenticated(false);
+      }
+    } catch (err) {
+      console.error('Token validation error:', err);
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const login = async (username, password) => {
-    setLoading(true);
-    setError(null);
     try {
-      const response = await authService.login(username, password);
-      localStorage.setItem('auth_token', response.token);
-      setCurrentUser(response.user);
-      return response.user;
-    } catch (error) {
-      const errorMsg = error?.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.';
-      setError(errorMsg);
-      throw error;
+      setLoading(true);
+      setError('');
+      
+      console.log('Logging in at endpoint:', API_ENDPOINTS.login);
+      
+      // Format login request according to the backend API
+      const loginData = {
+        username,
+        password
+      };
+      
+      const response = await axiosInstance.post(API_ENDPOINTS.login, loginData);
+      
+      if (response.data.success) {
+        // The backend already checks for ADMIN role
+        // Store token and user data
+        localStorage.setItem('token', response.data.token);
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        
+        return { success: true, user: response.data.user };
+      } else {
+        setError(response.data.message || 'Đăng nhập thất bại');
+        return { success: false, error: response.data.message };
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      
+      // Handle specific error cases
+      if (err.response) {
+        if (err.response.status === 401) {
+          const errorMsg = err.response.data.message || 'Thông tin đăng nhập không đúng. Vui lòng kiểm tra lại tên đăng nhập và mật khẩu.';
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        } else if (err.response.status === 403) {
+          const errorMsg = err.response.data.message || 'Tài khoản của bạn không có quyền truy cập hệ thống quản trị.';
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        }
+      }
+      
+      const errorMessage = err.response?.data?.message || err.response?.statusText || 'Đăng nhập thất bại. Vui lòng thử lại.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout user
+  const loginWithGmail = async (email) => {
+    try {
+      setLoading(true);
+      setGmailLoading(true);
+      setError('');
+      
+      console.log('Gmail login at endpoint:', API_ENDPOINTS.loginGmail);
+      
+      // Format data according to the backend API
+      const gmailData = {
+        email
+      };
+      
+      const response = await axiosInstance.post(API_ENDPOINTS.loginGmail, gmailData);
+      
+      if (response.data.success) {
+        // The backend already checks for ADMIN role
+        localStorage.setItem('token', response.data.token);
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        
+        return { success: true, user: response.data.user };
+      } else {
+        setError(response.data.message || 'Đăng nhập bằng Gmail thất bại');
+        return { success: false, error: response.data.message };
+      }
+    } catch (err) {
+      console.error('Gmail login error:', err);
+      
+      // Handle specific error cases
+      if (err.response) {
+        if (err.response.status === 401) {
+          const errorMsg = err.response.data.message || 'Không tìm thấy tài khoản với email này.';
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        } else if (err.response.status === 403) {
+          const errorMsg = err.response.data.message || 'Tài khoản Gmail của bạn không có quyền truy cập hệ thống quản trị.';
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
+        }
+      }
+      
+      const errorMessage = err.response?.data?.message || err.response?.statusText || 'Đăng nhập bằng Gmail thất bại. Vui lòng thử lại sau.';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+      setGmailLoading(false);
+    }
+  };
+
   const logout = () => {
-    localStorage.removeItem('auth_token');
-    setCurrentUser(null);
-  };
-
-  // Change password
-  const changePassword = async (currentPassword, newPassword) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await authService.changePassword(currentPassword, newPassword);
-      return response;
-    } catch (error) {
-      const errorMsg = error?.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.';
-      setError(errorMsg);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get user profile
-  const getUserProfile = async () => {
-    setLoading(true);
-    try {
-      const response = await authService.getProfile();
-      setCurrentUser(response.user);
-      return response.user;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
-
-  const value = {
-    currentUser,
-    loading,
-    error,
-    login,
-    logout,
-    changePassword,
-    getUserProfile,
-    checkAuthStatus,
+    localStorage.removeItem('token');
+    setUser(null);
+    setIsAuthenticated(false);
+    toast.success('Đăng xuất thành công');
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        loading, 
+        error, 
+        isAuthenticated, 
+        login, 
+        loginWithGmail, 
+        logout 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
-}; 
+};
+
+export const useAuth = () => useContext(AuthContext); 

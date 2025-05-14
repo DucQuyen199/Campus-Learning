@@ -3,7 +3,7 @@ const sql = require('mssql');
 // Database connection configuration
 const dbConfig = {
   user: process.env.DB_USER || 'sa',
-  password: process.env.DB_PASSWORD || 'YourStrong@Passw0rd',
+  password: process.env.DB_PASSWORD || '123456aA@$',
   server: process.env.DB_SERVER || 'localhost',
   database: process.env.DB_NAME || 'campushubt',
   options: {

@@ -3,7 +3,6 @@ import {
   Box,
   Typography,
   Grid,
-  Paper,
   Card,
   CardContent,
   CardHeader,
@@ -22,14 +21,12 @@ import {
   School,
   Book,
   CalendarMonth,
-  TrendingUp,
-  Assignment,
   PeopleAlt,
-  Paid,
+  Assignment,
   Warning,
 } from '@mui/icons-material';
-import { studentsService, academicService } from '../services/api';
 import { Link as RouterLink } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const StatCard = ({ icon, title, value, color, bgColor }) => {
   return (
@@ -77,6 +74,7 @@ const StatCard = ({ icon, title, value, color, bgColor }) => {
 };
 
 const Dashboard = () => {
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalStudents: 0,
@@ -93,7 +91,12 @@ const Dashboard = () => {
       try {
         setLoading(true);
         
-        // Simulate API call delay
+        // In a real implementation, you would use these API calls
+        // const studentsData = await studentsService.getAllStudents();
+        // const programsData = await academicService.getAllPrograms();
+        // const semestersData = await academicService.getAllSemesters();
+        
+        // For now, just simulate the API call delay
         setTimeout(() => {
           setStats({
             totalStudents: 1523,
@@ -122,6 +125,30 @@ const Dashboard = () => {
     
     fetchData();
   }, []);
+  
+  // Get formatted time for display
+  const getCurrentTime = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    
+    if (hours < 12) {
+      return 'Chào buổi sáng';
+    } else if (hours < 18) {
+      return 'Chào buổi chiều';
+    } else {
+      return 'Chào buổi tối';
+    }
+  };
+  
+  // Get formatted date
+  const getFormattedDate = () => {
+    return new Date().toLocaleDateString('vi-VN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
   
   // Generate avatar for action types
   const getActionAvatar = (type) => {
@@ -169,6 +196,30 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ mb: 4 }}>
+      {/* Welcome Section */}
+      <Card sx={{ mb: 4, p: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)', borderRadius: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+              {getCurrentTime()}, {currentUser?.name || 'Quản trị viên'}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {getFormattedDate()}
+            </Typography>
+          </Box>
+          <Avatar 
+            sx={{ 
+              width: 64, 
+              height: 64, 
+              bgcolor: 'primary.main',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+            }}
+          >
+            {currentUser?.name?.charAt(0) || 'A'}
+          </Avatar>
+        </Box>
+      </Card>
+      
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
           Dashboard

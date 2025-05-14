@@ -1,13 +1,14 @@
-import React, { useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
+import { CircularProgress, Box } from '@mui/material';
 
 // Layouts
 import MainLayout from './components/layout/MainLayout';
 import AuthLayout from './components/layout/AuthLayout';
 
 // Auth Pages
-import Login from './pages/auth/Login';
+import LoginPage from './pages/auth/LoginPage';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 
@@ -40,44 +41,63 @@ import ProcessPayment from './pages/finance/ProcessPayment';
 import TuitionStatistics from './pages/finance/TuitionStatistics';
 import GenerateTuition from './pages/finance/GenerateTuition';
 
+// Loading component
+const LoadingScreen = () => (
+  <Box
+    sx={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100vh',
+      width: '100%',
+    }}
+  >
+    <CircularProgress size={60} thickness={4} />
+  </Box>
+);
+
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { currentUser, loading } = useAuth();
+  const { user, loading, isAuthenticated } = useAuth();
+  const location = useLocation();
   
   if (loading) {
-    return <div>Loading...</div>;
+    return <LoadingScreen />;
   }
   
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
+  // Check if user is logged in
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  // Check if user has ADMIN role
+  if (user.role !== 'ADMIN') {
+    // Clear any stored auth token and redirect to login
+    localStorage.removeItem('token');
+    return <Navigate to="/login" state={{ error: 'Bạn không có quyền truy cập vào trang quản trị' }} replace />;
   }
   
   return children;
 };
 
 function App() {
-  const { checkAuthStatus } = useAuth();
-  
-  useEffect(() => {
-    checkAuthStatus();
-  }, [checkAuthStatus]);
-
   return (
     <Routes>
       {/* Auth Routes */}
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
       </Route>
       
-      {/* Admin Routes */}
+      {/* Admin Routes - Protected */}
       <Route element={
         <ProtectedRoute>
           <MainLayout />
         </ProtectedRoute>
       }>
-        <Route path="/" element={<Dashboard />} />
+        {/* Redirect root to dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         
         {/* Student Management */}

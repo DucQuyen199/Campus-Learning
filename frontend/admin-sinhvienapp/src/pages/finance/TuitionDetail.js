@@ -1,0 +1,506 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  CardHeader,
+  Grid,
+  Button,
+  Chip,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  CircularProgress,
+  Alert,
+  Breadcrumbs,
+  Link,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import {
+  ArrowBack,
+  Payment,
+  Receipt,
+  AttachMoney,
+  Event,
+  Person,
+  School,
+  Print,
+  FileDownload,
+  Check,
+  Close,
+  Info,
+} from '@mui/icons-material';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { tuitionService } from '../../services/api';
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
+
+const TuitionDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [tuition, setTuition] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+
+  // Fetch tuition details
+  useEffect(() => {
+    const fetchTuitionDetails = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await tuitionService.getTuitionById(id);
+        setTuition(data.tuition || null);
+      } catch (error) {
+        setError('Không thể tải thông tin học phí. Vui lòng thử lại sau.');
+        console.error('Failed to fetch tuition details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchTuitionDetails();
+    }
+  }, [id]);
+
+  // Fetch payment history
+  useEffect(() => {
+    const fetchPaymentHistory = async () => {
+      setPaymentsLoading(true);
+      try {
+        const data = await tuitionService.getPaymentHistory(id);
+        setPayments(data.payments || []);
+      } catch (error) {
+        console.error('Failed to fetch payment history:', error);
+      } finally {
+        setPaymentsLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchPaymentHistory();
+    }
+  }, [id]);
+
+  // Process new payment
+  const handleProcessPayment = () => {
+    navigate(`/finance/tuition/${id}/payment`);
+  };
+
+  // Go back to list
+  const handleGoBack = () => {
+    navigate('/finance/tuition');
+  };
+
+  // Download receipt
+  const handleDownloadReceipt = async (paymentId) => {
+    try {
+      const response = await tuitionService.getPaymentReceipt(paymentId);
+      // Handle receipt download - typically would open a new window or trigger a download
+      console.log('Receipt downloaded:', response);
+    } catch (error) {
+      console.error('Failed to download receipt:', error);
+    }
+  };
+
+  // Get status chip
+  const getStatusChip = (status) => {
+    switch (status) {
+      case 'unpaid':
+        return <Chip label="Chưa thanh toán" color="error" size="small" />;
+      case 'partial':
+        return <Chip label="Đóng một phần" color="warning" size="small" />;
+      case 'paid':
+        return <Chip label="Đã thanh toán" color="success" size="small" />;
+      case 'overdue':
+        return <Chip label="Quá hạn" color="error" size="small" variant="outlined" />;
+      case 'waived':
+        return <Chip label="Miễn giảm" color="info" size="small" />;
+      default:
+        return <Chip label="Không xác định" color="default" size="small" />;
+    }
+  };
+
+  // Get payment status chip
+  const getPaymentStatusChip = (status) => {
+    switch (status) {
+      case 'completed':
+        return <Chip label="Hoàn thành" color="success" size="small" icon={<Check fontSize="small" />} />;
+      case 'pending':
+        return <Chip label="Đang xử lý" color="warning" size="small" />;
+      case 'failed':
+        return <Chip label="Thất bại" color="error" size="small" icon={<Close fontSize="small" />} />;
+      case 'refunded':
+        return <Chip label="Hoàn tiền" color="info" size="small" />;
+      case 'cancelled':
+        return <Chip label="Đã hủy" color="default" size="small" />;
+      default:
+        return <Chip label="Không xác định" color="default" size="small" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ my: 3 }}>
+        <Alert severity="error">{error}</Alert>
+        <Button
+          sx={{ mt: 2 }}
+          variant="outlined"
+          startIcon={<ArrowBack />}
+          onClick={handleGoBack}
+        >
+          Quay lại danh sách
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!tuition) {
+    return (
+      <Box sx={{ my: 3 }}>
+        <Alert severity="warning">Không tìm thấy thông tin học phí</Alert>
+        <Button
+          sx={{ mt: 2 }}
+          variant="outlined"
+          startIcon={<ArrowBack />}
+          onClick={handleGoBack}
+        >
+          Quay lại danh sách
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ mb: 4 }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link component={RouterLink} to="/dashboard" underline="hover" color="inherit">
+          Dashboard
+        </Link>
+        <Link component={RouterLink} to="/finance/tuition" underline="hover" color="inherit">
+          Quản lý học phí
+        </Link>
+        <Typography color="text.primary">Chi tiết học phí</Typography>
+      </Breadcrumbs>
+
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
+            Chi tiết học phí
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            ID: {tuition.id} | Trạng thái: {getStatusChip(tuition.status)}
+          </Typography>
+        </Box>
+        <Box>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            onClick={handleGoBack}
+            sx={{ mr: 1 }}
+          >
+            Quay lại
+          </Button>
+          {(tuition.status === 'unpaid' || tuition.status === 'partial' || tuition.status === 'overdue') && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<Payment />}
+              onClick={handleProcessPayment}
+            >
+              Xử lý thanh toán
+            </Button>
+          )}
+        </Box>
+      </Box>
+
+      {/* Main Content */}
+      <Grid container spacing={3}>
+        {/* Student Info */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                <Person sx={{ mr: 1 }} /> Thông tin sinh viên
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <List disablePadding>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Mã sinh viên" 
+                    secondary={tuition.studentCode}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Họ tên" 
+                    secondary={tuition.studentName}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Lớp" 
+                    secondary={tuition.className || '--'}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Khoa/Ngành" 
+                    secondary={tuition.facultyName || '--'}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                  />
+                </ListItem>
+              </List>
+              
+              <Button
+                variant="outlined"
+                fullWidth
+                sx={{ mt: 2 }}
+                onClick={() => navigate(`/students/${tuition.studentId}`)}
+              >
+                Xem hồ sơ sinh viên
+              </Button>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Tuition Info */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                <School sx={{ mr: 1 }} /> Thông tin học phí
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <List disablePadding>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Học kỳ" 
+                    secondary={tuition.semesterName}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Tổng số tín chỉ" 
+                    secondary={tuition.totalCredits || '--'}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Học phí/tín chỉ" 
+                    secondary={formatCurrency(tuition.amountPerCredit) || '--'}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Hạn thanh toán" 
+                    secondary={formatDate(tuition.dueDate) || '--'}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                  />
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Payment Summary */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                <AttachMoney sx={{ mr: 1 }} /> Tổng kết thanh toán
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              
+              <List disablePadding>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Tổng học phí" 
+                    secondary={formatCurrency(tuition.totalAmount)}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Học bổng/Miễn giảm" 
+                    secondary={formatCurrency(tuition.scholarshipAmount || 0)}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'info.main' }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Số tiền phải đóng" 
+                    secondary={formatCurrency(tuition.finalAmount)}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Đã thanh toán" 
+                    secondary={formatCurrency(tuition.paidAmount || 0)}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ variant: 'body1', color: 'success.main', fontWeight: 500 }}
+                  />
+                </ListItem>
+                <ListItem sx={{ py: 1, px: 0 }}>
+                  <ListItemText 
+                    primary="Còn lại" 
+                    secondary={formatCurrency(tuition.remainingAmount || 0)}
+                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                    secondaryTypographyProps={{ 
+                      variant: 'body1', 
+                      color: tuition.remainingAmount > 0 ? 'error.main' : 'success.main',
+                      fontWeight: 'bold',
+                      fontSize: '1.1rem'
+                    }}
+                  />
+                </ListItem>
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Payment History */}
+        <Grid item xs={12}>
+          <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+            <CardHeader 
+              title="Lịch sử thanh toán" 
+              titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
+              avatar={<Receipt />}
+            />
+            <Divider />
+            <CardContent>
+              {paymentsLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                  <CircularProgress />
+                </Box>
+              ) : payments.length === 0 ? (
+                <Box sx={{ py: 3, textAlign: 'center' }}>
+                  <Typography variant="body1" color="text.secondary">
+                    Chưa có lịch sử thanh toán
+                  </Typography>
+                </Box>
+              ) : (
+                <TableContainer component={Paper} variant="outlined">
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Mã giao dịch</TableCell>
+                        <TableCell>Ngày thanh toán</TableCell>
+                        <TableCell>Số tiền</TableCell>
+                        <TableCell>Phương thức</TableCell>
+                        <TableCell>Người xử lý</TableCell>
+                        <TableCell>Trạng thái</TableCell>
+                        <TableCell align="center">Thao tác</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{payment.transactionCode || '--'}</TableCell>
+                          <TableCell>{formatDateTime(payment.paymentDate)}</TableCell>
+                          <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                          <TableCell>{payment.paymentMethod}</TableCell>
+                          <TableCell>{payment.processedBy || payment.createdBy || '--'}</TableCell>
+                          <TableCell>{getPaymentStatusChip(payment.status)}</TableCell>
+                          <TableCell align="center">
+                            {payment.status === 'completed' && (
+                              <Tooltip title="Tải biên lai">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => handleDownloadReceipt(payment.id)}
+                                >
+                                  <FileDownload fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+              
+              {(tuition.status === 'unpaid' || tuition.status === 'partial' || tuition.status === 'overdue') && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Payment />}
+                  onClick={handleProcessPayment}
+                  sx={{ mt: 3 }}
+                >
+                  Xử lý thanh toán
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        {/* Notes */}
+        {tuition.notes && (
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
+              <CardHeader 
+                title="Ghi chú" 
+                titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
+                avatar={<Info />}
+              />
+              <Divider />
+              <CardContent>
+                <Typography variant="body1">
+                  {tuition.notes}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+      </Grid>
+    </Box>
+  );
+};
+
+export default TuitionDetail; 

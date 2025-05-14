@@ -1,13 +1,14 @@
 import React from 'react';
-import { Box, Typography, Button, Container } from '@mui/material';
+import { Box, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowBack } from '@mui/icons-material';
+import PageContainer from '../components/layout/PageContainer';
 
 const NotFound = () => {
   const navigate = useNavigate();
 
   return (
-    <Container maxWidth="md">
+    <PageContainer fullHeight>
       <Box
         sx={{
           display: 'flex',
@@ -16,6 +17,7 @@ const NotFound = () => {
           justifyContent: 'center',
           minHeight: '80vh',
           textAlign: 'center',
+          width: '100%',
         }}
       >
         <Typography
@@ -74,7 +76,7 @@ const NotFound = () => {
           </Button>
         </Box>
       </Box>
-    </Container>
+    </PageContainer>
   );
 };
 

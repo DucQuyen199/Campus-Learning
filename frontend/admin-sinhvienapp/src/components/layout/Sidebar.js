@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Drawer,
@@ -12,6 +12,10 @@ import {
   Avatar,
   Collapse,
   useTheme,
+  Badge,
+  Tooltip,
+  IconButton,
+  alpha,
 } from '@mui/material';
 import {
   Dashboard,
@@ -33,20 +37,36 @@ import {
   Payment,
   CreditCard,
   AccountBalance,
+  ChevronLeft,
+  Menu as MenuIcon,
+  Notifications,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile }) => {
+const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile, insideUnifiedForm = false }) => {
   const theme = useTheme();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   
+  // Auto expand menu based on current route
+  useEffect(() => {
+    if (location.pathname.includes('/students')) {
+      setStudentsOpen(true);
+    }
+    if (location.pathname.includes('/academic')) {
+      setAcademicOpen(true);
+    }
+    if (location.pathname.includes('/finance')) {
+      setFinanceOpen(true);
+    }
+  }, [location.pathname]);
+  
   // Menu item states
-  const [studentsOpen, setStudentsOpen] = React.useState(false);
-  const [academicOpen, setAcademicOpen] = React.useState(false);
-  const [financeOpen, setFinanceOpen] = React.useState(false);
+  const [studentsOpen, setStudentsOpen] = useState(false);
+  const [academicOpen, setAcademicOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
   
   // Toggle menu items
   const handleStudentsClick = () => {
@@ -71,7 +91,7 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile }) => {
   
   // Check if a path is active
   const isActive = (path) => {
-    return location.pathname === path;
+    return location.pathname === path || (path !== '/dashboard' && location.pathname.startsWith(path));
   };
   
   // Check if a path is part of a group
@@ -86,21 +106,106 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile }) => {
   const isInFinanceGroup = () => {
     return location.pathname.includes('/finance');
   };
+
+  // Sidebar item renderer
+  const renderMenuItem = (text, icon, path, isActiveCheck, handleClick = null, isOpen = null) => {
+    const active = isActiveCheck ? isActiveCheck() : isActive(path);
+    return (
+      <ListItem disablePadding sx={{ mb: 0.5 }}>
+        <ListItemButton
+          selected={active}
+          onClick={handleClick || (() => handleNavigate(path))}
+          sx={{
+            borderRadius: 1.5,
+            py: 1,
+            backgroundColor: active ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+            '&.Mui-selected': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.primary.main, 0.2),
+              },
+            },
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
+            },
+          }}
+        >
+          <ListItemIcon>
+            {React.cloneElement(icon, { 
+              color: active ? 'primary' : 'action',
+              sx: { fontSize: '1.25rem' }
+            })}
+          </ListItemIcon>
+          <ListItemText 
+            primary={text} 
+            primaryTypographyProps={{ 
+              fontWeight: active ? 600 : 500,
+              fontSize: '0.95rem',
+              color: active ? 'primary.main' : 'text.primary'
+            }} 
+          />
+          {handleClick && (isOpen !== null ? (isOpen ? <ExpandLess color="action" /> : <ExpandMore color="action" />) : null)}
+        </ListItemButton>
+      </ListItem>
+    );
+  };
+
+  // Submenu item renderer
+  const renderSubMenuItem = (text, icon, path) => {
+    const active = isActive(path);
+    return (
+      <ListItemButton
+        sx={{ 
+          pl: 4, 
+          py: 0.75,
+          borderRadius: 1.5, 
+          mb: 0.5,
+          ml: 1,
+          borderLeft: `1px solid ${active ? theme.palette.primary.main : theme.palette.divider}`,
+        }}
+        selected={active}
+        onClick={() => handleNavigate(path)}
+      >
+        <ListItemIcon sx={{ minWidth: '36px' }}>
+          {React.cloneElement(icon, { 
+            fontSize: "small",
+            color: active ? 'primary' : 'action',
+          })}
+        </ListItemIcon>
+        <ListItemText 
+          primary={text} 
+          primaryTypographyProps={{ 
+            fontSize: '0.875rem',
+            fontWeight: active ? 600 : 400,
+            color: active ? 'primary.main' : 'text.secondary'
+          }} 
+        />
+      </ListItemButton>
+    );
+  };
   
   // Drawer content
   const drawerContent = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Logo & App Name */}
+    <Box sx={{ 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      bgcolor: theme.palette.background.paper,
+      boxShadow: '0 0 15px rgba(0, 0, 0, 0.05)',
+    }}>
+      {/* Header with Logo - không còn nút toggle */}
       <Box
         sx={{
           p: 2,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
+          justifyContent: 'center', // Căn giữa logo
           borderBottom: `1px solid ${theme.palette.divider}`,
+          color: theme.palette.primary.main,
         }}
       >
-        <Typography variant="h5" sx={{ color: theme.palette.primary.main, fontWeight: 700 }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}>
+          <School sx={{ mr: 1, fontSize: '2rem' }} />
           HUBT Admin
         </Typography>
       </Box>
@@ -113,295 +218,137 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile }) => {
           flexDirection: 'column',
           alignItems: 'center',
           borderBottom: `1px solid ${theme.palette.divider}`,
+          bgcolor: alpha(theme.palette.primary.main, 0.03),
         }}
       >
-        <Avatar
-          alt={currentUser?.fullName || 'Admin'}
-          src={currentUser?.avatar}
-          sx={{ width: 60, height: 60, mb: 1 }}
-        />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          {currentUser?.fullName || 'Admin User'}
+        <Badge
+          overlap="circular"
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          variant="dot"
+          color="success"
+        >
+          <Avatar
+            alt={user?.name || 'Admin'}
+            src={user?.avatar}
+            sx={{ 
+              width: 64, 
+              height: 64, 
+              mb: 1,
+              border: `3px solid ${theme.palette.background.paper}`,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            }}
+          />
+        </Badge>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1 }}>
+          {user?.name || 'Admin User'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {currentUser?.email || 'admin@example.com'}
+          {user?.role || 'Quản trị viên'}
         </Typography>
       </Box>
       
       {/* Navigation */}
-      <List sx={{ flexGrow: 1, px: 2, py: 1 }} component="nav">
+      <List sx={{ 
+        flexGrow: 1, 
+        px: 2, 
+        py: 1.5, 
+        overflowY: 'auto',
+        '&::-webkit-scrollbar': {
+          width: '4px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: alpha(theme.palette.primary.main, 0.2),
+          borderRadius: '10px',
+        },
+      }} component="nav">
         {/* Dashboard */}
-        <ListItem disablePadding sx={{ mb: 1 }}>
-          <ListItemButton
-            selected={isActive('/dashboard') || isActive('/')}
-            onClick={() => handleNavigate('/dashboard')}
-            sx={{
-              borderRadius: 1,
-              mb: 0.5,
-              backgroundColor: (isActive('/dashboard') || isActive('/')) ? alpha(theme.palette.primary.main, 0.1) : null,
-              '&.Mui-selected': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                },
-              },
-            }}
-          >
-            <ListItemIcon>
-              <Dashboard color={isActive('/dashboard') || isActive('/') ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText primary="Dashboard" />
-          </ListItemButton>
-        </ListItem>
+        {renderMenuItem('Dashboard', <Dashboard />, '/dashboard', () => isActive('/dashboard') || isActive('/'))}
+        
+        <Divider sx={{ my: 1.5, opacity: 0.6 }} />
+        
+        {/* Main Sections */}
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5, display: 'block' }}>
+          QUẢN LÝ CHÍNH
+        </Typography>
         
         {/* Students */}
-        <ListItem disablePadding sx={{ mb: 1 }}>
-          <ListItemButton
-            onClick={handleStudentsClick}
-            sx={{
-              borderRadius: 1,
-              mb: 0.5,
-              backgroundColor: isInStudentsGroup() ? alpha(theme.palette.primary.main, 0.1) : null,
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-              },
-            }}
-          >
-            <ListItemIcon>
-              <People color={isInStudentsGroup() ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText primary="Quản lý sinh viên" />
-            {studentsOpen ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-        </ListItem>
+        {renderMenuItem('Quản lý sinh viên', <People />, '/students', isInStudentsGroup, handleStudentsClick, studentsOpen)}
         
         <Collapse in={studentsOpen || isInStudentsGroup()} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/students')}
-              onClick={() => handleNavigate('/students')}
-            >
-              <ListItemIcon>
-                <People fontSize="small" color={isActive('/students') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Danh sách sinh viên" />
-            </ListItemButton>
-            
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/students/add')}
-              onClick={() => handleNavigate('/students/add')}
-            >
-              <ListItemIcon>
-                <AddBox fontSize="small" color={isActive('/students/add') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Thêm sinh viên" />
-            </ListItemButton>
+            {renderSubMenuItem('Danh sách sinh viên', <People />, '/students')}
+            {renderSubMenuItem('Thêm sinh viên', <AddBox />, '/students/add')}
           </List>
         </Collapse>
         
         {/* Academic */}
-        <ListItem disablePadding sx={{ mb: 1 }}>
-          <ListItemButton
-            onClick={handleAcademicClick}
-            sx={{
-              borderRadius: 1,
-              mb: 0.5,
-              backgroundColor: isInAcademicGroup() ? alpha(theme.palette.primary.main, 0.1) : null,
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-              },
-            }}
-          >
-            <ListItemIcon>
-              <School color={isInAcademicGroup() ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText primary="Quản lý học tập" />
-            {academicOpen ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-        </ListItem>
+        {renderMenuItem('Quản lý học tập', <School />, '/academic', isInAcademicGroup, handleAcademicClick, academicOpen)}
         
         <Collapse in={academicOpen || isInAcademicGroup()} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/academic/programs')}
-              onClick={() => handleNavigate('/academic/programs')}
-            >
-              <ListItemIcon>
-                <School fontSize="small" color={isActive('/academic/programs') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Chương trình đào tạo" />
-            </ListItemButton>
-            
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/academic/subjects')}
-              onClick={() => handleNavigate('/academic/subjects')}
-            >
-              <ListItemIcon>
-                <Book fontSize="small" color={isActive('/academic/subjects') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Môn học" />
-            </ListItemButton>
-            
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/academic/semesters')}
-              onClick={() => handleNavigate('/academic/semesters')}
-            >
-              <ListItemIcon>
-                <CalendarMonth fontSize="small" color={isActive('/academic/semesters') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Học kỳ" />
-            </ListItemButton>
-            
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/academic/results')}
-              onClick={() => handleNavigate('/academic/results')}
-            >
-              <ListItemIcon>
-                <Assessment fontSize="small" color={isActive('/academic/results') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Kết quả học tập" />
-            </ListItemButton>
-
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/academic/warnings')}
-              onClick={() => handleNavigate('/academic/warnings')}
-            >
-              <ListItemIcon>
-                <Warning fontSize="small" color={isActive('/academic/warnings') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Cảnh báo học tập" />
-            </ListItemButton>
+            {renderSubMenuItem('Chương trình đào tạo', <School />, '/academic/programs')}
+            {renderSubMenuItem('Môn học', <Book />, '/academic/subjects')}
+            {renderSubMenuItem('Học kỳ', <CalendarMonth />, '/academic/semesters')}
+            {renderSubMenuItem('Kết quả học tập', <Assessment />, '/academic/results')}
+            {renderSubMenuItem('Cảnh báo học tập', <Warning />, '/academic/warnings')}
           </List>
         </Collapse>
         
         {/* Finance */}
-        <ListItem disablePadding sx={{ mb: 1 }}>
-          <ListItemButton
-            onClick={handleFinanceClick}
-            sx={{
-              borderRadius: 1,
-              mb: 0.5,
-              backgroundColor: isInFinanceGroup() ? alpha(theme.palette.primary.main, 0.1) : null,
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-              },
-            }}
-          >
-            <ListItemIcon>
-              <AccountBalance color={isInFinanceGroup() ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText primary="Quản lý tài chính" />
-            {financeOpen ? <ExpandLess /> : <ExpandMore />}
-          </ListItemButton>
-        </ListItem>
+        {renderMenuItem('Quản lý tài chính', <AccountBalance />, '/finance', isInFinanceGroup, handleFinanceClick, financeOpen)}
         
         <Collapse in={financeOpen || isInFinanceGroup()} timeout="auto" unmountOnExit>
           <List component="div" disablePadding>
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/finance/tuition')}
-              onClick={() => handleNavigate('/finance/tuition')}
-            >
-              <ListItemIcon>
-                <Receipt fontSize="small" color={isActive('/finance/tuition') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Học phí" />
-            </ListItemButton>
-            
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/finance/tuition/statistics')}
-              onClick={() => handleNavigate('/finance/tuition/statistics')}
-            >
-              <ListItemIcon>
-                <Assessment fontSize="small" color={isActive('/finance/tuition/statistics') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Thống kê học phí" />
-            </ListItemButton>
-            
-            <ListItemButton
-              sx={{ pl: 4, borderRadius: 1, mb: 0.5 }}
-              selected={isActive('/finance/tuition/generate')}
-              onClick={() => handleNavigate('/finance/tuition/generate')}
-            >
-              <ListItemIcon>
-                <CreditCard fontSize="small" color={isActive('/finance/tuition/generate') ? 'primary' : 'inherit'} />
-              </ListItemIcon>
-              <ListItemText primary="Tạo hoá đơn học phí" />
-            </ListItemButton>
+            {renderSubMenuItem('Học phí', <Receipt />, '/finance/tuition')}
+            {renderSubMenuItem('Thống kê học phí', <Assessment />, '/finance/tuition/statistics')}
+            {renderSubMenuItem('Tạo hoá đơn học phí', <CreditCard />, '/finance/tuition/generate')}
           </List>
         </Collapse>
         
-        {/* Profile & Settings */}
-        <ListItem disablePadding>
-          <ListItemButton
-            selected={isActive('/profile')}
-            onClick={() => handleNavigate('/profile')}
-            sx={{
-              borderRadius: 1,
-              mb: 0.5,
-              backgroundColor: isActive('/profile') ? alpha(theme.palette.primary.main, 0.1) : null,
-              '&.Mui-selected': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                },
-              },
-            }}
-          >
-            <ListItemIcon>
-              <Person color={isActive('/profile') ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText primary="Hồ sơ cá nhân" />
-          </ListItemButton>
-        </ListItem>
+        <Divider sx={{ my: 1.5, opacity: 0.6 }} />
         
-        <ListItem disablePadding>
-          <ListItemButton
-            selected={isActive('/settings')}
-            onClick={() => handleNavigate('/settings')}
-            sx={{
-              borderRadius: 1,
-              mb: 0.5,
-              backgroundColor: isActive('/settings') ? alpha(theme.palette.primary.main, 0.1) : null,
-              '&.Mui-selected': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                },
-              },
-            }}
-          >
-            <ListItemIcon>
-              <Settings color={isActive('/settings') ? 'primary' : 'inherit'} />
-            </ListItemIcon>
-            <ListItemText primary="Cài đặt" />
-          </ListItemButton>
-        </ListItem>
+        {/* User Settings */}
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5, display: 'block' }}>
+          CÀI ĐẶT TÀI KHOẢN
+        </Typography>
+        
+        {/* Profile & Settings */}
+        {renderMenuItem('Hồ sơ cá nhân', <Person />, '/profile')}
+        {renderMenuItem('Cài đặt hệ thống', <Settings />, '/settings')}
       </List>
       
       {/* Version */}
-      <Box sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+      <Box sx={{ 
+        p: 2, 
+        borderTop: `1px solid ${theme.palette.divider}`,
+        backgroundColor: alpha(theme.palette.primary.main, 0.03),
+      }}>
         <Typography variant="caption" color="text.secondary" component="div" sx={{ textAlign: 'center' }}>
-          HUBT Admin Portal v1.0.0
+          HUBT Admin Portal v1.1.0
         </Typography>
       </Box>
     </Box>
   );
   
+  // Trong trường hợp sidebar nằm trong form thống nhất, chỉ trả về nội dung
+  if (insideUnifiedForm) {
+    return drawerContent;
+  }
+  
+  // Trường hợp thông thường (sidebar độc lập)
   return (
     <Box
       component="nav"
-      sx={{ width: { sm: open ? drawerWidth : 0 }, flexShrink: { sm: 0 } }}
+      sx={{ 
+        width: { 
+          xs: 0, 
+          md: open ? drawerWidth : 0 
+        },
+        flexShrink: { md: 0 },
+        zIndex: theme.zIndex.drawer
+      }}
     >
-      {/* Mobile drawer */}
+      {/* Mobile drawer - chỉ hiển thị khi click nút menu trên mobile */}
       <Drawer
         variant="temporary"
         open={isMobile && open}
@@ -410,27 +357,43 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile }) => {
           keepMounted: true, // Better open performance on mobile
         }}
         sx={{
-          display: { xs: 'block', sm: 'none' },
+          display: { xs: 'block', md: 'none' },
           '& .MuiDrawer-paper': { 
             boxSizing: 'border-box', 
-            width: drawerWidth,
-            borderRight: `1px solid ${theme.palette.divider}`,
+            width: isMobile ? '80%' : drawerWidth,
+            maxWidth: isMobile ? '300px' : 'none',
+            borderRight: 'none',
+            boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)',
+            zIndex: theme.zIndex.drawer,
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            margin: 0,
+            padding: 0
           },
         }}
       >
         {drawerContent}
       </Drawer>
       
-      {/* Desktop drawer */}
+      {/* Desktop drawer - luôn hiển thị */}
       <Drawer
-        variant="persistent"
-        open={open}
+        variant="permanent"
+        open={true}
         sx={{
-          display: { xs: 'none', sm: 'block' },
+          display: { xs: 'none', md: 'block' },
           '& .MuiDrawer-paper': { 
             boxSizing: 'border-box', 
             width: drawerWidth,
-            borderRight: `1px solid ${theme.palette.divider}`,
+            borderRight: 'none',
+            boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)',
+            height: '100%',
+            zIndex: theme.zIndex.drawer,
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            margin: 0,
+            padding: 0,
           },
         }}
       >
@@ -438,10 +401,6 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile }) => {
       </Drawer>
     </Box>
   );
-};
-
-const alpha = (color, opacity) => {
-  return color.replace('rgb', 'rgba').replace(')', `, ${opacity})`);
 };
 
 export default Sidebar; 

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Box, CssBaseline, AppBar, Toolbar, IconButton, Typography, useMediaQuery } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, CssBaseline, AppBar, Toolbar, IconButton, Typography, Drawer, useMediaQuery } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { Outlet } from 'react-router-dom';
@@ -16,12 +16,11 @@ const MainLayout = () => {
   const theme = useTheme();
   const { currentUser } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
-  // Keep sidebar always open for desktop
-  const mobileOpen = true;
-  
-  // Dummy function for compatibility
-  const handleDrawerToggle = () => {};
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen);
+  };
 
   return (
     <Box sx={{ 
@@ -56,8 +55,7 @@ const MainLayout = () => {
           backdropFilter: 'blur(10px)',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
           color: 'primary.main',
-          borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
-          zIndex: theme.zIndex.appBar
+          borderBottom: '1px solid rgba(0, 0, 0, 0.08)'
         }}
       >
         <Toolbar>
@@ -76,11 +74,7 @@ const MainLayout = () => {
         </Toolbar>
       </AppBar>
       
-      <Sidebar 
-        mobileOpen={mobileOpen} 
-        handleDrawerToggle={handleDrawerToggle}
-        drawerWidth={drawerWidth}
-      />
+      <Sidebar mobileOpen={mobileOpen} handleDrawerToggle={handleDrawerToggle} />
       
       <Box
         component="main"
@@ -89,33 +83,15 @@ const MainLayout = () => {
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           height: '100vh',
           overflow: 'auto',
-          p: { xs: 0, sm: 0 },
+          p: { xs: 2, sm: 3 },
           pt: { xs: 8, sm: 9 },
-          pb: 0,
-          px: 0,
           backgroundColor: 'rgba(255, 255, 255, 0.7)',
           backdropFilter: 'blur(5px)',
           display: 'flex',
-          flexDirection: 'column',
-          ml: { xs: 0, sm: `${drawerWidth}px` },
-          transition: theme.transitions.create(['margin', 'width'], {
-            easing: theme.transitions.easing.easeOut,
-            duration: theme.transitions.duration.enteringScreen,
-          }),
-          maxWidth: { sm: `calc(100% - ${drawerWidth}px)` },
+          flexDirection: 'column'
         }}
       >
-        <Box sx={{ 
-          flexGrow: 1, 
-          width: '100%', 
-          maxWidth: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'auto',
-          padding: 0
-        }}>
-          <Outlet />
-        </Box>
+        <Outlet />
       </Box>
     </Box>
   );

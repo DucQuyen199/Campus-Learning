@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon services/admin-sinhvienservice/server.js",
     "start:user-service": "cd services/user-service && npm start",
     "start:admin-service": "cd services/admin-service && npm start",
     "start:teacher-service": "cd services/teacher-service && npm start",
@@ -28,11 +28,14 @@
     "express-validator": "^6.12.1",
     "helmet": "^4.6.0",
     "jsonwebtoken": "^8.5.1",
-    "mssql": "^7.2.0",
+    "morgan": "^1.10.0",
+    "mssql": "^7.3.5",
     "multer": "^1.4.3",
+    "mysql2": "^3.14.1",
     "nodemailer": "^6.6.3",
     "pyodide": "^0.27.5",
     "quickjs-emscripten": "^0.31.0",
+    "recharts": "^2.15.3",
     "socket.io": "^4.2.0"
   },
   "devDependencies": {

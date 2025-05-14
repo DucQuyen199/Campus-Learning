@@ -1,5 +1,8 @@
 {
   "ignore": ["node_modules/*", "logs/*", ".git", "public/*"],
   "ext": "js,json",
-  "delay": "2000"
+  "delay": "2000",
+  "execMap": {
+    "js": "node"
+  }
 } 

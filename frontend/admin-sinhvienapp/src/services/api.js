@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Base API client
 const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5011',
+  baseURL: process.env.REACT_APP_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -43,7 +43,7 @@ export const authService = {
     return apiClient.post('/auth/login', { username, password });
   },
   getProfile: () => {
-    return apiClient.get('/auth/profile');
+    return apiClient.get('/auth/validate-token');
   },
   changePassword: (currentPassword, newPassword) => {
     return apiClient.post('/auth/change-password', { currentPassword, newPassword });

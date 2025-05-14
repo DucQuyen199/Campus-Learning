@@ -347,7 +347,7 @@ const Profile = () => {
         // Fetch profile update history
         const updates = await userService.getProfileUpdates(currentUser.UserID);
         console.log('Update history received:', updates);
-        setUpdateHistory(updates);
+        setUpdateHistory(Array.isArray(updates) ? updates : []);
       } catch (updatesError) {
         console.error('Error fetching profile updates:', updatesError);
         setUpdateHistory([]);
@@ -1031,7 +1031,7 @@ const Profile = () => {
           </Box>
         </DialogTitle>
         <DialogContent dividers>
-          {updateHistory.length === 0 ? (
+          {!updateHistory || updateHistory.length === 0 ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
               <History sx={{ color: 'text.disabled', fontSize: 48, mb: 2 }} />
               <Typography color="text.secondary">Không có thông tin cập nhật nào.</Typography>

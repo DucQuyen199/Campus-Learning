@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
-  Paper,
   Box,
   CircularProgress,
   Alert,
-  Divider,
   Grid,
   FormControl,
   InputLabel,
@@ -14,7 +11,6 @@ import {
   MenuItem,
   Card,
   CardContent,
-  CardHeader,
   Chip,
   Table,
   TableBody,
@@ -25,16 +21,23 @@ import {
   IconButton,
   Stack,
   Tab,
-  Tabs
+  Tabs,
+  useTheme,
+  useMediaQuery,
+  Skeleton,
+  Fade,
+  Avatar
 } from '@mui/material';
 import {
-  Today,
-  DateRange,
-  Event,
-  EventNote,
-  DownloadOutlined,
-  Place,
-  Schedule
+  Today as TodayIcon,
+  DateRange as DateRangeIcon,
+  Event as EventIcon,
+  EventNote as EventNoteIcon,
+  Download as DownloadIcon,
+  Place as PlaceIcon,
+  Schedule as ScheduleIcon,
+  School as SchoolIcon,
+  CalendarMonth as CalendarMonthIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { scheduleService } from '../../services/api';
@@ -47,6 +50,8 @@ const ClassSchedule = () => {
   const [selectedSemester, setSelectedSemester] = useState('');
   const [selectedView, setSelectedView] = useState(0);
   const [scheduleData, setScheduleData] = useState([]);
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   
   // Sample data for semesters
   const semesters = [
@@ -217,193 +222,412 @@ const ClassSchedule = () => {
   
   // Loading state
   if (loading) {
-    return (
-      <Container sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Container>
-    );
+    return <LoadingSkeleton />;
   }
   
   // Error state
   if (error) {
     return (
-      <Container sx={{ mt: 4 }}>
-        <Alert severity="error">{error}</Alert>
-      </Container>
+      <Box sx={{ mt: 4, maxWidth: '100%', px: { xs: 2, sm: 4 } }}>
+        <Alert 
+          severity="error" 
+          sx={{ 
+            borderRadius: 2, 
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            '& .MuiAlert-icon': { alignItems: 'center' }
+          }}
+        >
+          {error}
+        </Alert>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ 
+      mt: 2, 
+      px: { xs: 1, sm: 2, md: 3 },
+      maxWidth: '100%',
+      animation: 'fadeIn 0.6s ease-out',
+      '@keyframes fadeIn': {
+        '0%': { opacity: 0, transform: 'translateY(20px)' },
+        '100%': { opacity: 1, transform: 'translateY(0)' }
+      }
+    }}>
+      <Typography 
+        variant="h4" 
+        gutterBottom
+        sx={{
+          fontWeight: 600,
+          color: 'primary.main',
+          textAlign: { xs: 'center', md: 'left' },
+          mb: 3,
+          position: 'relative',
+          '&:after': {
+            content: '""',
+            position: 'absolute',
+            bottom: -8,
+            left: { xs: '50%', md: 0 },
+            transform: { xs: 'translateX(-50%)', md: 'translateX(0)' },
+            width: { xs: '80px', md: '120px' },
+            height: '4px',
+            background: theme => `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+            borderRadius: 2
+          }
+        }}
+      >
         Lịch học
       </Typography>
       
       {/* Semester selection and info */}
-      <Paper elevation={3} sx={{ mb: 3, p: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel id="semester-select-label">Học kỳ</InputLabel>
-              <Select
-                labelId="semester-select-label"
-                id="semester-select"
-                value={selectedSemester}
-                label="Học kỳ"
-                onChange={handleSemesterChange}
-              >
-                {semesters.map((semester) => (
-                  <MenuItem key={semester.id} value={semester.id}>
-                    {semester.name} {semester.isCurrent ? '(Hiện tại)' : ''}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={5}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <DateRange sx={{ color: 'primary.main', mr: 1 }} />
-              <Typography variant="body1">
-                Tuần hiện tại: {currentWeek} (từ {
-                  new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - currentDate.getDay() + 1).toLocaleDateString('vi-VN')
-                } đến {
-                  new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - currentDate.getDay() + 7).toLocaleDateString('vi-VN')
-                })
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={3} sx={{ textAlign: 'right' }}>
-            <IconButton color="primary" title="Tải lịch xuống">
-              <DownloadOutlined />
-            </IconButton>
-          </Grid>
-        </Grid>
-      </Paper>
+      <Fade in timeout={800}>
+        <Card 
+          elevation={3} 
+          sx={{ 
+            mb: 4, 
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(192, 192, 192, 0.2)',
+          }}
+        >
+          <Box sx={{ 
+            p: { xs: 2, sm: 3 },
+            backgroundColor: 'primary.main',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <CalendarMonthIcon sx={{ fontSize: 30 }} />
+            <Typography variant="h5" fontWeight="600">
+              Thông tin lịch học
+            </Typography>
+          </Box>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Grid container spacing={3} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="semester-select-label">Học kỳ</InputLabel>
+                  <Select
+                    labelId="semester-select-label"
+                    id="semester-select"
+                    value={selectedSemester}
+                    label="Học kỳ"
+                    onChange={handleSemesterChange}
+                  >
+                    {semesters.map((semester) => (
+                      <MenuItem key={semester.id} value={semester.id}>
+                        {semester.name} {semester.isCurrent ? '(Hiện tại)' : ''}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(0,0,0,0.02)'
+                }}>
+                  <Avatar sx={{ mr: 2, bgcolor: 'primary.light' }}>
+                    <DateRangeIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={600}>
+                      Tuần hiện tại: {currentWeek}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - currentDate.getDay() + 1).toLocaleDateString('vi-VN')}
+                      {' '} - {' '}
+                      {new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - currentDate.getDay() + 7).toLocaleDateString('vi-VN')}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <IconButton 
+                  color="primary" 
+                  title="Tải lịch xuống"
+                  sx={{ 
+                    bgcolor: 'primary.light', 
+                    color: 'white',
+                    '&:hover': { 
+                      bgcolor: 'primary.main',
+                    }
+                  }}
+                >
+                  <DownloadIcon />
+                </IconButton>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Fade>
       
       {/* View selection tabs */}
-      <Paper elevation={3} sx={{ mb: 3 }}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={selectedView} onChange={handleViewChange} aria-label="class schedule tabs">
-            <Tab label="Lịch học theo tuần" icon={<Event />} iconPosition="start" />
-            <Tab label="Danh sách lớp học" icon={<EventNote />} iconPosition="start" />
+      <Fade in timeout={900}>
+        <Card 
+          elevation={3} 
+          sx={{ 
+            mb: 4, 
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(192, 192, 192, 0.2)',
+          }}
+        >
+          <Tabs 
+            value={selectedView} 
+            onChange={handleViewChange} 
+            aria-label="class schedule tabs"
+            indicatorColor="primary"
+            textColor="primary"
+            sx={{
+              '& .MuiTab-root': {
+                fontWeight: 600,
+                py: 2
+              }
+            }}
+          >
+            <Tab 
+              label="Lịch học theo tuần" 
+              icon={<EventIcon />} 
+              iconPosition="start" 
+            />
+            <Tab 
+              label="Danh sách lớp học" 
+              icon={<EventNoteIcon />} 
+              iconPosition="start" 
+            />
           </Tabs>
-        </Box>
-      </Paper>
+        </Card>
+      </Fade>
       
       {/* Week View */}
       {selectedView === 0 && (
-        <Paper elevation={3} sx={{ p: 3 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: '10%' }}>
-                    <Typography variant="subtitle2">Thời gian</Typography>
-                  </TableCell>
-                  {daysOfWeek.map((day) => (
-                    <TableCell key={day} align="center">
-                      <Typography variant="subtitle2">{day}</Typography>
-                      <Typography variant="caption">
-                        {
-                          (() => {
-                            const d = new Date(currentDate);
-                            const dayNum = daysOfWeek.indexOf(day);
-                            d.setDate(d.getDate() - d.getDay() + dayNum + 1);
-                            return d.toLocaleDateString('vi-VN');
-                          })()
-                        }
-                      </Typography>
+        <Fade in timeout={1000}>
+          <Card 
+            elevation={3} 
+            sx={{ 
+              borderRadius: 2,
+              overflow: 'hidden',
+              backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(192, 192, 192, 0.2)',
+            }}
+          >
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                    <TableCell 
+                      sx={{ 
+                        width: '10%', 
+                        borderBottom: '2px solid rgba(0, 0, 0, 0.1)',
+                        py: 2
+                      }}
+                    >
+                      <Typography variant="subtitle2" fontWeight={600}>Thời gian</Typography>
                     </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {timeSlots.map((timeSlot) => (
-                  <TableRow key={timeSlot.id}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Schedule fontSize="small" color="action" />
-                        <Typography variant="caption">{timeSlot.start}</Typography>
-                        <Typography variant="caption">-</Typography>
-                        <Typography variant="caption">{timeSlot.end}</Typography>
-                      </Box>
-                    </TableCell>
-                    {daysOfWeek.map((day) => {
-                      const classInfo = getClassForTimeSlot(day, timeSlot);
-                      return (
-                        <TableCell key={`${day}-${timeSlot.id}`} align="center">
-                          {classInfo ? (
-                            <Card variant="outlined" sx={{ backgroundColor: `${getCourseColor(classInfo.courseCode)}.50` }}>
-                              <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                                <Typography variant="subtitle2">
-                                  {classInfo.courseCode}
-                                </Typography>
-                                <Typography variant="body2" noWrap>
-                                  {classInfo.courseName}
-                                </Typography>
-                                <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mt: 1 }}>
-                                  <Place fontSize="small" />
-                                  <Typography variant="caption">
-                                    {classInfo.room}, {classInfo.building}
-                                  </Typography>
-                                </Stack>
-                              </CardContent>
-                            </Card>
-                          ) : (
-                            ''
-                          )}
-                        </TableCell>
-                      );
-                    })}
+                    {daysOfWeek.map((day) => (
+                      <TableCell 
+                        key={day} 
+                        align="center"
+                        sx={{ 
+                          borderBottom: '2px solid rgba(0, 0, 0, 0.1)',
+                          py: 2
+                        }}
+                      >
+                        <Typography variant="subtitle2" fontWeight={600}>{day}</Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            display: 'block', 
+                            color: 'text.secondary',
+                            mt: 0.5
+                          }}
+                        >
+                          {
+                            (() => {
+                              const d = new Date(currentDate);
+                              const dayNum = daysOfWeek.indexOf(day);
+                              d.setDate(d.getDate() - d.getDay() + dayNum + 1);
+                              return d.toLocaleDateString('vi-VN');
+                            })()
+                          }
+                        </Typography>
+                      </TableCell>
+                    ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                </TableHead>
+                <TableBody>
+                  {timeSlots.map((timeSlot, index) => (
+                    <TableRow key={timeSlot.id} sx={{ backgroundColor: index % 2 === 0 ? 'rgba(0, 0, 0, 0.01)' : 'transparent' }}>
+                      <TableCell 
+                        sx={{ 
+                          py: 2,
+                          borderBottom: '1px solid rgba(0, 0, 0, 0.05)' 
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <Avatar sx={{ width: 32, height: 32, mb: 1, bgcolor: 'primary.light' }}>
+                            <ScheduleIcon fontSize="small" />
+                          </Avatar>
+                          <Typography variant="caption" fontWeight={500}>{timeSlot.start}</Typography>
+                          <Typography variant="caption" color="text.secondary">-</Typography>
+                          <Typography variant="caption" fontWeight={500}>{timeSlot.end}</Typography>
+                        </Box>
+                      </TableCell>
+                      {daysOfWeek.map((day) => {
+                        const classInfo = getClassForTimeSlot(day, timeSlot);
+                        return (
+                          <TableCell 
+                            key={`${day}-${timeSlot.id}`} 
+                            align="center"
+                            sx={{ 
+                              py: 2,
+                              borderBottom: '1px solid rgba(0, 0, 0, 0.05)' 
+                            }}
+                          >
+                            {classInfo ? (
+                              <Card 
+                                variant="outlined" 
+                                sx={{ 
+                                  backgroundColor: `${getCourseColor(classInfo.courseCode)}.50`,
+                                  borderColor: `${getCourseColor(classInfo.courseCode)}.main`,
+                                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                  '&:hover': { 
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                                  }
+                                }}
+                              >
+                                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                                  <Typography variant="subtitle2" fontWeight={600}>
+                                    {classInfo.courseCode}
+                                  </Typography>
+                                  <Typography variant="body2" noWrap>
+                                    {classInfo.courseName}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ mt: 1 }}>
+                                    <PlaceIcon fontSize="small" color={getCourseColor(classInfo.courseCode)} />
+                                    <Typography variant="caption" fontWeight={500}>
+                                      {classInfo.room}, {classInfo.building}
+                                    </Typography>
+                                  </Stack>
+                                </CardContent>
+                              </Card>
+                            ) : (
+                              ''
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
+        </Fade>
       )}
       
       {/* List View */}
       {selectedView === 1 && (
-        <Paper elevation={3} sx={{ p: 3 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Mã môn học</TableCell>
-                  <TableCell>Tên môn học</TableCell>
-                  <TableCell>Giảng viên</TableCell>
-                  <TableCell>Thứ</TableCell>
-                  <TableCell>Giờ học</TableCell>
-                  <TableCell>Phòng</TableCell>
-                  <TableCell>Tuần học</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {scheduleData.map((schedule) => (
-                  <TableRow key={schedule.id}>
-                    <TableCell>
-                      <Chip 
-                        label={schedule.courseCode} 
-                        color={getCourseColor(schedule.courseCode)}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell>{schedule.courseName}</TableCell>
-                    <TableCell>{schedule.instructor}</TableCell>
-                    <TableCell>{schedule.day}</TableCell>
-                    <TableCell>{schedule.startTime} - {schedule.endTime}</TableCell>
-                    <TableCell>{schedule.room}, {schedule.building}</TableCell>
-                    <TableCell>Tuần {schedule.weekNum}</TableCell>
+        <Fade in timeout={1000}>
+          <Card 
+            elevation={3} 
+            sx={{ 
+              borderRadius: 2,
+              overflow: 'hidden',
+              backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(192, 192, 192, 0.2)',
+            }}
+          >
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Mã môn học</TableCell>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Tên môn học</TableCell>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Giảng viên</TableCell>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Thứ</TableCell>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Giờ học</TableCell>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Phòng</TableCell>
+                    <TableCell sx={{ fontWeight: 600, py: 2, borderBottom: '2px solid rgba(0, 0, 0, 0.1)' }}>Tuần học</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                </TableHead>
+                <TableBody>
+                  {scheduleData.map((schedule, index) => (
+                    <TableRow 
+                      key={schedule.id}
+                      hover
+                      sx={{ 
+                        backgroundColor: index % 2 === 0 ? 'rgba(0, 0, 0, 0.01)' : 'transparent',
+                        '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.03)' }
+                      }}
+                    >
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
+                        <Chip 
+                          label={schedule.courseCode} 
+                          color={getCourseColor(schedule.courseCode)}
+                          size="small"
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>{schedule.courseName}</TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>{schedule.instructor}</TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>{schedule.day}</TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <ScheduleIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                          {schedule.startTime} - {schedule.endTime}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <PlaceIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+                          {schedule.room}, {schedule.building}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ borderBottom: '1px solid rgba(0, 0, 0, 0.05)' }}>
+                        <Chip 
+                          label={`Tuần ${schedule.weekNum}`} 
+                          size="small"
+                          variant="outlined"
+                          sx={{ fontWeight: 500 }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
+        </Fade>
       )}
-    </Container>
+    </Box>
+  );
+};
+
+// Loading skeleton component
+const LoadingSkeleton = () => {
+  return (
+    <Box sx={{ mt: 2, px: { xs: 1, sm: 2, md: 3 }, maxWidth: '100%' }}>
+      <Skeleton variant="text" width={300} height={60} sx={{ mb: 3 }} />
+      
+      <Skeleton variant="rounded" height={120} sx={{ mb: 4 }} />
+      
+      <Skeleton variant="rounded" height={60} sx={{ mb: 4 }} />
+      
+      <Skeleton variant="rounded" height={400} />
+    </Box>
   );
 };
 

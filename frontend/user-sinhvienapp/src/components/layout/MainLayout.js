@@ -69,7 +69,7 @@ const MainLayout = () => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div">
-            {currentUser ? `Xin chào, ${currentUser.FullName}` : 'HUBT Connect'}
+            {currentUser ? `Xin chào, ${currentUser.FullName || currentUser.Username || 'Sinh viên'}` : 'HUBT Connect'}
           </Typography>
         </Toolbar>
       </AppBar>

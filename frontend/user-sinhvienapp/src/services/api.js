@@ -22,18 +22,21 @@ apiClient.interceptors.request.use(
     
     // Fix URL path to avoid /api/api duplication
     if (config.url) {
-      // Remove any existing /api prefix before adding it again
+      // Remove any existing /api prefix to prevent duplication
       let path = config.url;
       if (path.startsWith('/api/')) {
-        path = path.substring(4); // Remove the /api prefix
+        path = path.substring(5); // Remove the /api/ prefix
+      } else if (path.startsWith('api/')) {
+        path = path.substring(4); // Remove the api/ prefix
       }
       
-      // Now ensure it starts with /api
+      // Now ensure it starts with /
       if (!path.startsWith('/')) {
         path = '/' + path;
       }
       
-      config.url = '/api' + path;
+      // Set the final URL without duplicating /api
+      config.url = path;
       
       // Debug log
       console.log('Final request URL:', config.url);

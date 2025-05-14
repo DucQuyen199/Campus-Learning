@@ -99,22 +99,29 @@ const sqlConnection = {
   
   // Create a mock pool that simulates database operations
   getMockPool: function() {
+    const self = this;
     return {
       request: () => {
-        return {
-          input: (paramName, paramType, paramValue) => {
-            // Store params for reference
-            this._lastParams = this._lastParams || {};
-            this._lastParams[paramName] = paramValue;
-            return this;
+        // Create a mock request object that preserves method chaining
+        const mockRequest = {
+          _params: {},
+          
+          // Store params for reference
+          input: function(paramName, paramType, paramValue) {
+            this._params[paramName] = paramValue;
+            return this; // Return self for chaining
           },
-          query: async (queryText) => {
+          
+          // Mock query execution
+          query: async function(queryText) {
             console.log(`[MOCK DB] Query executed: ${queryText.substring(0, 100)}...`);
             
             // Generate mock data based on the query
-            return this.generateMockQueryResult(queryText, this._lastParams);
+            return self.generateMockQueryResult(queryText, this._params);
           }
         };
+        
+        return mockRequest;
       }
     };
   },
@@ -122,8 +129,7 @@ const sqlConnection = {
   // Generate mock data based on query
   generateMockQueryResult: function(query, params) {
     // Clear params for next request
-    const savedParams = {...(this._lastParams || {})};
-    this._lastParams = {};
+    const savedParams = {...params} || {};
     
     console.log(`[MOCK DB] Processing query with params:`, savedParams);
     
@@ -145,6 +151,25 @@ const sqlConnection = {
           Program: 'Kỹ sư phần mềm',
           EnrollmentYear: 2020
         }]
+      };
+    } else if (query.includes('AcademicWarnings')) {
+      // This is an academic warnings query
+      return {
+        recordset: [
+          {
+            WarningID: 1,
+            UserID: savedParams.userId || 1,
+            SemesterID: 1,
+            WarningType: 'Level1',
+            Reason: 'GPA dưới ngưỡng cho phép trong học kỳ',
+            WarningDate: new Date().toISOString(),
+            RequiredAction: 'Liên hệ với cố vấn học tập để được tư vấn',
+            Status: 'Active',
+            SemesterName: 'Học kỳ 1',
+            AcademicYear: '2023-2024',
+            CreatedByName: 'Giáo vụ khoa'
+          }
+        ]
       };
     } else if (query.includes('CourseRegistrations') && query.includes('CourseClasses')) {
       // This is a class schedule query

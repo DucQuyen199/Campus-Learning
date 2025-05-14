@@ -14,6 +14,10 @@ import store from './store';
 import './utils/browserPolyfill';
 // Import axios config 
 import './utils/axiosConfig';
+// Import MUI Date Pickers Provider and adapter
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import viLocale from 'date-fns/locale/vi';
 
 // Handle browser errors before anything else
 try {
@@ -61,9 +65,11 @@ root.render(
       <AuthProvider>
         <BrowserRouter>
           <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <Toaster position="top-center" />
-            <App />
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={viLocale}>
+              <CssBaseline />
+              <Toaster position="top-center" />
+              <App />
+            </LocalizationProvider>
           </ThemeProvider>
         </BrowserRouter>
       </AuthProvider>

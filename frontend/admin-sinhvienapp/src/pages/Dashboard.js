@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import PageContainer from '../components/layout/PageContainer';
 
 const StatCard = ({ icon, title, value, color, bgColor }) => {
   return (
@@ -188,14 +189,16 @@ const Dashboard = () => {
   
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
-        <CircularProgress />
-      </Box>
+      <PageContainer fullHeight>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
+          <CircularProgress />
+        </Box>
+      </PageContainer>
     );
   }
 
   return (
-    <Box sx={{ mb: 4 }}>
+    <PageContainer>
       {/* Welcome Section */}
       <Card sx={{ mb: 4, p: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)', borderRadius: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -437,7 +440,7 @@ const Dashboard = () => {
           </Card>
         </Grid>
       </Grid>
-    </Box>
+    </PageContainer>
   );
 };
 

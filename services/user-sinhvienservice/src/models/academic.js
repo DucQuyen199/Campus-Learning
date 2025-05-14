@@ -104,6 +104,26 @@ const AcademicModel = {
   // Get student's academic warnings
   async getWarnings(userId) {
     try {
+      // Check if in mock mode to properly handle demo/mock data
+      if (sqlConnection.mockMode) {
+        console.log('[MOCK DB] Returning mocked warnings data');
+        return [
+          {
+            WarningID: 1,
+            UserID: parseInt(userId),
+            SemesterID: 1,
+            WarningType: 'Level1',
+            Reason: 'GPA dưới ngưỡng cho phép trong học kỳ',
+            WarningDate: new Date().toISOString(),
+            RequiredAction: 'Liên hệ với cố vấn học tập để được tư vấn',
+            Status: 'Active',
+            SemesterName: 'Học kỳ 1',
+            AcademicYear: '2023-2024',
+            CreatedByName: 'Giáo vụ khoa'
+          }
+        ];
+      }
+      
       const poolConnection = await sqlConnection.connect();
       const result = await poolConnection.request()
         .input('userId', sqlConnection.sql.BigInt, userId)
@@ -119,7 +139,8 @@ const AcademicModel = {
       return result.recordset;
     } catch (error) {
       console.error('Error in getWarnings:', error);
-      throw error;
+      // Return empty array instead of throwing
+      return [];
     }
   },
 

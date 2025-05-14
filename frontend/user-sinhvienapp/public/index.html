@@ -43,11 +43,15 @@
           browser: window.browser,
           init: function() { return {}; },
           dispose: function() { return {}; },
-          connect: function() { return {}; }
+          connect: function() { return {}; },
+          // Add any other methods that might be called from onpage-dialog
+          sendMessage: function() { return Promise.resolve({}); },
+          addListener: function() {},
+          removeListener: function() {}
         };
       };
       
-      // Basic runtime implementation 
+      // Comprehensive runtime implementation for browser APIs
       if (!window.browser.runtime) {
         window.browser.runtime = {
           sendMessage: function() { return Promise.resolve({}); },
@@ -65,6 +69,29 @@
         };
       }
       
+      // Add storage API if missing
+      if (!window.browser.storage) {
+        window.browser.storage = {
+          local: {
+            get: function() { return Promise.resolve({}); },
+            set: function() { return Promise.resolve(); }
+          },
+          sync: {
+            get: function() { return Promise.resolve({}); },
+            set: function() { return Promise.resolve(); }
+          }
+        };
+      }
+      
+      // Add tabs API if missing
+      if (!window.browser.tabs) {
+        window.browser.tabs = {
+          query: function() { return Promise.resolve([]); },
+          create: function() { return Promise.resolve({}); },
+          update: function() { return Promise.resolve({}); }
+        };
+      }
+      
       // Error handler to prevent browser-related errors
       window.addEventListener('error', function(event) {
         if (event.message && 
@@ -76,6 +103,19 @@
         }
         return false;
       }, true);
+      
+      // Ensure the browser object is available in any dynamically created iframes
+      document.addEventListener('DOMContentLoaded', function() {
+        try {
+          const frames = document.querySelectorAll('iframe');
+          frames.forEach(frame => {
+            frame.contentWindow.browser = window.browser;
+            frame.contentWindow.start = window.start;
+          });
+        } catch (e) {
+          console.warn('Could not initialize browser in iframes', e);
+        }
+      });
     </script>
   </head>
   <body>

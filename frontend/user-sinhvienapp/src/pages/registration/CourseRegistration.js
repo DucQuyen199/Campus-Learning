@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
+  Box,
   Typography,
   Paper,
-  Box,
   CircularProgress,
   Alert,
   Divider,
@@ -27,7 +26,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Fade
 } from '@mui/material';
 import {
   Add,
@@ -248,209 +248,348 @@ const CourseRegistration = () => {
   const totalCredits = registeredCourses.reduce((sum, course) => sum + course.credits, 0);
   
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ 
+      px: { xs: 2, sm: 3, md: 4 }, 
+      py: 4, 
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'auto',
+      height: '100%',
+      animation: 'fadeIn 0.5s ease-out',
+      '@keyframes fadeIn': {
+        '0%': { opacity: 0, transform: 'translateY(20px)' },
+        '100%': { opacity: 1, transform: 'translateY(0)' }
+      }
+    }}>
+      <Typography 
+        variant="h4" 
+        gutterBottom
+        sx={{
+          fontWeight: 600,
+          color: 'primary.main',
+          mb: 3,
+          textAlign: { xs: 'center', md: 'left' },
+          position: 'relative',
+          '&:after': {
+            content: '""',
+            position: 'absolute',
+            bottom: -8,
+            left: { xs: '50%', md: 0 },
+            transform: { xs: 'translateX(-50%)', md: 'translateX(0)' },
+            width: { xs: '80px', md: '120px' },
+            height: '4px',
+            background: theme => `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+            borderRadius: 2
+          }
+        }}
+      >
         Đăng ký môn học
       </Typography>
       
       {/* Registration Period Info */}
-      <Paper elevation={3} sx={{ mb: 3, p: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={8}>
-            <Typography variant="h6">
-              {registrationPeriod.currentSemester}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Thời gian đăng ký: {registrationPeriod.startDate.toLocaleDateString('vi-VN')} - {registrationPeriod.endDate.toLocaleDateString('vi-VN')}
-            </Typography>
+      <Fade in timeout={800}>
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            mb: 3, 
+            p: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(192, 192, 192, 0.2)',
+          }}
+        >
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+              <Typography variant="h6" fontWeight={600}>
+                {registrationPeriod.currentSemester}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Thời gian đăng ký: {registrationPeriod.startDate.toLocaleDateString('vi-VN')} - {registrationPeriod.endDate.toLocaleDateString('vi-VN')}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+              {registrationPeriod.isActive ? (
+                <Chip 
+                  icon={<CheckCircle />} 
+                  label="Đang mở đăng ký" 
+                  color="success" 
+                  variant="outlined" 
+                  sx={{ fontWeight: 500 }}
+                />
+              ) : (
+                <Chip 
+                  icon={<Info />} 
+                  label="Đã đóng đăng ký" 
+                  color="error" 
+                  variant="outlined" 
+                  sx={{ fontWeight: 500 }}
+                />
+              )}
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={4} sx={{ textAlign: 'right' }}>
-            {registrationPeriod.isActive ? (
-              <Chip 
-                icon={<CheckCircle />} 
-                label="Đang mở đăng ký" 
-                color="success" 
-                variant="outlined" 
-              />
-            ) : (
-              <Chip 
-                icon={<Info />} 
-                label="Đã đóng đăng ký" 
-                color="error" 
-                variant="outlined" 
-              />
-            )}
-          </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      </Fade>
       
       {/* Search & Filter */}
-      <Paper elevation={3} sx={{ mb: 3, p: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={5}>
-            <TextField
-              fullWidth
-              label="Tìm kiếm môn học"
-              variant="outlined"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="Nhập mã môn, tên môn hoặc tên giảng viên"
-              InputProps={{
-                endAdornment: (
-                  <Search color="action" />
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={5}>
-            <FormControl fullWidth>
-              <InputLabel id="semester-select-label">Học kỳ</InputLabel>
-              <Select
-                labelId="semester-select-label"
-                id="semester-select"
-                value={selectedSemester}
-                label="Học kỳ"
-                onChange={handleSemesterChange}
-              >
-                <MenuItem value="">
-                  <em>Tất cả</em>
-                </MenuItem>
-                {semesters.map((semester) => (
-                  <MenuItem key={semester.id} value={semester.id}>
-                    {semester.name}
+      <Fade in timeout={900}>
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            mb: 3, 
+            p: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(192, 192, 192, 0.2)',
+          }}
+        >
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={5}>
+              <TextField
+                fullWidth
+                label="Tìm kiếm môn học"
+                variant="outlined"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Nhập mã môn, tên môn hoặc tên giảng viên"
+                InputProps={{
+                  endAdornment: (
+                    <Search color="action" />
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <FormControl fullWidth>
+                <InputLabel id="semester-select-label">Học kỳ</InputLabel>
+                <Select
+                  labelId="semester-select-label"
+                  id="semester-select"
+                  value={selectedSemester}
+                  label="Học kỳ"
+                  onChange={handleSemesterChange}
+                >
+                  <MenuItem value="">
+                    <em>Tất cả</em>
                   </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                  {semesters.map((semester) => (
+                    <MenuItem key={semester.id} value={semester.id}>
+                      {semester.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                  fontWeight: 500,
+                  bgcolor: 'rgba(0, 0, 0, 0.03)', 
+                  p: 1, 
+                  borderRadius: 1
+                }}
+              >
+                Tổng tín chỉ đăng ký: <Box component="span" sx={{ ml: 0.5, color: 'primary.main', fontWeight: 600 }}>{totalCredits}/24</Box>
+              </Typography>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={2}>
-            <Typography variant="body2" color="text.secondary">
-              Tổng tín chỉ đăng ký: {totalCredits}/24
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      </Fade>
       
       {/* Available Courses */}
-      <Paper elevation={3} sx={{ mb: 3, p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Danh sách môn học có thể đăng ký
-        </Typography>
-        <Divider sx={{ my: 2 }} />
-        
-        {filteredCourses.length > 0 ? (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Mã môn học</TableCell>
-                  <TableCell>Tên môn học</TableCell>
-                  <TableCell align="center">Tín chỉ</TableCell>
-                  <TableCell>Loại lớp</TableCell>
-                  <TableCell>Giảng viên</TableCell>
-                  <TableCell>Lịch học</TableCell>
-                  <TableCell align="center">Slot</TableCell>
-                  <TableCell align="center">Đăng ký</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredCourses.map((course) => (
-                  <TableRow key={course.id}>
-                    <TableCell>{course.courseCode}</TableCell>
-                    <TableCell>{course.courseName}</TableCell>
-                    <TableCell align="center">{course.credits}</TableCell>
-                    <TableCell>{course.classType}</TableCell>
-                    <TableCell>{course.instructor}</TableCell>
-                    <TableCell>{course.schedule}</TableCell>
-                    <TableCell align="center">
-                      {course.availableSlots}/{course.totalSlots}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton 
-                        color="primary"
-                        onClick={() => handleOpenRegistrationDialog(course)}
-                        disabled={!registrationPeriod.isActive || course.status === 'FULL'}
-                      >
-                        <Add />
-                      </IconButton>
-                    </TableCell>
+      <Fade in timeout={1000}>
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            mb: 3, 
+            p: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(192, 192, 192, 0.2)',
+          }}
+        >
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{ fontWeight: 600 }}
+          >
+            Danh sách môn học có thể đăng ký
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+          
+          {filteredCourses.length > 0 ? (
+            <TableContainer sx={{ overflow: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Mã môn học</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Tên môn học</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Tín chỉ</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Loại lớp</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Giảng viên</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Lịch học</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Slot</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Đăng ký</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        ) : (
-          <Alert severity="info">
-            Không tìm thấy môn học phù hợp với tìm kiếm của bạn.
-          </Alert>
-        )}
-      </Paper>
+                </TableHead>
+                <TableBody>
+                  {filteredCourses.map((course) => (
+                    <TableRow 
+                      key={course.id}
+                      hover
+                      sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.03)' } }}
+                    >
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.courseCode}</TableCell>
+                      <TableCell>{course.courseName}</TableCell>
+                      <TableCell align="center">{course.credits}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.classType}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.instructor}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.schedule}</TableCell>
+                      <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                        {course.availableSlots}/{course.totalSlots}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton 
+                          color="primary"
+                          onClick={() => handleOpenRegistrationDialog(course)}
+                          disabled={!registrationPeriod.isActive || course.status === 'FULL'}
+                          size="small"
+                          sx={{ 
+                            backgroundColor: (registrationPeriod.isActive && course.status !== 'FULL') ? 'rgba(25, 118, 210, 0.1)' : undefined,
+                            '&:hover': {
+                              backgroundColor: (registrationPeriod.isActive && course.status !== 'FULL') ? 'rgba(25, 118, 210, 0.2)' : undefined
+                            }
+                          }}
+                        >
+                          <Add />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Alert severity="info">
+              Không tìm thấy môn học phù hợp với tìm kiếm của bạn.
+            </Alert>
+          )}
+        </Paper>
+      </Fade>
       
       {/* Registered Courses */}
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Môn học đã đăng ký
-        </Typography>
-        <Divider sx={{ my: 2 }} />
-        
-        {registeredCourses.length > 0 ? (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Mã môn học</TableCell>
-                  <TableCell>Tên môn học</TableCell>
-                  <TableCell align="center">Tín chỉ</TableCell>
-                  <TableCell>Loại lớp</TableCell>
-                  <TableCell>Giảng viên</TableCell>
-                  <TableCell>Lịch học</TableCell>
-                  <TableCell>Ngày đăng ký</TableCell>
-                  <TableCell align="center">Thao tác</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {registeredCourses.map((course) => (
-                  <TableRow key={course.id}>
-                    <TableCell>{course.courseCode}</TableCell>
-                    <TableCell>{course.courseName}</TableCell>
-                    <TableCell align="center">{course.credits}</TableCell>
-                    <TableCell>{course.classType}</TableCell>
-                    <TableCell>{course.instructor}</TableCell>
-                    <TableCell>{course.schedule}</TableCell>
-                    <TableCell>
-                      {course.registrationDate.toLocaleDateString('vi-VN')}
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton 
-                        color="error"
-                        onClick={() => handleRemoveCourse(course.id)}
-                        disabled={!registrationPeriod.isActive}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
+      <Fade in timeout={1100}>
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            p: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(192, 192, 192, 0.2)',
+          }}
+        >
+          <Typography 
+            variant="h6" 
+            gutterBottom
+            sx={{ fontWeight: 600 }}
+          >
+            Môn học đã đăng ký
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+          
+          {registeredCourses.length > 0 ? (
+            <TableContainer sx={{ overflow: 'auto' }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Mã môn học</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Tên môn học</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Tín chỉ</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Loại lớp</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Giảng viên</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Lịch học</TableCell>
+                    <TableCell sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Ngày đăng ký</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>Thao tác</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        ) : (
-          <Alert severity="info">
-            Bạn chưa đăng ký môn học nào.
-          </Alert>
-        )}
-      </Paper>
+                </TableHead>
+                <TableBody>
+                  {registeredCourses.map((course) => (
+                    <TableRow 
+                      key={course.id}
+                      hover
+                      sx={{ '&:hover': { backgroundColor: 'rgba(0, 0, 0, 0.03)' } }}
+                    >
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.courseCode}</TableCell>
+                      <TableCell>{course.courseName}</TableCell>
+                      <TableCell align="center">{course.credits}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.classType}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.instructor}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{course.schedule}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        {course.registrationDate.toLocaleDateString('vi-VN')}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton 
+                          color="error"
+                          onClick={() => handleRemoveCourse(course.id)}
+                          disabled={!registrationPeriod.isActive}
+                          size="small"
+                          sx={{ 
+                            backgroundColor: registrationPeriod.isActive ? 'rgba(211, 47, 47, 0.1)' : undefined,
+                            '&:hover': {
+                              backgroundColor: registrationPeriod.isActive ? 'rgba(211, 47, 47, 0.2)' : undefined
+                            }
+                          }}
+                        >
+                          <Delete />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          ) : (
+            <Alert severity="info">
+              Bạn chưa đăng ký môn học nào.
+            </Alert>
+          )}
+        </Paper>
+      </Fade>
       
       {/* Confirmation Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Xác nhận đăng ký môn học</DialogTitle>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog}
+        PaperProps={{
+          sx: { 
+            borderRadius: 2, 
+            overflow: 'hidden',
+            backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.95) 100%)',
+            backdropFilter: 'blur(10px)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 600 }}>Xác nhận đăng ký môn học</DialogTitle>
         <DialogContent>
           <DialogContentText>
             Bạn có chắc chắn muốn đăng ký môn học sau đây không?
           </DialogContentText>
           {selectedCourse && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="subtitle1">
+            <Box sx={{ mt: 2, p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)', borderRadius: 1 }}>
+              <Typography variant="subtitle1" fontWeight={600}>
                 {selectedCourse.courseName} ({selectedCourse.courseCode})
               </Typography>
               <Typography variant="body2">
@@ -465,9 +604,15 @@ const CourseRegistration = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Hủy</Button>
-          <Button onClick={handleRegisterCourse} color="primary" disabled={loading}>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCloseDialog} variant="outlined" sx={{ borderRadius: 2 }}>Hủy</Button>
+          <Button 
+            onClick={handleRegisterCourse} 
+            variant="contained" 
+            color="primary" 
+            disabled={loading}
+            sx={{ borderRadius: 2 }}
+          >
             {loading ? <CircularProgress size={24} /> : 'Xác nhận đăng ký'}
           </Button>
         </DialogActions>
@@ -478,9 +623,18 @@ const CourseRegistration = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleCloseSnackbar}
-        message={snackbar.message}
-      />
-    </Container>
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity || 'success'} 
+          variant="filled"
+          sx={{ borderRadius: 2, width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

@@ -106,6 +106,18 @@ export const academicService = {
     console.log('API createSubject data:', subjectData);
     return apiClient.post('/academic/subjects', subjectData);
   },
+  getSubjectById: (id) => {
+    console.log('API getSubjectById:', id);
+    return apiClient.get(`/academic/subjects/${id}`);
+  },
+  updateSubject: (id, subjectData) => {
+    console.log('API updateSubject:', { id, subjectData });
+    return apiClient.put(`/academic/subjects/${id}`, subjectData);
+  },
+  deleteSubject: (id) => {
+    console.log('API deleteSubject:', id);
+    return apiClient.delete(`/academic/subjects/${id}`);
+  },
   getProgramSubjects: (programId) => {
     console.log('API getProgramSubjects for program:', programId);
     // Use a direct query focused on program subjects

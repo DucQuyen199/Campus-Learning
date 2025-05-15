@@ -225,15 +225,16 @@ const Students = () => {
   };
 
   const columns = [
-    { field: 'studentId', headerName: 'Mã SV', width: 120 },
-    { field: 'fullName', headerName: 'Họ và tên', width: 200 },
-    { field: 'email', headerName: 'Email', width: 230 },
-    { field: 'school', headerName: 'Trường học', width: 230 },
-    { field: 'program', headerName: 'Chương trình', width: 200 },
+    { field: 'studentId', headerName: 'Mã SV', minWidth: 100, flex: 0.5 },
+    { field: 'fullName', headerName: 'Họ và tên', minWidth: 180, flex: 1 },
+    { field: 'email', headerName: 'Email', minWidth: 200, flex: 1.2 },
+    { field: 'school', headerName: 'Trường học', minWidth: 180, flex: 1 },
+    { field: 'program', headerName: 'Chương trình', minWidth: 180, flex: 1 },
     { 
       field: 'status', 
       headerName: 'Trạng thái', 
-      width: 130,
+      minWidth: 120,
+      flex: 0.5,
       renderCell: (params) => (
         <Chip 
           label={params.value} 
@@ -245,7 +246,8 @@ const Students = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 160,
+      minWidth: 150,
+      flex: 0.7,
       sortable: false,
       renderCell: (params) => (
         <Box sx={{ ml: 1 }}>
@@ -448,7 +450,7 @@ const Students = () => {
       <StudentDetailView student={selectedStudent} />
 
       <Card>
-        <CardContent sx={{ height: 620 }}>
+        <CardContent sx={{ height: 'calc(100vh - 320px)' }}>
           <DataGrid
             rows={students}
             columns={columns}
@@ -466,6 +468,20 @@ const Students = () => {
               pagination: {
                 pageSize: 100,
               },
+            }}
+            autoHeight={false}
+            density="standard"
+            sx={{
+              '& .MuiDataGrid-main': { width: '100%' },
+              '& .MuiDataGrid-cell': { px: 2 },
+              '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' },
+              boxShadow: 1,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+              '& .MuiDataGrid-virtualScroller': {
+                overflowY: 'auto'
+              }
             }}
             componentsProps={{
               pagination: {

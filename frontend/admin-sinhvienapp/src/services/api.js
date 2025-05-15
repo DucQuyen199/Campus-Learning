@@ -96,18 +96,30 @@ export const academicService = {
   },
   
   // Subjects
-  getAllSubjects: (faculty = '', department = '', search = '', isActive = null) => {
+  getAllSubjects: (faculty = '', department = '', search = '', isActive = null, programId = '') => {
+    console.log('API getAllSubjects params:', { faculty, department, search, isActive, programId });
     return apiClient.get('/academic/subjects', {
-      params: { faculty, department, search, isActive },
+      params: { faculty, department, search, isActive, programId },
     });
   },
   createSubject: (subjectData) => {
+    console.log('API createSubject data:', subjectData);
     return apiClient.post('/academic/subjects', subjectData);
+  },
+  getProgramSubjects: (programId) => {
+    console.log('API getProgramSubjects for program:', programId);
+    // Use a direct query focused on program subjects
+    return apiClient.get(`/academic/programs/${programId}/subjects`);
   },
   
   // Subject-Program relationships
   addSubjectToProgram: (programId, subjectId, data) => {
+    console.log('API addSubjectToProgram:', { programId, subjectId, data });
     return apiClient.post(`/academic/programs/${programId}/subjects/${subjectId}`, data);
+  },
+  removeSubjectFromProgram: (programId, subjectId) => {
+    console.log('API removeSubjectFromProgram:', { programId, subjectId });
+    return apiClient.delete(`/academic/programs/${programId}/subjects/${subjectId}`);
   },
   
   // Semesters

@@ -1,33 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Button, Divider, Grid, Paper, Tabs, Tab,
-  Card, CardContent, List, ListItem, ListItemText, Chip, CircularProgress
+  Card, CardContent, List, ListItem, ListItemText, Chip, CircularProgress, 
+  Alert, Snackbar
 } from '@mui/material';
 import { 
   Person, School, Email, Phone, Home, CalendarToday,
-  Edit, ArrowBack
+  Edit, ArrowBack, Badge, CalendarMonth, LocationOn
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-// Placeholder for the actual service
-const studentsService = {
-  getStudentById: (id) => Promise.resolve({
-    id: id,
-    studentId: 'SV00' + id,
-    fullName: 'Nguyễn Văn A',
-    email: 'nguyenvana@example.com',
-    phone: '0123456789',
-    address: '123 Đường ABC, Quận XYZ, TP.HCM',
-    dateOfBirth: '01/01/2000',
-    gender: 'Nam',
-    program: 'Computer Science',
-    enrollmentDate: '09/01/2022',
-    status: 'Active',
-    academicStatus: 'Good Standing',
-    currentSemester: 3,
-    gpa: 3.5
-  })
-};
+// API URL from environment or default
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5011/api';
 
 // Tab panel component
 function TabPanel(props) {
@@ -55,20 +40,38 @@ const StudentDetail = () => {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
+  const [error, setError] = useState(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   useEffect(() => {
     const fetchStudentDetails = async () => {
       try {
-        const data = await studentsService.getStudentById(id);
-        setStudent(data);
+        setLoading(true);
+        // Fetch the student by ID from the real API
+        const response = await axios.get(`${API_URL}/students/${id}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.data.success) {
+          console.log('Student data:', response.data.data);
+          setStudent(response.data.data);
+        } else {
+          throw new Error(response.data.message || 'Failed to fetch student details');
+        }
       } catch (error) {
         console.error('Error fetching student details:', error);
+        setError(error.message || 'Error loading student data');
+        setOpenSnackbar(true);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStudentDetails();
+    if (id) {
+      fetchStudentDetails();
+    }
   }, [id]);
 
   const handleTabChange = (event, newValue) => {
@@ -86,21 +89,45 @@ const StudentDetail = () => {
   if (!student) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5">Student not found</Typography>
+        <Typography variant="h5">Không tìm thấy sinh viên</Typography>
         <Button
           variant="contained"
           startIcon={<ArrowBack />}
           onClick={() => navigate('/students')}
           sx={{ mt: 2 }}
         >
-          Back to Students
+          Quay lại danh sách
         </Button>
       </Box>
     );
   }
 
+  // Format date string helper function
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Chưa cập nhật';
+    try {
+      return new Date(dateString).toLocaleDateString('vi-VN');
+    } catch (e) {
+      return dateString;
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
+      <Snackbar 
+        open={openSnackbar} 
+        autoHideDuration={6000} 
+        onClose={() => setOpenSnackbar(false)}
+      >
+        <Alert 
+          onClose={() => setOpenSnackbar(false)} 
+          severity="error" 
+          sx={{ width: '100%' }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Button
@@ -109,16 +136,16 @@ const StudentDetail = () => {
             onClick={() => navigate('/students')}
             sx={{ mr: 2 }}
           >
-            Back
+            Quay lại
           </Button>
-          <Typography variant="h5" component="h1">
+          <Typography variant="h5" component="div">
             Chi tiết sinh viên
           </Typography>
         </Box>
         <Button 
           variant="contained" 
           startIcon={<Edit />}
-          onClick={() => navigate(`/students/edit/${student.id}`)}
+          onClick={() => navigate(`/students/edit/${student.UserID}`)}
         >
           Chỉnh sửa
         </Button>
@@ -131,13 +158,13 @@ const StudentDetail = () => {
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Person sx={{ fontSize: 80, mr: 2, color: 'primary.main' }} />
                 <Box>
-                  <Typography variant="h4">{student.fullName}</Typography>
+                  <Typography variant="h4">{student.FullName}</Typography>
                   <Typography variant="subtitle1" color="text.secondary">
-                    {student.studentId}
+                    Mã SV: {student.StudentCode || student.UserID}
                   </Typography>
                   <Chip 
-                    label={student.status} 
-                    color={student.status === 'Active' ? 'success' : 'default'} 
+                    label={student.AccountStatus === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'} 
+                    color={student.AccountStatus === 'ACTIVE' ? 'success' : 'default'} 
                     size="small" 
                     sx={{ mt: 1 }}
                   />
@@ -148,24 +175,24 @@ const StudentDetail = () => {
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary="Chương trình đào tạo" 
-                    secondary={student.program} 
+                    primary="Trường học" 
+                    secondary={student.School || 'Chưa cập nhật'} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="Học kỳ hiện tại" 
-                    secondary={`Học kỳ ${student.currentSemester}`} 
+                    primary="Ngày tham gia" 
+                    secondary={formatDate(student.CreatedAt)} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="Tình trạng học tập" 
-                    secondary={student.academicStatus} 
+                    primary="Vai trò" 
+                    secondary={student.Role || 'STUDENT'} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
@@ -180,8 +207,8 @@ const StudentDetail = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="student detail tabs">
             <Tab label="Thông tin cá nhân" />
-            <Tab label="Kết quả học tập" />
-            <Tab label="Lịch sử học phí" />
+            <Tab label="Thông tin học tập" />
+            <Tab label="Tài khoản" />
           </Tabs>
         </Box>
 
@@ -196,15 +223,19 @@ const StudentDetail = () => {
                   <List>
                     <ListItem>
                       <Email sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Email" secondary={student.email} />
+                      <ListItemText primary="Email" secondary={student.Email || 'Chưa cập nhật'} />
                     </ListItem>
                     <ListItem>
                       <Phone sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Số điện thoại" secondary={student.phone} />
+                      <ListItemText primary="Số điện thoại" secondary={student.PhoneNumber || 'Chưa cập nhật'} />
                     </ListItem>
                     <ListItem>
                       <Home sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Địa chỉ" secondary={student.address} />
+                      <ListItemText primary="Địa chỉ" secondary={student.Address || 'Chưa cập nhật'} />
+                    </ListItem>
+                    <ListItem>
+                      <LocationOn sx={{ mr: 2, color: 'primary.main' }} />
+                      <ListItemText primary="Thành phố" secondary={student.City || 'Chưa cập nhật'} />
                     </ListItem>
                   </List>
                 </CardContent>
@@ -219,15 +250,15 @@ const StudentDetail = () => {
                   <List>
                     <ListItem>
                       <CalendarToday sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Ngày sinh" secondary={student.dateOfBirth} />
+                      <ListItemText primary="Ngày sinh" secondary={formatDate(student.DateOfBirth)} />
                     </ListItem>
                     <ListItem>
-                      <Person sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Giới tính" secondary={student.gender} />
+                      <Badge sx={{ mr: 2, color: 'primary.main' }} />
+                      <ListItemText primary="Username" secondary={student.Username || 'Chưa cập nhật'} />
                     </ListItem>
                     <ListItem>
-                      <School sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Ngày nhập học" secondary={student.enrollmentDate} />
+                      <CalendarMonth sx={{ mr: 2, color: 'primary.main' }} />
+                      <ListItemText primary="Lần đăng nhập cuối" secondary={formatDate(student.LastLoginAt)} />
                     </ListItem>
                   </List>
                 </CardContent>
@@ -238,17 +269,34 @@ const StudentDetail = () => {
 
         <TabPanel value={tabValue} index={1}>
           <Typography variant="h6" gutterBottom>
-            Điểm trung bình: <strong>{student.gpa}</strong>
+            Thông tin học tập
           </Typography>
-          <Typography>
-            Nội dung chi tiết về kết quả học tập sẽ được hiển thị ở đây.
+          <Typography variant="body1">
+            Đang cập nhật dữ liệu học tập của sinh viên...
           </Typography>
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <Typography>
-            Lịch sử đóng học phí sẽ được hiển thị ở đây.
+          <Typography variant="h6" gutterBottom>
+            Thông tin tài khoản
           </Typography>
+          <List>
+            <ListItem>
+              <ListItemText primary="UserID" secondary={student.UserID} />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="Trạng thái" secondary={student.AccountStatus || 'ACTIVE'} />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="Trạng thái online" secondary={student.Status || 'ONLINE'} />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="Xác thực email" secondary={student.EmailVerified ? 'Đã xác thực' : 'Chưa xác thực'} />
+            </ListItem>
+            <ListItem>
+              <ListItemText primary="Cập nhật lần cuối" secondary={formatDate(student.UpdatedAt)} />
+            </ListItem>
+          </List>
         </TabPanel>
       </Paper>
     </Box>

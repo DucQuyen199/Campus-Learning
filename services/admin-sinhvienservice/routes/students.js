@@ -54,7 +54,7 @@ router.get('/', async (req, res) => {
         .input('limit', sql.Int, limit)
         .query(`
           SELECT u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth, 
-                 u.PhoneNumber, u.Address, u.AccountStatus, sd.StudentCode
+                 u.PhoneNumber, u.Address, u.AccountStatus, u.School, sd.StudentCode
           FROM Users u
           LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
           WHERE u.Role = 'STUDENT'
@@ -69,7 +69,7 @@ router.get('/', async (req, res) => {
         .input('limit', sql.Int, limit)
         .query(`
           SELECT u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth, 
-                 u.PhoneNumber, u.Address, u.AccountStatus, sd.StudentCode
+                 u.PhoneNumber, u.Address, u.AccountStatus, u.School, sd.StudentCode
           FROM Users u
           LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
           WHERE u.Role = 'STUDENT'
@@ -109,7 +109,7 @@ router.get('/:id', async (req, res) => {
       .input('id', sql.BigInt, req.params.id)
       .query(`
         SELECT u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth, 
-               u.PhoneNumber, u.Address, u.AccountStatus, u.City, u.Country,
+               u.PhoneNumber, u.Address, u.AccountStatus, u.City, u.Country, u.School,
                sd.StudentCode, sd.Gender, sd.EnrollmentDate, sd.IdentityCardNumber,
                sd.Class, sd.CurrentSemester, sd.AcademicStatus
         FROM Users u
@@ -148,6 +148,7 @@ router.post('/', async (req, res) => {
       dateOfBirth,
       phoneNumber,
       address,
+      school,
       studentCode,
       gender,
       enrollmentDate,
@@ -179,10 +180,11 @@ router.post('/', async (req, res) => {
         .input('dateOfBirth', sql.Date, dateOfBirth || null)
         .input('phoneNumber', sql.VarChar(15), phoneNumber || null)
         .input('address', sql.NVarChar(255), address || null)
+        .input('school', sql.NVarChar(255), school || null)
         .input('role', sql.VarChar(20), 'STUDENT')
         .query(`
-          INSERT INTO Users (Username, Email, Password, FullName, DateOfBirth, PhoneNumber, Address, Role, CreatedAt, UpdatedAt)
-          VALUES (@username, @email, @password, @fullName, @dateOfBirth, @phoneNumber, @address, @role, GETDATE(), GETDATE());
+          INSERT INTO Users (Username, Email, Password, FullName, DateOfBirth, PhoneNumber, Address, School, Role, CreatedAt, UpdatedAt)
+          VALUES (@username, @email, @password, @fullName, @dateOfBirth, @phoneNumber, @address, @school, @role, GETDATE(), GETDATE());
           SELECT SCOPE_IDENTITY() AS UserID;
         `);
       
@@ -222,6 +224,7 @@ router.post('/', async (req, res) => {
           username,
           email,
           fullName,
+          school,
           studentCode
         }
       });
@@ -252,27 +255,58 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const {
-      email,
-      fullName,
-      dateOfBirth,
-      phoneNumber,
-      address,
-      gender,
-      status
+      Email,
+      FullName,
+      DateOfBirth,
+      PhoneNumber,
+      Address,
+      City,
+      School,
+      AccountStatus
     } = req.body;
     
     // Get connection pool
     const pool = await dbConfig.getPool();
     
+    // Validate required fields
+    if (!Email || !FullName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email và Họ tên không được để trống'
+      });
+    }
+    
+    // First, fetch current data to ensure we don't lose information
+    const currentData = await pool.request()
+      .input('id', sql.BigInt, req.params.id)
+      .query(`
+        SELECT Email, FullName FROM Users
+        WHERE UserID = @id AND Role = 'STUDENT'
+      `);
+    
+    if (currentData.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sinh viên'
+      });
+    }
+    
+    // Use current values as fallback for required fields
+    const currentUser = currentData.recordset[0];
+    const safeEmail = Email || currentUser.Email;
+    const safeFullName = FullName || currentUser.FullName;
+    
     // Update the user information
     const result = await pool.request()
       .input('id', sql.BigInt, req.params.id)
-      .input('email', sql.VarChar(100), email)
-      .input('fullName', sql.NVarChar(100), fullName)
-      .input('dateOfBirth', sql.Date, dateOfBirth || null)
-      .input('phoneNumber', sql.VarChar(15), phoneNumber || null)
-      .input('address', sql.NVarChar(255), address || null)
-      .input('status', sql.VarChar(20), status || 'ACTIVE')
+      .input('email', sql.VarChar(100), safeEmail)
+      .input('fullName', sql.NVarChar(100), safeFullName)
+      .input('dateOfBirth', sql.Date, DateOfBirth || null)
+      .input('phoneNumber', sql.VarChar(15), PhoneNumber || null)
+      .input('address', sql.NVarChar(255), Address || null)
+      .input('city', sql.NVarChar(100), City || null)
+      .input('school', sql.NVarChar(255), School || null)
+      .input('status', sql.VarChar(20), AccountStatus || 'ACTIVE')
       .query(`
         UPDATE Users
         SET Email = @email,
@@ -280,6 +314,8 @@ router.put('/:id', async (req, res) => {
             DateOfBirth = @dateOfBirth,
             PhoneNumber = @phoneNumber,
             Address = @address,
+            City = @city,
+            School = @school,
             AccountStatus = @status,
             UpdatedAt = GETDATE()
         WHERE UserID = @id AND Role = 'STUDENT';
@@ -294,31 +330,19 @@ router.put('/:id', async (req, res) => {
       });
     }
     
-    // If gender is provided, update student details
-    if (gender) {
-      await pool.request()
-        .input('id', sql.BigInt, req.params.id)
-        .input('gender', sql.VarChar(10), gender)
-        .query(`
-          UPDATE StudentDetails
-          SET Gender = @gender,
-              UpdatedAt = GETDATE()
-          WHERE UserID = @id;
-        `);
-    }
-    
     res.json({
       success: true,
       message: 'Cập nhật thông tin sinh viên thành công',
       data: {
         id: parseInt(req.params.id),
-        email,
-        fullName,
-        dateOfBirth,
-        phoneNumber,
-        address,
-        gender,
-        status
+        Email: safeEmail,
+        FullName: safeFullName,
+        DateOfBirth,
+        PhoneNumber,
+        Address,
+        City,
+        School,
+        AccountStatus
       }
     });
   } catch (error) {
@@ -334,7 +358,7 @@ router.put('/:id', async (req, res) => {
     
     res.status(500).json({
       success: false,
-      message: 'Đã xảy ra lỗi khi cập nhật thông tin sinh viên'
+      message: 'Đã xảy ra lỗi khi cập nhật thông tin sinh viên: ' + error.message
     });
   }
 });

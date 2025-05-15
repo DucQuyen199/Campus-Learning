@@ -16,6 +16,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/students/Students';
 import StudentDetail from './pages/students/StudentDetail';
+import StudentEdit from './pages/students/StudentEdit';
 import AddStudent from './pages/students/AddStudent';
 import Programs from './pages/academic/Programs';
 import ProgramDetail from './pages/academic/ProgramDetail';
@@ -103,6 +104,7 @@ function App() {
         {/* Student Management */}
         <Route path="/students" element={<Students />} />
         <Route path="/students/:id" element={<StudentDetail />} />
+        <Route path="/students/edit/:id" element={<StudentEdit />} />
         <Route path="/students/add" element={<AddStudent />} />
         
         {/* Academic Management */}

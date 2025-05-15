@@ -197,7 +197,9 @@ router.get('/subjects', async (req, res) => {
     const poolConnection = await getPool();
     let query = `
       SELECT s.SubjectID, s.SubjectCode, s.SubjectName, s.Credits, 
-             s.Department, s.Faculty, s.Description, s.IsActive
+             s.TheoryCredits, s.PracticeCredits, s.Prerequisites,
+             s.Department, s.Faculty, s.Description, s.IsActive,
+             s.IsRequired
       FROM Subjects s
     `;
     
@@ -205,6 +207,7 @@ router.get('/subjects', async (req, res) => {
     if (programId) {
       query = `
         SELECT s.SubjectID, s.SubjectCode, s.SubjectName, s.Credits, 
+               s.TheoryCredits, s.PracticeCredits, s.Prerequisites,
                s.Department, s.Faculty, s.Description, s.IsActive,
                ps.Semester, ps.SubjectType, ps.IsRequired
         FROM Subjects s
@@ -238,11 +241,14 @@ router.get('/subjects', async (req, res) => {
       request.input('search', sql.NVarChar, `%${search}%`);
     }
     
-    if (isActive !== null) {
+    if (isActive !== undefined && isActive !== null) {
       query += (programId || faculty || department || search) ? ' AND' : ' WHERE';
       query += ' s.IsActive = @isActive';
       request.input('isActive', sql.Bit, isActive === 'true' ? 1 : 0);
     }
+    
+    // Add order by
+    query += ' ORDER BY s.SubjectCode ASC';
     
     const result = await request.query(query);
     
@@ -253,12 +259,31 @@ router.get('/subjects', async (req, res) => {
   }
 });
 
-router.get('/subjects/:id', (req, res) => {
-  const subject = subjects.find(s => s.id === parseInt(req.params.id));
-  if (!subject) {
-    return res.status(404).json({ success: false, message: 'Subject not found' });
+// Get a single subject by ID (using the database)
+router.get('/subjects/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        SELECT SubjectID, SubjectCode, SubjectName, Credits, TheoryCredits,
+               PracticeCredits, Prerequisites, Description, Department,
+               Faculty, IsRequired, IsActive, CreatedAt, UpdatedAt
+        FROM Subjects
+        WHERE SubjectID = @id
+      `);
+    
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Subject not found' });
+    }
+    
+    res.json({ success: true, data: result.recordset[0] });
+  } catch (error) {
+    console.error('Error fetching subject:', error);
+    res.status(500).json({ success: false, message: 'Error fetching subject', error: error.message });
   }
-  res.json({ success: true, data: subject });
 });
 
 // Create new subject
@@ -326,6 +351,155 @@ router.post('/subjects', async (req, res) => {
       message: 'Error creating subject', 
       error: error.message 
     });
+  }
+});
+
+// Update a subject
+router.put('/subjects/:id', async (req, res) => {
+  const { id } = req.params;
+  const { 
+    subjectCode, subjectName, credits, theoryCredits, practiceCredits, 
+    prerequisites, description, department, faculty, isRequired, isActive 
+  } = req.body;
+  
+  if (!subjectCode && !subjectName && credits === undefined) {
+    return res.status(400).json({ success: false, message: 'At least one field to update is required' });
+  }
+  
+  try {
+    const poolConnection = await getPool();
+    const request = poolConnection.request()
+      .input('id', sql.BigInt, id);
+    
+    // Check if subject exists
+    const checkResult = await request.query(`
+      SELECT SubjectID FROM Subjects WHERE SubjectID = @id
+    `);
+    
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Subject not found' });
+    }
+    
+    // Check if updating to an existing subject code
+    if (subjectCode) {
+      const codeCheckResult = await poolConnection.request()
+        .input('code', sql.VarChar, subjectCode)
+        .input('id', sql.BigInt, id)
+        .query(`
+          SELECT SubjectID FROM Subjects 
+          WHERE SubjectCode = @code AND SubjectID != @id
+        `);
+      
+      if (codeCheckResult.recordset.length > 0) {
+        return res.status(400).json({ success: false, message: 'Subject code already exists' });
+      }
+    }
+    
+    let updateQuery = 'UPDATE Subjects SET UpdatedAt = GETDATE()';
+    
+    if (subjectCode) {
+      updateQuery += ', SubjectCode = @subjectCode';
+      request.input('subjectCode', sql.VarChar, subjectCode);
+    }
+    
+    if (subjectName) {
+      updateQuery += ', SubjectName = @subjectName';
+      request.input('subjectName', sql.NVarChar, subjectName);
+    }
+    
+    if (credits !== undefined) {
+      updateQuery += ', Credits = @credits';
+      request.input('credits', sql.Int, credits);
+    }
+    
+    if (theoryCredits !== undefined) {
+      updateQuery += ', TheoryCredits = @theoryCredits';
+      request.input('theoryCredits', sql.Int, theoryCredits);
+    }
+    
+    if (practiceCredits !== undefined) {
+      updateQuery += ', PracticeCredits = @practiceCredits';
+      request.input('practiceCredits', sql.Int, practiceCredits);
+    }
+    
+    if (prerequisites !== undefined) {
+      updateQuery += ', Prerequisites = @prerequisites';
+      request.input('prerequisites', sql.NVarChar, prerequisites);
+    }
+    
+    if (description !== undefined) {
+      updateQuery += ', Description = @description';
+      request.input('description', sql.NVarChar, description);
+    }
+    
+    if (department !== undefined) {
+      updateQuery += ', Department = @department';
+      request.input('department', sql.NVarChar, department);
+    }
+    
+    if (faculty !== undefined) {
+      updateQuery += ', Faculty = @faculty';
+      request.input('faculty', sql.NVarChar, faculty);
+    }
+    
+    if (isRequired !== undefined) {
+      updateQuery += ', IsRequired = @isRequired';
+      request.input('isRequired', sql.Bit, isRequired ? 1 : 0);
+    }
+    
+    if (isActive !== undefined) {
+      updateQuery += ', IsActive = @isActive';
+      request.input('isActive', sql.Bit, isActive ? 1 : 0);
+    }
+    
+    updateQuery += ' WHERE SubjectID = @id';
+    
+    await request.query(updateQuery);
+    
+    res.json({ success: true, message: 'Subject updated successfully' });
+  } catch (error) {
+    console.error('Error updating subject:', error);
+    res.status(500).json({ success: false, message: 'Error updating subject', error: error.message });
+  }
+});
+
+// Delete a subject
+router.delete('/subjects/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const poolConnection = await getPool();
+    
+    // First check if this subject is used in any program
+    const checkResult = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        SELECT COUNT(*) AS usageCount FROM ProgramSubjects 
+        WHERE SubjectID = @id
+      `);
+    
+    if (checkResult.recordset[0].usageCount > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete subject as it is used in one or more programs. Remove it from all programs first.' 
+      });
+    }
+    
+    // If not used in any program, proceed with deletion
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        DELETE FROM Subjects WHERE SubjectID = @id
+      `);
+    
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ success: false, message: 'Subject not found' });
+    }
+    
+    res.json({ success: true, message: 'Subject deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting subject:', error);
+    res.status(500).json({ success: false, message: 'Error deleting subject', error: error.message });
   }
 });
 

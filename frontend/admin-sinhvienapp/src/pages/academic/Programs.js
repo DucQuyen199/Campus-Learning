@@ -40,20 +40,22 @@ const Programs = () => {
   );
 
   const columns = [
-    { field: 'code', headerName: 'Mã', width: 100 },
-    { field: 'name', headerName: 'Tên chương trình', width: 250 },
-    { field: 'department', headerName: 'Khoa', width: 200 },
+    { field: 'code', headerName: 'Mã', minWidth: 100, flex: 0.5 },
+    { field: 'name', headerName: 'Tên chương trình', minWidth: 250, flex: 1.5 },
+    { field: 'department', headerName: 'Khoa', minWidth: 200, flex: 1 },
     { 
       field: 'students', 
       headerName: 'Số sinh viên', 
-      width: 130, 
+      minWidth: 130,
+      flex: 0.6,
       type: 'number',
       valueGetter: (params) => params.row.students || 0
     },
     { 
       field: 'status', 
       headerName: 'Trạng thái', 
-      width: 130,
+      minWidth: 130,
+      flex: 0.6,
       renderCell: (params) => (
         <Chip 
           label={params.value || 'Active'} 
@@ -65,7 +67,8 @@ const Programs = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 150,
+      minWidth: 150,
+      flex: 0.7,
       sortable: false,
       renderCell: (params) => (
         <Box>
@@ -122,14 +125,32 @@ const Programs = () => {
       </Card>
 
       <Card>
-        <CardContent sx={{ height: 500 }}>
+        <CardContent sx={{ height: 'calc(100vh - 280px)' }}>
           <DataGrid
             rows={filteredPrograms}
             columns={columns}
-            pageSize={10}
-            rowsPerPageOptions={[10, 25, 50]}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 10 }
+              }
+            }}
+            pageSizeOptions={[5, 10, 25, 50]}
             loading={loading}
             disableSelectionOnClick
+            autoHeight={false}
+            density="standard"
+            sx={{
+              '& .MuiDataGrid-main': { width: '100%' },
+              '& .MuiDataGrid-cell': { px: 2 },
+              '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' },
+              boxShadow: 1,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+              '& .MuiDataGrid-virtualScroller': {
+                overflowY: 'auto'
+              }
+            }}
           />
         </CardContent>
       </Card>

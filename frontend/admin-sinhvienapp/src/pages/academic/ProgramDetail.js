@@ -255,14 +255,15 @@ const ProgramDetail = () => {
   };
 
   const subjectColumns = [
-    { field: 'SubjectCode', headerName: 'Mã môn', width: 120 },
-    { field: 'SubjectName', headerName: 'Tên môn học', width: 300 },
-    { field: 'Credits', headerName: 'Số tín chỉ', width: 120, type: 'number' },
-    { field: 'Semester', headerName: 'Học kỳ', width: 120, type: 'number' },
+    { field: 'SubjectCode', headerName: 'Mã môn', minWidth: 100, flex: 0.5 },
+    { field: 'SubjectName', headerName: 'Tên môn học', minWidth: 200, flex: 1.5 },
+    { field: 'Credits', headerName: 'Số tín chỉ', minWidth: 100, flex: 0.5, type: 'number' },
+    { field: 'Semester', headerName: 'Học kỳ', minWidth: 100, flex: 0.5, type: 'number' },
     { 
       field: 'isRequired', 
       headerName: 'Bắt buộc', 
-      width: 120, 
+      minWidth: 120,
+      flex: 0.5,
       renderCell: (params) => (
         <Chip 
           label={params.value || params.row.IsRequired ? 'Bắt buộc' : 'Tự chọn'} 
@@ -274,7 +275,8 @@ const ProgramDetail = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 120,
+      minWidth: 100,
+      flex: 0.5,
       renderCell: (params) => (
         <IconButton 
           color="error" 
@@ -458,14 +460,32 @@ const ProgramDetail = () => {
               Thêm môn học
             </Button>
           </Box>
-          <Box sx={{ height: 400, width: '100%' }}>
+          <Box sx={{ height: 'calc(100vh - 300px)', width: '100%' }}>
             <DataGrid
               rows={subjects}
               columns={subjectColumns}
               getRowId={(row) => row.id || row.SubjectID}
-              pageSize={5}
-              rowsPerPageOptions={[5, 10, 25]}
+              initialState={{
+                pagination: {
+                  paginationModel: { pageSize: 10 }
+                }
+              }}
+              pageSizeOptions={[5, 10, 25, 50]}
+              autoHeight={false}
+              density="standard"
               disableSelectionOnClick
+              sx={{
+                '& .MuiDataGrid-main': { width: '100%' },
+                '& .MuiDataGrid-cell': { px: 2 },
+                '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' },
+                boxShadow: 1,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+                '& .MuiDataGrid-virtualScroller': {
+                  overflowY: 'auto'
+                }
+              }}
             />
           </Box>
         </TabPanel>

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Button, Grid, Paper, TextField,
   MenuItem, FormControl, FormHelperText, InputLabel, Select,
-  Divider, FormControlLabel, Switch, Snackbar, Alert
+  Divider, FormControlLabel, Switch, Snackbar, Alert, CircularProgress
 } from '@mui/material';
 import { ArrowBack, Save } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Formik, Form } from 'formik';
 import * as Yup from 'yup';
 import { academicService } from '../../services/api';
@@ -54,15 +54,19 @@ const validationSchema = Yup.object({
   degree: Yup.string().required('Bằng cấp là bắt buộc')
 });
 
-const AddProgram = () => {
+const ProgramEdit = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [program, setProgram] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
     severity: 'success'
   });
 
-  const initialValues = {
+  // Initial form values - will be updated once program data is loaded
+  const [initialValues, setInitialValues] = useState({
     code: '',
     name: '',
     department: '',
@@ -73,13 +77,53 @@ const AddProgram = () => {
     degree: '',
     type: 'Standard',
     status: 'Active'
-  };
+  });
 
-  const handleSubmit = async (values, { setSubmitting, resetForm }) => {
+  useEffect(() => {
+    const fetchProgramDetails = async () => {
+      try {
+        setLoading(true);
+        const response = await academicService.getProgramById(id);
+        
+        if (response.success) {
+          const programData = response.data;
+          setProgram(programData);
+          
+          // Set initial form values based on the fetched data
+          setInitialValues({
+            code: programData.code || '',
+            name: programData.name || '',
+            department: programData.department || '',
+            faculty: programData.faculty || '',
+            description: programData.description || '',
+            duration: programData.duration || 4,
+            totalCredits: programData.totalCredits || 150,
+            degree: programData.degree || '',
+            type: programData.type || 'Standard',
+            status: programData.status || 'Active'
+          });
+        } else {
+          throw new Error(response.message || 'Failed to fetch program details');
+        }
+      } catch (error) {
+        console.error('Error fetching program details:', error);
+        setSnackbar({
+          open: true,
+          message: error.message || 'Error fetching program details',
+          severity: 'error'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProgramDetails();
+    }
+  }, [id]);
+
+  const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      console.log('Form values:', values);
-      
-      // Prepare data for API
       const programData = {
         code: values.code,
         name: values.name,
@@ -90,34 +134,31 @@ const AddProgram = () => {
         totalCredits: values.totalCredits,
         degree: values.degree,
         type: values.type,
-        status: values.status === true ? 'Active' : 'Inactive'
+        status: values.status
       };
       
-      // Call API to create program
-      const response = await academicService.createProgram(programData);
+      // Call API to update program
+      const response = await academicService.updateProgram(id, programData);
       
       if (response.success) {
         setSnackbar({
           open: true,
-          message: 'Chương trình đào tạo đã được thêm thành công!',
+          message: 'Chương trình đào tạo đã được cập nhật thành công!',
           severity: 'success'
         });
         
-        // Reset form after successful submission
-        resetForm();
-        
         // Navigate after a delay to allow user to see success message
         setTimeout(() => {
-          navigate('/academic/programs');
+          navigate(`/academic/programs/${id}`);
         }, 1500);
       } else {
-        throw new Error(response.message || 'Có lỗi xảy ra khi tạo chương trình');
+        throw new Error(response.message || 'Failed to update program');
       }
     } catch (error) {
-      console.error('Error adding program:', error);
+      console.error('Error updating program:', error);
       setSnackbar({
         open: true,
-        message: error.message || 'Có lỗi xảy ra. Vui lòng thử lại!',
+        message: error.message || 'Có lỗi xảy ra khi cập nhật chương trình',
         severity: 'error'
       });
     } finally {
@@ -131,6 +172,14 @@ const AddProgram = () => {
       open: false
     });
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -154,18 +203,19 @@ const AddProgram = () => {
           <Button
             variant="outlined"
             startIcon={<ArrowBack />}
-            onClick={() => navigate('/academic/programs')}
+            onClick={() => navigate(`/academic/programs/${id}`)}
             sx={{ mr: 2 }}
           >
-            Back
+            Quay lại
           </Button>
           <Typography variant="h5" component="h1">
-            Thêm chương trình đào tạo mới
+            Chỉnh sửa chương trình đào tạo
           </Typography>
         </Box>
       </Box>
 
       <Formik
+        enableReinitialize
         initialValues={initialValues}
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
@@ -375,7 +425,7 @@ const AddProgram = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
                 variant="outlined"
-                onClick={() => navigate('/academic/programs')}
+                onClick={() => navigate(`/academic/programs/${id}`)}
                 sx={{ mr: 2 }}
               >
                 Hủy
@@ -386,7 +436,7 @@ const AddProgram = () => {
                 startIcon={<Save />}
                 disabled={isSubmitting}
               >
-                Lưu
+                Lưu thay đổi
               </Button>
             </Box>
           </Form>
@@ -396,4 +446,4 @@ const AddProgram = () => {
   );
 };
 
-export default AddProgram; 
+export default ProgramEdit; 

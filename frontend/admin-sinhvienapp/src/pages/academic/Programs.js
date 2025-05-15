@@ -6,15 +6,7 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import { Add, Search, Edit, Delete, Visibility } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-
-// Placeholder for the actual service
-const academicService = {
-  getPrograms: () => Promise.resolve([
-    { id: 1, code: 'CS', name: 'Computer Science', department: 'Engineering', status: 'Active', students: 120 },
-    { id: 2, code: 'BA', name: 'Business Administration', department: 'Business', status: 'Active', students: 150 },
-    { id: 3, code: 'EE', name: 'Electrical Engineering', department: 'Engineering', status: 'Inactive', students: 80 },
-  ])
-};
+import { academicService } from '../../services/api';
 
 const Programs = () => {
   const navigate = useNavigate();
@@ -25,8 +17,8 @@ const Programs = () => {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const data = await academicService.getPrograms();
-        setPrograms(data);
+        const response = await academicService.getAllPrograms();
+        setPrograms(response.data || []);
       } catch (error) {
         console.error('Error fetching programs:', error);
       } finally {
@@ -42,24 +34,30 @@ const Programs = () => {
   };
 
   const filteredPrograms = programs.filter(program => 
-    program.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    program.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    program.department.toLowerCase().includes(searchTerm.toLowerCase())
+    program.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    program.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    program.department?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const columns = [
     { field: 'code', headerName: 'Mã', width: 100 },
     { field: 'name', headerName: 'Tên chương trình', width: 250 },
     { field: 'department', headerName: 'Khoa', width: 200 },
-    { field: 'students', headerName: 'Số sinh viên', width: 130, type: 'number' },
+    { 
+      field: 'students', 
+      headerName: 'Số sinh viên', 
+      width: 130, 
+      type: 'number',
+      valueGetter: (params) => params.row.students || 0
+    },
     { 
       field: 'status', 
       headerName: 'Trạng thái', 
       width: 130,
       renderCell: (params) => (
         <Chip 
-          label={params.value} 
-          color={params.value === 'Active' ? 'success' : 'default'} 
+          label={params.value || 'Active'} 
+          color={params.value === 'Inactive' ? 'default' : 'success'} 
           size="small" 
         />
       )

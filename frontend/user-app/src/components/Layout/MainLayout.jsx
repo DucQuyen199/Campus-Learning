@@ -464,350 +464,371 @@ const MainLayout = ({ children }) => {
     return <>{children}</>;
   }
 
+  // Constant for sidebar width
+  const sidebarWidth = sidebarOpen ? '250px' : '70px';
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation */}
-      <nav className="bg-white shadow-md fixed top-0 left-0 right-0 z-40">
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo and Toggle Button */}
-            <div className="flex items-center space-x-4 flex-1">
-              <button
-                onClick={toggleSidebar}
-                className="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-600 focus:outline-none transition-all duration-200"
-              >
-                {sidebarOpen ? <ChevronLeftIcon className="h-5 w-5" /> : <Bars3Icon className="h-5 w-5" />}
-              </button>
-              
-              <div className="flex-shrink-0">
-                <Link to="/home" className="flex items-center space-x-3">
-                  <div className="bg-blue-100 p-3 rounded-xl shadow-sm">
-                    <AcademicCapIcon className="h-7 w-7 text-blue-600" />
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100">
+      {/* Main container with padding */}
+      <div className="p-3 h-full w-full flex flex-col">
+        {/* Unified form containing all layout elements */}
+        <div className="flex flex-col w-full h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+          {/* Header */}
+          <div className="border-b border-gray-200 z-10 bg-gradient-to-r from-white to-blue-50 shadow-sm">
+            <div className="flex items-center justify-between h-16 px-6">
+              {/* Logo and Toggle Button */}
+              <div className="flex items-center space-x-4 flex-1">
+                <button
+                  onClick={toggleSidebar}
+                  className="p-2 rounded-md text-gray-500 hover:bg-blue-100 hover:text-blue-600 focus:outline-none transition-all duration-200"
+                >
+                  {sidebarOpen ? <ChevronLeftIcon className="h-5 w-5" /> : <Bars3Icon className="h-5 w-5" />}
+                </button>
+                
+                <div className="flex-shrink-0">
+                  <Link to="/home" className="group flex items-center space-x-3 hover:opacity-95 transition-all">
+                    <div className="relative flex items-center justify-center">
+                      {/* Outer glow */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-blue-500 to-purple-600 rounded-2xl blur-sm opacity-70 group-hover:opacity-100 transition duration-300 scale-105 group-hover:scale-110"></div>
+                      
+                      {/* Inner container with gradient background */}
+                      <div className="relative bg-gradient-to-br from-emerald-500 via-blue-600 to-indigo-700 p-2.5 rounded-xl shadow-lg flex items-center justify-center z-10">
+                        {/* Logo symbol - double hexagon */}
+                        <div className="relative w-7 h-7 flex items-center justify-center">
+                          <div className="absolute w-full h-full bg-white rounded-md rotate-45"></div>
+                          <div className="absolute w-3/4 h-3/4 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-sm rotate-45"></div>
+                          <CodeBracketIcon className="relative z-10 h-3.5 w-3.5 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      <span className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 via-blue-600 to-indigo-600 tracking-tight mb-0 leading-none">
+                        CAMPUST
+                      </span>
+                      <span className="text-xs tracking-widest text-gray-500 font-medium uppercase leading-none">Learning Platform</span>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="flex-1 max-w-2xl mx-8" ref={searchRef}>
+                <form onSubmit={handleSearch} className="relative w-full">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <MagnifyingGlassIcon className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <input
+                      type="text"
+                      className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-md"
+                      placeholder="Tìm kiếm người dùng..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                   </div>
                   
-                  <div className="flex items-center">
-                    <span className="font-extrabold text-2xl text-blue-600 tracking-tight">
-                      CAMPUST
-                    </span>
-                    <span className="mx-2 text-blue-300 font-light text-xl">|</span>
-                    <span className="font-semibold text-xl text-blue-500 tracking-tight">
-                      LEARNING
-                    </span>
-                  </div>
-                </Link>
-              </div>
-              
-              {/* Calendar */}
-              <div className="hidden md:flex items-center ml-auto">
-                <div className="flex items-center bg-blue-100 text-blue-700 rounded-lg px-3.5 py-2 shadow-sm">
-                  <CalendarIconSolid className="h-5 w-5 mr-1.5 text-blue-600" />
-                  <span className="text-sm font-medium">{formatDateShort(currentTime)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Search Bar */}
-            <div className="flex-1 max-w-2xl mx-8" ref={searchRef}>
-              <form onSubmit={handleSearch} className="relative w-full">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-sm"
-                    placeholder="Tìm kiếm người dùng..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                
-                {/* User search results dropdown */}
-                {showResults && searchResults.length > 0 && (
-                  <div className="absolute mt-1 w-full bg-white rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100">
-                    <div className="py-1">
-                      <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100">
-                        Người dùng
-                      </h3>
-                      
-                      {searchResults.map((user) => (
-                        <div 
-                          key={user.id} 
-                          className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center transition-colors duration-150"
-                          onClick={() => handleUserClick(user.id)}
-                        >
-                          <Avatar
-                            src={user.avatar}
-                            name={user.fullName}
-                            alt={user.fullName || 'User'}
-                            size="small"
-                            className="mr-3"
-                          />
-                          <div>
-                            <p className="font-medium text-gray-900">{user.fullName}</p>
-                            <p className="text-sm text-gray-500">{user.email}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {isSearching && (
-                  <div className="absolute mt-1 w-full bg-white rounded-md shadow-lg z-20 py-3 text-center border border-gray-100">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="text-sm text-gray-500 mt-2">Đang tìm kiếm...</p>
-                  </div>
-                )}
-              </form>
-            </div>
-
-            {/* Right side navigation items */}
-            <div className="flex items-center justify-end space-x-4 flex-1">
-              {/* Notifications */}
-              <div className="relative" ref={notificationsRef}>
-                <button 
-                  className="p-2 rounded-full text-gray-500 hover:bg-blue-50 relative transition-all duration-200 hover:text-blue-600"
-                  onClick={() => setShowNotifications(!showNotifications)}
-                >
-                  {unreadCount > 0 ? (
-                    <>
-                      <BellIconSolid className="h-6 w-6 text-blue-600" />
-                      <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full animate-pulse shadow-sm">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    </>
-                  ) : (
-                    <BellIcon className="h-6 w-6" />
-                  )}
-                </button>
-                
-                {/* Notifications panel */}
-                {showNotifications && (
-                  <div className={`fixed top-0 right-0 w-80 h-full bg-white shadow-xl z-30 transform transition-transform duration-300 ease-in-out overflow-hidden ${
-                    isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
-                  }`}>
-                    <div className="flex flex-col h-full">
-                      {/* Header */}
-                      <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white">
-                        <h3 className="text-lg font-semibold text-gray-900">Thông báo</h3>
-                        <div className="flex space-x-2">
-                          {unreadCount > 0 && (
-                            <button 
-                              onClick={markAllAsRead}
-                              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              Đánh dấu đã đọc
-                            </button>
-                          )}
-                          <button 
-                            onClick={closeNotificationsPanel}
-                            className="p-1 rounded-full hover:bg-gray-100"
+                  {/* User search results dropdown */}
+                  {showResults && searchResults.length > 0 && (
+                    <div className="absolute mt-1 w-full bg-white rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100">
+                      <div className="py-1">
+                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100">
+                          Người dùng
+                        </h3>
+                        
+                        {searchResults.map((user) => (
+                          <div 
+                            key={user.id} 
+                            className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center transition-colors duration-150"
+                            onClick={() => handleUserClick(user.id)}
                           >
-                            <XMarkIcon className="h-5 w-5 text-gray-500" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {/* Notification List */}
-                      <div className="flex-1 overflow-y-auto">
-                        {isLoadingNotifications ? (
-                          <div className="py-10 text-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                            <p className="text-sm text-gray-500 mt-2">Đang tải thông báo...</p>
-                          </div>
-                        ) : notifications.length > 0 ? (
-                          <div className="divide-y divide-gray-100">
-                            {notifications.map((notification) => {
-                              const NotificationIcon = getNotificationIcon(notification.Type);
-                              return (
-                                <div 
-                                  key={notification.NotificationID} 
-                                  className={`px-4 py-3.5 hover:bg-blue-50 cursor-pointer flex items-start ${
-                                    !notification.IsRead ? 'bg-blue-50' : ''
-                                  } transition-colors duration-150`}
-                                  onClick={() => handleNotificationClick(notification)}
-                                >
-                                  <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
-                                    !notification.IsRead ? 'bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-500'
-                                  }`}>
-                                    <NotificationIcon className={`${!sidebarOpen ? 'h-8 w-8 hover:scale-110' : 'h-6 w-6'} ${isActive ? (!sidebarOpen ? 'text-blue-600 bg-blue-50 p-1.5 rounded-xl shadow-sm' : 'text-blue-600') : 'text-gray-400'} transition-all duration-200`} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium ${!notification.IsRead ? 'text-gray-900' : 'text-gray-700'}`}>
-                                      {notification.Title}
-                                    </p>
-                                    <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
-                                      {notification.Content}
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-1">
-                                      {getTimeAgo(notification.CreatedAt)}
-                                    </p>
-                                  </div>
-                                  {!notification.IsRead && (
-                                    <span className="ml-2 h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-2"></span>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="py-12 text-center">
-                            <div className="bg-blue-50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-                              <BellIcon className="h-8 w-8 text-blue-400" />
+                            <Avatar
+                              src={user.avatar}
+                              name={user.fullName}
+                              alt={user.fullName || 'User'}
+                              size="small"
+                              className="mr-3"
+                            />
+                            <div>
+                              <p className="font-medium text-gray-900">{user.fullName}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
                             </div>
-                            <p className="text-sm text-gray-500 font-medium">Không có thông báo nào</p>
-                            <p className="text-xs text-gray-400 mt-1">Thông báo mới sẽ xuất hiện ở đây</p>
                           </div>
-                        )}
-                      </div>
-                      
-                      {/* Footer */}
-                      <div className="p-4 border-t border-gray-100 bg-white">
-                        <Link 
-                          to="/notifications" 
-                          className="block w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-center rounded-lg shadow-md transition-all duration-300 font-medium"
-                          onClick={closeNotificationsPanel}
-                        >
-                          Xem tất cả thông báo
-                        </Link>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Backdrop for notifications panel */}
-              {showNotifications && (
-                <div 
-                  className={`fixed inset-0 bg-black z-20 transition-opacity duration-300 ${
-                    isClosing ? 'opacity-0' : 'bg-opacity-25 animate-fade-in'
-                  }`}
-                  onClick={closeNotificationsPanel}
-                />
-              )}
-              
-              {/* User Menu */}
-              <div className="relative">
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 hover:bg-blue-50 transition-all duration-200 hover:text-blue-600"
-                >
-                  <Avatar
-                    src={currentUser?.avatar || currentUser?.profileImage}
-                    name={currentUser?.fullName || currentUser?.username || 'User'}
-                    alt={currentUser?.fullName || currentUser?.username || 'User'}
-                    size="small"
-                    className="ring-2 ring-blue-100"
-                  />
-                  <span className="text-sm font-medium text-gray-700 hidden sm:inline group-hover:text-blue-600">
-                    {currentUser?.fullName || currentUser?.username || 'User'}
-                  </span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Sidebar */}
-      <div className={`fixed left-0 top-16 bottom-0 bg-white border-r border-gray-200 transition-all duration-300 z-20 ${
-        sidebarOpen ? 'w-[15%]' : 'w-16'
-      } shadow-sm`}>
-        <div className="h-full flex flex-col overflow-hidden">
-          {/* Navigation Links */}
-          <nav className="flex-1 px-2 py-4 overflow-y-auto">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href || 
-                              (item.href !== '/home' && location.pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={item.onClick}
-                  className={`flex items-center ${!sidebarOpen ? 'justify-center py-5 px-2' : 'px-4 py-4'} mb-1.5 rounded-lg transition-all duration-200 ${
-                    isActive 
-                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm border border-blue-100' 
-                      : 'text-gray-600 hover:bg-blue-50 hover:text-blue-600'
-                  }`}
-                >
-                  <item.icon className={`${!sidebarOpen ? 'h-8 w-8 hover:scale-110' : 'h-6 w-6'} ${isActive ? (!sidebarOpen ? 'text-blue-600 bg-blue-50 p-1.5 rounded-xl shadow-sm' : 'text-blue-600') : 'text-gray-400'} transition-all duration-200`} />
-                  {sidebarOpen && (
-                    <span className={`font-medium ml-3 truncate ${isActive ? 'font-semibold' : ''} text-base`}>
-                      {item.name}
-                    </span>
                   )}
-                </Link>
-              );
-            })}
-          </nav>
+                  
+                  {isSearching && (
+                    <div className="absolute mt-1 w-full bg-white rounded-md shadow-lg z-20 py-3 text-center border border-gray-100">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="text-sm text-gray-500 mt-2">Đang tìm kiếm...</p>
+                    </div>
+                  )}
+                </form>
+              </div>
 
-          {/* User Profile Section - Moved to bottom */}
-          <div className="border-t border-gray-100">
-            {sidebarOpen ? (
-              <div className="p-4">
-                <div className="flex items-center space-x-3">
-                  <Avatar
-                    src={currentUser?.avatar || currentUser?.profileImage}
-                    name={currentUser?.fullName || currentUser?.username || 'User'}
-                    alt={currentUser?.fullName || currentUser?.username || 'User'}
-                    size="medium"
-                    className="ring-2 ring-blue-100 flex-shrink-0 shadow-sm"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-semibold text-gray-800 truncate">
-                      {currentUser?.fullName || currentUser?.username || 'User'}
-                    </h3>
-                    <p className="text-sm text-gray-500 truncate">
-                      {currentUser?.Email || currentUser?.email}
-                    </p>
-                  </div>
+              {/* Right side navigation items */}
+              <div className="flex items-center justify-end space-x-4 flex-1">
+                {/* Notifications */}
+                <div className="relative" ref={notificationsRef}>
                   <button 
-                    onClick={() => navigate('/profile')}
-                    className="p-1.5 hover:bg-blue-50 rounded-full transition-colors"
-                    title="Xem hồ sơ"
+                    className="p-2 rounded-full text-gray-500 hover:bg-blue-50 relative transition-all duration-200 hover:text-blue-600"
+                    onClick={() => setShowNotifications(!showNotifications)}
                   >
-                    <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                    {unreadCount > 0 ? (
+                      <>
+                        <BellIconSolid className="h-6 w-6 text-blue-600" />
+                        <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full animate-pulse shadow-sm">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      </>
+                    ) : (
+                      <BellIcon className="h-6 w-6" />
+                    )}
+                  </button>
+                  
+                  {/* Notifications panel */}
+                  {showNotifications && (
+                    <div className={`fixed top-0 right-0 w-80 h-full bg-white shadow-xl z-30 transform transition-transform duration-300 ease-in-out overflow-hidden ${
+                      isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
+                    }`}>
+                      <div className="flex flex-col h-full">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+                          <h3 className="text-lg font-semibold text-gray-900">Thông báo</h3>
+                          <div className="flex space-x-2">
+                            {unreadCount > 0 && (
+                              <button 
+                                onClick={markAllAsRead}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                Đánh dấu đã đọc
+                              </button>
+                            )}
+                            <button 
+                              onClick={closeNotificationsPanel}
+                              className="p-1 rounded-full hover:bg-gray-100"
+                            >
+                              <XMarkIcon className="h-5 w-5 text-gray-500" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Notification List */}
+                        <div className="flex-1 overflow-y-auto">
+                          {isLoadingNotifications ? (
+                            <div className="py-10 text-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                              <p className="text-sm text-gray-500 mt-2">Đang tải thông báo...</p>
+                            </div>
+                          ) : notifications.length > 0 ? (
+                            <div className="divide-y divide-gray-100">
+                              {notifications.map((notification) => {
+                                const NotificationIcon = getNotificationIcon(notification.Type);
+                                return (
+                                  <div 
+                                    key={notification.NotificationID} 
+                                    className={`px-4 py-3.5 hover:bg-blue-50 cursor-pointer flex items-start ${
+                                      !notification.IsRead ? 'bg-blue-50' : ''
+                                    } transition-colors duration-150`}
+                                    onClick={() => handleNotificationClick(notification)}
+                                  >
+                                    <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
+                                      !notification.IsRead ? 'bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-500'
+                                    }`}>
+                                      <NotificationIcon className="h-6 w-6" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm font-medium ${!notification.IsRead ? 'text-gray-900' : 'text-gray-700'}`}>
+                                        {notification.Title}
+                                      </p>
+                                      <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                                        {notification.Content}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        {getTimeAgo(notification.CreatedAt)}
+                                      </p>
+                                    </div>
+                                    {!notification.IsRead && (
+                                      <span className="ml-2 h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-2"></span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="py-12 text-center">
+                              <div className="bg-blue-50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                                <BellIcon className="h-8 w-8 text-blue-400" />
+                              </div>
+                              <p className="text-sm text-gray-500 font-medium">Không có thông báo nào</p>
+                              <p className="text-xs text-gray-400 mt-1">Thông báo mới sẽ xuất hiện ở đây</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-100 bg-white">
+                          <Link 
+                            to="/notifications" 
+                            className="block w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-center rounded-lg shadow-md transition-all duration-300 font-medium"
+                            onClick={closeNotificationsPanel}
+                          >
+                            Xem tất cả thông báo
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Backdrop for notifications panel */}
+                {showNotifications && (
+                  <div 
+                    className={`fixed inset-0 bg-black z-20 transition-opacity duration-300 ${
+                      isClosing ? 'opacity-0' : 'bg-opacity-25 animate-fade-in'
+                    }`}
+                    onClick={closeNotificationsPanel}
+                  />
+                )}
+                
+                {/* User Menu */}
+                <div className="relative">
+                  <button 
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 hover:bg-blue-50 transition-all duration-200 hover:text-blue-600"
+                  >
+                    <Avatar
+                      src={currentUser?.avatar || currentUser?.profileImage}
+                      name={currentUser?.fullName || currentUser?.username || 'User'}
+                      alt={currentUser?.fullName || currentUser?.username || 'User'}
+                      size="small"
+                      className="ring-2 ring-blue-100"
+                    />
+                    <span className="text-sm font-medium text-gray-700 hidden sm:inline group-hover:text-blue-600">
+                      {currentUser?.fullName || currentUser?.username || 'User'}
+                    </span>
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="p-2 flex justify-center">
-                <button onClick={() => navigate('/profile')} title="Xem hồ sơ">
-                  <Avatar
-                    src={currentUser?.avatar || currentUser?.profileImage}
-                    name={currentUser?.fullName || currentUser?.username || 'User'}
-                    alt={currentUser?.fullName || currentUser?.username || 'User'}
-                    size="large"
-                    className="ring-2 ring-blue-100 hover:ring-blue-200 transition-all duration-200"
-                  />
-                </button>
+            </div>
+          </div>
+          
+          {/* Container for sidebar and content */}
+          <div className="flex flex-row flex-1 h-full overflow-hidden">
+            {/* Sidebar */}
+            <div 
+              className={`h-full border-r border-gray-200 bg-gradient-to-b from-gray-50 to-white transition-all duration-300 drop-shadow-sm ${
+                sidebarOpen ? 'w-[250px]' : 'w-[70px]'
+              }`}
+            >
+              {/* Navigation Links */}
+              <div className="h-full flex flex-col overflow-hidden">
+                <nav className="flex-1 px-2 py-4 overflow-y-auto">
+                  {navigation.map((item) => {
+                    const isActive = location.pathname === item.href || 
+                                    (item.href !== '/home' && location.pathname.startsWith(item.href));
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={item.onClick}
+                        className={`relative flex items-center ${!sidebarOpen ? 'justify-center py-5 px-2' : 'px-4 py-3.5'} mb-1.5 rounded-lg transition-all duration-200 group 
+                          ${isActive 
+                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm' 
+                            : 'text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 hover:text-blue-600'
+                          }`}
+                      >
+                        {/* Active indicator */}
+                        {isActive && (
+                          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-7 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-r-full"></span>
+                        )}
+                        
+                        {/* Icon container */}
+                        <div className={`flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500'}`}>
+                          <item.icon className={`${!sidebarOpen ? 'h-6 w-6 transition-transform duration-200 group-hover:scale-110' : 'h-5 w-5'}`} />
+                        </div>
+                        
+                        {/* Text with slide-in effect */}
+                        {sidebarOpen && (
+                          <span className={`font-medium ml-3 transition-all duration-200 ${isActive ? 'text-blue-700 font-semibold' : ''} text-sm`}>
+                            {item.name}
+                          </span>
+                        )}
+
+                        {/* Tooltip for collapsed sidebar */}
+                        {!sidebarOpen && (
+                          <div className="absolute left-full ml-6 -translate-x-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 invisible group-hover:visible transition-all duration-300 z-50">
+                            <div className="bg-gray-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap">
+                              {item.name}
+                            </div>
+                            <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 border-t-2 border-r-2 border-transparent border-r-gray-800 border-t-gray-800 h-2 w-2 rotate-45"></div>
+                          </div>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+
+                {/* User Profile Section */}
+                <div className="border-t border-gray-200 mt-auto bg-white">
+                  {sidebarOpen ? (
+                    <div className="p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg mx-2 my-2 shadow-sm">
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full blur-sm opacity-25"></div>
+                          <Avatar
+                            src={currentUser?.avatar || currentUser?.profileImage}
+                            name={currentUser?.fullName || currentUser?.username || 'User'}
+                            alt={currentUser?.fullName || currentUser?.username || 'User'}
+                            size="medium"
+                            className="relative ring-2 ring-white flex-shrink-0 shadow-sm"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold text-gray-800 truncate">
+                            {currentUser?.fullName || currentUser?.username || 'User'}
+                          </h3>
+                          <p className="text-xs text-gray-500 truncate">
+                            {currentUser?.Email || currentUser?.email}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => navigate('/profile')}
+                          className="p-1.5 hover:bg-blue-50 rounded-full transition-colors flex-shrink-0"
+                          title="Xem hồ sơ"
+                        >
+                          <ChevronRightIcon className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 flex justify-center my-2">
+                      <button onClick={() => navigate('/profile')} title="Xem hồ sơ" className="relative group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full blur-sm opacity-25 group-hover:opacity-40 transition-opacity"></div>
+                        <Avatar
+                          src={currentUser?.avatar || currentUser?.profileImage}
+                          name={currentUser?.fullName || currentUser?.username || 'User'}
+                          alt={currentUser?.fullName || currentUser?.username || 'User'}
+                          size="large"
+                          className="relative ring-2 ring-white hover:ring-blue-100 transition-all duration-200"
+                        />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 overflow-auto bg-white">
+              <main className="h-full w-full">
+                {children}
+              </main>
+            </div>
           </div>
         </div>
-
-        {/* Toggle button for small screens */}
-        <div className="absolute top-1/2 -right-3 hidden sm:flex">
-          <button 
-            onClick={toggleSidebar}
-            className="bg-white rounded-full p-1.5 shadow-md z-30 hover:bg-blue-50 transition-colors duration-200 border border-gray-100"
-          >
-            {sidebarOpen ? 
-              <ChevronLeftIcon className="h-3.5 w-3.5 text-gray-500" /> : 
-              <ChevronRightIcon className="h-3.5 w-3.5 text-gray-500" />
-            }
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className={`fixed top-16 bottom-0 right-0 transition-all duration-300 overflow-auto bg-white ${
-        sidebarOpen ? 'left-[15%]' : 'left-16'
-      } bg-gray-50`}>
-        <main className="h-full w-full">
-          {children}
-        </main>
       </div>
     </div>
   );

@@ -268,9 +268,10 @@ router.get('/subjects/:id', async (req, res) => {
     const result = await poolConnection.request()
       .input('id', sql.BigInt, id)
       .query(`
-        SELECT SubjectID, SubjectCode, SubjectName, Credits, TheoryCredits,
-               PracticeCredits, Prerequisites, Description, Department,
-               Faculty, IsRequired, IsActive, CreatedAt, UpdatedAt
+        SELECT 
+          SubjectID, SubjectCode, SubjectName, Credits, TheoryCredits,
+          PracticeCredits, Prerequisites, Description, Department,
+          Faculty, IsRequired, IsActive, CreatedAt, UpdatedAt
         FROM Subjects
         WHERE SubjectID = @id
       `);

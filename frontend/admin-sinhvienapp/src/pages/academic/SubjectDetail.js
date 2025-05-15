@@ -1,29 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Button, Divider, Grid, Paper, Tabs, Tab,
-  Card, CardContent, List, ListItem, ListItemText, Chip, CircularProgress
+  Card, CardContent, List, ListItem, ListItemText, Chip, CircularProgress,
+  Snackbar, Alert, Table, TableBody, TableRow, TableCell
 } from '@mui/material';
 import { 
-  School, Edit, ArrowBack, MenuBook, Group
+  School, Edit, ArrowBack, MenuBook, Group, Check, Clear,
+  LibraryBooks, Science, Assignment
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-
-// Placeholder for the actual service
-const academicService = {
-  getSubjectById: (id) => Promise.resolve({
-    id: parseInt(id),
-    code: 'CS101',
-    name: 'Nhập môn lập trình',
-    description: 'Môn học cung cấp kiến thức cơ bản về lập trình, cấu trúc điều khiển, kiểu dữ liệu và thuật toán đơn giản.',
-    credits: 4,
-    department: 'Engineering',
-    program: 'Computer Science',
-    prerequisite: 'Không',
-    status: 'Active',
-    semester: 1,
-    students: 45
-  })
-};
+import { academicService } from '../../services/api';
 
 // Tab panel component
 function TabPanel(props) {
@@ -49,16 +35,47 @@ const SubjectDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [subject, setSubject] = useState(null);
+  const [programsUsingSubject, setProgramsUsingSubject] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
+  const [error, setError] = useState(null);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
 
   useEffect(() => {
     const fetchSubjectDetails = async () => {
       try {
-        const data = await academicService.getSubjectById(id);
-        setSubject(data);
+        setLoading(true);
+        const response = await academicService.getSubjectById(id);
+        
+        if (response.success) {
+          // Format data for display
+          const subjectData = response.data;
+          setSubject({
+            id: subjectData.SubjectID,
+            code: subjectData.SubjectCode,
+            name: subjectData.SubjectName,
+            credits: subjectData.Credits,
+            theoryCredits: subjectData.TheoryCredits,
+            practiceCredits: subjectData.PracticeCredits,
+            prerequisites: subjectData.Prerequisites,
+            description: subjectData.Description,
+            department: subjectData.Department,
+            faculty: subjectData.Faculty,
+            isRequired: subjectData.IsRequired === true || subjectData.IsRequired === 1,
+            status: subjectData.IsActive ? 'Active' : 'Inactive',
+            createdAt: new Date(subjectData.CreatedAt).toLocaleDateString('vi-VN'),
+            updatedAt: new Date(subjectData.UpdatedAt).toLocaleDateString('vi-VN')
+          });
+          
+          // Fetch programs using this subject
+          fetchProgramsUsingSubject(id);
+        } else {
+          throw new Error(response.message || 'Failed to fetch subject details');
+        }
       } catch (error) {
         console.error('Error fetching subject details:', error);
+        setError('Không thể tải chi tiết môn học. Vui lòng thử lại sau.');
+        setOpenSnackbar(true);
       } finally {
         setLoading(false);
       }
@@ -67,8 +84,28 @@ const SubjectDetail = () => {
     fetchSubjectDetails();
   }, [id]);
 
+  const fetchProgramsUsingSubject = async (subjectId) => {
+    try {
+      // This is a mock implementation - in a real app, you'd have an API endpoint for this
+      // For now, we'll just set an empty array
+      setProgramsUsingSubject([]);
+      
+      // In a real implementation:
+      // const response = await academicService.getProgramsUsingSubject(subjectId);
+      // if (response.success) {
+      //   setProgramsUsingSubject(response.data);
+      // }
+    } catch (error) {
+      console.error('Error fetching programs using subject:', error);
+    }
+  };
+
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  const handleCloseSnackbar = () => {
+    setOpenSnackbar(false);
   };
 
   if (loading) {
@@ -82,14 +119,14 @@ const SubjectDetail = () => {
   if (!subject) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5">Subject not found</Typography>
+        <Typography variant="h5">Không tìm thấy môn học</Typography>
         <Button
           variant="contained"
           startIcon={<ArrowBack />}
           onClick={() => navigate('/academic/subjects')}
           sx={{ mt: 2 }}
         >
-          Back to Subjects
+          Quay lại danh sách môn học
         </Button>
       </Box>
     );
@@ -97,6 +134,20 @@ const SubjectDetail = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      <Snackbar 
+        open={openSnackbar} 
+        autoHideDuration={6000} 
+        onClose={handleCloseSnackbar}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity="error" 
+          sx={{ width: '100%' }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Button
@@ -105,7 +156,7 @@ const SubjectDetail = () => {
             onClick={() => navigate('/academic/subjects')}
             sx={{ mr: 2 }}
           >
-            Back
+            Quay lại
           </Button>
           <Typography variant="h5" component="h1">
             Chi tiết môn học
@@ -131,12 +182,18 @@ const SubjectDetail = () => {
                   <Typography variant="subtitle1" color="text.secondary">
                     Mã: {subject.code}
                   </Typography>
-                  <Chip 
-                    label={subject.status} 
-                    color={subject.status === 'Active' ? 'success' : 'default'} 
-                    size="small" 
-                    sx={{ mt: 1 }}
-                  />
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                    <Chip 
+                      label={subject.status} 
+                      color={subject.status === 'Active' ? 'success' : 'default'} 
+                      size="small" 
+                    />
+                    <Chip 
+                      label={subject.isRequired ? 'Bắt buộc' : 'Tự chọn'} 
+                      color={subject.isRequired ? 'primary' : 'default'} 
+                      size="small" 
+                    />
+                  </Box>
                 </Box>
               </Box>
             </Grid>
@@ -145,15 +202,15 @@ const SubjectDetail = () => {
                 <ListItem>
                   <ListItemText 
                     primary="Khoa phụ trách" 
-                    secondary={subject.department} 
+                    secondary={subject.department || 'Chưa cập nhật'} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="Chương trình" 
-                    secondary={subject.program} 
+                    primary="Ngành" 
+                    secondary={subject.faculty || 'Chưa cập nhật'} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
@@ -176,8 +233,7 @@ const SubjectDetail = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="subject detail tabs">
             <Tab label="Thông tin chung" />
-            <Tab label="Sinh viên đăng ký" />
-            <Tab label="Lịch giảng dạy" />
+            <Tab label="Chương trình học" />
           </Tabs>
         </Box>
 
@@ -188,7 +244,7 @@ const SubjectDetail = () => {
                 Mô tả môn học
               </Typography>
               <Typography paragraph>
-                {subject.description}
+                {subject.description || 'Chưa có mô tả chi tiết cho môn học này.'}
               </Typography>
             </Grid>
 
@@ -196,22 +252,72 @@ const SubjectDetail = () => {
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Thông tin học tập
+                    Chi tiết môn học
                   </Typography>
-                  <List>
-                    <ListItem>
-                      <School sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Môn học tiên quyết" secondary={subject.prerequisite} />
-                    </ListItem>
-                    <ListItem>
-                      <MenuBook sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Học kỳ" secondary={subject.semester} />
-                    </ListItem>
-                    <ListItem>
-                      <Group sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Số sinh viên đăng ký" secondary={subject.students} />
-                    </ListItem>
-                  </List>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <School sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                            <Typography variant="body2">Tổng số tín chỉ</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{subject.credits}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <LibraryBooks sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                            <Typography variant="body2">Tín chỉ lý thuyết</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{subject.theoryCredits || 'N/A'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Science sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                            <Typography variant="body2">Tín chỉ thực hành</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{subject.practiceCredits || 'N/A'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Assignment sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
+                            <Typography variant="body2">Môn học tiên quyết</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{subject.prerequisites || 'Không có'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {subject.isRequired ? 
+                              <Check sx={{ mr: 1, color: 'success.main', fontSize: 20 }} /> : 
+                              <Clear sx={{ mr: 1, color: 'text.secondary', fontSize: 20 }} />
+                            }
+                            <Typography variant="body2">Bắt buộc</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{subject.isRequired ? 'Có' : 'Không'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Typography variant="body2">Ngày tạo</Typography>
+                        </TableCell>
+                        <TableCell>{subject.createdAt}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>
+                          <Typography variant="body2">Cập nhật gần nhất</Typography>
+                        </TableCell>
+                        <TableCell>{subject.updatedAt}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </Grid>
@@ -220,20 +326,41 @@ const SubjectDetail = () => {
 
         <TabPanel value={tabValue} index={1}>
           <Typography variant="h6" gutterBottom>
-            Danh sách sinh viên
+            Chương trình học có môn {subject.name}
           </Typography>
-          <Typography>
-            Danh sách sinh viên đăng ký môn học sẽ được hiển thị ở đây.
-          </Typography>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={2}>
-          <Typography variant="h6" gutterBottom>
-            Lịch giảng dạy
-          </Typography>
-          <Typography>
-            Lịch giảng dạy của môn học sẽ được hiển thị ở đây.
-          </Typography>
+          {programsUsingSubject.length > 0 ? (
+            <Table size="small">
+              <TableBody>
+                {programsUsingSubject.map((program) => (
+                  <TableRow key={program.id}>
+                    <TableCell>{program.name}</TableCell>
+                    <TableCell>{program.department}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={program.isRequired ? 'Bắt buộc' : 'Tự chọn'} 
+                        color={program.isRequired ? 'primary' : 'default'} 
+                        size="small" 
+                      />
+                    </TableCell>
+                    <TableCell>{`Học kỳ ${program.semester}`}</TableCell>
+                    <TableCell>
+                      <Button 
+                        size="small" 
+                        variant="outlined"
+                        onClick={() => navigate(`/academic/programs/${program.programId}`)}
+                      >
+                        Xem chi tiết
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <Typography>
+              Môn học này chưa được thêm vào chương trình đào tạo nào.
+            </Typography>
+          )}
         </TabPanel>
       </Paper>
     </Box>

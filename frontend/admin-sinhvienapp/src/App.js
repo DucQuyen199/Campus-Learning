@@ -24,6 +24,7 @@ import ProgramEdit from './pages/academic/ProgramEdit';
 import AddProgram from './pages/academic/AddProgram';
 import Subjects from './pages/academic/Subjects';
 import SubjectDetail from './pages/academic/SubjectDetail';
+import SubjectEdit from './pages/academic/SubjectEdit';
 import AcademicResults from './pages/academic/AcademicResults';
 import Semesters from './pages/academic/Semesters';
 import SemesterDetail from './pages/academic/SemesterDetail';
@@ -114,6 +115,8 @@ function App() {
         <Route path="/academic/programs/add" element={<AddProgram />} />
         <Route path="/academic/programs/edit/:id" element={<ProgramEdit />} />
         <Route path="/academic/subjects" element={<Subjects />} />
+        <Route path="/academic/subjects/add" element={<SubjectEdit />} />
+        <Route path="/academic/subjects/edit/:id" element={<SubjectEdit />} />
         <Route path="/academic/subjects/:id" element={<SubjectDetail />} />
         <Route path="/academic/results" element={<AcademicResults />} />
         <Route path="/academic/semesters" element={<Semesters />} />

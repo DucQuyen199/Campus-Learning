@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -11,7 +11,9 @@ import {
   Divider,
   Collapse,
   Typography,
-  Toolbar
+  Avatar,
+  useTheme,
+  alpha,
 } from '@mui/material';
 import {
   Person,
@@ -36,26 +38,58 @@ import {
   HowToReg,
   Work,
   ExpandLess,
-  ExpandMore
+  ExpandMore,
+  Dashboard
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Drawer width
-const drawerWidth = 240;
-
-const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
+const Sidebar = ({ 
+  drawerWidth = 240, 
+  mobileOpen, 
+  handleDrawerToggle, 
+  isMobile,
+  insideUnifiedForm = false,
+  open = true
+}) => {
+  const theme = useTheme();
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   // State for collapse menus
-  const [openMenus, setOpenMenus] = React.useState({
+  const [openMenus, setOpenMenus] = useState({
     academic: false,
     registration: false,
     tuition: false,
     schedule: false,
     results: false
   });
+  
+  // Auto expand menu based on current route
+  useEffect(() => {
+    if (location.pathname.includes('/academic')) {
+      setOpenMenus(prev => ({ ...prev, academic: true }));
+    }
+    if (location.pathname.includes('/course-registration') || 
+        location.pathname.includes('/retake-registration') ||
+        location.pathname.includes('/exam-registration') ||
+        location.pathname.includes('/registered-courses') ||
+        location.pathname.includes('/second-major') ||
+        location.pathname.includes('/graduation-registration')) {
+      setOpenMenus(prev => ({ ...prev, registration: true }));
+    }
+    if (location.pathname.includes('/tuition')) {
+      setOpenMenus(prev => ({ ...prev, tuition: true }));
+    }
+    if (location.pathname.includes('/schedule')) {
+      setOpenMenus(prev => ({ ...prev, schedule: true }));
+    }
+    if (location.pathname.includes('/academic-transcript') || 
+        location.pathname.includes('/conduct-score') ||
+        location.pathname.includes('/awards')) {
+      setOpenMenus(prev => ({ ...prev, results: true }));
+    }
+  }, [location.pathname]);
   
   // Toggle collapse menu
   const handleMenuToggle = (menu) => {
@@ -65,12 +99,17 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     });
   };
   
+  // Check if a path is active
+  const isActive = (path) => {
+    return location.pathname === path;
+  };
+  
   // Sidebar items with nested structure
   const sidebarItems = [
     {
       title: 'Dashboard',
       path: '/',
-      icon: <School />
+      icon: <Dashboard />
     },
     {
       title: 'Sơ yếu lý lịch',
@@ -79,6 +118,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     },
     {
       title: 'Học vụ',
+      key: 'academic',
       icon: <LibraryBooks />,
       children: [
         {
@@ -95,6 +135,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     },
     {
       title: 'Đăng ký học',
+      key: 'registration',
       icon: <Assignment />,
       children: [
         {
@@ -131,6 +172,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     },
     {
       title: 'Học phí',
+      key: 'tuition',
       icon: <Payment />,
       children: [
         {
@@ -152,6 +194,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     },
     {
       title: 'Lịch học/thi',
+      key: 'schedule',
       icon: <Schedule />,
       children: [
         {
@@ -168,6 +211,7 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     },
     {
       title: 'Kết quả học tập',
+      key: 'results',
       icon: <Grade />,
       children: [
         {
@@ -219,70 +263,208 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
     }
   ];
   
-  // Render nested menu items
-  const renderMenuItems = (items) => {
-    return items.map((item, index) => {
-      if (item.children) {
-        return (
-          <React.Fragment key={index}>
-            <ListItem disablePadding>
-              <ListItemButton onClick={() => handleMenuToggle(item.title.toLowerCase())}>
-                <ListItemIcon>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.title} />
-                {openMenus[item.title.toLowerCase()] ? <ExpandLess /> : <ExpandMore />}
-              </ListItemButton>
-            </ListItem>
-            <Collapse in={openMenus[item.title.toLowerCase()]} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                {item.children.map((child, childIndex) => (
-                  <ListItem key={childIndex} disablePadding>
-                    <ListItemButton 
-                      sx={{ pl: 4 }}
-                      selected={location.pathname === child.path}
-                      onClick={() => navigate(child.path)}
-                    >
-                      <ListItemIcon>{child.icon}</ListItemIcon>
-                      <ListItemText primary={child.title} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </Collapse>
-          </React.Fragment>
-        );
-      }
-      
+  // Render menu item
+  const renderMenuItem = (item, index) => {
+    const isItemActive = isActive(item.path);
+    const hasChildren = item.children && item.children.length > 0;
+    const isMenuOpen = item.key ? openMenus[item.key] : false;
+    const isChildActive = hasChildren && item.children.some(child => isActive(child.path));
+    const active = isItemActive || isChildActive;
+
+    if (hasChildren) {
       return (
-        <ListItem key={index} disablePadding>
-          <ListItemButton 
-            selected={location.pathname === item.path}
-            onClick={() => navigate(item.path)}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.title} />
-          </ListItemButton>
-        </ListItem>
+        <React.Fragment key={index}>
+          <ListItem disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton
+              onClick={() => handleMenuToggle(item.key)}
+              sx={{
+                borderRadius: 1.5,
+                py: 1,
+                backgroundColor: active ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                },
+              }}
+            >
+              <ListItemIcon>
+                {React.cloneElement(item.icon, { 
+                  color: active ? 'primary' : 'action',
+                  sx: { fontSize: '1.25rem' }
+                })}
+              </ListItemIcon>
+              <ListItemText 
+                primary={item.title} 
+                primaryTypographyProps={{ 
+                  fontWeight: active ? 600 : 500,
+                  fontSize: '0.95rem',
+                  color: active ? 'primary.main' : 'text.primary'
+                }} 
+              />
+              {isMenuOpen ? <ExpandLess color="action" /> : <ExpandMore color="action" />}
+            </ListItemButton>
+          </ListItem>
+          <Collapse in={isMenuOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {item.children.map((child, childIndex) => {
+                const isSubItemActive = isActive(child.path);
+                return (
+                  <ListItemButton
+                    key={childIndex}
+                    sx={{ 
+                      pl: 4, 
+                      py: 0.75,
+                      borderRadius: 1.5, 
+                      mb: 0.5,
+                      ml: 1,
+                      borderLeft: `1px solid ${isSubItemActive ? theme.palette.primary.main : theme.palette.divider}`,
+                    }}
+                    selected={isSubItemActive}
+                    onClick={() => navigate(child.path)}
+                  >
+                    <ListItemIcon sx={{ minWidth: '36px' }}>
+                      {React.cloneElement(child.icon, { 
+                        fontSize: "small",
+                        color: isSubItemActive ? 'primary' : 'action',
+                      })}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={child.title} 
+                      primaryTypographyProps={{ 
+                        fontSize: '0.875rem',
+                        fontWeight: isSubItemActive ? 600 : 400,
+                        color: isSubItemActive ? 'primary.main' : 'text.secondary'
+                      }} 
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          </Collapse>
+        </React.Fragment>
       );
-    });
+    }
+    
+    return (
+      <ListItem key={index} disablePadding sx={{ mb: 0.5 }}>
+        <ListItemButton 
+          selected={isItemActive}
+          onClick={() => navigate(item.path)}
+          sx={{
+            borderRadius: 1.5,
+            py: 1,
+            backgroundColor: isItemActive ? alpha(theme.palette.primary.main, 0.1) : 'transparent',
+            '&.Mui-selected': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.primary.main, 0.2),
+              },
+            },
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
+            },
+          }}
+        >
+          <ListItemIcon>
+            {React.cloneElement(item.icon, { 
+              color: isItemActive ? 'primary' : 'action',
+              sx: { fontSize: '1.25rem' }
+            })}
+          </ListItemIcon>
+          <ListItemText 
+            primary={item.title} 
+            primaryTypographyProps={{ 
+              fontWeight: isItemActive ? 600 : 500,
+              fontSize: '0.95rem',
+              color: isItemActive ? 'primary.main' : 'text.primary'
+            }} 
+          />
+        </ListItemButton>
+      </ListItem>
+    );
   };
   
+  // Khi sidebar nằm trong form thống nhất và không phải mobile
+  if (insideUnifiedForm) {
+    return (
+      <Box
+        sx={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          bgcolor: theme.palette.background.paper,
+          boxShadow: '0 0 15px rgba(0, 0, 0, 0.05)',
+        }}
+      >
+        {/* User profile section */}
+        <Box
+          sx={{
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          {currentUser?.Avatar ? (
+            <Avatar src={currentUser.Avatar} alt={currentUser.FullName} />
+          ) : (
+            <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+              {currentUser?.FullName?.charAt(0) || 'S'}
+            </Avatar>
+          )}
+          <Box sx={{ ml: 2 }}>
+            <Typography variant="subtitle2" fontWeight={600}>
+              {currentUser?.FullName || 'Sinh viên'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {currentUser?.Email || ''}
+            </Typography>
+          </Box>
+        </Box>
+        
+        {/* Menu items */}
+        <Box
+          sx={{ 
+            overflow: 'auto', 
+            flexGrow: 1,
+            px: 2,
+            pt: 2,
+            pb: 4,
+            '&::-webkit-scrollbar': {
+              width: '6px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.2),
+              borderRadius: '3px',
+            },
+            '&::-webkit-scrollbar-track': {
+              backgroundColor: 'transparent',
+            },
+          }}
+        >
+          <List sx={{ width: '100%' }}>
+            {sidebarItems.map(renderMenuItem)}
+          </List>
+        </Box>
+      </Box>
+    );
+  }
+  
+  // Original sidebar (for backward compatibility)
   const drawer = (
     <div>
-      <Toolbar>
-        <Box sx={{ p: 1 }}>
-          <Typography variant="h6" noWrap component="div">
-            CAMPUS CONNECT
+      <Box sx={{ p: 1 }}>
+        <Typography variant="h6" noWrap component="div">
+          CAMPUS CONNECT
+        </Typography>
+        {currentUser && (
+          <Typography variant="body2" noWrap component="div">
+            {currentUser.FullName}
           </Typography>
-          {currentUser && (
-            <Typography variant="body2" noWrap component="div">
-              {currentUser.FullName}
-            </Typography>
-          )}
-        </Box>
-      </Toolbar>
+        )}
+      </Box>
       <Divider />
       <Box sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 64px)' }}>
-        <List>{renderMenuItems(sidebarItems)}</List>
+        <List>{sidebarItems.map(renderMenuItem)}</List>
       </Box>
     </div>
   );
@@ -310,7 +492,6 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
           '& .MuiDrawer-paper': { 
             boxSizing: 'border-box', 
             width: drawerWidth,
-            height: '100%'
           },
         }}
       >
@@ -325,7 +506,6 @@ const Sidebar = ({ mobileOpen, handleDrawerToggle }) => {
           '& .MuiDrawer-paper': { 
             boxSizing: 'border-box', 
             width: drawerWidth,
-            height: '100%',
             borderRight: '1px solid rgba(0, 0, 0, 0.12)'
           },
         }}

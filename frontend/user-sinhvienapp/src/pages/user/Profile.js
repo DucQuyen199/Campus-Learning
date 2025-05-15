@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Grid,
   Paper,
   Typography,
@@ -23,18 +22,17 @@ import {
   Snackbar,
   useTheme,
   useMediaQuery,
-  alpha,
   Card,
   CardContent,
-  IconButton,
-  Fade,
-  Grow,
-  Skeleton,
-  Tooltip,
   Chip,
-  Backdrop
+  Backdrop,
+  TableContainer,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+  TableHead
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import {
   Email,
   Phone,
@@ -47,118 +45,17 @@ import {
   Edit,
   Save,
   Close,
-  AccountCircle,
-  Badge,
-  Assignment,
-  Info,
   History,
   CalendarMonth,
   WorkOutline,
-  BusinessCenter,
-  EventNote,
   Wc,
   PlaceOutlined,
   FingerprintOutlined,
   HealthAndSafetyOutlined,
-  InsertDriveFileOutlined,
-  SwitchAccount,
-  Apartment,
-  AccessTime,
-  VerifiedUser
+  Apartment
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/api';
-
-// Styled components for modern UI
-const ProfilePaper = styled(Paper)(({ theme }) => ({
-  borderRadius: 16,
-  overflow: 'hidden',
-  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.05)',
-  height: '100%',
-  transition: 'transform 0.3s, box-shadow 0.3s',
-  background: 'rgba(255, 255, 255, 0.9)',
-  backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.2)',
-}));
-
-const StyledTabs = styled(Tabs)(({ theme }) => ({
-  '& .MuiTabs-indicator': {
-    height: 3,
-    borderRadius: '3px 3px 0 0',
-  },
-  '& .MuiTab-root': {
-    textTransform: 'none',
-    fontWeight: 600,
-    fontSize: '0.9rem',
-    minHeight: 64,
-    '&.Mui-selected': {
-      color: theme.palette.primary.main,
-    },
-  },
-}));
-
-const StyledTab = styled(Tab)(({ theme }) => ({
-  textTransform: 'none',
-  fontWeight: 600,
-  fontSize: '0.9rem',
-  minHeight: 64,
-  '&.Mui-selected': {
-    color: theme.palette.primary.main,
-  },
-}));
-
-const ProfileAvatar = styled(Avatar)(({ theme }) => ({
-  width: 150,
-  height: 150,
-  border: '4px solid white',
-  boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
-  transition: 'transform 0.3s',
-  '&:hover': {
-    transform: 'scale(1.05)',
-  }
-}));
-
-const InfoItem = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  marginBottom: theme.spacing(2),
-  '& .MuiSvgIcon-root': {
-    marginRight: theme.spacing(2),
-    color: theme.palette.primary.main,
-    backgroundColor: alpha(theme.palette.primary.main, 0.1),
-    padding: 8,
-    borderRadius: 8,
-  }
-}));
-
-const InfoCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  borderRadius: 12,
-  boxShadow: 'none',
-  border: '1px solid rgba(0, 0, 0, 0.08)',
-  background: 'rgba(255, 255, 255, 0.7)',
-  backdropFilter: 'blur(8px)',
-}));
-
-const SectionTitle = styled(Typography)(({ theme }) => ({
-  fontWeight: 600,
-  display: 'flex',
-  alignItems: 'center',
-  marginBottom: theme.spacing(2),
-  '& .MuiSvgIcon-root': {
-    marginRight: theme.spacing(1),
-    color: theme.palette.primary.main,
-  }
-}));
-
-const GradientButton = styled(Button)(({ theme }) => ({
-  backgroundImage: 'linear-gradient(to right, #6a11cb 0%, #2575fc 100%)',
-  color: 'white',
-  borderRadius: 8,
-  '&:hover': {
-    backgroundImage: 'linear-gradient(to right, #5a10b0 0%, #1a65e0 100%)',
-  },
-}));
 
 // Tab Panel component
 function TabPanel(props) {
@@ -208,7 +105,39 @@ const Profile = () => {
     severity: 'success'
   });
   const [openDialog, setOpenDialog] = useState(false);
-  const [pageLoaded, setPageLoaded] = useState(false);
+  
+  // Styles matching ExamRegistration.js
+  const styles = {
+    root: {
+      flexGrow: 1,
+      padding: theme.spacing(2)
+    },
+    paper: {
+      padding: theme.spacing(3),
+      marginBottom: theme.spacing(3)
+    },
+    titleSection: {
+      marginBottom: theme.spacing(3)
+    },
+    tableContainer: {
+      marginTop: theme.spacing(3)
+    },
+    chip: {
+      margin: theme.spacing(0.5)
+    },
+    formControl: {
+      minWidth: 200,
+      marginRight: theme.spacing(2)
+    },
+    buttonGroup: {
+      marginTop: theme.spacing(3)
+    },
+    infoSection: {
+      marginBottom: theme.spacing(3),
+      padding: theme.spacing(2),
+      backgroundColor: theme.palette.background.default
+    }
+  };
   
   // Tab change handler
   const handleChange = (event, newValue) => {
@@ -356,11 +285,7 @@ const Profile = () => {
       console.error('Error in fetchProfileData:', err);
       setError('Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.');
     } finally {
-      // Add a small delay to make transitions smoother
-      setTimeout(() => {
-        setLoading(false);
-        setPageLoaded(true);
-      }, 600);
+      setLoading(false);
     }
   };
   
@@ -374,641 +299,540 @@ const Profile = () => {
   // Loading state
   if (loading && !profileData) {
     return (
-      <Box sx={{ 
-        height: '100%', 
-        width: '100%',
-        display: 'flex', 
-        flexDirection: 'column',
-        gap: 3
-      }}>
-        {/* Skeleton for profile section */}
-        <Skeleton variant="rectangular" width="100%" height={200} sx={{ borderRadius: 3 }} />
-        
-        {/* Skeleton for tabs */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Skeleton variant="rectangular" width="100%" height={500} sx={{ borderRadius: 3 }} />
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <Skeleton variant="rectangular" width="100%" height={500} sx={{ borderRadius: 3 }} />
-          </Grid>
-        </Grid>
-      </Box>
+      <div style={styles.root}>
+        <Paper sx={styles.paper}>
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+            <CircularProgress />
+          </Box>
+        </Paper>
+      </div>
     );
   }
   
   // Error state
   if (error && !profileData) {
     return (
-      <Box sx={{ m: 4 }}>
-        <Alert severity="error" variant="filled" sx={{ borderRadius: 2 }}>{error}</Alert>
-      </Box>
+      <div style={styles.root}>
+        <Paper sx={styles.paper}>
+          <Alert severity="error">{error}</Alert>
+        </Paper>
+      </div>
     );
   }
   
   return (
-    <Box sx={{ 
-      py: 4, 
-      px: { xs: 2, sm: 4 },
-      backgroundColor: 'transparent',
-      backgroundImage: 'linear-gradient(to bottom right, rgba(240, 245, 255, 0.5), rgba(255, 250, 245, 0.5))',
-      backgroundAttachment: 'fixed',
-      minHeight: '100vh',
-      position: 'relative',
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: 'radial-gradient(circle at 25% 25%, rgba(100, 130, 255, 0.1) 0%, transparent 40%), radial-gradient(circle at 75% 75%, rgba(120, 80, 220, 0.08) 0%, transparent 40%)',
-        zIndex: -1,
-      }
-    }}>
-      <Fade in={pageLoaded} timeout={800}>
-        <Box>
-          {/* Header */}
-          <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', alignItems: { xs: 'center', md: 'flex-start' } }}>
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                fontWeight: 800, 
-                mb: 1,
-                background: 'linear-gradient(90deg, #3a7bd5, #6a11cb)',
-                backgroundClip: 'text',
-                textFillColor: 'transparent',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              Sơ yếu lý lịch
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Quản lý và cập nhật thông tin cá nhân của bạn
-            </Typography>
-          </Box>
+    <div style={styles.root}>
+      <Paper sx={styles.paper}>
+        <Box sx={styles.titleSection}>
+          <Typography variant="h4" gutterBottom>
+            Sơ yếu lý lịch
+          </Typography>
+          <Typography variant="subtitle1" color="textSecondary">
+            Quản lý và cập nhật thông tin cá nhân
+          </Typography>
+          <Divider sx={{ mt: 2 }} />
+        </Box>
+        
+        {/* Basic Info Section */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={3}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Avatar
+                src={profileData?.Avatar}
+                alt={profileData?.FullName}
+                sx={{ 
+                  width: 150, 
+                  height: 150, 
+                  mb: 2,
+                  border: '4px solid white',
+                  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)'
+                }}
+              />
+              <Typography variant="h6" align="center" gutterBottom>
+                {profileData?.FullName}
+              </Typography>
+              <Chip 
+                label={`MSSV: ${profileData?.StudentCode || 'N/A'}`} 
+                color="primary"
+                sx={{ mb: 2 }}
+              />
+              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                <Button
+                  variant={editMode ? "outlined" : "contained"}
+                  startIcon={editMode ? <Close /> : <Edit />}
+                  onClick={handleEditMode}
+                  color={editMode ? "error" : "primary"}
+                >
+                  {editMode ? 'Hủy' : 'Chỉnh sửa'}
+                </Button>
+                {editMode && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Save />}
+                    onClick={handleUpdateProfile}
+                    disabled={loading}
+                    color="primary"
+                  >
+                    Lưu
+                  </Button>
+                )}
+              </Box>
+              <Button
+                size="small"
+                startIcon={<History />}
+                onClick={handleOpenHistoryDialog}
+                sx={{ mt: 2 }}
+                color="primary"
+              >
+                Xem lịch sử thay đổi
+              </Button>
+            </Box>
+          </Grid>
           
-          <Grid container spacing={3}>
-            {/* Left column - Basic info and photo */}
-            <Grid item xs={12} md={4}>
-              <Grow in={pageLoaded} timeout={600}>
-                <ProfilePaper>
-                  <Box sx={{ 
-                    p: 3, 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: 'center', 
-                    position: 'relative',
-                    background: 'linear-gradient(120deg, #6a11cb 0%, #2575fc 100%)',
-                    pb: 10,
-                  }}>
-                    <ProfileAvatar
-                      src={profileData?.Avatar}
-                      alt={profileData?.FullName}
-                    />
-                    <Typography variant="h5" sx={{ color: 'white', mt: 2, fontWeight: 600 }}>
-                      {profileData?.FullName}
-                    </Typography>
-                    <Chip 
-                      label={`MSSV: ${profileData?.StudentCode || 'N/A'}`} 
-                      sx={{ 
-                        mt: 1, 
-                        color: 'white', 
-                        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                        '& .MuiChip-label': { fontWeight: 500 },
-                      }} 
-                    />
-                  </Box>
-                  
-                  <Box sx={{ 
-                    position: 'relative', 
-                    mt: -7, 
-                    mx: 3, 
-                    p: 3, 
-                    borderRadius: 3,
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-                  }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
-                      <Button
-                        variant={editMode ? "outlined" : "contained"}
-                        startIcon={editMode ? <Close /> : <Edit />}
-                        onClick={handleEditMode}
-                        color={editMode ? "error" : "primary"}
-                        sx={{ borderRadius: 2 }}
-                      >
-                        {editMode ? 'Hủy' : 'Chỉnh sửa'}
-                      </Button>
-                      {editMode && (
-                        <GradientButton
-                          variant="contained"
-                          startIcon={<Save />}
-                          onClick={handleUpdateProfile}
-                          disabled={loading}
-                          sx={{ borderRadius: 2 }}
-                        >
-                          Lưu
-                        </GradientButton>
-                      )}
-                    </Box>
-                    
-                    <Divider sx={{ my: 2 }} />
-                    
-                    <InfoItem>
-                      <Email />
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Email</Typography>
-                        <Typography variant="body2" fontWeight={500}>{profileData?.Email}</Typography>
+          <Grid item xs={12} md={9}>
+            <TableContainer component={Paper} variant="outlined" sx={styles.tableContainer}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell width="30%" sx={{ fontWeight: 'bold' }}>Thông tin</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Chi tiết</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Email sx={{ mr: 1, color: 'primary.main' }} />
+                        Email
                       </Box>
-                    </InfoItem>
-                    
-                    <InfoItem>
-                      <Phone />
-                      <Box sx={{ width: '100%' }}>
-                        <Typography variant="caption" color="text.secondary">Điện thoại</Typography>
-                        {editMode ? (
+                    </TableCell>
+                    <TableCell>{profileData?.Email}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Phone sx={{ mr: 1, color: 'primary.main' }} />
+                        Điện thoại
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {editMode ? (
+                        <TextField
+                          name="phoneNumber"
+                          size="small"
+                          fullWidth
+                          value={editedProfile.phoneNumber}
+                          onChange={handleInputChange}
+                          variant="outlined"
+                        />
+                      ) : (
+                        profileData?.PhoneNumber || 'Chưa cập nhật'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <LocationOn sx={{ mr: 1, color: 'primary.main' }} />
+                        Địa chỉ
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {editMode ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                           <TextField
-                            name="phoneNumber"
+                            name="address"
+                            label="Địa chỉ"
                             size="small"
                             fullWidth
-                            value={editedProfile.phoneNumber}
+                            value={editedProfile.address}
                             onChange={handleInputChange}
-                            variant="outlined"
-                            sx={{ mt: 0.5 }}
                           />
-                        ) : (
-                          <Typography variant="body2" fontWeight={500}>
-                            {profileData?.PhoneNumber || 'Chưa cập nhật'}
-                          </Typography>
-                        )}
-                      </Box>
-                    </InfoItem>
-                    
-                    <InfoItem>
-                      <LocationOn />
-                      <Box sx={{ width: '100%' }}>
-                        <Typography variant="caption" color="text.secondary">Địa chỉ</Typography>
-                        {editMode ? (
-                          <Box sx={{ width: '100%' }}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
                             <TextField
-                              name="address"
-                              label="Địa chỉ"
+                              name="city"
+                              label="Thành phố"
                               size="small"
                               fullWidth
-                              value={editedProfile.address}
+                              value={editedProfile.city}
                               onChange={handleInputChange}
-                              sx={{ mb: 1, mt: 0.5 }}
                             />
-                            <Grid container spacing={1}>
-                              <Grid item xs={6}>
-                                <TextField
-                                  name="city"
-                                  label="Thành phố"
-                                  size="small"
-                                  fullWidth
-                                  value={editedProfile.city}
-                                  onChange={handleInputChange}
-                                />
-                              </Grid>
-                              <Grid item xs={6}>
-                                <TextField
-                                  name="country"
-                                  label="Quốc gia"
-                                  size="small"
-                                  fullWidth
-                                  value={editedProfile.country}
-                                  onChange={handleInputChange}
-                                />
-                              </Grid>
-                            </Grid>
+                            <TextField
+                              name="country"
+                              label="Quốc gia"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.country}
+                              onChange={handleInputChange}
+                            />
                           </Box>
-                        ) : (
-                          <Typography variant="body2" fontWeight={500}>
-                            {profileData?.Address 
-                              ? `${profileData.Address}, ${profileData.City || ''}, ${profileData.Country || ''}`
-                              : 'Chưa cập nhật'
-                            }
-                          </Typography>
-                        )}
+                        </Box>
+                      ) : (
+                        (profileData?.Address 
+                          ? `${profileData.Address}, ${profileData.City || ''}, ${profileData.Country || ''}`
+                          : 'Chưa cập nhật')
+                      )}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <School sx={{ mr: 1, color: 'primary.main' }} />
+                        Ngành học
                       </Box>
-                    </InfoItem>
-                    
-                    <InfoItem>
-                      <School />
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">Ngành học</Typography>
-                        <Typography variant="body2" fontWeight={500}>
-                          {academicData?.ProgramName || 'Chưa cập nhật'}
-                        </Typography>
-                      </Box>
-                    </InfoItem>
-                    
-                    <Button
-                      size="small"
-                      startIcon={<History />}
-                      onClick={handleOpenHistoryDialog}
-                      sx={{ mt: 2, fontWeight: 500 }}
-                      color="primary"
-                    >
-                      Xem lịch sử thay đổi
-                    </Button>
-                  </Box>
-                </ProfilePaper>
-              </Grow>
+                    </TableCell>
+                    <TableCell>{academicData?.ProgramName || 'Chưa cập nhật'}</TableCell>
+                  </TableRow>
+                  {editMode && (
+                    <TableRow>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Person sx={{ mr: 1, color: 'primary.main' }} />
+                          Giới thiệu
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          name="bio"
+                          label="Mô tả bản thân"
+                          multiline
+                          rows={3}
+                          fullWidth
+                          value={editedProfile.bio}
+                          onChange={handleInputChange}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+        </Grid>
+        
+        {/* Tabs Section */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs 
+            value={value} 
+            onChange={handleChange} 
+            aria-label="profile tabs"
+            variant={isSmallScreen ? "fullWidth" : "standard"}
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+                minHeight: 48,
+              }
+            }}
+          >
+            <Tab 
+              label="Thông tin cá nhân" 
+              icon={<Person />} 
+              iconPosition="start" 
+              {...a11yProps(0)} 
+            />
+            <Tab 
+              label="Thông tin học tập" 
+              icon={<School />} 
+              iconPosition="start" 
+              {...a11yProps(1)} 
+            />
+            <Tab 
+              label="Thông tin liên hệ" 
+              icon={<Phone />} 
+              iconPosition="start" 
+              {...a11yProps(2)} 
+            />
+          </Tabs>
+        </Box>
+        
+        {/* Personal Information Tab */}
+        <TabPanel value={value} index={0}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Person sx={{ mr: 1, color: 'primary.main' }} />
+                  Thông tin cơ bản
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell component="th" scope="row" width="40%">Họ và tên</TableCell>
+                        <TableCell align="right">{profileData?.FullName}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Ngày sinh</TableCell>
+                        <TableCell align="right">
+                          {profileData?.DateOfBirth ? new Date(profileData.DateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Giới tính</TableCell>
+                        <TableCell align="right">{profileData?.Gender || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Nơi sinh</TableCell>
+                        <TableCell align="right">{profileData?.BirthPlace || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Quê quán</TableCell>
+                        <TableCell align="right">{profileData?.HomeTown || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Dân tộc</TableCell>
+                        <TableCell align="right">{profileData?.Ethnicity || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Tôn giáo</TableCell>
+                        <TableCell align="right">{profileData?.Religion || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
             </Grid>
             
-            {/* Right column - Detailed information */}
-            <Grid item xs={12} md={8}>
-              <Grow in={pageLoaded} timeout={800}>
-                <ProfilePaper>
-                  <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                    <StyledTabs value={value} onChange={handleChange} aria-label="profile tabs" variant={isSmallScreen ? "fullWidth" : "standard"}>
-                      <StyledTab label="Thông tin cá nhân" icon={<Person />} iconPosition="start" {...a11yProps(0)} />
-                      <StyledTab label="Thông tin học tập" icon={<School />} iconPosition="start" {...a11yProps(1)} />
-                      <StyledTab label="Thông tin liên hệ" icon={<ContactInfo />} iconPosition="start" {...a11yProps(2)} />
-                    </StyledTabs>
-                  </Box>
+            <Grid item xs={12} md={6}>
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CreditCard sx={{ mr: 1, color: 'primary.main' }} />
+                  Giấy tờ
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell component="th" scope="row" width="40%">CMND/CCCD</TableCell>
+                        <TableCell align="right">{profileData?.IdentityCardNumber || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Ngày cấp</TableCell>
+                        <TableCell align="right">
+                          {profileData?.IdentityCardIssueDate ? new Date(profileData.IdentityCardIssueDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Nơi cấp</TableCell>
+                        <TableCell align="right">{profileData?.IdentityCardIssuePlace || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Số BHYT</TableCell>
+                        <TableCell align="right">{profileData?.HealthInsuranceNumber || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Tài khoản ngân hàng</TableCell>
+                        <TableCell align="right">{profileData?.BankAccountNumber || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Ngân hàng</TableCell>
+                        <TableCell align="right">{profileData?.BankName || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+            
+            {/* Bio Section */}
+            {!editMode && (
+              <Grid item xs={12}>
+                <Paper sx={styles.paper} elevation={0} variant="outlined">
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Person sx={{ mr: 1, color: 'primary.main' }} />
+                    Giới thiệu bản thân
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
                   
-                  {/* Personal Information Tab */}
-                  <TabPanel value={value} index={0}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={6}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <Person />
-                              Thông tin cơ bản
-                            </SectionTitle>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Họ và tên</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.FullName}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Ngày sinh</Typography>
-                                  <Typography variant="body1" fontWeight={500}>
-                                    {profileData?.DateOfBirth ? new Date(profileData.DateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Giới tính</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.Gender || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Nơi sinh</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.BirthPlace || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Quê quán</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.HomeTown || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Dân tộc</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.Ethnicity || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Tôn giáo</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.Religion || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                            </Grid>
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <CreditCard />
-                              Giấy tờ
-                            </SectionTitle>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">CMND/CCCD</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.IdentityCardNumber || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Ngày cấp</Typography>
-                                  <Typography variant="body1" fontWeight={500}>
-                                    {profileData?.IdentityCardIssueDate ? new Date(profileData.IdentityCardIssueDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Nơi cấp</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.IdentityCardIssuePlace || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Số BHYT</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.HealthInsuranceNumber || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Tài khoản ngân hàng</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.BankAccountNumber || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Ngân hàng</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.BankName || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                            </Grid>
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                      
-                      {/* Bio Section */}
-                      <Grid item xs={12}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <Info />
-                              Giới thiệu bản thân
-                            </SectionTitle>
-                            
-                            {editMode ? (
-                              <TextField
-                                name="bio"
-                                label="Mô tả bản thân"
-                                multiline
-                                rows={4}
-                                fullWidth
-                                value={editedProfile.bio}
-                                onChange={handleInputChange}
-                                sx={{ mt: 2 }}
-                              />
-                            ) : (
-                              <Typography variant="body1" sx={{ mt: 2, fontStyle: profileData?.Bio ? 'normal' : 'italic', color: profileData?.Bio ? 'text.primary' : 'text.secondary' }}>
-                                {profileData?.Bio || 'Chưa có thông tin giới thiệu bản thân.'}
-                              </Typography>
-                            )}
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                    </Grid>
-                  </TabPanel>
-                  
-                  {/* Academic Information Tab */}
-                  <TabPanel value={value} index={1}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={6}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <School />
-                              Thông tin học tập
-                            </SectionTitle>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Mã sinh viên</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.StudentCode || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Lớp</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.Class || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Ngành học</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{academicData?.ProgramName || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Khoa</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{academicData?.Faculty || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Bộ môn</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{academicData?.Department || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Học kỳ hiện tại</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.CurrentSemester?.toString() || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Ngày nhập học</Typography>
-                                  <Typography variant="body1" fontWeight={500}>
-                                    {profileData?.EnrollmentDate ? new Date(profileData.EnrollmentDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Ngày tốt nghiệp dự kiến</Typography>
-                                  <Typography variant="body1" fontWeight={500}>
-                                    {profileData?.GraduationDate ? new Date(profileData.GraduationDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Tình trạng học tập</Typography>
-                                  <Box sx={{ mt: 0.5 }}>
-                                    <Chip 
-                                      label={profileData?.AcademicStatus || 'Regular'} 
-                                      color={profileData?.AcademicStatus === 'Warning' ? 'warning' : 'success'}
-                                      size="small"
-                                      variant="outlined"
-                                    />
-                                  </Box>
-                                </Box>
-                              </Grid>
-                            </Grid>
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <Person />
-                              Thông tin cố vấn học tập
-                            </SectionTitle>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Tên cố vấn</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{academicData?.AdvisorName || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Email</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{academicData?.AdvisorEmail || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Điện thoại</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{academicData?.AdvisorPhone || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                            </Grid>
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                    </Grid>
-                  </TabPanel>
-                  
-                  {/* Contact Information Tab */}
-                  <TabPanel value={value} index={2}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={6}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <Phone />
-                              Thông tin liên hệ cá nhân
-                            </SectionTitle>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Điện thoại</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.PhoneNumber || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Email</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.Email}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Địa chỉ hiện tại</Typography>
-                                  <Typography variant="body1" fontWeight={500}>
-                                    {profileData?.Address 
-                                      ? `${profileData.Address}, ${profileData.City || ''}, ${profileData.Country || ''}`
-                                      : 'Chưa cập nhật'
-                                    }
-                                  </Typography>
-                                </Box>
-                              </Grid>
-                            </Grid>
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                      
-                      <Grid item xs={12} md={6}>
-                        <InfoCard>
-                          <CardContent sx={{ p: 3 }}>
-                            <SectionTitle variant="h6">
-                              <Home />
-                              Thông tin gia đình
-                            </SectionTitle>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Tên phụ huynh</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.ParentName || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Điện thoại phụ huynh</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.ParentPhone || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Email phụ huynh</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.ParentEmail || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">Người liên hệ khẩn cấp</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.EmergencyContact || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="caption" color="text.secondary">SĐT liên hệ khẩn cấp</Typography>
-                                  <Typography variant="body1" fontWeight={500}>{profileData?.EmergencyPhone || 'Chưa cập nhật'}</Typography>
-                                </Box>
-                              </Grid>
-                            </Grid>
-                          </CardContent>
-                        </InfoCard>
-                      </Grid>
-                    </Grid>
-                  </TabPanel>
-                </ProfilePaper>
-              </Grow>
+                  <Typography variant="body1" sx={{ color: profileData?.Bio ? 'text.primary' : 'text.secondary' }}>
+                    {profileData?.Bio || 'Chưa có thông tin giới thiệu bản thân.'}
+                  </Typography>
+                </Paper>
+              </Grid>
+            )}
+          </Grid>
+        </TabPanel>
+        
+        {/* Academic Information Tab */}
+        <TabPanel value={value} index={1}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <School sx={{ mr: 1, color: 'primary.main' }} />
+                  Thông tin học tập
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell component="th" scope="row" width="40%">Mã sinh viên</TableCell>
+                        <TableCell align="right">{profileData?.StudentCode || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Lớp</TableCell>
+                        <TableCell align="right">{profileData?.Class || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Ngành học</TableCell>
+                        <TableCell align="right">{academicData?.ProgramName || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Khoa</TableCell>
+                        <TableCell align="right">{academicData?.Faculty || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Bộ môn</TableCell>
+                        <TableCell align="right">{academicData?.Department || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Học kỳ hiện tại</TableCell>
+                        <TableCell align="right">{profileData?.CurrentSemester?.toString() || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Ngày nhập học</TableCell>
+                        <TableCell align="right">
+                          {profileData?.EnrollmentDate ? new Date(profileData.EnrollmentDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Ngày tốt nghiệp dự kiến</TableCell>
+                        <TableCell align="right">
+                          {profileData?.GraduationDate ? new Date(profileData.GraduationDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Tình trạng học tập</TableCell>
+                        <TableCell align="right">
+                          <Chip 
+                            label={profileData?.AcademicStatus || 'Regular'} 
+                            color={profileData?.AcademicStatus === 'Warning' ? 'warning' : 'success'}
+                            size="small"
+                            sx={styles.chip}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Person sx={{ mr: 1, color: 'primary.main' }} />
+                  Thông tin cố vấn học tập
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell component="th" scope="row" width="40%">Tên cố vấn</TableCell>
+                        <TableCell align="right">{academicData?.AdvisorName || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Email</TableCell>
+                        <TableCell align="right">{academicData?.AdvisorEmail || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Điện thoại</TableCell>
+                        <TableCell align="right">{academicData?.AdvisorPhone || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
             </Grid>
           </Grid>
-        </Box>
-      </Fade>
+        </TabPanel>
+        
+        {/* Contact Information Tab */}
+        <TabPanel value={value} index={2}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Phone sx={{ mr: 1, color: 'primary.main' }} />
+                  Thông tin liên hệ cá nhân
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell component="th" scope="row" width="40%">Điện thoại</TableCell>
+                        <TableCell align="right">{profileData?.PhoneNumber || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Email</TableCell>
+                        <TableCell align="right">{profileData?.Email}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Địa chỉ hiện tại</TableCell>
+                        <TableCell align="right">
+                          {profileData?.Address 
+                            ? `${profileData.Address}, ${profileData.City || ''}, ${profileData.Country || ''}`
+                            : 'Chưa cập nhật'
+                          }
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Home sx={{ mr: 1, color: 'primary.main' }} />
+                  Thông tin gia đình
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell component="th" scope="row" width="40%">Tên phụ huynh</TableCell>
+                        <TableCell align="right">{profileData?.ParentName || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Điện thoại phụ huynh</TableCell>
+                        <TableCell align="right">{profileData?.ParentPhone || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Email phụ huynh</TableCell>
+                        <TableCell align="right">{profileData?.ParentEmail || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">Người liên hệ khẩn cấp</TableCell>
+                        <TableCell align="right">{profileData?.EmergencyContact || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell component="th" scope="row">SĐT liên hệ khẩn cấp</TableCell>
+                        <TableCell align="right">{profileData?.EmergencyPhone || 'Chưa cập nhật'}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+        </TabPanel>
+      </Paper>
       
       {/* Update History Dialog */}
       <Dialog 
@@ -1016,71 +840,68 @@ const Profile = () => {
         onClose={handleCloseDialog} 
         maxWidth="md" 
         fullWidth
-        PaperProps={{
-          sx: { 
-            borderRadius: 3, 
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)'
-          }
-        }}
       >
-        <DialogTitle sx={{ pb: 1 }}>
+        <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <History sx={{ mr: 1, color: 'primary.main' }} />
-            <Typography variant="h6" fontWeight={600}>Lịch sử cập nhật thông tin</Typography>
+            <Typography variant="h6">Lịch sử cập nhật thông tin</Typography>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
           {!updateHistory || updateHistory.length === 0 ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-              <History sx={{ color: 'text.disabled', fontSize: 48, mb: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
               <Typography color="text.secondary">Không có thông tin cập nhật nào.</Typography>
             </Box>
           ) : (
-            <List sx={{ width: '100%' }}>
-              {updateHistory.map((update, index) => (
-                <ListItem 
-                  key={index} 
-                  divider={index < updateHistory.length - 1}
-                  sx={{ flexDirection: 'column', alignItems: 'flex-start', py: 2 }}
-                >
-                  <Box sx={{ display: 'flex', width: '100%', mb: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={600}>
-                      {update.FieldName}
-                    </Typography>
-                    <Box sx={{ flexGrow: 1 }} />
-                    <Chip 
-                      size="small" 
-                      label={update.Status}
-                      color={update.Status === 'Approved' ? 'success' : update.Status === 'Pending' ? 'warning' : 'primary'}
-                    />
-                  </Box>
-                  
-                  <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5 }}>
-                    {new Date(update.UpdateTime).toLocaleString('vi-VN')}
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <Box sx={{ p: 1.5, backgroundColor: 'rgba(0, 0, 0, 0.02)', borderRadius: 1 }}>
-                        <Typography variant="caption" color="text.secondary">Giá trị cũ</Typography>
-                        <Typography variant="body2">{update.OldValue || 'Trống'}</Typography>
-                      </Box>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Box sx={{ p: 1.5, backgroundColor: 'rgba(25, 118, 210, 0.05)', borderRadius: 1 }}>
-                        <Typography variant="caption" color="text.secondary">Giá trị mới</Typography>
-                        <Typography variant="body2">{update.NewValue || 'Trống'}</Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </ListItem>
-              ))}
-            </List>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Thông tin cập nhật</TableCell>
+                    <TableCell align="right">Trạng thái</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {updateHistory.map((update, index) => (
+                    <TableRow 
+                      key={index}
+                      hover
+                    >
+                      <TableCell>
+                        <Typography variant="subtitle1" fontWeight={500}>
+                          {update.FieldName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(update.UpdateTime).toLocaleString('vi-VN')}
+                        </Typography>
+                        <Box sx={{ mt: 1, display: 'flex', gap: 2 }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="caption" color="text.secondary">Giá trị cũ</Typography>
+                            <Typography variant="body2">{update.OldValue || 'Trống'}</Typography>
+                          </Box>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="caption" color="text.secondary">Giá trị mới</Typography>
+                            <Typography variant="body2">{update.NewValue || 'Trống'}</Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right" width="120px">
+                        <Chip 
+                          size="small" 
+                          label={update.Status}
+                          color={update.Status === 'Approved' ? 'success' : update.Status === 'Pending' ? 'warning' : 'primary'}
+                          sx={styles.chip}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={handleCloseDialog} variant="outlined" sx={{ borderRadius: 2 }}>Đóng</Button>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} variant="outlined">Đóng</Button>
         </DialogActions>
       </Dialog>
       
@@ -1093,9 +914,8 @@ const Profile = () => {
       >
         <Alert 
           onClose={handleCloseSnackbar} 
-          severity={snackbar.severity} 
+          severity={snackbar.severity}
           variant="filled"
-          sx={{ borderRadius: 2, width: '100%' }}
         >
           {snackbar.message}
         </Alert>
@@ -1108,13 +928,8 @@ const Profile = () => {
       >
         <CircularProgress color="inherit" />
       </Backdrop>
-    </Box>
+    </div>
   );
-};
-
-// For Contact Info Icon
-const ContactInfo = () => {
-  return <Phone />;
 };
 
 export default Profile; 

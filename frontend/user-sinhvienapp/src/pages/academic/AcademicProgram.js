@@ -54,6 +54,32 @@ const AcademicProgram = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   
+  // Styles matching other pages
+  const styles = {
+    root: {
+      flexGrow: 1,
+      padding: theme.spacing(2)
+    },
+    paper: {
+      padding: theme.spacing(3),
+      marginBottom: theme.spacing(3)
+    },
+    titleSection: {
+      marginBottom: theme.spacing(3)
+    },
+    tableContainer: {
+      marginTop: theme.spacing(3)
+    },
+    chip: {
+      margin: theme.spacing(0.5)
+    },
+    infoSection: {
+      marginBottom: theme.spacing(3),
+      padding: theme.spacing(2),
+      backgroundColor: theme.palette.background.default
+    }
+  };
+  
   useEffect(() => {
     const fetchAcademicProgram = async () => {
       try {
@@ -105,257 +131,199 @@ const AcademicProgram = () => {
   }
   
   return (
-    <Box sx={{ 
-      mt: 2, 
-      px: { xs: 1, sm: 2, md: 3 },
-      maxWidth: '100%',
-      animation: 'fadeIn 0.6s ease-out',
-      '@keyframes fadeIn': {
-        '0%': { opacity: 0, transform: 'translateY(20px)' },
-        '100%': { opacity: 1, transform: 'translateY(0)' }
-      }
-    }}>
-      <Typography 
-        variant="h4" 
-        gutterBottom
-        sx={{
-          fontWeight: 600,
-          color: 'primary.main',
-          textAlign: { xs: 'center', md: 'left' },
-          mb: 3,
-          position: 'relative',
-          '&:after': {
-            content: '""',
-            position: 'absolute',
-            bottom: -8,
-            left: { xs: '50%', md: 0 },
-            transform: { xs: 'translateX(-50%)', md: 'translateX(0)' },
-            width: { xs: '80px', md: '120px' },
-            height: '4px',
-            background: theme => `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
-            borderRadius: 2
-          }
-        }}
-      >
-        Chương trình đào tạo
-      </Typography>
-      
-      {program ? (
-        <Fade in timeout={800}>
-          <Box>
-            <Card 
-              elevation={3} 
-              sx={{ 
-                mb: 4, 
-                borderRadius: 2,
-                overflow: 'hidden',
-                backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(192, 192, 192, 0.2)',
-              }}
-            >
-              <Box sx={{ 
-                p: { xs: 2, sm: 3 },
-                backgroundColor: 'primary.main',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2
-              }}>
-                <School sx={{ fontSize: 40 }} />
-                <Typography variant="h5" fontWeight="600">
-                  {program.ProgramName || 'Chương trình đào tạo'}
+    <div style={styles.root}>
+      <Paper sx={styles.paper}>
+        <Box sx={styles.titleSection}>
+          <Typography variant="h4" gutterBottom>
+            Chương trình đào tạo
+          </Typography>
+          <Typography variant="subtitle1" color="textSecondary">
+            Thông tin chi tiết về chương trình học và cấu trúc chương trình
+          </Typography>
+          <Divider sx={{ mt: 2 }} />
+        </Box>
+        
+        {program ? (
+          <Fade in timeout={800}>
+            <Box>
+              <Box sx={styles.infoSection}>
+                <Typography variant="body1" gutterBottom>
+                  <strong>Thông tin chương trình đào tạo:</strong>
+                </Typography>
+                <Typography variant="body2" component="ul">
+                  <li>Tên chương trình: {program.ProgramName || 'Chưa cập nhật'}</li>
+                  <li>Mã chương trình: {program.ProgramCode || 'Chưa cập nhật'}</li>
+                  <li>Khoa/Viện: {program.Faculty || 'Chưa cập nhật'}</li>
+                  <li>Tổng số tín chỉ: {program.TotalCredits ? `${program.TotalCredits} tín chỉ` : 'Chưa cập nhật'}</li>
                 </Typography>
               </Box>
               
-              <CardContent sx={{ p: { xs: 2, sm: 3 }, pt: 3 }}>              
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <Box sx={{ 
-                      backgroundColor: 'background.paper', 
-                      p: 2, 
-                      borderRadius: 2,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                    }}>
-                      <Typography 
-                        variant="h6" 
-                        sx={{ 
-                          mb: 2, 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          gap: 1.5,
-                          color: 'text.primary' 
-                        }}
-                      >
-                        <InfoIcon color="primary" />
-                        Thông tin chung
-                      </Typography>
-                      <List disablePadding>
-                        <ProgramInfoItem 
-                          label="Mã chương trình"
-                          value={program.ProgramCode || 'Chưa cập nhật'} 
-                        />
-                        <ProgramInfoItem 
-                          label="Khoa/Viện"
-                          value={program.Faculty || 'Chưa cập nhật'} 
-                        />
-                        <ProgramInfoItem 
-                          label="Bộ môn"
-                          value={program.Department || 'Chưa cập nhật'} 
-                        />
-                        <ProgramInfoItem 
-                          label="Bằng cấp" 
-                          value={program.DegreeName || 'Chưa cập nhật'} 
-                          isLast
-                        />
-                      </List>
-                    </Box>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                    <Box sx={{ 
-                      backgroundColor: 'background.paper', 
-                      p: 2, 
-                      borderRadius: 2,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
-                    }}>
-                      <Typography 
-                        variant="h6" 
-                        sx={{ 
-                          mb: 2, 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          gap: 1.5,
-                          color: 'text.primary' 
-                        }}
-                      >
-                        <TimerIcon color="primary" />
-                        Thời gian và tín chỉ
-                      </Typography>
-                      <List disablePadding>
-                        <ProgramInfoItem 
-                          label="Tổng số tín chỉ"
-                          value={program.TotalCredits ? `${program.TotalCredits} tín chỉ` : 'Chưa cập nhật'} 
-                        />
-                        <ProgramInfoItem 
-                          label="Thời gian đào tạo"
-                          value={program.ProgramDuration ? `${program.ProgramDuration} năm` : '4 năm'} 
-                        />
-                        <ProgramInfoItem 
-                          label="Loại chương trình"
-                          value={program.ProgramType || 'Chính quy'} 
-                        />
-                        <ProgramInfoItem 
-                          label="Năm nhập học"
-                          value={program.EntryYear || 'Chưa cập nhật'} 
-                          isLast
-                        />
-                      </List>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-            
-            <Card 
-              elevation={3} 
-              sx={{ 
-                borderRadius: 2, 
-                overflow: 'hidden',
-                backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0.95) 100%)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(192, 192, 192, 0.2)',
-              }}
-            >
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Box sx={{ mb: 4 }}>
-                  <Typography 
-                    variant="h6" 
-                    sx={{ 
-                      mb: 2, 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      gap: 1.5,
-                      color: theme.palette.primary.main 
-                    }}
-                  >
-                    <MenuBookIcon color="primary" />
-                    Mô tả chương trình
-                  </Typography>
-                  <Paper 
-                    elevation={0} 
-                    sx={{ 
-                      p: 3, 
-                      backgroundColor: 'rgba(0,0,0,0.01)', 
-                      borderRadius: 2,
-                      border: '1px solid rgba(0,0,0,0.05)'
-                    }}
-                  >
-                    <Typography variant="body1" paragraph color="text.secondary" sx={{ textAlign: 'justify' }}>
-                      {program.Description || 'Chưa có thông tin mô tả cho chương trình đào tạo này.'}
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={12} md={6}>
+                  <Paper sx={styles.paper} elevation={0} variant="outlined">
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        mb: 2, 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: 1.5,
+                        color: 'text.primary' 
+                      }}
+                    >
+                      <InfoIcon color="primary" />
+                      Thông tin chung
                     </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    
+                    <TableContainer>
+                      <Table size="small">
+                        <TableBody>
+                          <TableRow>
+                            <TableCell component="th" scope="row" width="40%">Mã chương trình</TableCell>
+                            <TableCell align="right">{program.ProgramCode || 'Chưa cập nhật'}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell component="th" scope="row">Khoa/Viện</TableCell>
+                            <TableCell align="right">{program.Faculty || 'Chưa cập nhật'}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell component="th" scope="row">Bộ môn</TableCell>
+                            <TableCell align="right">{program.Department || 'Chưa cập nhật'}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell component="th" scope="row">Bằng cấp</TableCell>
+                            <TableCell align="right">{program.DegreeName || 'Chưa cập nhật'}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
                   </Paper>
-                </Box>
+                </Grid>
                 
-                <Box>
-                  <Typography 
-                    variant="h6" 
-                    sx={{ 
-                      mb: 3, 
-                      display: 'flex', 
-                      alignItems: 'center',
-                      gap: 1.5,
-                      color: theme.palette.primary.main
-                    }}
-                  >
-                    <ArchitectureIcon color="primary" />
-                    Cấu trúc chương trình
-                  </Typography>
-                  
-                  {programStructure && programStructure.length > 0 ? (
-                    programStructure.map((category, index) => (
-                      <ProgramStructureAccordion 
-                        key={index}
-                        title={category.title}
-                        subjects={category.subjects}
-                        defaultExpanded={index === 0}
-                      />
-                    ))
-                  ) : (
-                    <>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, fontStyle: 'italic' }}>
-                        Chưa có dữ liệu chi tiết về cấu trúc chương trình. Vui lòng liên hệ phòng đào tạo để biết thêm chi tiết.
-                      </Typography>
-                      <Alert 
-                        severity="info" 
-                        sx={{ 
-                          mb: 3,
-                          borderRadius: 2,
-                          '& .MuiAlert-icon': { alignItems: 'center' } 
-                        }}
-                      >
-                        Dữ liệu cấu trúc chương trình đang được cập nhật. Vui lòng quay lại sau.
-                      </Alert>
-                    </>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Box>
-        </Fade>
-      ) : (
-        <Alert 
-          severity="info" 
-          sx={{ 
-            borderRadius: 2, 
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            '& .MuiAlert-icon': { alignItems: 'center' }
-          }}
-        >
-          Không tìm thấy thông tin chương trình đào tạo. Vui lòng liên hệ phòng đào tạo để được hỗ trợ.
-        </Alert>
-      )}
-    </Box>
+                <Grid item xs={12} md={6}>
+                  <Paper sx={styles.paper} elevation={0} variant="outlined">
+                    <Typography 
+                      variant="h6" 
+                      sx={{ 
+                        mb: 2, 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: 1.5,
+                        color: 'text.primary' 
+                      }}
+                    >
+                      <TimerIcon color="primary" />
+                      Thời gian và tín chỉ
+                    </Typography>
+                    <Divider sx={{ mb: 2 }} />
+                    
+                    <TableContainer>
+                      <Table size="small">
+                        <TableBody>
+                          <TableRow>
+                            <TableCell component="th" scope="row" width="40%">Tổng số tín chỉ</TableCell>
+                            <TableCell align="right">{program.TotalCredits ? `${program.TotalCredits} tín chỉ` : 'Chưa cập nhật'}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell component="th" scope="row">Thời gian đào tạo</TableCell>
+                            <TableCell align="right">{program.ProgramDuration ? `${program.ProgramDuration} năm` : '4 năm'}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell component="th" scope="row">Loại chương trình</TableCell>
+                            <TableCell align="right">{program.ProgramType || 'Chính quy'}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell component="th" scope="row">Năm nhập học</TableCell>
+                            <TableCell align="right">{program.EntryYear || 'Chưa cập nhật'}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Paper>
+                </Grid>
+              </Grid>
+              
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    mb: 2, 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    gap: 1.5,
+                    color: theme.palette.primary.main 
+                  }}
+                >
+                  <MenuBookIcon color="primary" />
+                  Mô tả chương trình
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Typography variant="body1" paragraph color="text.secondary" sx={{ textAlign: 'justify', p: 2 }}>
+                  {program.Description || 'Chưa có thông tin mô tả cho chương trình đào tạo này.'}
+                </Typography>
+              </Paper>
+              
+              <Paper sx={styles.paper} elevation={0} variant="outlined">
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    mb: 2, 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    gap: 1.5,
+                    color: theme.palette.primary.main
+                  }}
+                >
+                  <ArchitectureIcon color="primary" />
+                  Cấu trúc chương trình
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {programStructure && programStructure.length > 0 ? (
+                  programStructure.map((category, index) => (
+                    <ProgramStructureAccordion 
+                      key={index}
+                      title={category.title}
+                      subjects={category.subjects}
+                      defaultExpanded={index === 0}
+                    />
+                  ))
+                ) : (
+                  <>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, fontStyle: 'italic', p: 2 }}>
+                      Chưa có dữ liệu chi tiết về cấu trúc chương trình. Vui lòng liên hệ phòng đào tạo để biết thêm chi tiết.
+                    </Typography>
+                    <Alert 
+                      severity="info" 
+                      sx={{ 
+                        mb: 3,
+                        borderRadius: 2,
+                        '& .MuiAlert-icon': { alignItems: 'center' } 
+                      }}
+                    >
+                      Dữ liệu cấu trúc chương trình đang được cập nhật. Vui lòng quay lại sau.
+                    </Alert>
+                  </>
+                )}
+              </Paper>
+            </Box>
+          </Fade>
+        ) : (
+          <Alert 
+            severity="info" 
+            sx={{ 
+              borderRadius: 2, 
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              '& .MuiAlert-icon': { alignItems: 'center' }
+            }}
+          >
+            Không tìm thấy thông tin chương trình đào tạo. Vui lòng liên hệ phòng đào tạo để được hỗ trợ.
+          </Alert>
+        )}
+      </Paper>
+    </div>
   );
 };
 
@@ -401,6 +369,8 @@ const ProgramInfoItem = ({ label, value, isLast = false }) => {
 
 // Component for each category in the program structure
 const ProgramStructureAccordion = ({ title, subjects, defaultExpanded = false }) => {
+  const theme = useTheme();
+  
   return (
     <Accordion 
       defaultExpanded={defaultExpanded}
@@ -491,28 +461,43 @@ const ProgramStructureAccordion = ({ title, subjects, defaultExpanded = false })
 
 // Loading skeleton component
 const LoadingSkeleton = () => {
+  const theme = useTheme();
+  const styles = {
+    root: {
+      flexGrow: 1,
+      padding: theme.spacing(2)
+    },
+    paper: {
+      padding: theme.spacing(3),
+      marginBottom: theme.spacing(3)
+    }
+  };
+  
   return (
-    <Box sx={{ mt: 2, px: { xs: 1, sm: 2, md: 3 }, maxWidth: '100%' }}>
-      <Skeleton variant="text" width={300} height={60} sx={{ mb: 3 }} />
-      
-      <Skeleton variant="rounded" height={80} sx={{ mb: 2 }} />
-      
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={6}>
-          <Skeleton variant="rounded" height={200} />
+    <div style={styles.root}>
+      <Paper sx={styles.paper}>
+        <Skeleton variant="text" width={300} height={60} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width={500} height={30} sx={{ mb: 3 }} />
+        <Divider sx={{ mb: 3 }} />
+        
+        <Skeleton variant="rounded" height={80} sx={{ mb: 4 }} />
+        
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={6}>
+            <Skeleton variant="rounded" height={200} />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Skeleton variant="rounded" height={200} />
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Skeleton variant="rounded" height={200} />
-        </Grid>
-      </Grid>
-      
-      <Skeleton variant="text" width={200} height={30} sx={{ mb: 2 }} />
-      <Skeleton variant="rounded" height={100} sx={{ mb: 3 }} />
-      
-      <Skeleton variant="text" width={200} height={30} sx={{ mb: 2 }} />
-      <Skeleton variant="rounded" height={60} sx={{ mb: 1 }} />
-      <Skeleton variant="rounded" height={200} />
-    </Box>
+        
+        <Skeleton variant="rounded" height={150} sx={{ mb: 4 }} />
+        
+        <Skeleton variant="text" width={200} height={30} sx={{ mb: 2 }} />
+        <Skeleton variant="rounded" height={60} sx={{ mb: 1 }} />
+        <Skeleton variant="rounded" height={200} />
+      </Paper>
+    </div>
   );
 };
 

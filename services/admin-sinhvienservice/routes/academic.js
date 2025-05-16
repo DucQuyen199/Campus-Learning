@@ -3,18 +3,6 @@ const router = express.Router();
 const sql = require('mssql');
 const { getPool } = require('../src/config/db');
 
-// Mock data for subjects and semesters (will be updated later)
-const subjects = [
-  { id: 1, code: 'CS101', name: 'Introduction to Programming', credits: 3, program: 'Computer Science' },
-  { id: 2, code: 'CS201', name: 'Data Structures', credits: 4, program: 'Computer Science' },
-  { id: 3, code: 'BA101', name: 'Principles of Management', credits: 3, program: 'Business Administration' }
-];
-
-const semesters = [
-  { id: 1, name: 'Spring 2023', startDate: '2023-01-10', endDate: '2023-05-20' },
-  { id: 2, name: 'Fall 2023', startDate: '2023-08-15', endDate: '2023-12-20' }
-];
-
 // Programs routes
 router.get('/programs', async (req, res) => {
   try {
@@ -846,7 +834,7 @@ router.delete('/semesters/:id', async (req, res) => {
       `);
     
     if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ success: false, message: 'Semester not found' });
+    return res.status(404).json({ success: false, message: 'Semester not found' });
     }
     
     res.json({ 
@@ -1022,6 +1010,504 @@ router.delete('/programs/:programId/subjects/:subjectId', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Error removing subject from program', 
+      error: error.message 
+    });
+  }
+});
+
+// Academic Results routes
+router.get('/academic-results', async (req, res) => {
+  try {
+    const { semester, program, subject, search } = req.query;
+    
+    const poolConnection = await getPool();
+    let query = `
+      SELECT 
+        ar.ResultID,
+        u.UserID,
+        u.FullName as StudentName,
+        sd.StudentCode as StudentID,
+        s.SemesterName as Semester,
+        ap.ProgramName as Program,
+        sub.SubjectName as Subject,
+        sub.Credits as Credits,
+        ar.AttendanceScore,
+        ar.AssignmentScore,
+        ar.MidtermScore,
+        ar.FinalScore,
+        ar.TotalScore as Grade,
+        ar.LetterGrade,
+        ar.GPA,
+        CASE WHEN ar.IsPassed = 1 THEN 'Passed' ELSE 'Failed' END as Status,
+        ar.UpdatedAt as Date
+      FROM AcademicResults ar
+      INNER JOIN Users u ON ar.UserID = u.UserID
+      INNER JOIN StudentDetails sd ON u.UserID = sd.UserID
+      INNER JOIN CourseClasses cc ON ar.ClassID = cc.ClassID
+      INNER JOIN Subjects sub ON cc.SubjectID = sub.SubjectID
+      INNER JOIN Semesters s ON cc.SemesterID = s.SemesterID
+      LEFT JOIN StudentPrograms sp ON u.UserID = sp.UserID
+      LEFT JOIN AcademicPrograms ap ON sp.ProgramID = ap.ProgramID
+      WHERE 1=1
+    `;
+    
+    const request = poolConnection.request();
+    
+    // Add filters
+    if (semester) {
+      query += ' AND s.SemesterName = @semester';
+      request.input('semester', sql.NVarChar, semester);
+    }
+    
+    if (program) {
+      query += ' AND ap.ProgramName = @program';
+      request.input('program', sql.NVarChar, program);
+    }
+    
+    if (subject) {
+      query += ' AND sub.SubjectName = @subject';
+      request.input('subject', sql.NVarChar, subject);
+    }
+    
+    if (search) {
+      query += ' AND (u.FullName LIKE @search OR sd.StudentCode LIKE @search)';
+      request.input('search', sql.NVarChar, `%${search}%`);
+    }
+    
+    // Add order by
+    query += ' ORDER BY s.SemesterName DESC, u.FullName ASC';
+    
+    const result = await request.query(query);
+    
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching academic results:', error);
+    res.status(500).json({ success: false, message: 'Error fetching academic results', error: error.message });
+  }
+});
+
+// Get all semesters for dropdown
+router.get('/semesters', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .query(`
+        SELECT 
+          SemesterID as id,
+          SemesterName as name,
+          StartDate as startDate,
+          EndDate as endDate,
+          CASE WHEN IsCurrent = 1 THEN 'Current' ELSE Status END as status
+        FROM Semesters
+        ORDER BY StartDate DESC
+      `);
+    
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching semesters:', error);
+    res.status(500).json({ success: false, message: 'Error fetching semesters', error: error.message });
+  }
+});
+
+// Get all programs for dropdown
+router.get('/programs-list', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .query(`
+        SELECT 
+          ProgramID as id,
+          ProgramName as name
+        FROM AcademicPrograms
+        WHERE IsActive = 1
+        ORDER BY ProgramName
+      `);
+    
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching programs list:', error);
+    res.status(500).json({ success: false, message: 'Error fetching programs list', error: error.message });
+  }
+});
+
+// Get all subjects for dropdown
+router.get('/subjects-list', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .query(`
+        SELECT 
+          SubjectID as id,
+          SubjectName as name
+        FROM Subjects
+        WHERE IsActive = 1
+        ORDER BY SubjectName
+      `);
+    
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching subjects list:', error);
+    res.status(500).json({ success: false, message: 'Error fetching subjects list', error: error.message });
+  }
+});
+
+// Academic Warnings routes
+router.get('/warnings', async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '', status = '', semesterId = '' } = req.query;
+    const offset = (page - 1) * limit;
+    
+    const poolConnection = await getPool();
+    let query = `
+      SELECT 
+        aw.WarningID,
+        u.UserID,
+        u.FullName as StudentName,
+        sd.StudentCode as StudentID,
+        s.SemesterID,
+        s.SemesterName,
+        s.AcademicYear,
+        aw.WarningType,
+        aw.Reason,
+        aw.WarningDate,
+        aw.RequiredAction,
+        aw.ResolvedDate,
+        aw.Status,
+        aw.CreatedAt,
+        createdBy.FullName as CreatedByName
+      FROM AcademicWarnings aw
+      INNER JOIN Users u ON aw.UserID = u.UserID
+      INNER JOIN StudentDetails sd ON u.UserID = sd.UserID
+      INNER JOIN Semesters s ON aw.SemesterID = s.SemesterID
+      LEFT JOIN Users createdBy ON aw.CreatedBy = createdBy.UserID
+      WHERE 1=1
+    `;
+    
+    const request = poolConnection.request();
+    
+    // Add filters
+    let isNumeric = false;
+    if (search) {
+      // Check if search is a numeric value (could be UserID)
+      isNumeric = /^\d+$/.test(search.trim());
+      
+      if (isNumeric) {
+        query += ' AND (u.FullName LIKE @search OR sd.StudentCode LIKE @search OR u.UserID = @userId)';
+        request.input('search', sql.NVarChar, `%${search}%`);
+        request.input('userId', sql.BigInt, parseInt(search.trim()));
+      } else {
+        query += ' AND (u.FullName LIKE @search OR sd.StudentCode LIKE @search)';
+        request.input('search', sql.NVarChar, `%${search}%`);
+      }
+    }
+    
+    if (status) {
+      query += ' AND aw.Status = @status';
+      request.input('status', sql.VarChar, status);
+    }
+    
+    if (semesterId) {
+      query += ' AND aw.SemesterID = @semesterId';
+      request.input('semesterId', sql.BigInt, semesterId);
+    }
+    
+    // Get total count
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM AcademicWarnings aw
+      INNER JOIN Users u ON aw.UserID = u.UserID
+      INNER JOIN StudentDetails sd ON u.UserID = sd.UserID
+      WHERE 1=1
+    `;
+    
+    if (search) {
+      if (isNumeric) {
+        countQuery += ' AND (u.FullName LIKE @search OR sd.StudentCode LIKE @search OR u.UserID = @userId)';
+      } else {
+        countQuery += ' AND (u.FullName LIKE @search OR sd.StudentCode LIKE @search)';
+      }
+    }
+    
+    if (status) {
+      countQuery += ' AND aw.Status = @status';
+    }
+    
+    if (semesterId) {
+      countQuery += ' AND aw.SemesterID = @semesterId';
+    }
+    
+    const countResult = await request.query(countQuery);
+    const total = countResult.recordset[0].total;
+    
+    // Add sorting and pagination
+    query += ' ORDER BY aw.WarningDate DESC, aw.WarningID DESC';
+    query += ' OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY';
+    
+    request.input('offset', sql.Int, offset);
+    request.input('limit', sql.Int, parseInt(limit));
+    
+    const result = await request.query(query);
+    
+    res.json({ 
+      success: true, 
+      warnings: result.recordset,
+      total: total 
+    });
+  } catch (error) {
+    console.error('Error fetching academic warnings:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching academic warnings', 
+      error: error.message 
+    });
+  }
+});
+
+// Get a specific academic warning by ID
+router.get('/warnings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        SELECT 
+          aw.WarningID,
+          u.UserID,
+          u.FullName as StudentName,
+          sd.StudentCode as StudentID,
+          s.SemesterID,
+          s.SemesterName,
+          s.AcademicYear,
+          aw.WarningType,
+          aw.Reason,
+          aw.RequiredAction,
+          aw.WarningDate,
+          aw.ResolvedDate,
+          aw.Status,
+          aw.CreatedAt,
+          aw.UpdatedAt,
+          createdBy.FullName as CreatedByName,
+          createdBy.UserID as CreatedByID
+        FROM AcademicWarnings aw
+        INNER JOIN Users u ON aw.UserID = u.UserID
+        INNER JOIN StudentDetails sd ON u.UserID = sd.UserID
+        INNER JOIN Semesters s ON aw.SemesterID = s.SemesterID
+        LEFT JOIN Users createdBy ON aw.CreatedBy = createdBy.UserID
+        WHERE aw.WarningID = @id
+      `);
+    
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Academic warning not found' });
+    }
+    
+    res.json({ 
+      success: true, 
+      warning: result.recordset[0] 
+    });
+  } catch (error) {
+    console.error('Error fetching academic warning:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching academic warning', 
+      error: error.message 
+    });
+  }
+});
+
+// Create a new academic warning
+router.post('/warnings', async (req, res) => {
+  try {
+    const { 
+      studentId, 
+      semesterId, 
+      warningType, 
+      reason, 
+      requiredAction,
+      status = 'Active'
+    } = req.body;
+    
+    if (!studentId || !semesterId || !warningType || !reason) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Student ID, semester ID, warning type, and reason are required' 
+      });
+    }
+    
+    const currentDate = new Date();
+    const poolConnection = await getPool();
+    
+    // Check if student exists
+    const studentCheck = await poolConnection.request()
+      .input('studentId', sql.BigInt, studentId)
+      .query(`SELECT UserID FROM Users WHERE UserID = @studentId`);
+    
+    if (studentCheck.recordset.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Student not found' 
+      });
+    }
+    
+    // Check if semester exists
+    const semesterCheck = await poolConnection.request()
+      .input('semesterId', sql.BigInt, semesterId)
+      .query(`SELECT SemesterID FROM Semesters WHERE SemesterID = @semesterId`);
+    
+    if (semesterCheck.recordset.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Semester not found' 
+      });
+    }
+    
+    // Create the warning
+    const result = await poolConnection.request()
+      .input('studentId', sql.BigInt, studentId)
+      .input('semesterId', sql.BigInt, semesterId)
+      .input('warningType', sql.VarChar, warningType)
+      .input('reason', sql.NVarChar, reason)
+      .input('requiredAction', sql.NVarChar, requiredAction || null)
+      .input('warningDate', sql.Date, currentDate)
+      .input('status', sql.VarChar, status)
+      .input('createdBy', sql.BigInt, 1) // Assuming admin ID 1 for now
+      .query(`
+        INSERT INTO AcademicWarnings (
+          UserID, SemesterID, WarningType, Reason, 
+          RequiredAction, WarningDate, Status, 
+          CreatedBy, CreatedAt, UpdatedAt
+        )
+        VALUES (
+          @studentId, @semesterId, @warningType, @reason, 
+          @requiredAction, @warningDate, @status, 
+          @createdBy, GETDATE(), GETDATE()
+        );
+        
+        SELECT SCOPE_IDENTITY() AS WarningID;
+      `);
+    
+    const warningId = result.recordset[0].WarningID;
+    
+    // Get the newly created warning
+    const warningResult = await poolConnection.request()
+      .input('id', sql.BigInt, warningId)
+      .query(`
+        SELECT 
+          aw.WarningID,
+          u.UserID,
+          u.FullName as StudentName,
+          sd.StudentCode as StudentID,
+          s.SemesterID,
+          s.SemesterName,
+          aw.WarningType,
+          aw.Reason,
+          aw.RequiredAction,
+          aw.WarningDate,
+          aw.Status,
+          aw.CreatedAt
+        FROM AcademicWarnings aw
+        INNER JOIN Users u ON aw.UserID = u.UserID
+        INNER JOIN StudentDetails sd ON u.UserID = sd.UserID
+        INNER JOIN Semesters s ON aw.SemesterID = s.SemesterID
+        WHERE aw.WarningID = @id
+      `);
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Academic warning created successfully',
+      warning: warningResult.recordset[0]
+    });
+  } catch (error) {
+    console.error('Error creating academic warning:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error creating academic warning', 
+      error: error.message 
+    });
+  }
+});
+
+// Update an academic warning
+router.put('/warnings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      warningType, 
+      reason, 
+      requiredAction, 
+      resolvedDate,
+      status
+    } = req.body;
+    
+    if (!warningType && !reason && requiredAction === undefined && 
+        resolvedDate === undefined && !status) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'At least one field to update is required' 
+      });
+    }
+    
+    // Check if warning exists
+    const poolConnection = await getPool();
+    const checkResult = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`SELECT WarningID FROM AcademicWarnings WHERE WarningID = @id`);
+    
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Academic warning not found' 
+      });
+    }
+    
+    // Build the update query
+    let updateQuery = 'UPDATE AcademicWarnings SET UpdatedAt = GETDATE()';
+    const request = poolConnection.request().input('id', sql.BigInt, id);
+    
+    if (warningType) {
+      updateQuery += ', WarningType = @warningType';
+      request.input('warningType', sql.VarChar, warningType);
+    }
+    
+    if (reason) {
+      updateQuery += ', Reason = @reason';
+      request.input('reason', sql.NVarChar, reason);
+    }
+    
+    if (requiredAction !== undefined) {
+      updateQuery += ', RequiredAction = @requiredAction';
+      request.input('requiredAction', sql.NVarChar, requiredAction || null);
+    }
+    
+    if (resolvedDate !== undefined) {
+      updateQuery += ', ResolvedDate = @resolvedDate';
+      request.input('resolvedDate', sql.Date, resolvedDate ? new Date(resolvedDate) : null);
+      
+      // If resolvedDate is set, update status to 'Resolved'
+      if (resolvedDate && !status) {
+        updateQuery += ", Status = 'Resolved'";
+      }
+    }
+    
+    if (status) {
+      updateQuery += ', Status = @status';
+      request.input('status', sql.VarChar, status);
+    }
+    
+    updateQuery += ' WHERE WarningID = @id';
+    
+    await request.query(updateQuery);
+    
+    res.json({ 
+      success: true, 
+      message: 'Academic warning updated successfully' 
+    });
+  } catch (error) {
+    console.error('Error updating academic warning:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error updating academic warning', 
       error: error.message 
     });
   }

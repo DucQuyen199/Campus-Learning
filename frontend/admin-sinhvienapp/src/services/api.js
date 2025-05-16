@@ -89,8 +89,32 @@ export const tuitionService = {
   getTuitionById: (id) => {
     return apiClient.get(`/finance/tuition/${id}`);
   },
-  getTuitionStudents: (params) => {
-    return apiClient.get('/finance/tuition/students', { params });
+  getTuitionStudents: async (params) => {
+    try {
+      console.log('Fetching tuition students with params:', params);
+      // Ensure semesterId is sent as a number
+      if (params.semesterId && typeof params.semesterId === 'string') {
+        params.semesterId = parseInt(params.semesterId);
+      }
+      
+      const response = await apiClient.get('/finance/tuition/students', { params });
+      console.log('Tuition students response:', response);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching tuition students:', error);
+      
+      // Check if there's a response with error data from the server
+      if (error.response && error.response.data) {
+        console.log('Server error response:', error.response.data);
+        return error.response.data; // Return the server's error message
+      }
+      
+      // Generic error when no response from server
+      return { 
+        success: false, 
+        message: error.message || 'Không thể kết nối đến máy chủ' 
+      };
+    }
   },
   generateTuition: (tuitionData) => {
     return apiClient.post('/finance/tuition/generate', tuitionData);
@@ -120,6 +144,106 @@ export const academicService = {
   },
   updateProgram: (id, programData) => {
     return apiClient.put(`/academic/programs/${id}`, programData);
+  },
+  
+  // Academic Warnings
+  getAcademicWarnings: async (page = 1, limit = 10, search = '', status = '', semesterId = '') => {
+    try {
+      // Convert semesterId to number if it's a string and is numeric
+      if (semesterId && typeof semesterId === 'string' && /^\d+$/.test(semesterId)) {
+        semesterId = parseInt(semesterId);
+      }
+      
+      const response = await apiClient.get('/academic/warnings', {
+        params: { 
+          page, 
+          limit, 
+          search, 
+          status, 
+          semesterId 
+        }
+      });
+      
+      console.log('Academic warnings response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching academic warnings:', error);
+      
+      // Check if there's a response with error data from the server
+      if (error.response && error.response.data) {
+        console.log('Server error response:', error.response.data);
+        return error.response.data; // Return the server's error message
+      }
+      
+      // Generic error when no response from server
+      return { 
+        success: false, 
+        warnings: [], 
+        total: 0, 
+        message: error.message || 'Không thể kết nối đến máy chủ' 
+      };
+    }
+  },
+  
+  createAcademicWarning: async (warningData) => {
+    try {
+      const response = await apiClient.post('/academic/warnings', warningData);
+      console.log('Create academic warning response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error creating academic warning:', error);
+      
+      // Check if there's a response with error data from the server
+      if (error.response && error.response.data) {
+        console.log('Server error response:', error.response.data);
+        throw error; // Rethrow to be caught by the component
+      }
+      
+      // Generic error when no response from server
+      throw new Error(error.message || 'Không thể kết nối đến máy chủ');
+    }
+  },
+  
+  getAcademicWarningById: async (id) => {
+    try {
+      const response = await apiClient.get(`/academic/warnings/${id}`);
+      console.log('Get academic warning response:', response);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching academic warning ${id}:`, error);
+      
+      // Check if there's a response with error data from the server
+      if (error.response && error.response.data) {
+        console.log('Server error response:', error.response.data);
+        return error.response.data; // Return the server's error message
+      }
+      
+      // Generic error when no response from server
+      return { 
+        success: false, 
+        warning: null, 
+        message: error.message || 'Không thể kết nối đến máy chủ' 
+      };
+    }
+  },
+  
+  updateAcademicWarning: async (id, warningData) => {
+    try {
+      const response = await apiClient.put(`/academic/warnings/${id}`, warningData);
+      console.log('Update academic warning response:', response);
+      return response;
+    } catch (error) {
+      console.error(`Error updating academic warning ${id}:`, error);
+      
+      // Check if there's a response with error data from the server
+      if (error.response && error.response.data) {
+        console.log('Server error response:', error.response.data);
+        throw error; // Rethrow to be caught by the component
+      }
+      
+      // Generic error when no response from server
+      throw new Error(error.message || 'Không thể kết nối đến máy chủ');
+    }
   },
   
   // Subjects
@@ -175,7 +299,8 @@ export const academicService = {
   getSemesterById: async (id) => {
     try {
       const response = await apiClient.get(`/academic/semesters/${id}`);
-      return response.data;
+      console.log('Raw API response from semester by ID:', response);
+      return response; // Return the entire response object with success property
     } catch (error) {
       console.error(`Error fetching semester ${id}:`, error);
       return { success: false, message: error.response?.data?.message || error.message };

@@ -57,8 +57,12 @@ const AddAcademicWarning = () => {
     const fetchSemesters = async () => {
       setSemestersLoading(true);
       try {
-        const data = await academicService.getAllSemesters();
-        setSemesters(data.semesters || []);
+        const response = await academicService.getAllSemesters();
+        if (response && response.success) {
+          setSemesters(response.data || []);
+        } else {
+          console.error('Failed to fetch semesters:', response?.message);
+        }
       } catch (error) {
         console.error('Failed to fetch semesters:', error);
       } finally {
@@ -69,14 +73,19 @@ const AddAcademicWarning = () => {
     fetchSemesters();
   }, []);
 
-  // Search students
+  // Search students - support searching by UserID as well
   useEffect(() => {
     const searchStudents = async () => {
-      if (studentSearchTerm.length < 3) return;
+      if (studentSearchTerm.length < 2) return;
       
       setStudentsLoading(true);
       try {
-        const data = await studentsService.getAllStudents(1, 10, studentSearchTerm);
+        // Check if search term is a numeric value (likely a UserID)
+        const isNumeric = /^\d+$/.test(studentSearchTerm.trim());
+        let searchParam = studentSearchTerm;
+        
+        // If numeric, directly search by UserID if that's an available parameter
+        const data = await studentsService.getAllStudents(1, 10, searchParam);
         setStudents(data.students || []);
       } catch (error) {
         console.error('Failed to search students:', error);
@@ -207,7 +216,7 @@ const AddAcademicWarning = () => {
 
                 <Autocomplete
                   options={students}
-                  getOptionLabel={(option) => `${option.studentCode} - ${option.fullName}`}
+                  getOptionLabel={(option) => `${option.studentCode} - ${option.fullName} (ID: ${option.id})`}
                   loading={studentsLoading}
                   value={selectedStudent}
                   onChange={(_, newValue) => setSelectedStudent(newValue)}
@@ -216,7 +225,7 @@ const AddAcademicWarning = () => {
                     <TextField
                       {...params}
                       label="Tìm sinh viên"
-                      placeholder="Nhập mã SV hoặc tên để tìm kiếm"
+                      placeholder="Nhập mã SV, tên hoặc UserID để tìm kiếm"
                       error={formik.touched.studentId && Boolean(formik.errors.studentId)}
                       helperText={formik.touched.studentId && formik.errors.studentId}
                       InputProps={{
@@ -245,12 +254,12 @@ const AddAcademicWarning = () => {
                         <Typography variant="body1">{studentDetails.fullName}</Typography>
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <Typography variant="body2" color="text.secondary">Lớp</Typography>
-                        <Typography variant="body1">{studentDetails.className || '--'}</Typography>
+                        <Typography variant="body2" color="text.secondary">UserID</Typography>
+                        <Typography variant="body1">{studentDetails.id}</Typography>
                       </Grid>
                       <Grid item xs={12} sm={6}>
-                        <Typography variant="body2" color="text.secondary">Chương trình đào tạo</Typography>
-                        <Typography variant="body1">{studentDetails.programName || '--'}</Typography>
+                        <Typography variant="body2" color="text.secondary">Lớp</Typography>
+                        <Typography variant="body1">{studentDetails.className || '--'}</Typography>
                       </Grid>
                     </Grid>
                   </Box>
@@ -270,21 +279,31 @@ const AddAcademicWarning = () => {
 
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
-                    <FormControl fullWidth error={formik.touched.semesterId && Boolean(formik.errors.semesterId)}>
+                    <FormControl 
+                      fullWidth 
+                      error={formik.touched.semesterId && Boolean(formik.errors.semesterId)}
+                    >
                       <InputLabel>Học kỳ</InputLabel>
                       <Select
                         name="semesterId"
-                        label="Học kỳ"
-                        value={formik.values.semesterId}
+                        value={formik.values.semesterId || ''}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
+                        label="Học kỳ"
                         disabled={semestersLoading}
                       >
-                        {semesters.map((semester) => (
-                          <MenuItem key={semester.id} value={semester.id}>
-                            {semester.name}
+                        {semestersLoading ? (
+                          <MenuItem key="loading-semester" value="" disabled>
+                            Đang tải...
                           </MenuItem>
-                        ))}
+                        ) : (
+                          semesters.map((semester) => (
+                            <MenuItem key={semester.id} value={semester.id}>
+                              {semester.name} - {semester.AcademicYear || ''} 
+                              {semester.status === 'Current' && ' (Hiện tại)'}
+                            </MenuItem>
+                          ))
+                        )}
                       </Select>
                       {formik.touched.semesterId && formik.errors.semesterId && (
                         <FormHelperText>{formik.errors.semesterId}</FormHelperText>
@@ -298,7 +317,7 @@ const AddAcademicWarning = () => {
                       <Select
                         name="warningType"
                         label="Loại cảnh báo"
-                        value={formik.values.warningType}
+                        value={formik.values.warningType || ''}
                         onChange={formik.handleChange}
                         onBlur={formik.handleBlur}
                       >

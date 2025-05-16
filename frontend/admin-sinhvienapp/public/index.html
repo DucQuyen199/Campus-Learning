@@ -16,6 +16,36 @@
       href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap"
     />
     <title>HUBT Admin - Hệ thống quản lý sinh viên</title>
+    <!-- Browser polyfill preload -->
+    <script>
+      // Define browser object globally before any other scripts run
+      window.browser = window.browser || {
+        runtime: {
+          sendMessage: function() { return Promise.resolve({}); },
+          onMessage: {
+            addListener: function() {},
+            removeListener: function() {}
+          }
+        },
+        // Add additional browser API methods that might be needed
+        tabs: {
+          query: function() { return Promise.resolve([]); },
+          create: function() { return Promise.resolve({}); },
+          update: function() { return Promise.resolve({}); }
+        },
+        storage: {
+          local: {
+            get: function() { return Promise.resolve({}); },
+            set: function() { return Promise.resolve(); }
+          }
+        }
+      };
+      
+      // Also define for non-window contexts
+      if (typeof browser === 'undefined') {
+        var browser = window.browser;
+      }
+    </script>
   </head>
   <body>
     <noscript>Bạn cần bật JavaScript để chạy ứng dụng này.</noscript>

@@ -100,7 +100,7 @@ const SemesterEdit = () => {
       console.error('Error fetching semester data:', error);
       setSnackbar({
         open: true,
-        message: 'Không thể tải dữ liệu học kỳ. Vui lòng thử lại sau.',
+        message: error.message || 'Không thể tải dữ liệu học kỳ. Vui lòng thử lại sau.',
         severity: 'error'
       });
     } finally {
@@ -342,40 +342,40 @@ const SemesterEdit = () => {
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <DatePicker
-                  label="Ngày bắt đầu"
-                  value={formData.startDate}
-                  onChange={(date) => handleDateChange('startDate', date)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      fullWidth
-                      required
-                      error={Boolean(errors.startDate || errors.dateRange)}
-                      helperText={errors.startDate || errors.dateRange}
-                      disabled={submitting}
-                    />
-                  )}
-                />
+              <Grid item xs={12} md={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={vi}>
+                  <DatePicker
+                    label="Ngày bắt đầu *"
+                    value={formData.startDate}
+                    onChange={(date) => handleDateChange('startDate', date)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        variant: 'outlined',
+                        error: Boolean(errors.startDate || errors.dateRange),
+                        helperText: errors.startDate || (errors.dateRange && 'Ngày kết thúc phải sau ngày bắt đầu')
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <DatePicker
-                  label="Ngày kết thúc"
-                  value={formData.endDate}
-                  onChange={(date) => handleDateChange('endDate', date)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      fullWidth
-                      required
-                      error={Boolean(errors.endDate || errors.dateRange)}
-                      helperText={errors.endDate || errors.dateRange}
-                      disabled={submitting}
-                    />
-                  )}
-                />
+              <Grid item xs={12} md={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={vi}>
+                  <DatePicker
+                    label="Ngày kết thúc *"
+                    value={formData.endDate}
+                    onChange={(date) => handleDateChange('endDate', date)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        variant: 'outlined',
+                        error: Boolean(errors.endDate || errors.dateRange),
+                        helperText: errors.endDate || (errors.dateRange && 'Ngày kết thúc phải sau ngày bắt đầu')
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
               </Grid>
               
               <Grid item xs={12}>
@@ -385,38 +385,40 @@ const SemesterEdit = () => {
                 </Typography>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <DatePicker
-                  label="Ngày bắt đầu đăng ký"
-                  value={formData.registrationStartDate}
-                  onChange={(date) => handleDateChange('registrationStartDate', date)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      fullWidth
-                      error={Boolean(errors.registrationStartDate || errors.registrationDateRange)}
-                      helperText={errors.registrationStartDate || errors.registrationDateRange}
-                      disabled={submitting}
-                    />
-                  )}
-                />
+              <Grid item xs={12} md={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={vi}>
+                  <DatePicker
+                    label="Ngày bắt đầu đăng ký"
+                    value={formData.registrationStartDate}
+                    onChange={(date) => handleDateChange('registrationStartDate', date)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        variant: 'outlined',
+                        error: Boolean(errors.registrationStartDate || errors.registrationDateRange),
+                        helperText: errors.registrationStartDate || (errors.registrationDateRange && 'Ngày kết thúc đăng ký phải sau ngày bắt đầu đăng ký')
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
               </Grid>
               
-              <Grid item xs={12} sm={6}>
-                <DatePicker
-                  label="Ngày kết thúc đăng ký"
-                  value={formData.registrationEndDate}
-                  onChange={(date) => handleDateChange('registrationEndDate', date)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      fullWidth
-                      error={Boolean(errors.registrationEndDate || errors.registrationDateRange)}
-                      helperText={errors.registrationEndDate || errors.registrationDateRange}
-                      disabled={submitting}
-                    />
-                  )}
-                />
+              <Grid item xs={12} md={6}>
+                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={vi}>
+                  <DatePicker
+                    label="Ngày kết thúc đăng ký"
+                    value={formData.registrationEndDate}
+                    onChange={(date) => handleDateChange('registrationEndDate', date)}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        variant: 'outlined',
+                        error: Boolean(errors.registrationEndDate || errors.registrationDateRange),
+                        helperText: errors.registrationEndDate || (errors.registrationDateRange && 'Ngày kết thúc đăng ký phải sau ngày bắt đầu đăng ký')
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
               </Grid>
               
               <Grid item xs={12}>

@@ -9,6 +9,7 @@ const morgan = require('morgan');
 // Import routes
 const authRoutes = require('./routes/auth');
 const studentsRoutes = require('./routes/students');
+// const usersRoutes = require('./routes/users'); // Removing this import as the file doesn't exist
 const academicRoutes = require('./routes/academic');
 const financeRoutes = require('./routes/finance');
 
@@ -25,6 +26,7 @@ app.use(morgan('dev'));
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentsRoutes);
+// app.use('/api/users', usersRoutes); // Removing this middleware since the module doesn't exist
 app.use('/api/academic', academicRoutes);
 app.use('/api/finance', financeRoutes);
 

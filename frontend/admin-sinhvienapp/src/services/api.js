@@ -79,6 +79,33 @@ export const studentsService = {
   },
 };
 
+// Finance/Tuition service
+export const tuitionService = {
+  getAllTuition: (page = 1, limit = 10, search = '', semesterId = '', status = '') => {
+    return apiClient.get('/finance/tuition', {
+      params: { page, limit, search, semesterId, status },
+    });
+  },
+  getTuitionById: (id) => {
+    return apiClient.get(`/finance/tuition/${id}`);
+  },
+  getTuitionStudents: (params) => {
+    return apiClient.get('/finance/tuition/students', { params });
+  },
+  generateTuition: (tuitionData) => {
+    return apiClient.post('/finance/tuition/generate', tuitionData);
+  },
+  getTuitionPrograms: () => {
+    return apiClient.get('/finance/programs');
+  },
+  updateTuitionStatus: (id, statusData) => {
+    return apiClient.put(`/finance/tuition/${id}/status`, statusData);
+  },
+  addTuitionPayment: (tuitionId, paymentData) => {
+    return apiClient.post(`/finance/tuition/${tuitionId}/payment`, paymentData);
+  },
+};
+
 // Academic service
 export const academicService = {
   // Programs
@@ -135,11 +162,23 @@ export const academicService = {
   },
   
   // Semesters
-  getAllSemesters: () => {
-    return apiClient.get('/academic/semesters');
+  getAllSemesters: async () => {
+    try {
+      const response = await apiClient.get('/academic/semesters');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching semesters:', error);
+      return { success: false, message: error.response?.data?.message || error.message };
+    }
   },
-  getSemesterById: (id) => {
-    return apiClient.get(`/academic/semesters/${id}`);
+  getSemesterById: async (id) => {
+    try {
+      const response = await apiClient.get(`/academic/semesters/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching semester ${id}:`, error);
+      return { success: false, message: error.response?.data?.message || error.message };
+    }
   },
   createSemester: (semesterData) => {
     return apiClient.post('/academic/semesters', semesterData);
@@ -147,98 +186,4 @@ export const academicService = {
   updateSemester: (id, semesterData) => {
     return apiClient.put(`/academic/semesters/${id}`, semesterData);
   },
-  deleteSemester: (id) => {
-    return apiClient.delete(`/academic/semesters/${id}`);
-  },
-  getSemesterSubjects: (semesterId) => {
-    return apiClient.get(`/academic/semesters/${semesterId}/subjects`);
-  },
-
-  // Academic Warnings
-  getAcademicWarnings: (page = 1, limit = 10, search = '', status = '', semesterId = '') => {
-    return apiClient.get('/academic/warnings', {
-      params: { page, limit, search, status, semesterId },
-    });
-  },
-  getAcademicWarningById: (id) => {
-    return apiClient.get(`/academic/warnings/${id}`);
-  },
-  createAcademicWarning: (warningData) => {
-    return apiClient.post('/academic/warnings', warningData);
-  },
-  updateAcademicWarning: (id, warningData) => {
-    return apiClient.put(`/academic/warnings/${id}`, warningData);
-  },
-  resolveAcademicWarning: (id, resolutionData) => {
-    return apiClient.post(`/academic/warnings/${id}/resolve`, resolutionData);
-  },
-  getStudentWarnings: (studentId) => {
-    return apiClient.get(`/students/${studentId}/warnings`);
-  }
 };
-
-// Tuition service
-export const tuitionService = {
-  // Get tuition list with filters
-  getAllTuition: (page = 1, limit = 10, search = '', semesterId = '', status = '') => {
-    return apiClient.get('/tuition', {
-      params: { page, limit, search, semesterId, status },
-    });
-  },
-  
-  // Get tuition details
-  getTuitionById: (id) => {
-    return apiClient.get(`/tuition/${id}`);
-  },
-  
-  // Get tuition by student
-  getStudentTuition: (studentId, semesterId = '') => {
-    return apiClient.get(`/students/${studentId}/tuition`, {
-      params: { semesterId },
-    });
-  },
-  
-  // Create new tuition record
-  createTuition: (tuitionData) => {
-    return apiClient.post('/tuition', tuitionData);
-  },
-  
-  // Update tuition record
-  updateTuition: (id, tuitionData) => {
-    return apiClient.put(`/tuition/${id}`, tuitionData);
-  },
-  
-  // Process payment
-  processPayment: (tuitionId, paymentData) => {
-    return apiClient.post(`/tuition/${tuitionId}/payments`, paymentData);
-  },
-  
-  // Get payment history
-  getPaymentHistory: (tuitionId) => {
-    return apiClient.get(`/tuition/${tuitionId}/payments`);
-  },
-  
-  // Get payment receipt
-  getPaymentReceipt: (paymentId) => {
-    return apiClient.get(`/tuition/payments/${paymentId}/receipt`);
-  },
-  
-  // Generate tuition invoices for semester
-  generateSemesterInvoices: (semesterId, options) => {
-    return apiClient.post(`/tuition/generate/${semesterId}`, options);
-  },
-  
-  // Get tuition statistics
-  getTuitionStatistics: (semesterId = '') => {
-    return apiClient.get('/tuition/statistics', {
-      params: { semesterId },
-    });
-  },
-};
-
-export default {
-  auth: authService,
-  students: studentsService,
-  academic: academicService,
-  tuition: tuitionService,
-}; 

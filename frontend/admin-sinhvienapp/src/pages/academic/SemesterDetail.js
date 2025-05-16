@@ -4,101 +4,152 @@ import {
   Typography, 
   Paper, 
   Grid, 
-  Button, 
-  Tabs, 
-  Tab, 
   Divider, 
-  Card, 
-  CardContent, 
-  List, 
-  ListItem, 
-  ListItemText,
   Chip,
+  Button,
   CircularProgress,
-  IconButton,
-  Tooltip
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow
 } from '@mui/material';
 import { 
   Edit as EditIcon, 
-  ArrowBack as ArrowBackIcon, 
-  CalendarMonth as CalendarIcon,
-  School as SchoolIcon,
-  MenuBook as MenuBookIcon,
-  Group as GroupIcon,
-  Print as PrintIcon,
-  Download as DownloadIcon
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-
-// Tab panel component
-function TabPanel(props) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`semester-tabpanel-${index}`}
-      aria-labelledby={`semester-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
-}
+import { academicService } from '../../services/api';
 
 const SemesterDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  
   const [semester, setSemester] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tabValue, setTabValue] = useState(0);
-
-  // Mock data
-  const mockSemester = {
-    id: parseInt(id),
-    name: 'Spring 2024',
-    startDate: '2024-01-15',
-    endDate: '2024-05-30',
-    description: 'Spring semester of the 2023-2024 academic year',
-    status: 'In Progress',
-    isActive: true,
-    numberOfStudents: 680,
-    numberOfSubjects: 20,
-    academicYear: '2023-2024',
-    registrationPeriod: {
-      start: '2023-12-01',
-      end: '2023-12-20'
-    },
-    examinationPeriod: {
-      start: '2024-05-15',
-      end: '2024-05-30'
-    },
-    statistics: {
-      totalCredits: 78,
-      averageGrade: 7.8,
-      passRate: 92.5,
-      subjects: [
-        { name: 'Introduction to Programming', students: 120, averageGrade: 7.9 },
-        { name: 'Data Structures and Algorithms', students: 95, averageGrade: 7.6 },
-        { name: 'Database Systems', students: 88, averageGrade: 8.1 }
-      ]
+  const [error, setError] = useState(null);
+  const [semesterSubjects, setSemesterSubjects] = useState([]);
+  const [subjectsLoading, setSubjectsLoading] = useState(false);
+  
+  useEffect(() => {
+    fetchSemesterData();
+  }, [id]);
+  
+  const fetchSemesterData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch semester details
+      const response = await academicService.getSemesterById(id);
+      
+      if (response && response.success) {
+        const semesterData = response.data;
+        
+        const formattedSemester = {
+          id: semesterData.SemesterID,
+          code: semesterData.SemesterCode,
+          name: semesterData.SemesterName,
+          academicYear: semesterData.AcademicYear,
+          startDate: new Date(semesterData.StartDate).toLocaleDateString('vi-VN'),
+          endDate: new Date(semesterData.EndDate).toLocaleDateString('vi-VN'),
+          registrationStartDate: semesterData.RegistrationStartDate ? 
+            new Date(semesterData.RegistrationStartDate).toLocaleDateString('vi-VN') : 'N/A',
+          registrationEndDate: semesterData.RegistrationEndDate ? 
+            new Date(semesterData.RegistrationEndDate).toLocaleDateString('vi-VN') : 'N/A',
+          status: semesterData.Status,
+          isActive: semesterData.IsCurrent === true || semesterData.IsCurrent === 1,
+          students: {
+            total: semesterData.StudentCount || 0,
+            registered: semesterData.RegisteredStudentCount || 0,
+            completed: semesterData.CompletedStudentCount || 0
     }
   };
 
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setSemester(mockSemester);
+        setSemester(formattedSemester);
+        
+        // Fetch subjects for this semester
+        fetchSemesterSubjects(id);
+      } else {
+        throw new Error(response?.message || 'Không thể tải thông tin học kỳ');
+      }
+    } catch (err) {
+      console.error('Error fetching semester details:', err);
+      setError('Không thể tải thông tin học kỳ. Vui lòng thử lại sau.');
+    } finally {
       setLoading(false);
-    }, 500);
-  }, [id, mockSemester]);
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
+    }
+  };
+  
+  const fetchSemesterSubjects = async (semesterId) => {
+    try {
+      setSubjectsLoading(true);
+      
+      // Fetch subjects for this semester
+      const response = await academicService.getSemesterSubjects(semesterId);
+      
+      if (response && response.success) {
+        const subjectsData = response.data || [];
+        
+        // Format subjects data
+        const formattedSubjects = subjectsData.map(subject => ({
+          id: subject.SubjectID,
+          code: subject.SubjectCode,
+          name: subject.SubjectName,
+          credits: subject.Credits,
+          department: subject.Department,
+          faculty: subject.Faculty
+        }));
+        
+        setSemesterSubjects(formattedSubjects);
+      } else {
+        console.warn('Could not load semester subjects:', response?.message);
+      }
+    } catch (err) {
+      console.error('Error fetching semester subjects:', err);
+    } finally {
+      setSubjectsLoading(false);
+    }
+  };
+  
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'Completed':
+      case 'Đã kết thúc':
+        return 'success';
+      case 'In Progress':
+      case 'Ongoing':
+      case 'Đang diễn ra':
+        return 'primary';
+      case 'Planned':
+      case 'Upcoming':
+      case 'Sắp tới':
+        return 'warning';
+      case 'Cancelled':
+      case 'Đã hủy':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+  
+  const translateStatus = (status) => {
+    switch (status) {
+      case 'Completed':
+        return 'Đã kết thúc';
+      case 'In Progress':
+      case 'Ongoing':
+        return 'Đang diễn ra';
+      case 'Planned':
+      case 'Upcoming':
+        return 'Sắp tới';
+      case 'Cancelled':
+        return 'Đã hủy';
+      default:
+        return status;
+    }
   };
 
   if (loading) {
@@ -108,258 +159,216 @@ const SemesterDetail = () => {
       </Box>
     );
   }
-
-  if (!semester) {
+  
+  if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Typography variant="h5">Semester not found</Typography>
-        <Button
-          variant="contained"
-          startIcon={<ArrowBackIcon />}
+        <Alert severity="error">{error}</Alert>
+        <Button 
+          startIcon={<ArrowBackIcon />} 
           onClick={() => navigate('/academic/semesters')}
           sx={{ mt: 2 }}
         >
-          Back to Semesters
+          Quay lại danh sách học kỳ
         </Button>
       </Box>
     );
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completed':
-        return 'success';
-      case 'In Progress':
-        return 'primary';
-      case 'Planned':
-        return 'warning';
-      default:
-        return 'default';
-    }
-  };
+  if (!semester) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="info">Không tìm thấy thông tin học kỳ.</Alert>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/academic/semesters')}
+          sx={{ mt: 2 }}
+        >
+          Quay lại danh sách học kỳ
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <Typography variant="h4" component="h1">
+          {semester.name}
+        </Typography>
+        
+        <Box>
           <Button
-            variant="outlined"
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/academic/semesters')}
             sx={{ mr: 2 }}
           >
-            Back
+            Quay lại
           </Button>
-          <Typography variant="h5" component="h1">
-            Semester Details
-          </Typography>
-        </Box>
         <Button 
           variant="contained" 
+            color="primary" 
           startIcon={<EditIcon />}
           component={Link}
-          to={`/academic/semesters/${semester.id}/edit`}
+            to={`/academic/semesters/${id}/edit`}
         >
-          Edit Semester
+            Chỉnh sửa
         </Button>
+        </Box>
       </Box>
 
-      <Paper sx={{ mb: 3 }}>
-        <Box sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <CalendarIcon sx={{ fontSize: 80, mr: 2, color: 'primary.main' }} />
-                <Box>
-                  <Typography variant="h4">{semester.name}</Typography>
-                  <Typography variant="subtitle1" color="text.secondary">
-                    Academic Year: {semester.academicYear}
+            <Typography variant="subtitle1" color="textSecondary">
+              Mã học kỳ
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {semester.code}
                   </Typography>
-                  <Chip 
-                    label={semester.status} 
-                    color={getStatusColor(semester.status)} 
-                    size="small" 
-                    sx={{ mt: 1 }}
-                  />
-                </Box>
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <List dense>
-                <ListItem>
-                  <ListItemText 
-                    primary="Start Date" 
-                    secondary={semester.startDate} 
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1' }}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="End Date" 
-                    secondary={semester.endDate} 
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1' }}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText 
-                    primary="Active Status" 
-                    secondary={semester.isActive ? 'Active' : 'Inactive'} 
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1' }}
-                  />
-                </ListItem>
-              </List>
-            </Grid>
-          </Grid>
-        </Box>
-
-        <Divider />
-
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={tabValue} onChange={handleTabChange} aria-label="semester detail tabs">
-            <Tab label="Overview" />
-            <Tab label="Subjects" />
-            <Tab label="Students" />
-            <Tab label="Schedule" />
-          </Tabs>
-        </Box>
-
-        <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom>
-                Description
+            
+            <Typography variant="subtitle1" color="textSecondary">
+              Năm học
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {semester.academicYear}
+            </Typography>
+            
+            <Typography variant="subtitle1" color="textSecondary">
+              Ngày bắt đầu
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {semester.startDate}
+            </Typography>
+            
+            <Typography variant="subtitle1" color="textSecondary">
+              Ngày kết thúc
               </Typography>
-              <Typography paragraph>
-                {semester.description}
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {semester.endDate}
               </Typography>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Key Information
+            <Typography variant="subtitle1" color="textSecondary">
+              Trạng thái
                   </Typography>
-                  <List>
-                    <ListItem>
-                      <SchoolIcon sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Academic Year" secondary={semester.academicYear} />
-                    </ListItem>
-                    <ListItem>
-                      <MenuBookIcon sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Total Subjects" secondary={semester.numberOfSubjects} />
-                    </ListItem>
-                    <ListItem>
-                      <GroupIcon sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Total Students" secondary={semester.numberOfStudents} />
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Important Dates
+            <Box sx={{ mb: 2 }}>
+              <Chip 
+                label={translateStatus(semester.status)} 
+                color={getStatusColor(semester.status)} 
+              />
+            </Box>
+            
+            <Typography variant="subtitle1" color="textSecondary">
+              Đang diễn ra
                   </Typography>
-                  <List>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Registration Period" 
-                        secondary={`${semester.registrationPeriod.start} to ${semester.registrationPeriod.end}`} 
+            <Box sx={{ mb: 2 }}>
+              <Chip 
+                label={semester.isActive ? 'Có' : 'Không'} 
+                color={semester.isActive ? 'success' : 'default'} 
                       />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Examination Period" 
-                        secondary={`${semester.examinationPeriod.start} to ${semester.examinationPeriod.end}`} 
-                      />
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
+            </Box>
+            
+            <Typography variant="subtitle1" color="textSecondary">
+              Thời gian đăng ký
+            </Typography>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {semester.registrationStartDate} - {semester.registrationEndDate}
+            </Typography>
           </Grid>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button 
-              variant="outlined" 
-              startIcon={<DownloadIcon />}
-              sx={{ mr: 1 }}
-            >
-              Export
-            </Button>
-            <Button 
-              variant="outlined" 
-              startIcon={<PrintIcon />}
-            >
-              Print
-            </Button>
-          </Box>
           
+          <Grid item xs={12}>
+            <Divider sx={{ my: 2 }} />
           <Typography variant="h6" gutterBottom>
-            Subjects in this Semester
+              Thống kê
           </Typography>
+            
           <Grid container spacing={2}>
-            {semester.statistics.subjects.map((subject, index) => (
-              <Grid item xs={12} md={4} key={index}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>{subject.name}</Typography>
-                    <Typography color="text.secondary">
-                      <strong>Students:</strong> {subject.students}
-                    </Typography>
-                    <Typography color="text.secondary">
-                      <strong>Average Grade:</strong> {subject.averageGrade}
-                    </Typography>
-                    <Tooltip title="View Subject Details">
-                      <IconButton 
-                        size="small" 
-                        sx={{ mt: 1 }}
-                        component={Link}
-                        to={`/academic/subjects/${index + 1}`}
-                      >
-                        <MenuBookIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </CardContent>
-                </Card>
+              <Grid item xs={12} sm={4}>
+                <Paper 
+                  elevation={0} 
+                  sx={{ 
+                    p: 2, 
+                    textAlign: 'center',
+                    backgroundColor: 'primary.light',
+                    color: 'primary.contrastText'
+                  }}
+                >
+                  <Typography variant="h5">{semesterSubjects?.length || 0}</Typography>
+                  <Typography variant="body2">Môn học</Typography>
+                </Paper>
               </Grid>
-            ))}
+              
+              <Grid item xs={12} sm={4}>
+                <Paper 
+                  elevation={0} 
+                  sx={{ 
+                    p: 2, 
+                    textAlign: 'center',
+                    backgroundColor: 'secondary.light',
+                    color: 'secondary.contrastText'
+                  }}
+                >
+                  <Typography variant="h5">{semester.students?.total || 0}</Typography>
+                  <Typography variant="body2">Sinh viên</Typography>
+                </Paper>
+              </Grid>
+              
+              <Grid item xs={12} sm={4}>
+                <Paper 
+                  elevation={0} 
+                  sx={{ 
+                    p: 2, 
+                    textAlign: 'center',
+                    backgroundColor: 'success.light',
+                    color: 'success.contrastText'
+                  }}
+                      >
+                  <Typography variant="h5">{semester.students?.registered || 0}</Typography>
+                  <Typography variant="body2">Đã đăng ký</Typography>
+                </Paper>
+              </Grid>
+            </Grid>
           </Grid>
-        </TabPanel>
+        </Grid>
+      </Paper>
 
-        <TabPanel value={tabValue} index={2}>
+      <Paper sx={{ p: 3 }}>
           <Typography variant="h6" gutterBottom>
-            Students
+          Danh sách môn học
           </Typography>
-          <Typography paragraph>
-            There are {semester.numberOfStudents} students enrolled in this semester.
-          </Typography>
-          <Button 
-            variant="contained" 
-            component={Link}
-            to="/academic/results"
-          >
-            View Academic Results
-          </Button>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={3}>
-          <Typography variant="h6" gutterBottom>
-            Schedule
-          </Typography>
-          <Typography paragraph>
-            The semester schedule will be displayed here.
-          </Typography>
-        </TabPanel>
+        
+        {subjectsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : semesterSubjects && semesterSubjects.length > 0 ? (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Mã môn</TableCell>
+                  <TableCell>Tên môn học</TableCell>
+                  <TableCell align="center">Số tín chỉ</TableCell>
+                  <TableCell>Khoa</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {semesterSubjects.map((subject) => (
+                  <TableRow key={subject.id}>
+                    <TableCell>{subject.code}</TableCell>
+                    <TableCell>{subject.name}</TableCell>
+                    <TableCell align="center">{subject.credits}</TableCell>
+                    <TableCell>{subject.department}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Alert severity="info">Chưa có môn học nào được thêm vào học kỳ này.</Alert>
+        )}
       </Paper>
     </Box>
   );

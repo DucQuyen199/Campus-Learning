@@ -28,6 +28,7 @@ import SubjectEdit from './pages/academic/SubjectEdit';
 import AcademicResults from './pages/academic/AcademicResults';
 import Semesters from './pages/academic/Semesters';
 import SemesterDetail from './pages/academic/SemesterDetail';
+import SemesterEdit from './pages/academic/SemesterEdit';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import NotFound from './pages/NotFound';
@@ -120,7 +121,9 @@ function App() {
         <Route path="/academic/subjects/:id" element={<SubjectDetail />} />
         <Route path="/academic/results" element={<AcademicResults />} />
         <Route path="/academic/semesters" element={<Semesters />} />
+        <Route path="/academic/semesters/add" element={<SemesterEdit />} />
         <Route path="/academic/semesters/:id" element={<SemesterDetail />} />
+        <Route path="/academic/semesters/:id/edit" element={<SemesterEdit />} />
         
         {/* Academic Warnings */}
         <Route path="/academic/warnings" element={<AcademicWarnings />} />

@@ -108,7 +108,7 @@ const AddProgram = () => {
         
         // Navigate after a delay to allow user to see success message
         setTimeout(() => {
-          navigate('/academic/programs');
+      navigate('/academic/programs');
         }, 1500);
       } else {
         throw new Error(response.message || 'Có lỗi xảy ra khi tạo chương trình');
@@ -240,7 +240,7 @@ const AddProgram = () => {
                       name="faculty"
                       label="Khối ngành"
                       value={values.faculty}
-                      onChange={handleChange}
+                        onChange={handleChange}
                       onBlur={handleBlur}
                     />
                   </Grid>

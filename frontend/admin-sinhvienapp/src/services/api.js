@@ -138,8 +138,20 @@ export const academicService = {
   getAllSemesters: () => {
     return apiClient.get('/academic/semesters');
   },
+  getSemesterById: (id) => {
+    return apiClient.get(`/academic/semesters/${id}`);
+  },
   createSemester: (semesterData) => {
     return apiClient.post('/academic/semesters', semesterData);
+  },
+  updateSemester: (id, semesterData) => {
+    return apiClient.put(`/academic/semesters/${id}`, semesterData);
+  },
+  deleteSemester: (id) => {
+    return apiClient.delete(`/academic/semesters/${id}`);
+  },
+  getSemesterSubjects: (semesterId) => {
+    return apiClient.get(`/academic/semesters/${semesterId}/subjects`);
   },
 
   // Academic Warnings

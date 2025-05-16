@@ -450,8 +450,8 @@ const ProgramDetail = () => {
         <TabPanel value={tabValue} index={1}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">
-              Danh sách môn học thuộc chương trình
-            </Typography>
+            Danh sách môn học thuộc chương trình
+          </Typography>
             <Button 
               variant="contained" 
               startIcon={<Add />} 

@@ -53,8 +53,8 @@ router.get('/programs/:id', async (req, res) => {
       `);
     
     if (result.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: 'Program not found' });
-    }
+    return res.status(404).json({ success: false, message: 'Program not found' });
+  }
     
     res.json({ success: true, data: result.recordset[0] });
   } catch (error) {
@@ -494,8 +494,8 @@ router.delete('/subjects/:id', async (req, res) => {
       `);
     
     if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ success: false, message: 'Subject not found' });
-    }
+    return res.status(404).json({ success: false, message: 'Subject not found' });
+  }
     
     res.json({ success: true, message: 'Subject deleted successfully' });
   } catch (error) {
@@ -505,16 +505,393 @@ router.delete('/subjects/:id', async (req, res) => {
 });
 
 // Semesters routes
-router.get('/semesters', (req, res) => {
-  res.json({ success: true, data: semesters });
+router.get('/semesters', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .query(`
+        SELECT 
+          SemesterID, SemesterCode, SemesterName,
+          AcademicYear, StartDate, EndDate,
+          RegistrationStartDate, RegistrationEndDate,
+          Status, IsCurrent,
+          (SELECT COUNT(*) FROM CourseClasses cc WHERE cc.SemesterID = s.SemesterID) AS SubjectCount,
+          (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
+           INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+           WHERE cc.SemesterID = s.SemesterID) AS StudentCount
+        FROM Semesters s
+        ORDER BY 
+          CASE 
+            WHEN s.IsCurrent = 1 THEN 0 
+            WHEN s.Status = 'Upcoming' THEN 1
+            WHEN s.Status = 'Ongoing' THEN 2
+            ELSE 3
+          END, 
+          s.StartDate DESC
+      `);
+    
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching semesters:', error);
+    res.status(500).json({ success: false, message: 'Error fetching semesters', error: error.message });
+  }
 });
 
-router.get('/semesters/:id', (req, res) => {
-  const semester = semesters.find(s => s.id === parseInt(req.params.id));
-  if (!semester) {
-    return res.status(404).json({ success: false, message: 'Semester not found' });
+router.get('/semesters/:id', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, req.params.id)
+      .query(`
+        SELECT 
+          SemesterID, SemesterCode, SemesterName,
+          AcademicYear, StartDate, EndDate,
+          RegistrationStartDate, RegistrationEndDate,
+          Status, IsCurrent,
+          (SELECT COUNT(*) FROM CourseClasses cc WHERE cc.SemesterID = s.SemesterID) AS SubjectCount,
+          (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
+           INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+           WHERE cc.SemesterID = s.SemesterID) AS StudentCount,
+          (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
+           INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+           WHERE cc.SemesterID = s.SemesterID AND cr.Status = 'Approved') AS RegisteredStudentCount,
+          (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
+           INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+           INNER JOIN AcademicResults ar ON ar.ClassID = cc.ClassID AND ar.UserID = cr.UserID
+           WHERE cc.SemesterID = s.SemesterID AND ar.IsCompleted = 1) AS CompletedStudentCount
+        FROM Semesters s
+        WHERE SemesterID = @id
+      `);
+    
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Semester not found' });
+    }
+    
+    res.json({ success: true, data: result.recordset[0] });
+  } catch (error) {
+    console.error('Error fetching semester:', error);
+    res.status(500).json({ success: false, message: 'Error fetching semester', error: error.message });
   }
-  res.json({ success: true, data: semester });
+});
+
+router.post('/semesters', async (req, res) => {
+  const { 
+    semesterCode, 
+    semesterName, 
+    academicYear, 
+    startDate, 
+    endDate, 
+    registrationStartDate, 
+    registrationEndDate, 
+    status, 
+    isCurrent 
+  } = req.body;
+  
+  if (!semesterCode || !semesterName || !academicYear || !startDate || !endDate) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Semester code, name, academic year, start date, and end date are required'
+    });
+  }
+  
+  try {
+    const poolConnection = await getPool();
+    
+    // Check if semester code already exists
+    const checkResult = await poolConnection.request()
+      .input('semesterCode', sql.VarChar, semesterCode)
+      .query(`
+        SELECT SemesterID FROM Semesters
+        WHERE SemesterCode = @semesterCode
+      `);
+    
+    if (checkResult.recordset.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Semester code already exists' 
+      });
+    }
+    
+    // If setting as current semester, update other semesters
+    if (isCurrent) {
+      await poolConnection.request().query(`
+        UPDATE Semesters SET IsCurrent = 0 WHERE IsCurrent = 1
+      `);
+    }
+    
+    // Insert the new semester
+    const result = await poolConnection.request()
+      .input('semesterCode', sql.VarChar, semesterCode)
+      .input('semesterName', sql.NVarChar, semesterName)
+      .input('academicYear', sql.VarChar, academicYear)
+      .input('startDate', sql.Date, startDate)
+      .input('endDate', sql.Date, endDate)
+      .input('registrationStartDate', sql.Date, registrationStartDate || null)
+      .input('registrationEndDate', sql.Date, registrationEndDate || null)
+      .input('status', sql.VarChar, status || 'Upcoming')
+      .input('isCurrent', sql.Bit, isCurrent ? 1 : 0)
+      .query(`
+        INSERT INTO Semesters (
+          SemesterCode, SemesterName, AcademicYear,
+          StartDate, EndDate, RegistrationStartDate,
+          RegistrationEndDate, Status, IsCurrent,
+          CreatedAt, UpdatedAt
+        ) VALUES (
+          @semesterCode, @semesterName, @academicYear,
+          @startDate, @endDate, @registrationStartDate,
+          @registrationEndDate, @status, @isCurrent,
+          GETDATE(), GETDATE()
+        );
+        
+        SELECT SCOPE_IDENTITY() AS SemesterID;
+      `);
+    
+    const semesterId = result.recordset[0].SemesterID;
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Semester created successfully',
+      data: {
+        SemesterID: semesterId,
+        SemesterCode: semesterCode,
+        SemesterName: semesterName,
+        AcademicYear: academicYear,
+        StartDate: startDate,
+        EndDate: endDate,
+        RegistrationStartDate: registrationStartDate,
+        RegistrationEndDate: registrationEndDate,
+        Status: status || 'Upcoming',
+        IsCurrent: isCurrent
+      }
+    });
+  } catch (error) {
+    console.error('Error creating semester:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error creating semester', 
+      error: error.message 
+    });
+  }
+});
+
+router.put('/semesters/:id', async (req, res) => {
+  const { id } = req.params;
+  const { 
+    semesterCode, 
+    semesterName, 
+    academicYear, 
+    startDate, 
+    endDate, 
+    registrationStartDate, 
+    registrationEndDate, 
+    status, 
+    isCurrent 
+  } = req.body;
+  
+  if (!semesterCode && !semesterName && !academicYear && 
+      !startDate && !endDate && registrationStartDate === undefined && 
+      registrationEndDate === undefined && !status && isCurrent === undefined) {
+    return res.status(400).json({ success: false, message: 'At least one field to update is required' });
+  }
+  
+  try {
+    const poolConnection = await getPool();
+    
+    // Check if semester exists
+    const checkResult = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        SELECT SemesterID FROM Semesters WHERE SemesterID = @id
+      `);
+    
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Semester not found' });
+    }
+    
+    // Check if updating to an existing semester code
+    if (semesterCode) {
+      const codeCheckResult = await poolConnection.request()
+        .input('code', sql.VarChar, semesterCode)
+        .input('id', sql.BigInt, id)
+        .query(`
+          SELECT SemesterID FROM Semesters 
+          WHERE SemesterCode = @code AND SemesterID != @id
+        `);
+      
+      if (codeCheckResult.recordset.length > 0) {
+        return res.status(400).json({ success: false, message: 'Semester code already exists' });
+      }
+    }
+    
+    // If setting as current semester, update other semesters
+    if (isCurrent) {
+      await poolConnection.request().query(`
+        UPDATE Semesters SET IsCurrent = 0 WHERE IsCurrent = 1
+      `);
+    }
+    
+    const request = poolConnection.request()
+      .input('id', sql.BigInt, id);
+      
+    let updateQuery = 'UPDATE Semesters SET UpdatedAt = GETDATE()';
+    
+    if (semesterCode) {
+      updateQuery += ', SemesterCode = @semesterCode';
+      request.input('semesterCode', sql.VarChar, semesterCode);
+    }
+    
+    if (semesterName) {
+      updateQuery += ', SemesterName = @semesterName';
+      request.input('semesterName', sql.NVarChar, semesterName);
+    }
+    
+    if (academicYear) {
+      updateQuery += ', AcademicYear = @academicYear';
+      request.input('academicYear', sql.VarChar, academicYear);
+    }
+    
+    if (startDate) {
+      updateQuery += ', StartDate = @startDate';
+      request.input('startDate', sql.Date, startDate);
+    }
+    
+    if (endDate) {
+      updateQuery += ', EndDate = @endDate';
+      request.input('endDate', sql.Date, endDate);
+    }
+    
+    if (registrationStartDate !== undefined) {
+      updateQuery += ', RegistrationStartDate = @registrationStartDate';
+      request.input('registrationStartDate', sql.Date, registrationStartDate || null);
+    }
+    
+    if (registrationEndDate !== undefined) {
+      updateQuery += ', RegistrationEndDate = @registrationEndDate';
+      request.input('registrationEndDate', sql.Date, registrationEndDate || null);
+    }
+    
+    if (status) {
+      updateQuery += ', Status = @status';
+      request.input('status', sql.VarChar, status);
+    }
+    
+    if (isCurrent !== undefined) {
+      updateQuery += ', IsCurrent = @isCurrent';
+      request.input('isCurrent', sql.Bit, isCurrent ? 1 : 0);
+    }
+    
+    updateQuery += ' WHERE SemesterID = @id';
+    
+    await request.query(updateQuery);
+    
+    res.json({ 
+      success: true, 
+      message: 'Semester updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating semester:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error updating semester', 
+      error: error.message 
+    });
+  }
+});
+
+router.delete('/semesters/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const poolConnection = await getPool();
+    
+    // Check if semester exists
+    const checkResult = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        SELECT Status, IsCurrent FROM Semesters 
+        WHERE SemesterID = @id
+      `);
+    
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Semester not found' });
+    }
+    
+    // Check if semester is ongoing or current
+    if (checkResult.recordset[0].Status === 'Ongoing' || checkResult.recordset[0].IsCurrent === true) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete a semester that is ongoing or marked as current'
+      });
+    }
+    
+    // Check if this semester is referenced in other tables
+    const dependencyCheck = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        SELECT 
+          (SELECT COUNT(*) FROM CourseClasses WHERE SemesterID = @id) AS ClassCount,
+          (SELECT COUNT(*) FROM AcademicWarnings WHERE SemesterID = @id) AS WarningCount,
+          (SELECT COUNT(*) FROM ConductScores WHERE SemesterID = @id) AS ConductCount,
+          (SELECT COUNT(*) FROM Tuition WHERE SemesterID = @id) AS TuitionCount
+      `);
+    
+    const record = dependencyCheck.recordset[0];
+    if (record.ClassCount > 0 || record.WarningCount > 0 || record.ConductCount > 0 || record.TuitionCount > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cannot delete semester as it is referenced by classes, warnings, conduct scores, or tuition records'
+      });
+    }
+    
+    // If all checks pass, proceed with deletion
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, id)
+      .query(`
+        DELETE FROM Semesters WHERE SemesterID = @id
+      `);
+    
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ success: false, message: 'Semester not found' });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Semester deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting semester:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error deleting semester', 
+      error: error.message 
+    });
+  }
+});
+
+// Get subjects for a semester
+router.get('/semesters/:id/subjects', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, req.params.id)
+      .query(`
+        SELECT 
+          s.SubjectID, s.SubjectCode, s.SubjectName, s.Credits,
+          s.Department, s.Faculty, cc.ClassID,
+          COUNT(DISTINCT cr.UserID) AS EnrolledStudents
+        FROM Subjects s
+        INNER JOIN CourseClasses cc ON s.SubjectID = cc.SubjectID
+        LEFT JOIN CourseRegistrations cr ON cc.ClassID = cr.ClassID AND cr.Status = 'Approved'
+        WHERE cc.SemesterID = @id
+        GROUP BY s.SubjectID, s.SubjectCode, s.SubjectName, s.Credits, s.Department, s.Faculty, cc.ClassID
+        ORDER BY s.SubjectCode
+      `);
+    
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching semester subjects:', error);
+    res.status(500).json({ success: false, message: 'Error fetching semester subjects', error: error.message });
+  }
 });
 
 // Academic results

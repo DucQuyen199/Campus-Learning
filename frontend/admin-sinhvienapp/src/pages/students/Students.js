@@ -116,7 +116,7 @@ const Students = () => {
             setSelectedStudent(exactMatches[0].fullDetails);
           }
         } else {
-          setStudents(formattedData);
+        setStudents(formattedData);
           setTotalCount(formattedData.length);
           
           // If we're loading all students, mark them as loaded

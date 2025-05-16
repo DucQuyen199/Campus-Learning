@@ -70,7 +70,7 @@ const StudentDetail = () => {
     };
 
     if (id) {
-      fetchStudentDetails();
+    fetchStudentDetails();
     }
   }, [id]);
 

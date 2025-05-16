@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -34,7 +34,8 @@ import {
   DialogActions,
   DialogContent,
   DialogContentText,
-  DialogTitle
+  DialogTitle,
+  CircularProgress
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -48,8 +49,13 @@ import {
   Send as SendIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const steps = ['Select Parameters', 'Review Students', 'Configure Options', 'Summary & Confirm'];
+// Import API services
+import { tuitionService, academicService } from '../../services/api';
+
+// Define steps
+const steps = ['Chọn thông số', 'Lựa chọn sinh viên', 'Cấu hình tùy chọn', 'Xác nhận và hoàn tất'];
 
 const GenerateTuition = () => {
   const navigate = useNavigate();
@@ -59,12 +65,20 @@ const GenerateTuition = () => {
   const [loading, setLoading] = useState(false);
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
+  // State for API data
+  const [programs, setPrograms] = useState([]);
+  const [semesters, setSemesters] = useState([]);
+  const [academicYears, setAcademicYears] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
+
   // Form data
   const [formData, setFormData] = useState({
-    academicYear: '2023-2024',
-    semester: 'Spring 2024',
-    dueDate: '2024-02-15',
+    academicYear: '',
+    semester: '',
+    semesterId: '',
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 30 days from now
     programs: [],
+    amountPerCredit: 850000,
     applyDiscount: false,
     discountPercentage: 0,
     notifyStudents: true,
@@ -72,29 +86,89 @@ const GenerateTuition = () => {
     latePaymentFee: 5, // percentage
     includePreviousBalance: true
   });
-
-  // Mock data
-  const availablePrograms = [
-    'Computer Science',
-    'Business Administration',
-    'Electrical Engineering',
-    'Medicine',
-    'Mathematics',
-    'Physics'
-  ];
-
-  const mockStudents = [
-    { id: '2020001', name: 'Nguyen Van A', program: 'Computer Science', currentBalance: 0, tuitionAmount: 8500000 },
-    { id: '2020002', name: 'Tran Thi B', program: 'Computer Science', currentBalance: 1500000, tuitionAmount: 8500000 },
-    { id: '2020003', name: 'Le Van C', program: 'Business Administration', currentBalance: 0, tuitionAmount: 7800000 },
-    { id: '2020004', name: 'Pham Thi D', program: 'Electrical Engineering', currentBalance: 0, tuitionAmount: 8900000 },
-    { id: '2020005', name: 'Vo Van E', program: 'Medicine', currentBalance: 3000000, tuitionAmount: 12000000 }
-  ];
-
+  
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [studentError, setStudentError] = useState(null);
+
+  // Load initial data (programs, semesters)
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        setDataLoading(true);
+        
+        // Fetch programs
+        const programsResponse = await tuitionService.getTuitionPrograms();
+        if (programsResponse.success && programsResponse.data) {
+          setPrograms(programsResponse.data);
+        }
+        
+        // Fetch semesters
+        const semestersResponse = await academicService.getAllSemesters();
+        if (semestersResponse.success && semestersResponse.data) {
+          const semestersData = semestersResponse.data;
+          setSemesters(semestersData);
+          
+          // Extract unique academic years from semesters
+          const years = [...new Set(semestersData.map(sem => sem.AcademicYear))].sort().reverse();
+          setAcademicYears(years);
+          
+          // Set default selections
+          if (semestersData.length > 0) {
+            const currentSemester = semestersData.find(s => s.IsCurrent) || semestersData[0];
+            setFormData(prev => ({
+              ...prev,
+              academicYear: currentSemester.AcademicYear,
+              semester: currentSemester.SemesterName,
+              semesterId: currentSemester.SemesterID
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+    
+    fetchInitialData();
+  }, []);
+
+  // Fetch students when parameters change
+  const fetchStudents = async () => {
+    if (!formData.semesterId) return;
+    
+    try {
+      setStudentsLoading(true);
+      setStudentError(null);
+      
+      const programsParam = formData.programs.length > 0 ? formData.programs.join(',') : '';
+      
+      const response = await tuitionService.getTuitionStudents({
+        semesterId: formData.semesterId,
+        programIds: programsParam,
+        hasPreviousBalance: false
+      });
+      
+      if (response.success && response.data) {
+        setAllStudents(response.data);
+        setFilteredStudents(response.data);
+        setSelectedStudents([]);
+        setSelectAll(false);
+      } else {
+        setStudentError('Không thể tải danh sách sinh viên');
+      }
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      setStudentError('Lỗi khi tải danh sách sinh viên: ' + (error.message || 'Đã xảy ra lỗi không xác định'));
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
 
   // Handle form data changes
   const handleFormChange = (e) => {
@@ -103,6 +177,34 @@ const GenerateTuition = () => {
       ...formData,
       [name]: type === 'checkbox' ? checked : value,
     });
+    
+    // If semester changes, update semesterId
+    if (name === 'semester') {
+      const selectedSemester = semesters.find(s => s.SemesterName === value);
+      if (selectedSemester) {
+        setFormData(prev => ({
+          ...prev,
+          semesterId: selectedSemester.SemesterID,
+          academicYear: selectedSemester.AcademicYear
+        }));
+      }
+    }
+  };
+  
+  // Handle academic year change - filter semesters by year
+  const handleAcademicYearChange = (e) => {
+    const year = e.target.value;
+    setFormData(prev => ({ ...prev, academicYear: year }));
+    
+    // Find semesters in this year
+    const yearSemesters = semesters.filter(s => s.AcademicYear === year);
+    if (yearSemesters.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        semester: yearSemesters[0].SemesterName,
+        semesterId: yearSemesters[0].SemesterID
+      }));
+    }
   };
 
   // Handle program selection
@@ -133,13 +235,8 @@ const GenerateTuition = () => {
     }
 
     if (activeStep === 0) {
-      // Filter students based on selected programs
-      const filtered = mockStudents.filter(student => 
-        formData.programs.length === 0 || formData.programs.includes(student.program)
-      );
-      setFilteredStudents(filtered);
-      setSelectedStudents(filtered.map(student => student.id));
-      setSelectAll(true);
+      // Fetch students based on selected parameters
+      fetchStudents();
     }
 
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -152,7 +249,7 @@ const GenerateTuition = () => {
 
   const handleSkip = () => {
     if (!isStepOptional(activeStep)) {
-      throw new Error("You can't skip a step that isn't optional.");
+      throw new Error("Bạn không thể bỏ qua bước không tùy chọn.");
     }
 
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -166,10 +263,12 @@ const GenerateTuition = () => {
   const handleReset = () => {
     setActiveStep(0);
     setFormData({
-      academicYear: '2023-2024',
-      semester: 'Spring 2024',
-      dueDate: '2024-02-15',
+      academicYear: '',
+      semester: '',
+      semesterId: '',
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       programs: [],
+      amountPerCredit: 850000,
       applyDiscount: false,
       discountPercentage: 0,
       notifyStudents: true,
@@ -186,7 +285,7 @@ const GenerateTuition = () => {
   // Handle student selection
   const handleSelectAllStudents = (event) => {
     if (event.target.checked) {
-      setSelectedStudents(filteredStudents.map(student => student.id));
+      setSelectedStudents(filteredStudents.map(student => student.UserID));
     } else {
       setSelectedStudents([]);
     }
@@ -215,17 +314,13 @@ const GenerateTuition = () => {
     setSearchTerm(searchValue);
 
     if (searchValue) {
-      const filtered = mockStudents.filter(student => 
-        (formData.programs.length === 0 || formData.programs.includes(student.program)) &&
-        (student.name.toLowerCase().includes(searchValue.toLowerCase()) || 
-        student.id.toLowerCase().includes(searchValue.toLowerCase()))
+      const filtered = allStudents.filter(student =>
+        student.FullName.toLowerCase().includes(searchValue.toLowerCase()) ||
+        student.UserID.toString().includes(searchValue)
       );
       setFilteredStudents(filtered);
     } else {
-      const filtered = mockStudents.filter(student => 
-        formData.programs.length === 0 || formData.programs.includes(student.program)
-      );
-      setFilteredStudents(filtered);
+      setFilteredStudents(allStudents);
     }
   };
 
@@ -234,15 +329,37 @@ const GenerateTuition = () => {
     setConfirmDialogOpen(true);
   };
 
-  const handleGenerateTuition = () => {
+  const handleGenerateTuition = async () => {
     setConfirmDialogOpen(false);
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const payload = {
+        semesterId: formData.semesterId,
+        academicYear: formData.academicYear,
+        dueDate: formData.dueDate,
+        studentIds: selectedStudents,
+        amountPerCredit: formData.amountPerCredit,
+        discountPercentage: formData.applyDiscount ? formData.discountPercentage : 0,
+        includePreviousBalance: formData.includePreviousBalance,
+        paymentDeadline: formData.paymentDeadline,
+        latePaymentFee: formData.latePaymentFee,
+        notifyStudents: formData.notifyStudents
+      };
+
+      const response = await tuitionService.generateTuition(payload);
+
+      if (response.success) {
+        setSuccessDialogOpen(true);
+      } else {
+        throw new Error(response.message || 'Không thể tạo học phí');
+      }
+    } catch (error) {
+      console.error('Error generating tuition:', error);
+      alert(`Lỗi: ${error.message || 'Không thể tạo học phí, vui lòng thử lại sau.'}`);
+    } finally {
       setLoading(false);
-      setSuccessDialogOpen(true);
-    }, 2000);
+    }
   };
 
   const handleSuccessClose = () => {
@@ -252,19 +369,19 @@ const GenerateTuition = () => {
 
   // Calculate summary data
   const getSelectedStudentsData = () => {
-    return filteredStudents.filter(student => selectedStudents.includes(student.id));
+    return filteredStudents.filter(student => selectedStudents.includes(student.UserID));
   };
 
   const calculateTotalAmount = () => {
     const students = getSelectedStudentsData();
-    let total = students.reduce((sum, student) => sum + student.tuitionAmount, 0);
+    let total = students.reduce((sum, student) => sum + student.TuitionAmount, 0);
     
     if (formData.applyDiscount && formData.discountPercentage > 0) {
       total = total * (1 - formData.discountPercentage / 100);
     }
     
     if (formData.includePreviousBalance) {
-      total += students.reduce((sum, student) => sum + student.currentBalance, 0);
+      total += students.reduce((sum, student) => sum + (student.CurrentBalance || 0), 0);
     }
     
     return total;
@@ -287,35 +404,41 @@ const GenerateTuition = () => {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Academic Year"
+                  label="Năm học"
                   name="academicYear"
                   value={formData.academicYear}
-                  onChange={handleFormChange}
+                  onChange={handleAcademicYearChange}
                   select
+                  disabled={dataLoading}
                 >
-                  <MenuItem value="2022-2023">2022-2023</MenuItem>
-                  <MenuItem value="2023-2024">2023-2024</MenuItem>
-                  <MenuItem value="2024-2025">2024-2025</MenuItem>
+                  {academicYears.map((year) => (
+                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                  ))}
                 </TextField>
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Semester"
+                  label="Học kỳ"
                   name="semester"
                   value={formData.semester}
                   onChange={handleFormChange}
                   select
+                  disabled={dataLoading}
                 >
-                  <MenuItem value="Fall 2023">Fall 2023</MenuItem>
-                  <MenuItem value="Spring 2024">Spring 2024</MenuItem>
-                  <MenuItem value="Fall 2024">Fall 2024</MenuItem>
+                  {semesters
+                    .filter(sem => sem.AcademicYear === formData.academicYear)
+                    .map((sem) => (
+                      <MenuItem key={sem.SemesterID} value={sem.SemesterName}>
+                        {sem.SemesterName}
+                      </MenuItem>
+                    ))}
                 </TextField>
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Due Date"
+                  label="Ngày hẹn thanh toán"
                   name="dueDate"
                   type="date"
                   value={formData.dueDate}
@@ -323,41 +446,57 @@ const GenerateTuition = () => {
                   InputLabelProps={{
                     shrink: true,
                   }}
+                  disabled={dataLoading}
                 />
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="programs-label">Programs</InputLabel>
+                <FormControl fullWidth disabled={dataLoading}>
+                  <InputLabel id="programs-label">Ngành học</InputLabel>
                   <Select
                     labelId="programs-label"
                     multiple
                     value={formData.programs}
                     onChange={handleProgramChange}
-                    input={<OutlinedInput label="Programs" />}
+                    input={<OutlinedInput label="Ngành học" />}
                     renderValue={(selected) => (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={value} />
-                        ))}
+                        {selected.map((value) => {
+                          const program = programs.find(p => p.ProgramID.toString() === value.toString());
+                          return (
+                            <Chip key={value} label={program ? program.ProgramName : value} />
+                          );
+                        })}
                       </Box>
                     )}
                   >
-                    {availablePrograms.map((program) => (
-                      <MenuItem key={program} value={program}>
-                        <Checkbox checked={formData.programs.indexOf(program) > -1} />
-                        <ListItemText primary={program} />
+                    {programs.map((program) => (
+                      <MenuItem key={program.ProgramID} value={program.ProgramID.toString()}>
+                        <Checkbox checked={formData.programs.indexOf(program.ProgramID.toString()) > -1} />
+                        <ListItemText primary={program.ProgramName} />
                       </MenuItem>
                     ))}
                   </Select>
-                  <FormHelperText>Leave empty to include all programs</FormHelperText>
+                  <FormHelperText>Để trống để bao gồm tất cả các ngành học</FormHelperText>
                 </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Số tín chỉ mỗi đơn chữ"
+                  name="amountPerCredit"
+                  type="number"
+                  value={formData.amountPerCredit}
+                  onChange={handleFormChange}
+                  inputProps={{ min: 0 }}
+                  disabled={dataLoading}
+                />
               </Grid>
             </Grid>
             <Box sx={{ mt: 3 }}>
               <Alert severity="info">
-                <AlertTitle>Information</AlertTitle>
-                Select parameters to determine the students for whom tuition will be generated.
-                You can filter by program or include all students.
+                <AlertTitle>Thông tin</AlertTitle>
+                Chọn các thông số để xác định sinh viên sẽ được tạo học phí.
+                Bạn có thể lọc theo ngành học hoặc bao gồm tất cả sinh viên.
               </Alert>
             </Box>
           </Box>
@@ -369,83 +508,96 @@ const GenerateTuition = () => {
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <TextField
                   size="small"
-                  placeholder="Search by name or ID"
+                  placeholder="Tìm kiếm theo tên hoặc mã SV"
                   value={searchTerm}
                   onChange={handleSearch}
                   InputProps={{
                     startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
                   }}
                   sx={{ width: 300, mr: 2 }}
+                  disabled={studentsLoading}
                 />
                 <Typography variant="body2" color="text.secondary">
-                  {selectedStudents.length} of {filteredStudents.length} students selected
+                  Đã chọn {selectedStudents.length} / {filteredStudents.length} sinh viên
                 </Typography>
               </Box>
               {filteredStudents.length > 0 && (
                 <Button 
                   variant="outlined" 
                   onClick={() => handleSelectAllStudents({ target: { checked: !selectAll } })}
+                  disabled={studentsLoading}
                 >
-                  {selectAll ? 'Deselect All' : 'Select All'}
+                  {selectAll ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                 </Button>
               )}
             </Box>
             
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={selectAll}
-                        onChange={handleSelectAllStudents}
-                        indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredStudents.length}
-                      />
-                    </TableCell>
-                    <TableCell>Student ID</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Program</TableCell>
-                    <TableCell align="right">Current Balance</TableCell>
-                    <TableCell align="right">Tuition Amount</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredStudents.length === 0 ? (
+            {studentsLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}>
+                <CircularProgress />
+                <Typography variant="body1" sx={{ ml: 2 }}>Đang tải danh sách sinh viên...</Typography>
+              </Box>
+            ) : studentError ? (
+              <Alert severity="error" sx={{ mb: 3 }}>{studentError}</Alert>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        No students match the selected criteria
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectAll}
+                          onChange={handleSelectAllStudents}
+                          indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredStudents.length}
+                        />
                       </TableCell>
+                      <TableCell>Mã SV</TableCell>
+                      <TableCell>Họ và tên</TableCell>
+                      <TableCell>Ngành học</TableCell>
+                      <TableCell align="right">Công nợ hiện tại</TableCell>
+                      <TableCell align="right">Số tín chỉ</TableCell>
+                      <TableCell align="right">Số tiền</TableCell>
                     </TableRow>
-                  ) : (
-                    filteredStudents.map((student) => {
-                      const isSelected = isStudentSelected(student.id);
-                      return (
-                        <TableRow
-                          key={student.id}
-                          hover
-                          onClick={() => handleSelectStudent(student.id)}
-                          role="checkbox"
-                          selected={isSelected}
-                        >
-                          <TableCell padding="checkbox">
-                            <Checkbox checked={isSelected} />
-                          </TableCell>
-                          <TableCell>{student.id}</TableCell>
-                          <TableCell>{student.name}</TableCell>
-                          <TableCell>{student.program}</TableCell>
-                          <TableCell align="right">{formatCurrency(student.currentBalance)}</TableCell>
-                          <TableCell align="right">{formatCurrency(student.tuitionAmount)}</TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {filteredStudents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center">
+                          Không có sinh viên nào phù hợp với tiêu chí đã chọn
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredStudents.map((student) => {
+                        const isSelected = isStudentSelected(student.UserID);
+                        return (
+                          <TableRow
+                            key={student.UserID}
+                            hover
+                            onClick={() => handleSelectStudent(student.UserID)}
+                            role="checkbox"
+                            selected={isSelected}
+                          >
+                            <TableCell padding="checkbox">
+                              <Checkbox checked={isSelected} />
+                            </TableCell>
+                            <TableCell>{student.UserID}</TableCell>
+                            <TableCell>{student.FullName}</TableCell>
+                            <TableCell>{student.ProgramName}</TableCell>
+                            <TableCell align="right">{formatCurrency(student.CurrentBalance || 0)}</TableCell>
+                            <TableCell align="right">{student.TotalCredits || 0}</TableCell>
+                            <TableCell align="right">{formatCurrency(student.TuitionAmount || 0)}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
             
-            {selectedStudents.length === 0 && filteredStudents.length > 0 && (
+            {!studentsLoading && selectedStudents.length === 0 && filteredStudents.length > 0 && (
               <Alert severity="warning" sx={{ mt: 3 }}>
-                Please select at least one student to continue.
+                Vui lòng chọn ít nhất một sinh viên để tiếp tục.
               </Alert>
             )}
           </Box>
@@ -459,7 +611,7 @@ const GenerateTuition = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
                       <Typography variant="subtitle1" gutterBottom>
-                        Discount Options
+                        Tùy chọn giảm học phí
                       </Typography>
                     </Grid>
                     <Grid item xs={12}>
@@ -467,22 +619,22 @@ const GenerateTuition = () => {
                         <Grid container spacing={2} alignItems="center">
                           <Grid item xs={12} sm={6}>
                             <FormControl>
-                              <InputLabel>Apply Discount</InputLabel>
+                              <InputLabel>Áp dụng giảm học phí</InputLabel>
                               <Select
                                 name="applyDiscount"
                                 value={formData.applyDiscount}
-                                label="Apply Discount"
+                                label="Áp dụng giảm học phí"
                                 onChange={handleFormChange}
                               >
-                                <MenuItem value={true}>Yes</MenuItem>
-                                <MenuItem value={false}>No</MenuItem>
+                                <MenuItem value={true}>Có</MenuItem>
+                                <MenuItem value={false}>Không</MenuItem>
                               </Select>
                             </FormControl>
                           </Grid>
                           <Grid item xs={12} sm={6}>
                             <TextField
                               type="number"
-                              label="Discount Percentage"
+                              label="Phần trăm giảm học phí"
                               name="discountPercentage"
                               value={formData.discountPercentage}
                               onChange={handleFormChange}
@@ -504,13 +656,13 @@ const GenerateTuition = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
                       <Typography variant="subtitle1" gutterBottom>
-                        Payment Options
+                        Tùy chọn thanh toán
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField
                         type="number"
-                        label="Payment Deadline (days)"
+                        label="Hạn thanh toán (ngày)"
                         name="paymentDeadline"
                         value={formData.paymentDeadline}
                         onChange={handleFormChange}
@@ -519,7 +671,7 @@ const GenerateTuition = () => {
                     <Grid item xs={12} sm={6}>
                       <TextField
                         type="number"
-                        label="Late Payment Fee"
+                        label="Phí trễ hạn"
                         name="latePaymentFee"
                         value={formData.latePaymentFee}
                         onChange={handleFormChange}
@@ -538,34 +690,34 @@ const GenerateTuition = () => {
                   <Grid container spacing={2}>
                     <Grid item xs={12}>
                       <Typography variant="subtitle1" gutterBottom>
-                        Additional Options
+                        Tùy chọn bổ sung
                       </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <FormControl fullWidth>
-                        <InputLabel>Include Previous Balance</InputLabel>
+                        <InputLabel>Tính công nợ trước đó</InputLabel>
                         <Select
                           name="includePreviousBalance"
                           value={formData.includePreviousBalance}
-                          label="Include Previous Balance"
+                          label="Tính công nợ trước đó"
                           onChange={handleFormChange}
                         >
-                          <MenuItem value={true}>Yes</MenuItem>
-                          <MenuItem value={false}>No</MenuItem>
+                          <MenuItem value={true}>Có</MenuItem>
+                          <MenuItem value={false}>Không</MenuItem>
                         </Select>
                       </FormControl>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <FormControl fullWidth>
-                        <InputLabel>Notify Students</InputLabel>
+                        <InputLabel>Thông báo cho sinh viên</InputLabel>
                         <Select
                           name="notifyStudents"
                           value={formData.notifyStudents}
-                          label="Notify Students"
+                          label="Thông báo cho sinh viên"
                           onChange={handleFormChange}
                         >
-                          <MenuItem value={true}>Yes</MenuItem>
-                          <MenuItem value={false}>No</MenuItem>
+                          <MenuItem value={true}>Có</MenuItem>
+                          <MenuItem value={false}>Không</MenuItem>
                         </Select>
                       </FormControl>
                     </Grid>
@@ -575,9 +727,9 @@ const GenerateTuition = () => {
             </Grid>
             <Box sx={{ mt: 3 }}>
               <Alert severity="info">
-                <AlertTitle>Configuration</AlertTitle>
-                These settings will apply to all tuition bills being generated.
-                You can optionally apply discounts, set payment deadlines, and configure notifications.
+                <AlertTitle>Cấu hình</AlertTitle>
+                Những cài đặt này sẽ áp dụng cho tất cả hóa đơn học phí được tạo.
+                Bạn có thể tùy chọn áp dụng giảm học phí, đặt hạn thanh toán, và cấu hình thông báo.
               </Alert>
             </Box>
           </Box>
@@ -590,61 +742,64 @@ const GenerateTuition = () => {
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                      <InfoIcon sx={{ mr: 1 }} color="primary" /> Summary
+                      <InfoIcon sx={{ mr: 1 }} color="primary" /> Tổng kết
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Academic Year:</Typography>
+                        <Typography variant="body2" color="text.secondary">Năm học:</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body1">{formData.academicYear}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Semester:</Typography>
+                        <Typography variant="body2" color="text.secondary">Học kỳ:</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body1">{formData.semester}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Due Date:</Typography>
+                        <Typography variant="body2" color="text.secondary">Ngày hẹn thanh toán:</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body1">{formData.dueDate}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Selected Programs:</Typography>
+                        <Typography variant="body2" color="text.secondary">Ngành học đã chọn:</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body1">
-                          {formData.programs.length > 0 ? formData.programs.join(', ') : 'All Programs'}
+                          {formData.programs.length > 0 ? formData.programs.map(id => {
+                            const program = programs.find(p => p.ProgramID.toString() === id);
+                            return program ? program.ProgramName : id;
+                          }).join(', ') : 'Tất cả các ngành'}
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Students:</Typography>
+                        <Typography variant="body2" color="text.secondary">Sinh viên:</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body1">{selectedStudents.length} students</Typography>
+                        <Typography variant="body1">{selectedStudents.length} sinh viên</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Discount:</Typography>
+                        <Typography variant="body2" color="text.secondary">Giảm học phí:</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="body1">
-                          {formData.applyDiscount ? `${formData.discountPercentage}%` : 'No Discount'}
+                          {formData.applyDiscount ? `${formData.discountPercentage}%` : 'Không áp dụng'}
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Include Previous Balance:</Typography>
+                        <Typography variant="body2" color="text.secondary">Tính công nợ trước đó:</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body1">{formData.includePreviousBalance ? 'Yes' : 'No'}</Typography>
+                        <Typography variant="body1">{formData.includePreviousBalance ? 'Có' : 'Không'}</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">Notify Students:</Typography>
+                        <Typography variant="body2" color="text.secondary">Thông báo cho sinh viên:</Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body1">{formData.notifyStudents ? 'Yes' : 'No'}</Typography>
+                        <Typography variant="body1">{formData.notifyStudents ? 'Có' : 'Không'}</Typography>
                       </Grid>
                     </Grid>
                   </CardContent>
@@ -654,26 +809,26 @@ const GenerateTuition = () => {
                 <Card>
                   <CardContent>
                     <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                      <ReceiptIcon sx={{ mr: 1 }} color="primary" /> Financial Details
+                      <ReceiptIcon sx={{ mr: 1 }} color="primary" /> Chi tiết tài chính
                     </Typography>
                     <Divider sx={{ mb: 2 }} />
                     <Typography variant="subtitle1" gutterBottom>
-                      Total Amount: {formatCurrency(calculateTotalAmount())}
+                      Tổng số tiền: {formatCurrency(calculateTotalAmount())}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      This includes tuition for {selectedStudents.length} students
-                      {formData.includePreviousBalance ? ', including previous balances' : ''}
-                      {formData.applyDiscount ? `, with a ${formData.discountPercentage}% discount applied` : ''}.
+                      Bao gồm học phí cho {selectedStudents.length} sinh viên
+                      {formData.includePreviousBalance ? ', đã bao gồm công nợ trước đó' : ''}
+                      {formData.applyDiscount ? `, với mức giảm ${formData.discountPercentage}%` : ''}.
                     </Typography>
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="subtitle2" gutterBottom>
-                        Payment Conditions:
+                        Điều kiện thanh toán:
                       </Typography>
                       <Typography variant="body2">
-                        • Payment Deadline: {formData.paymentDeadline} days after generation
+                        • Hạn thanh toán: {formData.paymentDeadline} ngày sau khi tạo
                       </Typography>
                       <Typography variant="body2">
-                        • Late Payment Fee: {formData.latePaymentFee}% of the outstanding amount
+                        • Phí trễ hạn: {formData.latePaymentFee}% số tiền chưa thanh toán
                       </Typography>
                     </Box>
                   </CardContent>
@@ -682,14 +837,14 @@ const GenerateTuition = () => {
                 <Box sx={{ mt: 3 }}>
                   {selectedStudents.length === 0 ? (
                     <Alert severity="error">
-                      <AlertTitle>Error</AlertTitle>
-                      No students selected. Please go back and select at least one student.
+                      <AlertTitle>Lỗi</AlertTitle>
+                      Không có sinh viên nào được chọn. Vui lòng quay lại và chọn ít nhất một sinh viên.
                     </Alert>
                   ) : (
                     <Alert severity="warning" icon={<WarningIcon />}>
-                      <AlertTitle>Important</AlertTitle>
-                      You are about to generate tuition bills for {selectedStudents.length} students.
-                      This action cannot be undone. Please confirm all details are correct before proceeding.
+                      <AlertTitle>Quan trọng</AlertTitle>
+                      Bạn sắp tạo hóa đơn học phí cho {selectedStudents.length} sinh viên.
+                      Hành động này không thể hoàn tác. Vui lòng xác nhận tất cả thông tin đã chính xác trước khi tiếp tục.
                     </Alert>
                   )}
                 </Box>
@@ -698,14 +853,14 @@ const GenerateTuition = () => {
           </Box>
         );
       default:
-        return 'Unknown step';
+        return 'Bước không xác định';
     }
   };
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Generate Tuition
+        Tạo học phí
       </Typography>
       
       <Paper sx={{ p: 3, mb: 4 }}>
@@ -714,7 +869,7 @@ const GenerateTuition = () => {
             const stepProps = {};
             const labelProps = {};
             if (isStepOptional(index)) {
-              labelProps.optional = <Typography variant="caption">Optional</Typography>;
+              labelProps.optional = <Typography variant="caption">Tùy chọn</Typography>;
             }
             if (isStepSkipped(index)) {
               stepProps.completed = false;
@@ -730,11 +885,11 @@ const GenerateTuition = () => {
         {activeStep === steps.length ? (
           <Box sx={{ mt: 3, mb: 1 }}>
             <Typography sx={{ mt: 2, mb: 1 }}>
-              All steps completed - you&apos;re finished
+              Đã hoàn tất tất cả các bước
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
               <Box sx={{ flex: '1 1 auto' }} />
-              <Button onClick={handleReset}>Reset</Button>
+              <Button onClick={handleReset}>Làm lại</Button>
             </Box>
           </Box>
         ) : (
@@ -750,12 +905,12 @@ const GenerateTuition = () => {
                 startIcon={<ArrowBackIcon />}
                 sx={{ mr: 1 }}
               >
-                Back
+                Trở về
               </Button>
               <Box sx={{ flex: '1 1 auto' }} />
               {isStepOptional(activeStep) && (
                 <Button color="inherit" onClick={handleSkip} sx={{ mr: 1 }}>
-                  Skip
+                  Bỏ qua
                 </Button>
               )}
               {activeStep === steps.length - 1 ? (
@@ -765,16 +920,16 @@ const GenerateTuition = () => {
                   disabled={selectedStudents.length === 0 || loading}
                   startIcon={loading ? undefined : <SendIcon />}
                 >
-                  {loading ? 'Processing...' : 'Generate Tuition'}
+                  {loading ? 'Đang xử lý...' : 'Tạo học phí'}
                 </Button>
               ) : (
                 <Button 
                   onClick={handleNext}
                   variant="contained"
-                  disabled={(activeStep === 1 && selectedStudents.length === 0)}
+                  disabled={(activeStep === 1 && selectedStudents.length === 0) || dataLoading}
                   endIcon={<ArrowForwardIcon />}
                 >
-                  Next
+                  Tiếp tục
                 </Button>
               )}
             </Box>
@@ -787,18 +942,18 @@ const GenerateTuition = () => {
         open={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
       >
-        <DialogTitle>Confirm Tuition Generation</DialogTitle>
+        <DialogTitle>Xác nhận tạo học phí</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            You are about to generate tuition bills for {selectedStudents.length} students 
-            with a total amount of {formatCurrency(calculateTotalAmount())}.
-            This action cannot be undone. Do you want to proceed?
+            Bạn sắp tạo hóa đơn học phí cho {selectedStudents.length} sinh viên 
+            với tổng số tiền {formatCurrency(calculateTotalAmount())}.
+            Hành động này không thể hoàn tác. Bạn có muốn tiếp tục?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setConfirmDialogOpen(false)}>Hủy</Button>
           <Button onClick={handleGenerateTuition} color="primary" variant="contained" autoFocus>
-            Confirm Generation
+            Xác nhận tạo học phí
           </Button>
         </DialogActions>
       </Dialog>
@@ -811,18 +966,18 @@ const GenerateTuition = () => {
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <CheckIcon color="success" sx={{ mr: 1 }} />
-            Tuition Generated Successfully
+            Tạo học phí thành công
           </Box>
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Tuition bills have been successfully generated for {selectedStudents.length} students.
-            {formData.notifyStudents && ' Notification emails have been sent to all students.'}
+            Đã tạo học phí thành công cho {selectedStudents.length} sinh viên.
+            {formData.notifyStudents && ' Email thông báo đã được gửi đến tất cả sinh viên.'}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleSuccessClose} color="primary" variant="contained">
-            View Tuition List
+            Xem danh sách học phí
           </Button>
         </DialogActions>
       </Dialog>

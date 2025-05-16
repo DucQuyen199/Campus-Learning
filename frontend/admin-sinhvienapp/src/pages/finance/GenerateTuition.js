@@ -109,6 +109,8 @@ const GenerateTuition = () => {
         
         // Fetch semesters
         const semestersResponse = await academicService.getAllSemesters();
+        console.log('Semesters response:', semestersResponse);
+        
         if (semestersResponse.success && semestersResponse.data) {
           const semestersData = semestersResponse.data;
           setSemesters(semestersData);
@@ -117,16 +119,22 @@ const GenerateTuition = () => {
           const years = [...new Set(semestersData.map(sem => sem.AcademicYear))].sort().reverse();
           setAcademicYears(years);
           
-          // Set default selections
+          // Set default selections if we have semesters
           if (semestersData.length > 0) {
-            const currentSemester = semestersData.find(s => s.IsCurrent) || semestersData[0];
+            // Find current semester or use the first one
+            const currentSemester = semestersData.find(s => s.IsCurrent === true) || semestersData[0];
+            console.log('Selected semester:', currentSemester);
+            
+            // Ensure we update semesterId as a number
             setFormData(prev => ({
               ...prev,
               academicYear: currentSemester.AcademicYear,
               semester: currentSemester.SemesterName,
-              semesterId: currentSemester.SemesterID
+              semesterId: parseInt(currentSemester.SemesterID)
             }));
           }
+        } else {
+          console.error('Failed to load semesters:', semestersResponse.message);
         }
       } catch (error) {
         console.error('Error fetching initial data:', error);
@@ -154,17 +162,29 @@ const GenerateTuition = () => {
         hasPreviousBalance: false
       });
       
-      if (response.success && response.data) {
-        setAllStudents(response.data);
-        setFilteredStudents(response.data);
+      if (response.success) {
+        setAllStudents(response.data || []);
+        setFilteredStudents(response.data || []);
         setSelectedStudents([]);
         setSelectAll(false);
+        
+        // Show info message if no students found
+        if ((response.data || []).length === 0) {
+          setStudentError(response.message || 'Không có sinh viên nào phù hợp với tiêu chí đã chọn');
+        }
       } else {
-        setStudentError('Không thể tải danh sách sinh viên');
+        setStudentError(response.message || 'Không thể tải danh sách sinh viên');
       }
     } catch (error) {
       console.error('Error fetching students:', error);
-      setStudentError('Lỗi khi tải danh sách sinh viên: ' + (error.message || 'Đã xảy ra lỗi không xác định'));
+      // Extract the actual error message from the API response if available
+      let errorMessage = 'Đã xảy ra lỗi không xác định';
+      if (error.response && error.response.data) {
+        errorMessage = error.response.data.message || errorMessage;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      setStudentError('Lỗi khi tải danh sách sinh viên: ' + errorMessage);
     } finally {
       setStudentsLoading(false);
     }

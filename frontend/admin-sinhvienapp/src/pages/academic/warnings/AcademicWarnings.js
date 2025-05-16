@@ -53,8 +53,12 @@ const AcademicWarnings = () => {
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
-        const data = await academicService.getAllSemesters();
-        setSemesters(data.semesters || []);
+        const response = await academicService.getAllSemesters();
+        if (response && response.success) {
+          setSemesters(response.data || []);
+        } else {
+          console.error('Failed to fetch semesters:', response?.message);
+        }
       } catch (error) {
         console.error('Failed to fetch semesters:', error);
       }
@@ -75,11 +79,20 @@ const AcademicWarnings = () => {
         status,
         semester
       );
-      setWarnings(data.warnings || []);
-      setTotalWarnings(data.total || 0);
+      
+      if (data && data.success) {
+        setWarnings(data.warnings || []);
+        setTotalWarnings(data.total || 0);
+      } else {
+        setError('Không thể tải dữ liệu cảnh báo học tập: ' + (data?.message || 'Lỗi không xác định'));
+        setWarnings([]);
+        setTotalWarnings(0);
+      }
     } catch (error) {
       setError('Không thể tải dữ liệu cảnh báo học tập. Vui lòng thử lại sau.');
       console.error('Failed to fetch academic warnings:', error);
+      setWarnings([]);
+      setTotalWarnings(0);
     } finally {
       setLoading(false);
     }
@@ -119,15 +132,43 @@ const AcademicWarnings = () => {
   // Format status
   const getStatusChip = (status) => {
     switch (status) {
-      case 'active':
+      case 'Active':
         return <Chip label="Đang cảnh báo" color="error" size="small" icon={<WarningIcon />} />;
-      case 'resolved':
+      case 'Resolved':
         return <Chip label="Đã giải quyết" color="success" size="small" icon={<CheckCircleIcon />} />;
-      case 'expired':
+      case 'Expired':
         return <Chip label="Hết hạn" color="default" size="small" />;
       default:
         return <Chip label="Không xác định" color="default" size="small" />;
     }
+  };
+
+  // Format warning type
+  const getWarningTypeText = (type) => {
+    switch (type) {
+      case 'Level1':
+        return 'Cảnh báo mức 1';
+      case 'Level2':
+        return 'Cảnh báo mức 2';
+      case 'Level3':
+        return 'Cảnh báo mức 3';
+      case 'Suspension':
+        return 'Đình chỉ học tập';
+      default:
+        return type;
+    }
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(date);
   };
 
   // Navigate to details
@@ -175,10 +216,11 @@ const AcademicWarnings = () => {
           <Grid item xs={12} md={4}>
             <TextField
               fullWidth
-              label="Tìm kiếm theo mã SV hoặc tên"
+              label="Tìm kiếm theo mã SV, tên hoặc ID"
               variant="outlined"
               value={search}
               onChange={handleSearchChange}
+              placeholder="Nhập mã SV, tên hoặc UserID..."
               InputProps={{
                 endAdornment: <SearchIcon color="action" />,
               }}
@@ -193,9 +235,9 @@ const AcademicWarnings = () => {
                 label="Trạng thái"
               >
                 <MenuItem value="">Tất cả</MenuItem>
-                <MenuItem value="active">Đang cảnh báo</MenuItem>
-                <MenuItem value="resolved">Đã giải quyết</MenuItem>
-                <MenuItem value="expired">Hết hạn</MenuItem>
+                <MenuItem value="Active">Đang cảnh báo</MenuItem>
+                <MenuItem value="Resolved">Đã giải quyết</MenuItem>
+                <MenuItem value="Expired">Hết hạn</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -210,7 +252,7 @@ const AcademicWarnings = () => {
                 <MenuItem value="">Tất cả</MenuItem>
                 {semesters.map((sem) => (
                   <MenuItem key={sem.id} value={sem.id}>
-                    {sem.name}
+                    {sem.name} - {sem.AcademicYear || ''}
                   </MenuItem>
                 ))}
               </Select>
@@ -242,7 +284,7 @@ const AcademicWarnings = () => {
         }}
       >
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity="error" sx={{ m: 2 }}>
             {error}
           </Alert>
         )}
@@ -250,63 +292,71 @@ const AcademicWarnings = () => {
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 'bold' }}>Mã sinh viên</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Họ tên</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Loại cảnh báo</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Lý do</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Học kỳ</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Ngày tạo</TableCell>
-                <TableCell sx={{ fontWeight: 'bold' }}>Trạng thái</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold' }}>Thao tác</TableCell>
+              <TableRow sx={{ backgroundColor: (theme) => theme.palette.action.hover }}>
+                <TableCell>Mã SV</TableCell>
+                <TableCell>Họ tên sinh viên</TableCell>
+                <TableCell>UserID</TableCell>
+                <TableCell>Học kỳ</TableCell>
+                <TableCell>Loại cảnh báo</TableCell>
+                <TableCell>Ngày cảnh báo</TableCell>
+                <TableCell>Trạng thái</TableCell>
+                <TableCell align="center">Hành động</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
-                    <CircularProgress />
+                    <CircularProgress size={40} />
+                    <Typography variant="body2" sx={{ mt: 2 }}>
+                      Đang tải dữ liệu...
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : warnings.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
-                    <Typography variant="body1">Không tìm thấy cảnh báo học tập nào</Typography>
+                    <Typography variant="body1">
+                      Không tìm thấy dữ liệu cảnh báo học tập
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 warnings.map((warning) => (
-                  <TableRow key={warning.id} hover>
-                    <TableCell>{warning.studentCode}</TableCell>
-                    <TableCell>{warning.studentName}</TableCell>
-                    <TableCell>{warning.warningType}</TableCell>
-                    <TableCell>{warning.reason}</TableCell>
-                    <TableCell>{warning.semesterName}</TableCell>
-                    <TableCell>{new Date(warning.createdAt).toLocaleDateString('vi-VN')}</TableCell>
-                    <TableCell>{getStatusChip(warning.status)}</TableCell>
+                  <TableRow key={warning.WarningID} hover>
+                    <TableCell>{warning.StudentID}</TableCell>
+                    <TableCell>{warning.StudentName}</TableCell>
+                    <TableCell>{warning.UserID}</TableCell>
+                    <TableCell>
+                      {warning.SemesterName}
+                      {warning.AcademicYear && (
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          Năm học: {warning.AcademicYear}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>{getWarningTypeText(warning.WarningType)}</TableCell>
+                    <TableCell>{formatDate(warning.WarningDate)}</TableCell>
+                    <TableCell>{getStatusChip(warning.Status)}</TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                        <Tooltip title="Xem chi tiết">
-                          <IconButton
-                            color="primary"
-                            size="small"
-                            onClick={() => handleViewWarning(warning.id)}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {warning.status === 'active' && (
-                          <Tooltip title="Chỉnh sửa">
-                            <IconButton
-                              color="secondary"
-                              size="small"
-                              onClick={() => navigate(`/academic/warnings/${warning.id}/edit`)}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
+                      <Tooltip title="Xem chi tiết">
+                        <IconButton 
+                          onClick={() => handleViewWarning(warning.WarningID)}
+                          size="small"
+                          color="primary"
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Chỉnh sửa">
+                        <IconButton
+                          onClick={() => navigate(`/academic/warnings/edit/${warning.WarningID}`)}
+                          size="small"
+                          color="secondary"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))
@@ -322,8 +372,8 @@ const AcademicWarnings = () => {
           onPageChange={handleChangePage}
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5, 10, 25]}
-          labelRowsPerPage="Số hàng mỗi trang:"
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          labelRowsPerPage="Hiển thị:"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} của ${count}`}
         />
       </Card>

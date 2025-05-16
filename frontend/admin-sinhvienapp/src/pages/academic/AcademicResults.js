@@ -19,6 +19,7 @@ import {
   IconButton,
   Chip,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import { 
   Search as SearchIcon,
@@ -26,6 +27,10 @@ import {
   Visibility as VisibilityIcon,
   Print as PrintIcon
 } from '@mui/icons-material';
+import axios from 'axios';
+
+// API base URL
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5011/api';
 
 const AcademicResults = () => {
   const [results, setResults] = useState([]);
@@ -35,118 +40,92 @@ const AcademicResults = () => {
   const [program, setProgram] = useState('');
   const [subject, setSubject] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // State for dropdown options
+  const [semesters, setSemesters] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [subjects, setSubjects] = useState([]);
 
-  const mockSemesters = [
-    { id: 1, name: 'Spring 2023' },
-    { id: 2, name: 'Fall 2023' },
-    { id: 3, name: 'Spring 2024' },
-  ];
-
-  const mockPrograms = [
-    { id: 1, name: 'Computer Science' },
-    { id: 2, name: 'Business Administration' },
-    { id: 3, name: 'Electrical Engineering' },
-  ];
-
-  const mockSubjects = [
-    { id: 1, name: 'Introduction to Programming' },
-    { id: 2, name: 'Data Structures and Algorithms' },
-    { id: 3, name: 'Database Systems' },
-  ];
-
-  // Sample mock data
-  const mockResults = [
-    {
-      id: 1,
-      student: { id: '2020001', name: 'Nguyen Van A' },
-      semester: 'Spring 2023',
-      program: 'Computer Science',
-      subject: 'Introduction to Programming',
-      grade: 8.5,
-      status: 'Passed',
-      date: '2023-05-15',
-      credits: 3,
-    },
-    {
-      id: 2,
-      student: { id: '2020002', name: 'Tran Thi B' },
-      semester: 'Spring 2023',
-      program: 'Computer Science',
-      subject: 'Introduction to Programming',
-      grade: 7.8,
-      status: 'Passed',
-      date: '2023-05-15',
-      credits: 3,
-    },
-    {
-      id: 3,
-      student: { id: '2020003', name: 'Le Van C' },
-      semester: 'Fall 2023',
-      program: 'Computer Science',
-      subject: 'Data Structures and Algorithms',
-      grade: 6.5,
-      status: 'Passed',
-      date: '2023-12-10',
-      credits: 4,
-    },
-    {
-      id: 4,
-      student: { id: '2020004', name: 'Pham Thi D' },
-      semester: 'Fall 2023',
-      program: 'Business Administration',
-      subject: 'Principles of Marketing',
-      grade: 5.5,
-      status: 'Failed',
-      date: '2023-12-12',
-      credits: 3,
-    },
-    {
-      id: 5,
-      student: { id: '2020005', name: 'Vo Van E' },
-      semester: 'Spring 2024',
-      program: 'Electrical Engineering',
-      subject: 'Electric Circuits',
-      grade: 9.0,
-      status: 'Passed',
-      date: '2024-05-20',
-      credits: 4,
-    },
-  ];
-
+  // Fetch semesters for dropdown
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setResults(mockResults);
-      setFilteredResults(mockResults);
-      setLoading(false);
-    }, 500);
+    const fetchSemesters = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/academic/semesters`);
+        if (response.data.success) {
+          setSemesters(response.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching semesters:', err);
+        setError('Không thể tải dữ liệu học kỳ');
+      }
+    };
+
+    fetchSemesters();
   }, []);
 
+  // Fetch programs for dropdown
   useEffect(() => {
-    let filtered = [...results];
-    
-    if (searchTerm) {
-      filtered = filtered.filter(
-        result => 
-          result.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          result.student.id.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    if (semester) {
-      filtered = filtered.filter(result => result.semester === semester);
-    }
-    
-    if (program) {
-      filtered = filtered.filter(result => result.program === program);
-    }
-    
-    if (subject) {
-      filtered = filtered.filter(result => result.subject === subject);
-    }
-    
-    setFilteredResults(filtered);
-  }, [searchTerm, semester, program, subject, results]);
+    const fetchPrograms = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/academic/programs-list`);
+        if (response.data.success) {
+          setPrograms(response.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching programs:', err);
+        setError('Không thể tải dữ liệu chương trình đào tạo');
+      }
+    };
+
+    fetchPrograms();
+  }, []);
+
+  // Fetch subjects for dropdown
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/academic/subjects-list`);
+        if (response.data.success) {
+          setSubjects(response.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching subjects:', err);
+        setError('Không thể tải dữ liệu môn học');
+      }
+    };
+
+    fetchSubjects();
+  }, []);
+
+  // Fetch academic results
+  useEffect(() => {
+    const fetchResults = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Build query params
+        const params = new URLSearchParams();
+        if (searchTerm) params.append('search', searchTerm);
+        if (semester) params.append('semester', semester);
+        if (program) params.append('program', program);
+        if (subject) params.append('subject', subject);
+
+        const response = await axios.get(`${API_BASE_URL}/academic/academic-results`, { params });
+        if (response.data.success) {
+          setResults(response.data.data);
+          setFilteredResults(response.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching academic results:', err);
+        setError('Không thể tải dữ liệu kết quả học tập');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResults();
+  }, [searchTerm, semester, program, subject]);
 
   const handleExport = () => {
     console.log('Exporting results...');
@@ -162,10 +141,20 @@ const AcademicResults = () => {
     return status === 'Passed' ? 'success' : 'error';
   };
 
+  const translateStatus = (status) => {
+    return status === 'Passed' ? 'Đạt' : 'Không đạt';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Academic Results
+        Kết Quả Học Tập
       </Typography>
       
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -173,7 +162,7 @@ const AcademicResults = () => {
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
-              label="Search by Name or ID"
+              label="Tìm kiếm theo tên hoặc mã SV"
               variant="outlined"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -184,14 +173,14 @@ const AcademicResults = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Semester</InputLabel>
+              <InputLabel>Học kỳ</InputLabel>
               <Select
                 value={semester}
-                label="Semester"
+                label="Học kỳ"
                 onChange={(e) => setSemester(e.target.value)}
               >
-                <MenuItem value="">All Semesters</MenuItem>
-                {mockSemesters.map((sem) => (
+                <MenuItem key="all-semesters" value="">Tất cả học kỳ</MenuItem>
+                {semesters.map((sem) => (
                   <MenuItem key={sem.id} value={sem.name}>{sem.name}</MenuItem>
                 ))}
               </Select>
@@ -199,14 +188,14 @@ const AcademicResults = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Program</InputLabel>
+              <InputLabel>Chương trình</InputLabel>
               <Select
                 value={program}
-                label="Program"
+                label="Chương trình"
                 onChange={(e) => setProgram(e.target.value)}
               >
-                <MenuItem value="">All Programs</MenuItem>
-                {mockPrograms.map((prog) => (
+                <MenuItem key="all-programs" value="">Tất cả chương trình</MenuItem>
+                {programs.map((prog) => (
                   <MenuItem key={prog.id} value={prog.name}>{prog.name}</MenuItem>
                 ))}
               </Select>
@@ -214,14 +203,14 @@ const AcademicResults = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth>
-              <InputLabel>Subject</InputLabel>
+              <InputLabel>Môn học</InputLabel>
               <Select
                 value={subject}
-                label="Subject"
+                label="Môn học"
                 onChange={(e) => setSubject(e.target.value)}
               >
-                <MenuItem value="">All Subjects</MenuItem>
-                {mockSubjects.map((subj) => (
+                <MenuItem key="all-subjects" value="">Tất cả môn học</MenuItem>
+                {subjects.map((subj) => (
                   <MenuItem key={subj.id} value={subj.name}>{subj.name}</MenuItem>
                 ))}
               </Select>
@@ -237,62 +226,70 @@ const AcademicResults = () => {
           onClick={handleExport}
           sx={{ mr: 1 }}
         >
-          Export
+          Xuất file
         </Button>
         <Button 
           variant="outlined" 
           startIcon={<PrintIcon />}
           onClick={handlePrint}
         >
-          Print
+          In
         </Button>
       </Box>
+      
+      {error && (
+        <Box sx={{ textAlign: 'center', my: 3 }}>
+          <Typography color="error">{error}</Typography>
+        </Box>
+      )}
       
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Student ID</TableCell>
-              <TableCell>Student Name</TableCell>
-              <TableCell>Semester</TableCell>
-              <TableCell>Program</TableCell>
-              <TableCell>Subject</TableCell>
-              <TableCell align="center">Credits</TableCell>
-              <TableCell align="center">Grade</TableCell>
-              <TableCell align="center">Status</TableCell>
-              <TableCell align="center">Date</TableCell>
-              <TableCell align="center">Actions</TableCell>
+              <TableCell>Mã SV</TableCell>
+              <TableCell>Họ tên</TableCell>
+              <TableCell>Học kỳ</TableCell>
+              <TableCell>Chương trình</TableCell>
+              <TableCell>Môn học</TableCell>
+              <TableCell align="center">Số tín chỉ</TableCell>
+              <TableCell align="center">Điểm</TableCell>
+              <TableCell align="center">Trạng thái</TableCell>
+              <TableCell align="center">Ngày cập nhật</TableCell>
+              <TableCell align="center">Thao tác</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">Loading...</TableCell>
+                <TableCell colSpan={10} align="center">
+                  <CircularProgress size={24} sx={{ my: 2 }} />
+                </TableCell>
               </TableRow>
             ) : filteredResults.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">No results found</TableCell>
+                <TableCell colSpan={10} align="center">Không tìm thấy kết quả</TableCell>
               </TableRow>
             ) : (
               filteredResults.map((result) => (
-                <TableRow key={result.id}>
-                  <TableCell>{result.student.id}</TableCell>
-                  <TableCell>{result.student.name}</TableCell>
-                  <TableCell>{result.semester}</TableCell>
-                  <TableCell>{result.program}</TableCell>
-                  <TableCell>{result.subject}</TableCell>
-                  <TableCell align="center">{result.credits}</TableCell>
-                  <TableCell align="center">{result.grade.toFixed(1)}</TableCell>
+                <TableRow key={result.ResultID}>
+                  <TableCell>{result.StudentID}</TableCell>
+                  <TableCell>{result.StudentName}</TableCell>
+                  <TableCell>{result.Semester}</TableCell>
+                  <TableCell>{result.Program}</TableCell>
+                  <TableCell>{result.Subject}</TableCell>
+                  <TableCell align="center">{result.Credits}</TableCell>
+                  <TableCell align="center">{parseFloat(result.Grade).toFixed(1)}</TableCell>
                   <TableCell align="center">
                     <Chip 
-                      label={result.status} 
-                      color={getStatusColor(result.status)} 
+                      label={translateStatus(result.Status)} 
+                      color={getStatusColor(result.Status)} 
                       size="small" 
                     />
                   </TableCell>
-                  <TableCell align="center">{result.date}</TableCell>
+                  <TableCell align="center">{formatDate(result.Date)}</TableCell>
                   <TableCell align="center">
-                    <Tooltip title="View Details">
+                    <Tooltip title="Xem chi tiết">
                       <IconButton size="small">
                         <VisibilityIcon fontSize="small" />
                       </IconButton>

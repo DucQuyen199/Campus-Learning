@@ -112,9 +112,17 @@ router.get('/tuition/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    // Validate that id is a valid number before proceeding
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid tuition ID provided. ID must be a number.' 
+      });
+    }
+    
     const poolConnection = await getPool();
     const result = await poolConnection.request()
-      .input('id', sql.BigInt, id)
+      .input('id', sql.BigInt, parseInt(id)) // Ensure id is parsed as an integer
       .query(`
         SELECT 
           t.TuitionID, t.UserID, u.FullName, u.Email, 
@@ -135,7 +143,7 @@ router.get('/tuition/:id', async (req, res) => {
     
     // Get payment history
     const paymentsResult = await poolConnection.request()
-      .input('tuitionId', sql.BigInt, id)
+      .input('tuitionId', sql.BigInt, parseInt(id)) // Ensure id is parsed as an integer
       .query(`
         SELECT 
           PaymentID, Amount, PaymentMethod, TransactionCode,
@@ -162,8 +170,21 @@ router.get('/tuition/students', async (req, res) => {
   try {
     const { semesterId, programIds = '', hasPreviousBalance } = req.query;
     
+    // Validate semesterId parameter
     if (!semesterId) {
-      return res.status(400).json({ success: false, message: 'Mã học kỳ là bắt buộc' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã học kỳ không được để trống' 
+      });
+    }
+
+    // Ensure semesterId is a valid number
+    const semesterIdInt = parseInt(semesterId);
+    if (isNaN(semesterIdInt)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã học kỳ phải là số' 
+      });
     }
     
     const poolConnection = await getPool();
@@ -192,19 +213,32 @@ router.get('/tuition/students', async (req, res) => {
     `;
     
     const request = poolConnection.request()
-      .input('semesterId', sql.BigInt, semesterId);
+      .input('semesterId', sql.BigInt, semesterIdInt);
     
     // Add program filter if specified
     if (programIds && programIds.length > 0) {
-      const programIdArray = programIds.split(',').map(id => id.trim());
+      const programIdArray = programIds.split(',').filter(id => id.trim() !== '');
       if (programIdArray.length > 0) {
         query += ` AND p.ProgramID IN (`;
+        let validProgramsAdded = 0;
         for (let i = 0; i < programIdArray.length; i++) {
           const paramName = `programId${i}`;
-          query += i === 0 ? `@${paramName}` : `, @${paramName}`;
-          request.input(paramName, sql.BigInt, programIdArray[i]);
+          const programId = parseInt(programIdArray[i]);
+          
+          // Skip invalid program IDs
+          if (isNaN(programId)) continue;
+          
+          query += validProgramsAdded === 0 ? `@${paramName}` : `, @${paramName}`;
+          request.input(paramName, sql.BigInt, programId);
+          validProgramsAdded++;
         }
-        query += `)`;
+        
+        // If after all that filtering we don't have any valid IDs, remove the IN clause
+        if (validProgramsAdded === 0) {
+          query = query.replace(` AND p.ProgramID IN (`, '');
+        } else {
+          query += `)`;
+        }
       }
     }
     
@@ -221,20 +255,38 @@ router.get('/tuition/students', async (req, res) => {
     // Add order by
     query += ` ORDER BY u.FullName`;
     
-    const result = await request.query(query);
-    
-    // Calculate suggested tuition amount
-    const standardCreditAmount = 850000; // Default amount per credit if none found
-    
-    const students = result.recordset.map(student => ({
-      ...student,
-      TuitionAmount: student.TotalCredits * (student.LastAmountPerCredit || standardCreditAmount)
-    }));
-    
-    res.json({
-      success: true,
-      data: students
-    });
+    try {
+      const result = await request.query(query);
+      
+      // If no students found, return empty array with success
+      if (result.recordset.length === 0) {
+        return res.json({
+          success: true,
+          data: [],
+          message: 'Không tìm thấy sinh viên nào phù hợp với điều kiện đã chọn'
+        });
+      }
+      
+      // Calculate suggested tuition amount
+      const standardCreditAmount = 850000; // Default amount per credit if none found
+      
+      const students = result.recordset.map(student => ({
+        ...student,
+        TuitionAmount: student.TotalCredits * (student.LastAmountPerCredit || standardCreditAmount)
+      }));
+      
+      res.json({
+        success: true,
+        data: students
+      });
+    } catch (queryError) {
+      console.error('Database query error when fetching students:', queryError);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Lỗi khi truy vấn dữ liệu sinh viên', 
+        error: queryError.message 
+      });
+    }
   } catch (error) {
     console.error('Error fetching students for tuition:', error);
     res.status(500).json({ 
@@ -491,6 +543,51 @@ router.get('/programs', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Lỗi khi tải dữ liệu chương trình học', 
+      error: error.message 
+    });
+  }
+});
+
+// Diagnostic route to check database tables
+router.get('/diagnostic', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    
+    // Check Semesters table
+    const semestersResult = await poolConnection.request().query(
+      'SELECT COUNT(*) as semesterCount FROM Semesters'
+    );
+    
+    // Check AcademicPrograms table
+    const programsResult = await poolConnection.request().query(
+      'SELECT COUNT(*) as programCount FROM AcademicPrograms'
+    );
+    
+    // Check Users table
+    const usersResult = await poolConnection.request().query(
+      `SELECT COUNT(*) as userCount FROM Users WHERE Role = 'STUDENT'`
+    );
+    
+    // Check StudentPrograms table
+    const studentProgramsResult = await poolConnection.request().query(
+      'SELECT COUNT(*) as studentProgramCount FROM StudentPrograms'
+    );
+    
+    // Return the diagnostic data
+    res.json({
+      success: true,
+      data: {
+        semesterCount: semestersResult.recordset[0].semesterCount,
+        programCount: programsResult.recordset[0].programCount,
+        studentCount: usersResult.recordset[0].userCount,
+        studentProgramCount: studentProgramsResult.recordset[0].studentProgramCount
+      }
+    });
+  } catch (error) {
+    console.error('Diagnostic error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi chạy chuẩn đoán', 
       error: error.message 
     });
   }

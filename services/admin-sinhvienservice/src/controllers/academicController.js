@@ -607,7 +607,7 @@ const getAllSemesters = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      semesters: result.recordset
+      data: result.recordset
     });
   } catch (error) {
     console.error('Error fetching semesters:', error);

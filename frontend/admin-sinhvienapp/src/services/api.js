@@ -165,7 +165,8 @@ export const academicService = {
   getAllSemesters: async () => {
     try {
       const response = await apiClient.get('/academic/semesters');
-      return response.data;
+      console.log('Raw API response from semesters:', response);
+      return response; // Return the entire response object
     } catch (error) {
       console.error('Error fetching semesters:', error);
       return { success: false, message: error.response?.data?.message || error.message };

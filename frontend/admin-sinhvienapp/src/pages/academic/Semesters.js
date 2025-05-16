@@ -52,6 +52,7 @@ const Semesters = () => {
       setError(null);
       
       const response = await academicService.getAllSemesters();
+      console.log('Semesters API response:', response);
       
       if (response.success) {
         // Map the response data to our component's expected format
@@ -69,9 +70,9 @@ const Semesters = () => {
             new Date(semester.RegistrationEndDate).toLocaleDateString('vi-VN') : 'N/A',
           status: semester.Status || 'Upcoming',
           isActive: semester.IsCurrent === true || semester.IsCurrent === 1,
-          // Calculate statistics if available
-          numberOfSubjects: semester.SubjectCount || 'N/A',
-          numberOfStudents: semester.StudentCount || 'N/A'
+          // Statistics fields may not be available in the response
+          numberOfSubjects: 'N/A',
+          numberOfStudents: 'N/A'
         })) : [];
         
         setSemesters(semestersData);

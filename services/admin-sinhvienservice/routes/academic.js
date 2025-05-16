@@ -511,29 +511,24 @@ router.get('/semesters', async (req, res) => {
     const result = await poolConnection.request()
       .query(`
         SELECT 
-          SemesterID, SemesterCode, SemesterName,
-          AcademicYear, StartDate, EndDate,
-          RegistrationStartDate, RegistrationEndDate,
-          Status, IsCurrent,
-          (SELECT COUNT(*) FROM CourseClasses cc WHERE cc.SemesterID = s.SemesterID) AS SubjectCount,
-          (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
-           INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
-           WHERE cc.SemesterID = s.SemesterID) AS StudentCount
-        FROM Semesters s
-        ORDER BY 
-          CASE 
-            WHEN s.IsCurrent = 1 THEN 0 
-            WHEN s.Status = 'Upcoming' THEN 1
-            WHEN s.Status = 'Ongoing' THEN 2
-            ELSE 3
-          END, 
-          s.StartDate DESC
+          SemesterID, SemesterCode, SemesterName, AcademicYear,
+          StartDate, EndDate, RegistrationStartDate, RegistrationEndDate,
+          Status, IsCurrent, CreatedAt, UpdatedAt
+        FROM Semesters
+        ORDER BY StartDate DESC
       `);
     
-    res.json({ success: true, data: result.recordset });
+    res.json({ 
+      success: true, 
+      data: result.recordset 
+    });
   } catch (error) {
     console.error('Error fetching semesters:', error);
-    res.status(500).json({ success: false, message: 'Error fetching semesters', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching semesters', 
+      error: error.message 
+    });
   }
 });
 

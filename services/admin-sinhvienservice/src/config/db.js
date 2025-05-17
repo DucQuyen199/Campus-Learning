@@ -55,9 +55,18 @@ const executeQuery = async (query, params = {}) => {
     const pool = await getPool();
     let request = pool.request();
     
-    // Add parameters to the request
-    for (const [key, value] of Object.entries(params)) {
-      request = request.input(key, value);
+    // Add parameters to the request, handling type/value objects
+    for (const [key, param] of Object.entries(params)) {
+      if (
+        param !== null && typeof param === 'object' &&
+        param.hasOwnProperty('type') && param.hasOwnProperty('value')
+      ) {
+        // param is an object with type and value
+        request = request.input(key, param.type, param.value);
+      } else {
+        // param is a value, use default type inference
+        request = request.input(key, param);
+      }
     }
     
     // Execute the query

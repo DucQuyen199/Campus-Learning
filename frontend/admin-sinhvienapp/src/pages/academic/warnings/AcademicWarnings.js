@@ -251,7 +251,7 @@ const AcademicWarnings = () => {
               >
                 <MenuItem value="">Tất cả</MenuItem>
                 {semesters.map((sem) => (
-                  <MenuItem key={sem.id} value={sem.id}>
+                  <MenuItem key={sem.SemesterID || sem.id || `semester-${sem.SemesterCode}`} value={sem.id}>
                     {sem.name} - {sem.AcademicYear || ''}
                   </MenuItem>
                 ))}

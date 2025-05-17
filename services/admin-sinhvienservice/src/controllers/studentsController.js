@@ -1,5 +1,8 @@
 const { executeQuery, sql } = require('../config/db');
 const bcrypt = require('bcrypt');
+const csv = require('csv-parser');
+const fs = require('fs');
+const { Readable } = require('stream');
 
 /**
  * Get all students with pagination and filtering
@@ -885,6 +888,205 @@ const getStudentResults = async (req, res) => {
   }
 };
 
+/**
+ * Import multiple students from a CSV file
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const importStudentsFromCsv = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No CSV file uploaded'
+      });
+    }
+
+    // Results array to store all records
+    const records = [];
+    const errors = [];
+    let createdCount = 0;
+    let failedCount = 0;
+
+    // Create a readable stream from the buffer
+    const stream = Readable.from(req.file.buffer.toString());
+
+    // Process CSV data
+    await new Promise((resolve, reject) => {
+      stream
+        .pipe(csv())
+        .on('data', (data) => records.push(data))
+        .on('end', resolve)
+        .on('error', reject);
+    });
+
+    // Get pool for transaction
+    const pool = await require('../config/db').getPool();
+    
+    // Process each record
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      const rowNum = i + 2; // +2 because 1-indexed and header row
+      
+      try {
+        // Validate required fields
+        const requiredFields = ['firstname', 'lastname', 'email', 'studentCode'];
+        const missingFields = requiredFields.filter(field => !record[field]);
+        
+        if (missingFields.length > 0) {
+          throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+        }
+
+        // Check if username/email already exists
+        const checkQuery = `
+          SELECT UserID FROM Users
+          WHERE Email = @email
+        `;
+
+        const checkResult = await executeQuery(checkQuery, {
+          email: { type: sql.VarChar, value: record.email }
+        });
+
+        if (checkResult.recordset.length > 0) {
+          throw new Error(`Email ${record.email} already exists`);
+        }
+
+        // Check if student code already exists
+        const checkCodeQuery = `
+          SELECT DetailID FROM StudentDetails
+          WHERE StudentCode = @studentCode
+        `;
+
+        const checkCodeResult = await executeQuery(checkCodeQuery, {
+          studentCode: { type: sql.VarChar, value: record.studentCode }
+        });
+
+        if (checkCodeResult.recordset.length > 0) {
+          throw new Error(`Student code ${record.studentCode} already exists`);
+        }
+
+        // Start transaction
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        try {
+          // Generate a username if not provided
+          const username = record.username || 
+            record.email.split('@')[0] || 
+            `sv_${record.studentCode}`;
+          
+          // Generate a default password if not provided
+          const password = record.password || 'password123';
+          
+          // Create full name from first and last name
+          const fullName = `${record.firstname} ${record.lastname}`;
+          
+          // Hash password
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(password, salt);
+
+          // 1. Create user account
+          const insertUserQuery = `
+            INSERT INTO Users (
+              Username, Email, Password, FullName, DateOfBirth,
+              PhoneNumber, Address, Role, Status, AccountStatus
+            )
+            VALUES (
+              @username, @email, @password, @fullName, @dateOfBirth,
+              @phoneNumber, @address, 'STUDENT', 'ONLINE', 'ACTIVE'
+            );
+            SELECT SCOPE_IDENTITY() AS UserID;
+          `;
+
+          const insertUserRequest = new sql.Request(transaction);
+          insertUserRequest.input('username', sql.VarChar(50), username);
+          insertUserRequest.input('email', sql.VarChar(100), record.email);
+          insertUserRequest.input('password', sql.VarChar(255), hashedPassword);
+          insertUserRequest.input('fullName', sql.NVarChar(100), fullName);
+          insertUserRequest.input('dateOfBirth', sql.Date, record.dateOfBirth || null);
+          insertUserRequest.input('phoneNumber', sql.VarChar(15), record.phone || null);
+          insertUserRequest.input('address', sql.NVarChar(255), record.address || null);
+          
+          const userResult = await insertUserRequest.query(insertUserQuery);
+          const userId = userResult.recordset[0].UserID;
+
+          // 2. Create student details
+          const insertDetailsQuery = `
+            INSERT INTO StudentDetails (
+              UserID, StudentCode, Gender, Class, EnrollmentDate, CurrentSemester, AcademicStatus
+            )
+            VALUES (
+              @userId, @studentCode, @gender, @class, GETDATE(), 1, 'Regular'
+            );
+          `;
+
+          const insertDetailsRequest = new sql.Request(transaction);
+          insertDetailsRequest.input('userId', sql.BigInt, userId);
+          insertDetailsRequest.input('studentCode', sql.VarChar(20), record.studentCode);
+          insertDetailsRequest.input('gender', sql.VarChar(10), record.gender || null);
+          insertDetailsRequest.input('class', sql.NVarChar(50), record.class || null);
+          
+          await insertDetailsRequest.query(insertDetailsQuery);
+
+          // 3. Assign to academic program if provided
+          if (record.programId) {
+            const insertProgramQuery = `
+              INSERT INTO StudentPrograms (
+                UserID, ProgramID, EntryYear, ExpectedGraduationYear,
+                Status, IsPrimary
+              )
+              VALUES (
+                @userId, @programId, @entryYear, @expectedGraduationYear,
+                'Active', 1
+              );
+            `;
+
+            const insertProgramRequest = new sql.Request(transaction);
+            insertProgramRequest.input('userId', sql.BigInt, userId);
+            insertProgramRequest.input('programId', sql.BigInt, record.programId);
+            insertProgramRequest.input('entryYear', sql.Int, record.entryYear || new Date().getFullYear());
+            insertProgramRequest.input('expectedGraduationYear', sql.Int, record.expectedGraduationYear || (new Date().getFullYear() + 4));
+            
+            await insertProgramRequest.query(insertProgramQuery);
+          }
+
+          // Commit transaction
+          await transaction.commit();
+          createdCount++;
+        } catch (txError) {
+          // Rollback on transaction error
+          await transaction.rollback();
+          throw txError;
+        }
+      } catch (recordError) {
+        // Add to errors array
+        errors.push({ 
+          row: rowNum, 
+          record: record.studentCode || record.email || `Record ${rowNum}`,
+          message: recordError.message 
+        });
+        failedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Imported ${createdCount} students successfully. Failed: ${failedCount}`,
+      totalCount: records.length,
+      createdCount,
+      failedCount,
+      errors: errors.length > 0 ? errors : null
+    });
+  } catch (error) {
+    console.error('Error importing students from CSV:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Đã xảy ra lỗi khi nhập sinh viên từ file CSV.',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllStudents,
   getAllStudentsDirectly,
@@ -892,5 +1094,6 @@ module.exports = {
   createStudent,
   updateStudent,
   resetPassword,
-  getStudentResults
+  getStudentResults,
+  importStudentsFromCsv
 }; 

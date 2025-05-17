@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const studentsController = require('../controllers/studentsController');
+const multer = require('multer');
+
+// Configure multer for memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 // Get all students directly without pagination (for admin use)
 router.get('/all', studentsController.getAllStudentsDirectly);
@@ -32,6 +39,9 @@ router.get('/users/all', async (req, res) => {
     });
   }
 });
+
+// Import students from CSV file
+router.post('/import-csv', upload.single('file'), studentsController.importStudentsFromCsv);
 
 // Get all students with pagination and filtering
 router.get('/', studentsController.getAllStudents);

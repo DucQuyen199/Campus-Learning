@@ -10,7 +10,7 @@ const morgan = require('morgan');
 const authRoutes = require('./routes/auth');
 const studentsRoutes = require('./src/routes/students');
 const usersRoutes = require('./src/routes/users'); // Import users routes from src/routes
-const academicRoutes = require('./routes/academic');
+const academicRoutes = require('./src/routes/academic'); // Update to use src/routes
 const financeRoutes = require('./routes/finance');
 
 // Initialize express app

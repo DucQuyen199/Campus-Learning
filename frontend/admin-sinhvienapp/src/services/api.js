@@ -78,6 +78,13 @@ export const studentsService = {
       params: { semesterId },
     });
   },
+  importStudentsFromCsv: (formData) => {
+    return apiClient.post('/students/import-csv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  }
 };
 
 // Finance/Tuition service

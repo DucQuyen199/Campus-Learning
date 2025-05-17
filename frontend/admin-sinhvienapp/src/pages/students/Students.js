@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Box, Typography, Button, TextField, InputAdornment,
   Card, CardContent, Grid, IconButton, Chip, Alert, Snackbar,
-  Divider, Paper, List, ListItem, ListItemText
+  Divider, Paper, List, ListItem, ListItemText, Tooltip
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import { Add, Search, Edit, Delete, Visibility, Person } from '@mui/icons-material';
+import { Add, Search, Edit, Delete, Visibility, Person, FilterAlt } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
@@ -39,20 +39,24 @@ const Students = () => {
       // If we're doing a specific search by ID, use that approach
       if (/^\d+$/.test(search.trim())) {
         params = {
-          exactUserId: search.trim()
+          exactUserId: search.trim(),
+          role: 'STUDENT' // Ensure we only get students
         };
       } 
       // If doing a text search, use search params
       else if (search.trim() !== '') {
         params = {
           search: search,
-          searchFields: 'UserID'
+          searchFields: 'UserID,FullName,Email',
+          role: 'STUDENT' // Ensure we only get students
         };
       } 
       // If we haven't loaded all students yet, get all
       else if (!allStudentsLoaded) {
         params = {
-          all: true
+          all: true,
+          role: 'STUDENT', // Ensure we only get students
+          noLimit: true // Request all records without pagination
         };
       }
       // If we're just changing pages and already have all students, don't reload
@@ -69,7 +73,8 @@ const Students = () => {
         params: params,
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        },
+        timeout: 30000 // Increase timeout to 30 seconds for large datasets
       });
       
       console.log('API Response:', response.data);
@@ -85,10 +90,10 @@ const Students = () => {
         // Map data to match our component needs
         const formattedData = studentsData.map(student => ({
           id: student.UserID,
-          studentId: student.UserID,
+          studentId: student.UserID, // UserID is the student ID
           fullName: student.FullName,
           email: student.Email,
-          program: 'N/A', // We'll add academic program in a future update
+          program: student.ProgramName || 'N/A', // Add program if available
           school: student.School || 'N/A',
           status: student.AccountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
           fullDetails: student
@@ -145,8 +150,58 @@ const Students = () => {
 
   // Initial fetch on component mount
   useEffect(() => {
-    // Get all students without pagination
-    fetchStudents(0, 0, '', false);
+    const loadAllStudents = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_URL}/students`, {
+          params: {
+            all: true,
+            role: 'STUDENT', // Ensure we only get students
+            noLimit: true // Request all records without pagination
+          },
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          },
+          timeout: 30000 // Increase timeout to 30 seconds for large datasets
+        });
+        
+        if (response.data.success) {
+          const studentsData = Array.isArray(response.data.data) 
+            ? response.data.data 
+            : (response.data.data.students || []);
+          
+          console.log(`Loaded ${studentsData.length} students from database`);
+          
+          // Map data to match our component needs
+          const formattedData = studentsData.map(student => ({
+            id: student.UserID,
+            studentId: student.UserID, // UserID is the student ID
+            fullName: student.FullName,
+            email: student.Email,
+            program: student.ProgramName || 'N/A', 
+            school: student.School || 'N/A',
+            status: student.AccountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
+            fullDetails: student
+          }));
+          
+          setStudents(formattedData);
+          setTotalCount(formattedData.length);
+          setAllStudentsLoaded(true);
+        } else {
+          console.error('API returned success: false', response.data);
+          setError(response.data.message || 'Không thể tải danh sách sinh viên');
+          setOpenSnackbar(true);
+        }
+      } catch (err) {
+        console.error('Failed to fetch students:', err);
+        setError(err.message || 'Lỗi khi tải dữ liệu sinh viên');
+        setOpenSnackbar(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAllStudents();
   }, []); // Only run once on component mount
 
   const handlePageChange = (newPage) => {
@@ -224,8 +279,24 @@ const Students = () => {
     }
   };
 
+  const handleViewStudent = (student) => {
+    setSelectedStudent(student.fullDetails);
+  };
+
   const columns = [
-    { field: 'studentId', headerName: 'Mã SV', minWidth: 100, flex: 0.5 },
+    { 
+      field: 'studentId', 
+      headerName: 'Mã SV (UserID)', 
+      minWidth: 120, 
+      flex: 0.5,
+      renderHeader: (params) => (
+        <Tooltip title="UserID là mã số sinh viên trong hệ thống">
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <span>Mã SV (UserID)</span>
+          </Box>
+        </Tooltip>
+      )
+    },
     { field: 'fullName', headerName: 'Họ và tên', minWidth: 180, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 200, flex: 1.2 },
     { field: 'school', headerName: 'Trường học', minWidth: 180, flex: 1 },
@@ -253,7 +324,7 @@ const Students = () => {
         <Box sx={{ ml: 1 }}>
           <IconButton 
             size="small" 
-            onClick={() => navigate(`/students/${params.row.id}`)}
+            onClick={() => handleViewStudent(params.row)}
             title="Xem chi tiết"
           >
             <Visibility fontSize="small" />
@@ -306,16 +377,16 @@ const Students = () => {
                 </ListItem>
                 <ListItem sx={{ py: 1 }}>
                   <ListItemText 
-                    primary="Email" 
-                    secondary={student.Email} 
-                    primaryTypographyProps={{ variant: 'subtitle2', component: 'span' }}
+                    primary="UserID (Mã Sinh Viên)" 
+                    secondary={student.UserID} 
+                    primaryTypographyProps={{ variant: 'subtitle2', component: 'span', fontWeight: 'bold' }}
                     secondaryTypographyProps={{ component: 'span' }}
                   />
                 </ListItem>
                 <ListItem sx={{ py: 1 }}>
                   <ListItemText 
-                    primary="Mã sinh viên" 
-                    secondary={student.StudentCode || 'Chưa cập nhật'} 
+                    primary="Email" 
+                    secondary={student.Email} 
                     primaryTypographyProps={{ variant: 'subtitle2', component: 'span' }}
                     secondaryTypographyProps={{ component: 'span' }}
                   />
@@ -390,6 +461,20 @@ const Students = () => {
         </Alert>
       </Snackbar>
 
+      {/* Show loading alert when data is being fetched */}
+      {loading && students.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Đang tải toàn bộ dữ liệu sinh viên từ cơ sở dữ liệu, vui lòng đợi...
+        </Alert>
+      )}
+
+      {/* Show success message when students are loaded */}
+      {!loading && students.length > 0 && !error && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          Đã tải {students.length} sinh viên từ cơ sở dữ liệu
+        </Alert>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" component="div">
           Quản lý sinh viên
@@ -411,7 +496,7 @@ const Students = () => {
                 <TextField
                   fullWidth
                   variant="outlined"
-                  placeholder="Nhập Mã SV (tìm kiếm tự động khi nhập số)..."
+                  placeholder="Nhập Mã SV (UserID) hoặc tên sinh viên..."
                   value={searchTerm}
                   onChange={handleSearch}
                   sx={{ 
@@ -450,47 +535,66 @@ const Students = () => {
       <StudentDetailView student={selectedStudent} />
 
       <Card>
-        <CardContent sx={{ height: 'calc(100vh - 320px)' }}>
-          <DataGrid
-            rows={students}
-            columns={columns}
-            pagination
-            page={page}
-            pageSize={pageSize}
-            rowCount={totalCount}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-            rowsPerPageOptions={[10, 25, 50, 100, 500]}
-            loading={loading}
-            paginationMode="client"
-            disableSelectionOnClick
-            initialState={{
-              pagination: {
-                pageSize: 100,
-              },
-            }}
-            autoHeight={false}
-            density="standard"
-            sx={{
-              '& .MuiDataGrid-main': { width: '100%' },
-              '& .MuiDataGrid-cell': { px: 2 },
-              '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' },
-              boxShadow: 1,
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 1,
-              '& .MuiDataGrid-virtualScroller': {
-                overflowY: 'auto'
-              }
-            }}
-            componentsProps={{
-              pagination: {
-                labelRowsPerPage: 'Số hàng mỗi trang:',
-                labelDisplayedRows: ({ from, to, count }) => 
-                  `${from}–${to} của ${count !== -1 ? count : `hơn ${to}`}`
-              }
-            }}
-          />
+        <CardContent>
+          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <FilterAlt sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="subtitle1">
+                Danh sách sinh viên (UserID là mã số sinh viên)
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Hiển thị {students.length} sinh viên ({loading ? 'đang tải...' : 'đã tải xong'})
+            </Typography>
+          </Box>
+          <Box sx={{ height: 'calc(100vh - 320px)' }}>
+            <DataGrid
+              rows={students}
+              columns={columns}
+              pagination
+              page={page}
+              pageSize={pageSize}
+              rowCount={totalCount}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              rowsPerPageOptions={[10, 25, 50, 100, 500]}
+              loading={loading}
+              paginationMode="client"
+              disableSelectionOnClick
+              onRowClick={(params) => handleViewStudent(params.row)}
+              initialState={{
+                pagination: {
+                  pageSize: 100,
+                },
+              }}
+              autoHeight={false}
+              density="standard"
+              sx={{
+                '& .MuiDataGrid-main': { width: '100%' },
+                '& .MuiDataGrid-cell': { px: 2 },
+                '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' },
+                boxShadow: 1,
+                border: 1,
+                borderColor: 'divider',
+                borderRadius: 1,
+                '& .MuiDataGrid-virtualScroller': {
+                  overflowY: 'auto'
+                },
+                // Add hover effect to rows
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                  cursor: 'pointer'
+                }
+              }}
+              componentsProps={{
+                pagination: {
+                  labelRowsPerPage: 'Số hàng mỗi trang:',
+                  labelDisplayedRows: ({ from, to, count }) => 
+                    `${from}–${to} của ${count !== -1 ? count : `hơn ${to}`}`
+                }
+              }}
+            />
+          </Box>
         </CardContent>
       </Card>
     </Box>

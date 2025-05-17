@@ -15,6 +15,7 @@ import {
   Avatar,
   CircularProgress,
   Stack,
+  Alert,
 } from '@mui/material';
 import {
   Person,
@@ -28,6 +29,9 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PageContainer from '../components/layout/PageContainer';
+import { academicService } from '../services/api';
+import { formatDistanceToNow } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 const StatCard = ({ icon, title, value, color, bgColor }) => {
   return (
@@ -77,49 +81,46 @@ const StatCard = ({ icon, title, value, color, bgColor }) => {
 const Dashboard = () => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeStudents: 0,
     programs: 0,
     subjects: 0,
-    currentSemester: '',
+    currentSemester: null,
   });
   const [recentActions, setRecentActions] = useState([]);
+  const [warnings, setWarnings] = useState([]);
   
-  // Simulated data fetch, replace with actual API calls
+  // Fetch dashboard data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // In a real implementation, you would use these API calls
-        // const studentsData = await studentsService.getAllStudents();
-        // const programsData = await academicService.getAllPrograms();
-        // const semestersData = await academicService.getAllSemesters();
+        const response = await academicService.getDashboardStats();
         
-        // For now, just simulate the API call delay
-        setTimeout(() => {
+        if (response && response.success) {
+          const { students, programs, subjects, currentSemester, recentActivities, warnings } = response.data;
+          
           setStats({
-            totalStudents: 1523,
-            activeStudents: 1498,
-            programs: 24,
-            subjects: 347,
-            currentSemester: 'Học kỳ 2, 2023-2024',
+            totalStudents: students.total,
+            activeStudents: students.active,
+            programs: programs,
+            subjects: subjects,
+            currentSemester: currentSemester,
           });
           
-          setRecentActions([
-            { id: 1, type: 'student_created', user: 'Admin', content: 'Tạo tài khoản sinh viên mới', time: '15 phút trước' },
-            { id: 2, type: 'grade_updated', user: 'Admin', content: 'Cập nhật điểm học phần CS101', time: '30 phút trước' },
-            { id: 3, type: 'program_updated', user: 'Admin', content: 'Cập nhật chương trình CNTT', time: '1 giờ trước' },
-            { id: 4, type: 'semester_created', user: 'Admin', content: 'Tạo học kỳ mới', time: '2 giờ trước' },
-            { id: 5, type: 'student_updated', user: 'Admin', content: 'Cập nhật thông tin sinh viên', time: '1 ngày trước' },
-          ]);
-          
-          setLoading(false);
-        }, 1200);
-        
+          setRecentActions(recentActivities);
+          setWarnings(warnings || []);
+        } else {
+          throw new Error(response?.message || 'Không thể tải dữ liệu thống kê');
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+        setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu');
+      } finally {
         setLoading(false);
       }
     };
@@ -149,6 +150,22 @@ const Dashboard = () => {
       month: 'long',
       day: 'numeric'
     });
+  };
+  
+  // Format semester date range
+  const formatSemesterDateRange = (startDate, endDate) => {
+    if (!startDate || !endDate) return '';
+    
+    const formatDate = (dateString) => {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    };
+    
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
   };
   
   // Generate avatar for action types
@@ -183,6 +200,10 @@ const Dashboard = () => {
       conduct: 'Vi phạm quy chế',
       tuition: 'Chưa đóng học phí',
       other: 'Lý do khác',
+      Level1: 'Cảnh báo mức 1',
+      Level2: 'Cảnh báo mức 2',
+      Level3: 'Cảnh báo mức 3',
+      Suspension: 'Đình chỉ học tập',
     };
     return types[type] || 'Cảnh báo';
   };
@@ -193,6 +214,22 @@ const Dashboard = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh' }}>
           <CircularProgress />
         </Box>
+      </PageContainer>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageContainer>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()}
+        >
+          Tải lại trang
+        </Button>
       </PageContainer>
     );
   }
@@ -287,39 +324,76 @@ const Dashboard = () => {
             />
             <Divider />
             <CardContent>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
-                  {stats.currentSemester}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Thời gian: 01/02/2024 - 31/05/2024
-                </Typography>
-              </Box>
-              
-              <Stack spacing={2}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2">Đăng ký học phần:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'success.main' }}>
-                    Đang mở
-                  </Typography>
+              {stats.currentSemester ? (
+                <>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
+                      {stats.currentSemester.SemesterName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Thời gian: {formatSemesterDateRange(stats.currentSemester.StartDate, stats.currentSemester.EndDate)}
+                    </Typography>
+                  </Box>
+                  
+                  <Stack spacing={2}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">Đăng ký học phần:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: 
+                        stats.currentSemester.RegistrationStartDate && 
+                        new Date(stats.currentSemester.RegistrationStartDate) <= new Date() && 
+                        new Date(stats.currentSemester.RegistrationEndDate) >= new Date() 
+                          ? 'success.main' 
+                          : 'text.secondary'
+                      }}>
+                        {stats.currentSemester.RegistrationStartDate && 
+                         new Date(stats.currentSemester.RegistrationStartDate) <= new Date() && 
+                         new Date(stats.currentSemester.RegistrationEndDate) >= new Date() 
+                          ? 'Đang mở'
+                          : 'Đã đóng'}
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">Tuần học hiện tại:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {(() => {
+                          const startDate = new Date(stats.currentSemester.StartDate);
+                          const now = new Date();
+                          const diffTime = Math.abs(now - startDate);
+                          const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+                          
+                          const endDate = new Date(stats.currentSemester.EndDate);
+                          const totalWeeks = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24 * 7));
+                          
+                          return `Tuần ${diffWeeks > totalWeeks ? totalWeeks : diffWeeks}/${totalWeeks}`;
+                        })()}
+                      </Typography>
+                    </Box>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2">Trạng thái:</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
+                        {stats.currentSemester.Status === 'Ongoing' ? 'Đang diễn ra' : 
+                         stats.currentSemester.Status === 'Upcoming' ? 'Sắp tới' :
+                         stats.currentSemester.Status === 'Completed' ? 'Đã kết thúc' : 
+                         stats.currentSemester.Status === 'Cancelled' ? 'Đã hủy' : 'Không xác định'}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 3 }}>
+                  <Typography color="text.secondary">Không có học kỳ hiện tại</Typography>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2">Tuần học hiện tại:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>Tuần 8/15</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body2">Trạng thái:</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                    Đang diễn ra
-                  </Typography>
-                </Box>
-              </Stack>
+              )}
               
               <Button
                 variant="outlined"
                 fullWidth
                 sx={{ mt: 3 }}
                 startIcon={<CalendarMonth />}
+                component={RouterLink}
+                to="/academic/semesters"
               >
                 Quản lý học kỳ
               </Button>
@@ -346,22 +420,28 @@ const Dashboard = () => {
             <Divider />
             <CardContent>
               <List>
-                {recentActions.map((action) => (
-                  <ListItem
-                    key={action.id}
-                    divider={action.id !== recentActions.length}
-                    sx={{ px: 1, py: 1.5 }}
-                  >
-                    <ListItemAvatar>
-                      {getActionAvatar(action.type)}
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={action.content}
-                      secondary={`${action.user} - ${action.time}`}
-                      primaryTypographyProps={{ fontWeight: 500 }}
-                    />
-                  </ListItem>
-                ))}
+                {recentActions.length > 0 ? (
+                  recentActions.map((action) => (
+                    <ListItem
+                      key={action.id}
+                      divider={action.id !== recentActions[recentActions.length - 1].id}
+                      sx={{ px: 1, py: 1.5 }}
+                    >
+                      <ListItemAvatar>
+                        {getActionAvatar(action.type)}
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={action.content}
+                        secondary={`${action.user} - ${action.time}`}
+                        primaryTypographyProps={{ fontWeight: 500 }}
+                      />
+                    </ListItem>
+                  ))
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 3 }}>
+                    <Typography color="text.secondary">Không có hoạt động gần đây</Typography>
+                  </Box>
+                )}
               </List>
             </CardContent>
           </Card>
@@ -390,19 +470,9 @@ const Dashboard = () => {
             />
             <Divider />
             <CardContent>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-                  <CircularProgress size={30} />
-                </Box>
-              ) : (
-                <List disablePadding>
-                  {/* Sample data, should be replaced with real API data */}
-                  {[
-                    { id: 1, studentName: 'Nguyễn Văn A', studentCode: 'SV001', type: 'academic_performance', created: '2 ngày trước' },
-                    { id: 2, studentName: 'Trần Thị B', studentCode: 'SV045', type: 'attendance', created: '3 ngày trước' },
-                    { id: 3, studentName: 'Lê Văn C', studentCode: 'SV112', type: 'tuition', created: '1 tuần trước' },
-                    { id: 4, studentName: 'Phạm Thị D', studentCode: 'SV078', type: 'conduct', created: '1 tuần trước' },
-                  ].map((warning, index, array) => (
+              <List disablePadding>
+                {warnings.length > 0 ? (
+                  warnings.map((warning, index, array) => (
                     <ListItem
                       key={warning.id}
                       divider={index !== array.length - 1}
@@ -422,9 +492,13 @@ const Dashboard = () => {
                         primaryTypographyProps={{ fontWeight: 500 }}
                       />
                     </ListItem>
-                  ))}
-                </List>
-              )}
+                  ))
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 3 }}>
+                    <Typography color="text.secondary">Không có cảnh báo học tập</Typography>
+                  </Box>
+                )}
+              </List>
 
               <Button
                 variant="outlined"

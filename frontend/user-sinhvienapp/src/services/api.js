@@ -152,8 +152,18 @@ export const userService = {
     try {
       console.log(`Fetching profile for user ID: ${userId}`);
       const response = await apiClient.get(`/profile/${userId}`);
-      console.log('Profile API response:', response.data);
-      return response.data;
+      
+      // Check if we have data in the response
+      if (response.data && response.data.data) {
+        console.log('Profile API response:', response.data);
+        return response.data.data;
+      } else if (response.data && response.data.success) {
+        console.log('Profile API response (empty data):', response.data);
+        return {};
+      } else {
+        console.log('Profile API raw response:', response.data);
+        return response.data;
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
       throw error;
@@ -164,7 +174,13 @@ export const userService = {
   getAcademicInfo: async (userId) => {
     try {
       const response = await apiClient.get(`/profile/${userId}/academic`);
-      return response.data;
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else if (response.data && response.data.success) {
+        return [];
+      } else {
+        return response.data;
+      }
     } catch (error) {
       console.error('Error fetching academic information:', error);
       throw error;
@@ -177,7 +193,11 @@ export const userService = {
       console.log(`Updating profile for user ID: ${userId}`, profileData);
       const response = await apiClient.put(`/profile/${userId}`, profileData);
       console.log('Profile update response:', response.data);
-      return response.data;
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else {
+        return response.data;
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       throw error;
@@ -188,7 +208,13 @@ export const userService = {
   getProfileUpdates: async (userId) => {
     try {
       const response = await apiClient.get(`/profile/${userId}/updates`);
-      return response.data;
+      if (response.data && response.data.data) {
+        return response.data.data;
+      } else if (response.data && response.data.success) {
+        return [];
+      } else {
+        return response.data;
+      }
     } catch (error) {
       console.error('Error fetching profile updates:', error);
       throw error;

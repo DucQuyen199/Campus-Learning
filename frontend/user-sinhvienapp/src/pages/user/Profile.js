@@ -240,7 +240,66 @@ const Profile = () => {
         // Fetch student profile
         const profile = await userService.getProfile(currentUser.UserID);
         console.log('Profile data received:', profile);
-        setProfileData(profile);
+        
+        // Make sure all required fields are present
+        const processedProfile = {
+          ...profile,
+          // Handle possible null fields
+          UserID: profile.UserID || currentUser.UserID,
+          Username: profile.Username || currentUser.Username || '',
+          Email: profile.Email || currentUser.Email || '',
+          FullName: profile.FullName || currentUser.FullName || '',
+          PhoneNumber: profile.PhoneNumber || '',
+          Address: profile.Address || '',
+          City: profile.City || '',
+          Country: profile.Country || '',
+          Avatar: profile.Avatar || currentUser.Avatar || '',
+          Role: profile.Role || currentUser.Role || 'STUDENT',
+          Status: profile.Status || currentUser.Status || 'ONLINE',
+          Bio: profile.Bio || '',
+          
+          // Student specific fields with fallbacks
+          StudentCode: profile.StudentCode || '',
+          Gender: profile.Gender || '',
+          DateOfBirth: profile.DateOfBirth || null,
+          BirthPlace: profile.BirthPlace || '',
+          HomeTown: profile.HomeTown || '',
+          Ethnicity: profile.Ethnicity || '',
+          Religion: profile.Religion || '',
+          Class: profile.Class || '',
+          CurrentSemester: profile.CurrentSemester || 1,
+          AcademicStatus: profile.AcademicStatus || 'Regular',
+          
+          // Documents and IDs
+          IdentityCardNumber: profile.IdentityCardNumber || '',
+          IdentityCardIssueDate: profile.IdentityCardIssueDate || null,
+          IdentityCardIssuePlace: profile.IdentityCardIssuePlace || '',
+          HealthInsuranceNumber: profile.HealthInsuranceNumber || '',
+          BankAccountNumber: profile.BankAccountNumber || '',
+          BankName: profile.BankName || '',
+          
+          // Enrollment data
+          EnrollmentDate: profile.EnrollmentDate || null,
+          GraduationDate: profile.GraduationDate || null,
+          
+          // Family and emergency contacts
+          ParentName: profile.ParentName || '',
+          ParentPhone: profile.ParentPhone || '',
+          ParentEmail: profile.ParentEmail || '',
+          EmergencyContact: profile.EmergencyContact || '',
+          EmergencyPhone: profile.EmergencyPhone || '',
+          
+          // Program and academic information
+          ProgramName: profile.ProgramName || '',
+          Department: profile.Department || '',
+          Faculty: profile.Faculty || '',
+          ProgramType: profile.ProgramType || '',
+          AdvisorName: profile.AdvisorName || '',
+          AdvisorEmail: profile.AdvisorEmail || '',
+          AdvisorPhone: profile.AdvisorPhone || ''
+        };
+        
+        setProfileData(processedProfile);
       } catch (profileError) {
         console.error('Error fetching profile details:', profileError);
         setSnackbar({
@@ -262,11 +321,24 @@ const Profile = () => {
       }
       
       try {
-        // Fetch academic program information
-        const program = await userService.getAcademicInfo(currentUser.UserID);
-        console.log('Academic info received:', program);
-        if (Array.isArray(program) && program.length > 0) {
-          setAcademicData(program[0]);
+        // Fetch academic program information - if not already in profile
+        if (!profileData || !profileData.ProgramName) {
+          const program = await userService.getAcademicInfo(currentUser.UserID);
+          console.log('Academic info received:', program);
+          if (Array.isArray(program) && program.length > 0) {
+            setAcademicData(program[0]);
+          }
+        } else {
+          console.log('Academic information already in profile data');
+          // Extract academic data from profile
+          setAcademicData({
+            ProgramName: profileData.ProgramName,
+            Department: profileData.Department,
+            Faculty: profileData.Faculty,
+            AdvisorName: profileData.AdvisorName,
+            AdvisorEmail: profileData.AdvisorEmail,
+            AdvisorPhone: profileData.AdvisorPhone
+          });
         }
       } catch (academicError) {
         console.error('Error fetching academic information:', academicError);

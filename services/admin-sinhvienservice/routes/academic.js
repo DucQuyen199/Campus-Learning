@@ -1513,4 +1513,93 @@ router.put('/warnings/:id', async (req, res) => {
   }
 });
 
+// Dashboard statistics endpoint
+router.get('/dashboard/stats', async (req, res) => {
+  try {
+    const poolConnection = await getPool();
+    
+    // Get total and active students
+    const studentsResult = await poolConnection.request().query(`
+      SELECT 
+        COUNT(*) AS totalStudents,
+        (SELECT COUNT(*) FROM Users u JOIN StudentDetails sd ON u.UserID = sd.UserID 
+         WHERE u.Role = 'STUDENT' AND u.AccountStatus = 'ACTIVE') AS activeStudents
+      FROM Users u 
+      JOIN StudentDetails sd ON u.UserID = sd.UserID 
+      WHERE u.Role = 'STUDENT'
+    `);
+    
+    // Get program count
+    const programsResult = await poolConnection.request().query(`
+      SELECT COUNT(*) AS totalPrograms
+      FROM AcademicPrograms
+      WHERE IsActive = 1
+    `);
+    
+    // Get subject count
+    const subjectsResult = await poolConnection.request().query(`
+      SELECT COUNT(*) AS totalSubjects
+      FROM Subjects
+      WHERE IsActive = 1
+    `);
+    
+    // Get current semester
+    const semesterResult = await poolConnection.request().query(`
+      SELECT 
+        SemesterID, SemesterCode, SemesterName, AcademicYear, 
+        StartDate, EndDate, RegistrationStartDate, RegistrationEndDate,
+        Status
+      FROM Semesters
+      WHERE IsCurrent = 1
+    `);
+    
+    // Get recent activities (for a real implementation, this would be from an audit log table)
+    // For now, we'll generate some representative data
+    const recentActivities = [
+      { id: 1, type: 'student_created', user: 'Admin', content: 'Tạo tài khoản sinh viên mới', time: '15 phút trước' },
+      { id: 2, type: 'grade_updated', user: 'Admin', content: 'Cập nhật điểm học phần CS101', time: '30 phút trước' },
+      { id: 3, type: 'program_updated', user: 'Admin', content: 'Cập nhật chương trình CNTT', time: '1 giờ trước' },
+      { id: 4, type: 'semester_created', user: 'Admin', content: 'Tạo học kỳ mới', time: '2 giờ trước' },
+      { id: 5, type: 'student_updated', user: 'Admin', content: 'Cập nhật thông tin sinh viên', time: '1 ngày trước' },
+    ];
+    
+    // Get recent academic warnings
+    const warningsResult = await poolConnection.request().query(`
+      SELECT TOP 5
+        w.WarningID as id, 
+        u.FullName as studentName,
+        sd.StudentCode as studentCode,
+        w.WarningType as type,
+        FORMAT(w.CreatedAt, 'dd/MM/yyyy') as created,
+        w.Status as status
+      FROM AcademicWarnings w
+      JOIN Users u ON w.UserID = u.UserID
+      JOIN StudentDetails sd ON u.UserID = sd.UserID
+      ORDER BY w.CreatedAt DESC
+    `);
+    
+    res.json({
+      success: true,
+      data: {
+        students: {
+          total: studentsResult.recordset[0].totalStudents,
+          active: studentsResult.recordset[0].activeStudents
+        },
+        programs: programsResult.recordset[0].totalPrograms,
+        subjects: subjectsResult.recordset[0].totalSubjects,
+        currentSemester: semesterResult.recordset.length > 0 ? semesterResult.recordset[0] : null,
+        recentActivities: recentActivities,
+        warnings: warningsResult.recordset
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching dashboard statistics', 
+      error: error.message 
+    });
+  }
+});
+
 module.exports = router; 

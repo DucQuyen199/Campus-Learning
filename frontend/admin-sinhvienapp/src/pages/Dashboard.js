@@ -29,9 +29,10 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PageContainer from '../components/layout/PageContainer';
-import { academicService } from '../services/api';
+import { academicService, studentsService } from '../services/api';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { alpha } from '@mui/material/styles';
 
 const StatCard = ({ icon, title, value, color, bgColor }) => {
   return (
@@ -91,6 +92,7 @@ const Dashboard = () => {
   });
   const [recentActions, setRecentActions] = useState([]);
   const [warnings, setWarnings] = useState([]);
+  const [students, setStudents] = useState([]);
   
   // Fetch dashboard data from API
   useEffect(() => {
@@ -114,6 +116,13 @@ const Dashboard = () => {
           
           setRecentActions(recentActivities);
           setWarnings(warnings || []);
+          // Fetch all students for display using direct endpoint
+          const studentsResponse = await studentsService.getAllStudentsDirect();
+          if (studentsResponse && studentsResponse.success) {
+            setStudents(studentsResponse.data);
+          } else {
+            console.error('Failed to fetch students:', studentsResponse?.message);
+          }
         } else {
           throw new Error(response?.message || 'Không thể tải dữ liệu thống kê');
         }
@@ -235,285 +244,172 @@ const Dashboard = () => {
   }
 
   return (
-    <PageContainer>
-      {/* Welcome Section */}
-      <Card sx={{ mb: 4, p: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)', borderRadius: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-              {getCurrentTime()}, {currentUser?.name || 'Quản trị viên'}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {getFormattedDate()}
-            </Typography>
+    <PageContainer fullHeight noPadding>
+      <Box sx={{ backgroundColor: '#f5f7fa', flexGrow: 1, p: { xs: 2, md: 4 } }}>
+        {/* Welcome Section */}
+        <Card sx={{ mb: 4, p: 4, borderRadius: 4, color: '#fff', background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box>
+              <Typography variant="h5" component="h1" gutterBottom sx={{ fontWeight: 700, color: '#fff' }}>
+                {getCurrentTime()}, {currentUser?.name || 'Quản trị viên'}
+              </Typography>
+              <Typography variant="body1" sx={{ color: '#e0e0e0' }}>
+                {getFormattedDate()}
+              </Typography>
+            </Box>
+            <Avatar 
+              sx={{ 
+                width: 64, 
+                height: 64, 
+                bgcolor: alpha('#fff', 0.2),
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+              }}
+            >
+              {currentUser?.name?.charAt(0) || 'A'}
+            </Avatar>
           </Box>
-          <Avatar 
-            sx={{ 
-              width: 64, 
-              height: 64, 
-              bgcolor: 'primary.main',
-              boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-            }}
-          >
-            {currentUser?.name?.charAt(0) || 'A'}
-          </Avatar>
-        </Box>
-      </Card>
-      
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-          Dashboard
-        </Typography>
-        <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.secondary' }}>
-          Tổng quan hệ thống quản lý sinh viên
-        </Typography>
-      </Box>
-      
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<PeopleAlt />}
-            title="Tổng sinh viên"
-            value={stats.totalStudents}
-            color="primary.main"
-            bgColor="#1976d2"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<Person />}
-            title="Sinh viên đang học"
-            value={stats.activeStudents}
-            color="success.main"
-            bgColor="#2e7d32"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<School />}
-            title="Chương trình đào tạo"
-            value={stats.programs}
-            color="secondary.main"
-            bgColor="#9c27b0"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            icon={<Book />}
-            title="Môn học"
-            value={stats.subjects}
-            color="warning.main"
-            bgColor="#ed6c02"
-          />
-        </Grid>
-      </Grid>
-      
-      {/* Main Content */}
-      <Grid container spacing={3}>
-        {/* Current Period */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card sx={{ 
-            height: '100%', 
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
-            borderRadius: 3 
-          }}>
-            <CardHeader 
-              title="Thông tin học kỳ hiện tại" 
-              titleTypographyProps={{ variant: 'h6', fontWeight: 600 }} 
-            />
-            <Divider />
-            <CardContent>
-              {stats.currentSemester ? (
-                <>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
-                      {stats.currentSemester.SemesterName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Thời gian: {formatSemesterDateRange(stats.currentSemester.StartDate, stats.currentSemester.EndDate)}
-                    </Typography>
-                  </Box>
-                  
-                  <Stack spacing={2}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2">Đăng ký học phần:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500, color: 
-                        stats.currentSemester.RegistrationStartDate && 
-                        new Date(stats.currentSemester.RegistrationStartDate) <= new Date() && 
-                        new Date(stats.currentSemester.RegistrationEndDate) >= new Date() 
-                          ? 'success.main' 
-                          : 'text.secondary'
-                      }}>
-                        {stats.currentSemester.RegistrationStartDate && 
-                         new Date(stats.currentSemester.RegistrationStartDate) <= new Date() && 
-                         new Date(stats.currentSemester.RegistrationEndDate) >= new Date() 
-                          ? 'Đang mở'
-                          : 'Đã đóng'}
-                      </Typography>
-                    </Box>
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2">Tuần học hiện tại:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {(() => {
-                          const startDate = new Date(stats.currentSemester.StartDate);
-                          const now = new Date();
-                          const diffTime = Math.abs(now - startDate);
-                          const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
-                          
-                          const endDate = new Date(stats.currentSemester.EndDate);
-                          const totalWeeks = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24 * 7));
-                          
-                          return `Tuần ${diffWeeks > totalWeeks ? totalWeeks : diffWeeks}/${totalWeeks}`;
-                        })()}
-                      </Typography>
-                    </Box>
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2">Trạng thái:</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                        {stats.currentSemester.Status === 'Ongoing' ? 'Đang diễn ra' : 
-                         stats.currentSemester.Status === 'Upcoming' ? 'Sắp tới' :
-                         stats.currentSemester.Status === 'Completed' ? 'Đã kết thúc' : 
-                         stats.currentSemester.Status === 'Cancelled' ? 'Đã hủy' : 'Không xác định'}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 3 }}>
-                  <Typography color="text.secondary">Không có học kỳ hiện tại</Typography>
-                </Box>
-              )}
-              
-              <Button
-                variant="outlined"
-                fullWidth
-                sx={{ mt: 3 }}
-                startIcon={<CalendarMonth />}
-                component={RouterLink}
-                to="/academic/semesters"
-              >
-                Quản lý học kỳ
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
+        </Card>
         
-        {/* Recent Activity */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card sx={{ 
-            height: '100%', 
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
-            borderRadius: 3 
-          }}>
-            <CardHeader 
-              title="Hoạt động gần đây" 
-              titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
-              action={
-                <Button size="small" color="primary">
-                  Xem tất cả
-                </Button>
-              }
-            />
-            <Divider />
-            <CardContent>
-              <List>
-                {recentActions.length > 0 ? (
-                  recentActions.map((action) => (
-                    <ListItem
-                      key={action.id}
-                      divider={action.id !== recentActions[recentActions.length - 1].id}
-                      sx={{ px: 1, py: 1.5 }}
-                    >
-                      <ListItemAvatar>
-                        {getActionAvatar(action.type)}
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={action.content}
-                        secondary={`${action.user} - ${action.time}`}
-                        primaryTypographyProps={{ fontWeight: 500 }}
-                      />
-                    </ListItem>
-                  ))
+        
+        {/* Main Content */}
+        <Grid container spacing={4} justifyContent="center">
+          {/* Current Semester */}
+          <Grid item xs={12} md={6}>
+            <Card sx={{ 
+              height: '100%', 
+              boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
+              borderRadius: 3 
+            }}>
+              <CardHeader 
+                title="Thông tin học kỳ hiện tại" 
+                titleTypographyProps={{ variant: 'h6', fontWeight: 600 }} 
+              />
+              <Divider />
+              <CardContent>
+                {stats.currentSemester ? (
+                  <>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: 'primary.main' }}>
+                        {stats.currentSemester.SemesterName}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Thời gian: {formatSemesterDateRange(stats.currentSemester.StartDate, stats.currentSemester.EndDate)}
+                      </Typography>
+                    </Box>
+                    
+                    <Stack spacing={2}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2">Đăng ký học phần:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: 
+                          stats.currentSemester.RegistrationStartDate && 
+                          new Date(stats.currentSemester.RegistrationStartDate) <= new Date() && 
+                          new Date(stats.currentSemester.RegistrationEndDate) >= new Date() 
+                            ? 'success.main' 
+                            : 'text.secondary'
+                        }}>
+                          {stats.currentSemester.RegistrationStartDate && 
+                           new Date(stats.currentSemester.RegistrationStartDate) <= new Date() && 
+                           new Date(stats.currentSemester.RegistrationEndDate) >= new Date() 
+                            ? 'Đang mở'
+                            : 'Đã đóng'}
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2">Tuần học hiện tại:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {(() => {
+                            const startDate = new Date(stats.currentSemester.StartDate);
+                            const now = new Date();
+                            const diffTime = Math.abs(now - startDate);
+                            const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+                            
+                            const endDate = new Date(stats.currentSemester.EndDate);
+                            const totalWeeks = Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24 * 7));
+                            
+                            return `Tuần ${diffWeeks > totalWeeks ? totalWeeks : diffWeeks}/${totalWeeks}`;
+                          })()}
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2">Trạng thái:</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: 'primary.main' }}>
+                          {stats.currentSemester.Status === 'Ongoing' ? 'Đang diễn ra' : 
+                           stats.currentSemester.Status === 'Upcoming' ? 'Sắp tới' :
+                           stats.currentSemester.Status === 'Completed' ? 'Đã kết thúc' : 
+                           stats.currentSemester.Status === 'Cancelled' ? 'Đã hủy' : 'Không xác định'}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </>
                 ) : (
                   <Box sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography color="text.secondary">Không có hoạt động gần đây</Typography>
+                    <Typography color="text.secondary">Không có học kỳ hiện tại</Typography>
                   </Box>
                 )}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Academic Warnings */}
-        <Grid item xs={12} md={6} lg={4}>
-          <Card sx={{ 
-            height: '100%', 
-            boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
-            borderRadius: 3 
-          }}>
-            <CardHeader 
-              title="Cảnh báo học tập" 
-              titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
-              action={
-                <Button 
-                  size="small" 
-                  color="primary"
+                
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  sx={{ mt: 3 }}
+                  startIcon={<CalendarMonth />}
                   component={RouterLink}
-                  to="/academic/warnings"
+                  to="/academic/semesters"
                 >
-                  Xem tất cả
+                  Quản lý học kỳ
                 </Button>
-              }
-            />
-            <Divider />
-            <CardContent>
-              <List disablePadding>
-                {warnings.length > 0 ? (
-                  warnings.map((warning, index, array) => (
-                    <ListItem
-                      key={warning.id}
-                      divider={index !== array.length - 1}
-                      sx={{ px: 1, py: 1.5 }}
-                      component={RouterLink}
-                      to={`/academic/warnings/${warning.id}`}
-                      button
-                    >
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'error.main' }}>
-                          <Warning />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={`${warning.studentCode} - ${warning.studentName}`}
-                        secondary={`${getWarningTypeLabel(warning.type)} - ${warning.created}`}
-                        primaryTypographyProps={{ fontWeight: 500 }}
-                      />
-                    </ListItem>
-                  ))
-                ) : (
-                  <Box sx={{ textAlign: 'center', py: 3 }}>
-                    <Typography color="text.secondary">Không có cảnh báo học tập</Typography>
-                  </Box>
-                )}
-              </List>
-
-              <Button
-                variant="outlined"
-                fullWidth
-                sx={{ mt: 2 }}
-                startIcon={<Warning />}
-                component={RouterLink}
-                to="/academic/warnings/add"
-              >
-                Thêm cảnh báo mới
-              </Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          {/* Recent Activity */}
+          <Grid item xs={12} md={6}>
+            <Card sx={{ 
+              height: '100%', 
+              boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)',
+              borderRadius: 3 
+            }}>
+              <CardHeader 
+                title="Hoạt động gần đây" 
+                titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
+                action={
+                  <Button size="small" color="primary">
+                    Xem tất cả
+                  </Button>
+                }
+              />
+              <Divider />
+              <CardContent>
+                <List>
+                  {recentActions.length > 0 ? (
+                    recentActions.map((action) => (
+                      <ListItem
+                        key={action.id}
+                        divider={action.id !== recentActions[recentActions.length - 1].id}
+                        sx={{ px: 1, py: 1.5 }}
+                      >
+                        <ListItemAvatar>
+                          {getActionAvatar(action.type)}
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={action.content}
+                          secondary={`${action.user} - ${action.time}`}
+                          primaryTypographyProps={{ fontWeight: 500 }}
+                        />
+                      </ListItem>
+                    ))
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                      <Typography color="text.secondary">Không có hoạt động gần đây</Typography>
+                    </Box>
+                  )}
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
     </PageContainer>
   );
 };

@@ -11,7 +11,7 @@ const apiClient = axios.create({
 // Request interceptor to add auth token to every request
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -60,6 +60,7 @@ export const studentsService = {
       params: { page, limit, search, status, programId },
     });
   },
+  getAllStudentsDirect: () => apiClient.get('/students/all'),
   getStudentById: (id) => {
     return apiClient.get(`/students/${id}`);
   },
@@ -327,4 +328,9 @@ export const academicService = {
   updateSemester: (id, semesterData) => {
     return apiClient.put(`/academic/semesters/${id}`, semesterData);
   },
+};
+
+// User service to fetch all users with optional role filter
+export const usersService = {
+  getAllUsers: (role = '') => apiClient.get('/users/all', { params: { role } }),
 };

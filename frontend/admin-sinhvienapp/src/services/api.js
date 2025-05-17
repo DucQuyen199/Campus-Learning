@@ -132,6 +132,21 @@ export const tuitionService = {
 
 // Academic service
 export const academicService = {
+  // Dashboard stats
+  getDashboardStats: async () => {
+    try {
+      const response = await apiClient.get('/academic/dashboard/stats');
+      console.log('Dashboard stats response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      return { 
+        success: false, 
+        message: error.message || 'Không thể tải dữ liệu thống kê'
+      };
+    }
+  },
+  
   // Programs
   getAllPrograms: () => {
     return apiClient.get('/academic/programs');

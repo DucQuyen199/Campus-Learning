@@ -1,29 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CssBaseline, useMediaQuery, Paper } from '@mui/material';
+import { Box, CssBaseline, useMediaQuery, Fade, Paper, Backdrop, CircularProgress } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Background image URL (keep this for background)
+// Background image URL
 const BACKGROUND_IMAGE = 'https://cdn.amebaowndme.com/madrid-prd/madrid-web/images/sites/558221/b7a846fbe1acc937e6e7af673c329404_0b4068fb3dd7a82a39637443331844b1.jpg';
 
-// Drawer width as percentage
-const drawerWidthPercent = 20;
-const drawerWidth = `${drawerWidthPercent}%`;
+// Responsive drawer width settings
+const DRAWER_WIDTH = {
+  xs: '100%',      // Mobile - full width when opened
+  sm: '300px',     // Tablet - fixed width
+  md: '280px',     // Small desktop - fixed width
+  lg: '20%'        // Large desktop - percentage based
+};
 
 const MainLayout = () => {
   const theme = useTheme();
   const { currentUser } = useAuth();
   const location = useLocation();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'lg'));
   
-  // State to track if sidebar is open
+  // Responsive breakpoints
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  const isSmallDesktop = useMediaQuery(theme.breakpoints.between('md', 'lg'));
+  
+  // State to track if sidebar is open - always true for desktop, toggle on mobile/tablet
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [loading, setLoading] = useState(false);
 
-  // Auto-close sidebar on mobile/tablet
+  // Auto-close sidebar on mobile
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
@@ -37,11 +45,30 @@ const MainLayout = () => {
     if (isMobile) {
       setSidebarOpen(false);
     }
+    
+    // Show loading animation on route change
+    setLoading(true);
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, [location, isMobile]);
 
+  // Toggle sidebar
   const handleDrawerToggle = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  // Determine current drawer width based on screen size
+  const getDrawerWidth = () => {
+    if (isMobile) return DRAWER_WIDTH.xs;
+    if (isTablet) return DRAWER_WIDTH.sm;
+    if (isSmallDesktop) return DRAWER_WIDTH.md;
+    return DRAWER_WIDTH.lg;
+  };
+  
+  const currentDrawerWidth = getDrawerWidth();
 
   return (
     <Box sx={{ 
@@ -51,8 +78,12 @@ const MainLayout = () => {
       width: '100vw',
       overflow: 'hidden',
       position: 'relative',
-      bgcolor: '#f5f7fa',
-      p: { xs: 2, md: 3 },
+      p: { xs: 1, sm: 2, md: 3 },
+      transition: theme.transitions.create(['padding'], {
+        easing: theme.transitions.easing.easeOut,
+        duration: theme.transitions.duration.standard,
+      }),
+      bgcolor: theme.palette.background.default,
       '&::before': {
         content: '""',
         position: 'absolute',
@@ -64,85 +95,121 @@ const MainLayout = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
-        opacity: 0.15,
+        opacity: 0.1,
         zIndex: -1
       }
     }}>
       <CssBaseline />
       
-      {/* Form thống nhất chứa header, sidebar và nội dung */}
+      {/* Main container with glassmorphism effect */}
       <Paper
-        elevation={2}
+        elevation={0}
         sx={{
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
           height: '100%',
-          borderRadius: 2,
+          borderRadius: { xs: 2, md: 3 },
           overflow: 'hidden',
           border: `1px solid ${theme.palette.divider}`,
           flexGrow: 1,
-          bgcolor: 'background.paper',
+          backgroundColor: 'rgba(255, 255, 255, 0.7)',
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+          transition: theme.transitions.create(['box-shadow', 'border-radius'], {
+            easing: theme.transitions.easing.easeInOut,
+            duration: theme.transitions.duration.standard,
+          }),
         }}
       >
-        {/* Header trong form thống nhất */}
+        {/* Header */}
         <Box sx={{ 
           width: '100%', 
-          borderBottom: `1px solid ${theme.palette.divider}`,
           zIndex: theme.zIndex.drawer + 1,
+          flexShrink: 0,
+          height: { xs: '60px', sm: '64px', md: '70px' },
+          transition: theme.transitions.create(['height'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.shorter,
+          }),
         }}>
           <Header 
             insideUnifiedForm={true}
             open={sidebarOpen}
             handleDrawerToggle={handleDrawerToggle}
             isMobile={isMobile}
-            drawerWidthPercentage={drawerWidthPercent}
+            drawerWidth={currentDrawerWidth}
           />
         </Box>
         
-        {/* Container cho sidebar và nội dung */}
+        {/* Content area */}
         <Box sx={{ 
           display: 'flex', 
-          flexDirection: 'row',
           flexGrow: 1,
-          overflow: 'hidden',
           width: '100%',
-          height: 'calc(100% - 70px)', // Chiều cao còn lại sau khi trừ header
+          height: { 
+            xs: 'calc(100% - 60px)', 
+            sm: 'calc(100% - 64px)',
+            md: 'calc(100% - 70px)' 
+          },
+          overflow: 'hidden',
         }}>
-          {/* Sidebar bên trong form */}
-          {(!isMobile || (isMobile && sidebarOpen)) && (
-            <Box
-              sx={{
-                width: isMobile ? '250px' : isTablet ? '250px' : drawerWidth,
-                height: '100%',
-                borderRight: `1px solid ${theme.palette.divider}`,
-                bgcolor: 'background.paper',
-                position: isMobile ? 'absolute' : 'relative',
-                zIndex: isMobile ? theme.zIndex.drawer : 'auto',
-                transition: theme.transitions.create(['width', 'transform'], {
-                  easing: theme.transitions.easing.sharp,
-                  duration: theme.transitions.duration.enteringScreen,
-                }),
-                boxShadow: isMobile ? '0 0 15px rgba(0, 0, 0, 0.1)' : 'none',
-                transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
-              }}
-            >
+          {/* Sidebar - different behavior for mobile vs. desktop */}
+          <Box
+            component="aside"
+            sx={{
+              width: sidebarOpen ? currentDrawerWidth : 0,
+              height: '100%',
+              borderRight: `1px solid ${theme.palette.divider}`,
+              bgcolor: theme.palette.background.paper,
+              position: isMobile ? 'absolute' : 'relative',
+              zIndex: isMobile ? theme.zIndex.drawer : 'auto',
+              transition: theme.transitions.create(['width', 'transform'], {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+              boxShadow: isMobile ? '0 0 20px rgba(0, 0, 0, 0.1)' : 'none',
+              transform: isMobile && !sidebarOpen ? 'translateX(-100%)' : 'translateX(0)',
+              display: 'flex',
+              flexDirection: 'column',
+              flexShrink: 0,
+              visibility: (sidebarOpen) ? 'visible' : 'hidden',
+            }}
+          >
+            {sidebarOpen && (
               <Sidebar 
                 insideUnifiedForm={true}
                 drawerWidth="100%"
-                open={true}
+                open={sidebarOpen}
                 handleDrawerToggle={handleDrawerToggle}
                 isMobile={isMobile}
+                currentUser={currentUser}
               />
-            </Box>
+            )}
+          </Box>
+          
+          {/* Backdrop for mobile when sidebar is open */}
+          {isMobile && sidebarOpen && (
+            <Backdrop
+              sx={{ 
+                position: 'absolute', 
+                zIndex: theme.zIndex.drawer - 1,
+                color: '#fff',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)'
+              }}
+              open={true}
+              onClick={handleDrawerToggle}
+            />
           )}
           
-          {/* Main Content area */}
+          {/* Main Content area with loading indicator */}
           <Box
             component="main"
             sx={{
               flexGrow: 1,
-              width: isMobile ? '100%' : isTablet ? 'calc(100% - 250px)' : `${100 - drawerWidthPercent}%`,
+              width: isMobile 
+                ? '100%' 
+                : `calc(100% - ${sidebarOpen ? currentDrawerWidth : '0px'})`,
               height: '100%',
               overflow: 'auto',
               display: 'flex',
@@ -152,9 +219,28 @@ const MainLayout = () => {
                 easing: theme.transitions.easing.sharp,
                 duration: theme.transitions.duration.enteringScreen,
               }),
+              bgcolor: 'rgba(255, 255, 255, 0.5)',
+              p: { xs: 2, md: 3 },
             }}
           >
-            <Outlet />
+            {loading ? (
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  alignItems: 'center',
+                  height: '100%'
+                }}
+              >
+                <CircularProgress color="primary" size={40} />
+              </Box>
+            ) : (
+              <Fade in={!loading} timeout={300}>
+                <Box sx={{ height: '100%' }}>
+                  <Outlet />
+                </Box>
+              </Fade>
+            )}
           </Box>
         </Box>
       </Paper>

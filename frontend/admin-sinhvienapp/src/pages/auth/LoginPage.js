@@ -397,17 +397,6 @@ const Login = () => {
                   {loading ? <CircularProgress size={24} /> : 'Đăng nhập'}
                 </Button>
                 
-                {process.env.NODE_ENV === 'development' && (
-                  <Alert severity="info" sx={{ mb: 3 }}>
-                    <Typography variant="body2">
-                      <strong>Đăng nhập với tài khoản ADMIN từ cơ sở dữ liệu</strong>
-                    </Typography>
-                    <Typography variant="caption" component="div" sx={{ mt: 1 }}>
-                      Nhập đúng tên tài khoản và mật khẩu của người dùng có quyền ADMIN trong cơ sở dữ liệu.<br/>
-                      Chức năng đăng nhập bằng Gmail cũng cần tài khoản có trong cơ sở dữ liệu.
-                    </Typography>
-                  </Alert>
-                )}
                 
                 <Divider sx={{ my: 3 }}>
                   <Typography variant="body2" color="text.secondary">

@@ -14,6 +14,11 @@ import {
   Avatar,
   useTheme,
   alpha,
+  Paper,
+  Badge,
+  Tooltip,
+  IconButton,
+  Button
 } from '@mui/material';
 import {
   Person,
@@ -39,7 +44,9 @@ import {
   Work,
   ExpandLess,
   ExpandMore,
-  Dashboard
+  Dashboard,
+  ChevronLeft,
+  ChevronRight
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -383,136 +390,154 @@ const Sidebar = ({
     );
   };
   
-  // Khi sidebar nằm trong form thống nhất và không phải mobile
-  if (insideUnifiedForm) {
-    return (
-      <Box
-        sx={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          bgcolor: theme.palette.background.paper,
-          boxShadow: '0 0 15px rgba(0, 0, 0, 0.05)',
-        }}
-      >
-        {/* User profile section */}
-        <Box
-          sx={{
-            p: 2,
-            display: 'flex',
-            alignItems: 'center',
-            borderBottom: `1px solid ${theme.palette.divider}`,
-          }}
-        >
-          {currentUser?.Avatar ? (
-            <Avatar src={currentUser.Avatar} alt={currentUser.FullName} />
-          ) : (
-            <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-              {currentUser?.FullName?.charAt(0) || 'S'}
-            </Avatar>
-          )}
-          <Box sx={{ ml: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600}>
-              {currentUser?.FullName || 'Sinh viên'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {currentUser?.Email || ''}
-            </Typography>
-          </Box>
-        </Box>
-        
-        {/* Menu items */}
-        <Box
-          sx={{ 
-            overflow: 'auto', 
-            flexGrow: 1,
-            px: 2,
-            pt: 2,
-            pb: 4,
-            '&::-webkit-scrollbar': {
-              width: '6px',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.2),
-              borderRadius: '3px',
-            },
-            '&::-webkit-scrollbar-track': {
-              backgroundColor: 'transparent',
-            },
-          }}
-        >
-          <List sx={{ width: '100%' }}>
-            {sidebarItems.map(renderMenuItem)}
-          </List>
-        </Box>
-      </Box>
-    );
-  }
-  
-  // Original sidebar (for backward compatibility)
-  const drawer = (
-    <div>
-      <Box sx={{ p: 1 }}>
-        <Typography variant="h6" noWrap component="div">
-          CAMPUS CONNECT
-        </Typography>
-        {currentUser && (
-          <Typography variant="body2" noWrap component="div">
-            {currentUser.FullName}
-          </Typography>
-        )}
-      </Box>
-      <Divider />
-      <Box sx={{ overflow: 'auto', maxHeight: 'calc(100vh - 64px)' }}>
-        <List>{sidebarItems.map(renderMenuItem)}</List>
-      </Box>
-    </div>
-  );
-  
+  // Container styling based on whether it's inside unified form or standalone
+  const containerStyles = insideUnifiedForm
+    ? {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+        backgroundColor: alpha(theme.palette.background.paper, 0.8),
+        backdropFilter: 'blur(10px)'
+      }
+    : {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+        backgroundColor: alpha(theme.palette.background.paper, 0.8),
+        backdropFilter: 'blur(10px)'
+      };
+
   return (
     <Box
+      sx={containerStyles}
       component="nav"
-      sx={{ 
-        width: { sm: drawerWidth }, 
-        flexShrink: { sm: 0 },
-        height: '100%'
-      }}
-      aria-label="menu navigation"
+      aria-label="sidebar navigation"
     >
-      {/* Mobile drawer */}
-      <Drawer
-        variant="temporary"
-        open={mobileOpen}
-        onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true, // Better mobile performance
-        }}
+      {/* User Info Section */}
+      <Box 
         sx={{
-          display: { xs: 'block', sm: 'none' },
-          '& .MuiDrawer-paper': { 
-            boxSizing: 'border-box', 
-            width: drawerWidth,
-          },
+          p: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+          mb: 1,
+          position: 'relative'
         }}
       >
-        {drawer}
-      </Drawer>
+        {isMobile && (
+          <IconButton
+            onClick={handleDrawerToggle}
+            size="small"
+            sx={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              color: theme.palette.text.secondary
+            }}
+          >
+            <ChevronLeft />
+          </IconButton>
+        )}
+        
+        <Avatar
+          src={currentUser?.Avatar}
+          alt={currentUser?.FullName || 'User'}
+          sx={{
+            width: 80,
+            height: 80,
+            mb: 1,
+            border: `3px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+            boxShadow: `0 0 10px ${alpha(theme.palette.primary.main, 0.15)}`
+          }}
+        />
+        
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 600,
+            textAlign: 'center',
+            mt: 1
+          }}
+        >
+          {currentUser?.FullName || 'Chưa cập nhật'}
+        </Typography>
+        
+        <Typography 
+          variant="body2" 
+          color="text.secondary"
+          sx={{ mb: 1 }}
+        >
+          {currentUser?.UserID ? `ID: ${currentUser.UserID}` : 'ID: -'}
+        </Typography>
+      </Box>
       
-      {/* Desktop drawer */}
-      <Drawer
-        variant="permanent"
+      {/* Menu List */}
+      <Box
         sx={{
-          display: { xs: 'none', sm: 'block' },
-          '& .MuiDrawer-paper': { 
-            boxSizing: 'border-box', 
-            width: drawerWidth,
-            borderRight: '1px solid rgba(0, 0, 0, 0.12)'
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          flexGrow: 1,
+          '&::-webkit-scrollbar': {
+            width: '6px',
+            backgroundColor: 'transparent'
           },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.2),
+            borderRadius: '10px'
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.4)
+          }
         }}
-        open
       >
-        {drawer}
-      </Drawer>
+        <List
+          sx={{
+            px: 1.5,
+            py: 0.5,
+          }}
+        >
+          {sidebarItems.map(renderMenuItem)}
+        </List>
+      </Box>
+      
+      {/* System status at bottom */}
+      <Box
+        sx={{
+          p: 2,
+          borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+          mt: 'auto',
+          backgroundColor: alpha(theme.palette.background.default, 0.5),
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}
+      >
+        <Typography 
+          variant="caption" 
+          color="text.secondary"
+          sx={{ fontSize: '0.75rem' }}
+        >
+          Học kỳ 1 năm học 2023-2024
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{
+            color: theme.palette.success.main,
+            display: 'flex',
+            alignItems: 'center',
+            fontSize: '0.75rem'
+          }}
+        >
+          <Badge
+            variant="dot"
+            color="success"
+            sx={{ mr: 0.5 }}
+          /> Hệ thống đang hoạt động
+        </Typography>
+      </Box>
     </Box>
   );
 };

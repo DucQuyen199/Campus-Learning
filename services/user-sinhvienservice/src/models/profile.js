@@ -9,11 +9,32 @@ const ProfileModel = {
       const result = await poolConnection.request()
         .input('userId', sqlConnection.sql.BigInt, userId)
         .query(`
-          SELECT u.*, up.*, sd.*
+          SELECT 
+            u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth, 
+            u.School, u.Role, u.Status, u.AccountStatus, u.Bio, u.Provider,
+            u.EmailVerified, u.PhoneNumber, u.Address, u.City, u.Country,
+            u.LastLoginAt, u.Avatar,
+            up.Education, up.WorkExperience, up.Skills, up.Interests, 
+            up.SocialLinks, up.Achievements, up.PreferredLanguage, up.TimeZone,
+            sd.StudentCode, sd.IdentityCardNumber, sd.IdentityCardIssueDate,
+            sd.IdentityCardIssuePlace, sd.Gender, sd.MaritalStatus, 
+            sd.BirthPlace, sd.Ethnicity, sd.Religion, sd.HomeTown,
+            sd.ParentName, sd.ParentPhone, sd.ParentEmail,
+            sd.EmergencyContact, sd.EmergencyPhone, sd.HealthInsuranceNumber,
+            sd.BloodType, sd.EnrollmentDate, sd.GraduationDate, sd.Class,
+            sd.CurrentSemester, sd.AcademicStatus, sd.BankAccountNumber, sd.BankName,
+            ap.ProgramName, ap.Department, ap.Faculty, ap.TotalCredits,
+            ap.ProgramDuration, ap.DegreeName, ap.ProgramType,
+            sp.EntryYear, sp.ExpectedGraduationYear, sp.Status AS ProgramStatus,
+            adv.FullName AS AdvisorName, adv.Email AS AdvisorEmail, 
+            adv.PhoneNumber AS AdvisorPhone
           FROM Users u
           LEFT JOIN UserProfiles up ON u.UserID = up.UserID
           LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
-          WHERE u.UserID = @userId
+          LEFT JOIN StudentPrograms sp ON u.UserID = sp.UserID
+          LEFT JOIN AcademicPrograms ap ON sp.ProgramID = ap.ProgramID
+          LEFT JOIN Users adv ON sp.AdvisorID = adv.UserID
+          WHERE u.UserID = @userId AND (sp.IsPrimary = 1 OR sp.IsPrimary IS NULL)
         `);
       
       if (result.recordset.length === 0) {
@@ -62,12 +83,13 @@ const ProfileModel = {
         await poolConnection.request()
           .input('userId', sqlConnection.sql.BigInt, userId)
           .input('fieldName', sqlConnection.sql.VarChar(50), 'Profile')
+          .input('oldValue', sqlConnection.sql.NVarChar(sqlConnection.sql.MAX), null)
           .input('newValue', sqlConnection.sql.NVarChar(sqlConnection.sql.MAX), JSON.stringify(profileData))
           .input('updateTime', sqlConnection.sql.DateTime, new Date())
           .input('status', sqlConnection.sql.VarChar(20), 'Approved')
           .query(`
-            INSERT INTO ProfileUpdates (UserID, FieldName, NewValue, UpdateTime, Status)
-            VALUES (@userId, @fieldName, @newValue, @updateTime, @status)
+            INSERT INTO ProfileUpdates (UserID, FieldName, OldValue, NewValue, UpdateTime, Status)
+            VALUES (@userId, @fieldName, @oldValue, @newValue, @updateTime, @status)
           `);
         
         // Commit the transaction

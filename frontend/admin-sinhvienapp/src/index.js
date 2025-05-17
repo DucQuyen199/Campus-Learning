@@ -19,44 +19,49 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import viLocale from 'date-fns/locale/vi';
 
-// Handle browser errors before anything else
-try {
-  // Patch for 'browser is not defined' error in onpage-dialog.preload.js
-  if (typeof window !== 'undefined' && typeof window.browser === 'undefined') {
-    window.browser = {
-      runtime: {
-        sendMessage: () => Promise.resolve({}),
-        onMessage: {
-          addListener: () => {},
-          removeListener: () => {}
-        }
+// Browser compatibility polyfill
+if (typeof window !== 'undefined' && typeof window.browser === 'undefined') {
+  window.browser = window.browser || window.chrome || {};
+  
+  // Ensure browser.runtime is defined
+  if (!window.browser.runtime) {
+    window.browser.runtime = {
+      sendMessage: () => Promise.resolve({}),
+      onMessage: {
+        addListener: () => {},
+        removeListener: () => {}
       }
     };
   }
-} catch (error) {
-  console.error('Error patching browser object:', error);
+  
+  // Define global start function for external dialog scripts
+  if (typeof window.start === 'undefined') {
+    window.start = function() {
+      console.log('Polyfill for window.start called');
+      return {
+        browser: window.browser,
+        init: () => {},
+        dispose: () => {},
+        connect: () => {}
+      };
+    };
+  }
 }
 
-// Global error handler
-window.addEventListener('error', (event) => {
-  console.error('Global error caught:', event.error);
-  
-  // Specifically handle the browser not defined error
-  if (event.error && event.error.message && event.error.message.includes('browser is not defined')) {
-    console.log('Handling browser not defined error');
-    if (typeof window !== 'undefined') {
-      window.browser = window.browser || {
-        runtime: {
-          sendMessage: () => Promise.resolve({}),
-          onMessage: {
-            addListener: () => {},
-            removeListener: () => {}
-          }
-        }
-      };
+// Suppress browser-related errors
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    if (event.message && (
+      event.message.includes('browser is not defined') ||
+      event.message.includes('start is not defined')
+    )) {
+      console.warn('Suppressing browser error:', event.message);
+      event.preventDefault();
+      return true;
     }
-  }
-});
+    return false;
+  }, true);
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

@@ -8,9 +8,72 @@ const bcrypt = require('bcrypt');
  */
 const getAllStudents = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+    // Check if this is a request for all students with direct SQL
+    const directSql = req.query.directSql === 'true';
+    const selectAll = req.query.selectAll === 'true';
+    const noLimit = req.query.noLimit === 'true';
+    const skipPagination = req.query.skipPagination === 'true';
+    
+    // If directSql and selectAll parameters are present, use a more efficient query
+    if (directSql && selectAll && (noLimit || skipPagination)) {
+      console.log('Using optimized query to fetch all students at once');
+      
+      // Direct SQL query to fetch all students efficiently
+      const query = `
+        SELECT 
+          u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth,
+          u.PhoneNumber, u.Address, u.City, u.Country,
+          u.Status, u.AccountStatus, u.CreatedAt, u.UpdatedAt, u.Avatar,
+          sd.StudentCode, sd.Class, sd.CurrentSemester, sd.AcademicStatus,
+          ap.ProgramName, ap.Faculty, ap.Department
+        FROM Users u
+        LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
+        LEFT JOIN StudentPrograms sp ON u.UserID = sp.UserID AND sp.IsPrimary = 1
+        LEFT JOIN AcademicPrograms ap ON sp.ProgramID = ap.ProgramID
+        WHERE u.Role = 'STUDENT'
+        ORDER BY u.UserID
+      `;
+      
+      const result = await executeQuery(query);
+      
+      return res.status(200).json({
+        success: true,
+        data: result.recordset
+      });
+    }
+    
+    // Handle request for a specific user by ID
+    if (req.query.exactUserId) {
+      const userId = req.query.exactUserId;
+      
+      const query = `
+        SELECT 
+          u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth,
+          u.PhoneNumber, u.Address, u.City, u.Country,
+          u.Status, u.AccountStatus, u.CreatedAt, u.UpdatedAt, u.Avatar,
+          sd.StudentCode, sd.Class, sd.CurrentSemester, sd.AcademicStatus,
+          ap.ProgramName, ap.Faculty, ap.Department
+        FROM Users u
+        LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
+        LEFT JOIN StudentPrograms sp ON u.UserID = sp.UserID AND sp.IsPrimary = 1
+        LEFT JOIN AcademicPrograms ap ON sp.ProgramID = ap.ProgramID
+        WHERE u.Role = 'STUDENT' AND u.UserID = @userId
+      `;
+      
+      const result = await executeQuery(query, {
+        userId: { type: sql.BigInt, value: userId }
+      });
+      
+      return res.status(200).json({
+        success: true,
+        data: result.recordset
+      });
+    }
+    
+    // Standard pagination approach
+    const page = parseInt(req.query.page) || 0;
+    const limit = parseInt(req.query.pageSize) || parseInt(req.query.limit) || 10;
+    const offset = page * limit;
     const search = req.query.search || '';
     const status = req.query.status || '';
     const programId = req.query.programId || '';
@@ -54,7 +117,7 @@ const getAllStudents = async (req, res) => {
     const totalPages = Math.ceil(totalStudents / limit);
 
     // Add pagination
-    query += ` ORDER BY u.FullName OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+    query += ` ORDER BY u.UserID OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
     params.offset = { type: sql.Int, value: offset };
     params.limit = { type: sql.Int, value: limit };
 
@@ -63,7 +126,7 @@ const getAllStudents = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      students: result.recordset,
+      data: result.recordset,
       pagination: {
         total: totalStudents,
         page,
@@ -73,6 +136,53 @@ const getAllStudents = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching students:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Đã xảy ra lỗi khi lấy danh sách sinh viên.'
+    });
+  }
+};
+
+/**
+ * Get all students in a single query without pagination
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+const getAllStudentsDirectly = async (req, res) => {
+  try {
+    console.log('Direct request for all students at once');
+    
+    // Direct SQL query to fetch all students efficiently
+    const query = `
+      SELECT 
+        u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth,
+        u.PhoneNumber, u.Address, u.City, u.Country,
+        u.Status, u.AccountStatus, u.CreatedAt, u.UpdatedAt, u.Avatar,
+        sd.StudentCode, sd.Class, sd.CurrentSemester, sd.AcademicStatus,
+        ap.ProgramName, ap.Faculty, ap.Department
+      FROM Users u
+      LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
+      LEFT JOIN StudentPrograms sp ON u.UserID = sp.UserID AND sp.IsPrimary = 1
+      LEFT JOIN AcademicPrograms ap ON sp.ProgramID = ap.ProgramID
+      WHERE u.Role = 'STUDENT'
+      ORDER BY u.UserID
+    `;
+    
+    // Use the pool directly instead of executeQuery helper to bypass parameter validation
+    // Get a direct connection to the SQL pool
+    const { getPool } = require('../config/db');
+    const pool = await getPool();
+    
+    // Execute the query directly without parameters
+    const result = await pool.request().query(query);
+    
+    return res.status(200).json({
+      success: true,
+      data: result.recordset,
+      totalCount: result.recordset.length
+    });
+  } catch (error) {
+    console.error('Error fetching all students directly:', error);
     return res.status(500).json({
       success: false,
       message: 'Đã xảy ra lỗi khi lấy danh sách sinh viên.'
@@ -777,6 +887,7 @@ const getStudentResults = async (req, res) => {
 
 module.exports = {
   getAllStudents,
+  getAllStudentsDirectly,
   getStudentById,
   createStudent,
   updateStudent,

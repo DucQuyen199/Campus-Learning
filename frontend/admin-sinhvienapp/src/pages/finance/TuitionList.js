@@ -77,15 +77,34 @@ const TuitionList = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await tuitionService.getAllTuition(
+      // Fetch tuition data from API
+      const response = await tuitionService.getAllTuition(
         page + 1,
         rowsPerPage,
         search,
         semester,
         status
       );
-      setTuitionList(data.tuition || []);
-      setTotalTuition(data.total || 0);
+      if (response.success) {
+        // Map API fields to UI fields
+        const list = (response.data || []).map(item => ({
+          id: item.TuitionID,
+          studentCode: item.UserID,
+          studentName: item.FullName,
+          semesterName: item.SemesterName,
+          totalAmount: item.FinalAmount,
+          paidAmount: item.PaidAmount || 0,
+          remainingAmount: (item.FinalAmount || 0) - (item.PaidAmount || 0),
+          dueDate: item.DueDate,
+          status: item.Status
+        }));
+        setTuitionList(list);
+        setTotalTuition(response.pagination?.total || 0);
+      } else {
+        setError(response.message || 'Không thể tải dữ liệu học phí. Vui lòng thử lại sau.');
+        setTuitionList([]);
+        setTotalTuition(0);
+      }
     } catch (error) {
       setError('Không thể tải dữ liệu học phí. Vui lòng thử lại sau.');
       console.error('Failed to fetch tuition data:', error);

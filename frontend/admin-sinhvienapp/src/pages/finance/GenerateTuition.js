@@ -79,7 +79,9 @@ const GenerateTuition = () => {
     semesterId: '',
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Default 30 days from now
     programs: [],
+    chargeMode: 'credit',
     amountPerCredit: 850000,
+    semesterFee: 0,
     applyDiscount: false,
     discountPercentage: 0,
     notifyStudents: true,
@@ -225,9 +227,18 @@ const GenerateTuition = () => {
   // Handle form data changes
   const handleFormChange = (e) => {
     const { name, value, checked, type } = e.target;
+    // Parse value based on input type
+    let parsedValue;
+    if (type === 'checkbox') {
+      parsedValue = checked;
+    } else if (type === 'number') {
+      parsedValue = Number(value);
+    } else {
+      parsedValue = value;
+    }
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? checked : value,
+      [name]: parsedValue,
     });
     
     // If semester changes, update semesterId
@@ -354,7 +365,9 @@ const GenerateTuition = () => {
       semesterId: '',
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       programs: [],
+      chargeMode: 'credit',
       amountPerCredit: 850000,
+      semesterFee: 0,
       applyDiscount: false,
       discountPercentage: 0,
       notifyStudents: true,
@@ -433,7 +446,9 @@ const GenerateTuition = () => {
         academicYear: formData.academicYear,
         dueDate: formData.dueDate,
         studentIds: selectedStudents,
+        chargeMode: formData.chargeMode,
         amountPerCredit: formData.amountPerCredit,
+        semesterFee: formData.semesterFee,
         discountPercentage: formData.applyDiscount ? formData.discountPercentage : 0,
         includePreviousBalance: formData.includePreviousBalance,
         paymentDeadline: formData.paymentDeadline,
@@ -468,12 +483,23 @@ const GenerateTuition = () => {
 
   const calculateTotalAmount = () => {
     const students = getSelectedStudentsData();
-    let total = students.reduce((sum, student) => sum + student.TuitionAmount, 0);
+    // Calculate the base tuition based on charging mode
+    let total = 0;
     
+    if (formData.chargeMode === 'credit') {
+      // Credit-based calculation
+      total = students.reduce((sum, student) => sum + (student.TotalCredits * formData.amountPerCredit), 0);
+    } else {
+      // Semester-based calculation (fixed fee per student)
+      total = students.length * formData.semesterFee;
+    }
+    
+    // Apply discount if enabled
     if (formData.applyDiscount && formData.discountPercentage > 0) {
       total = total * (1 - formData.discountPercentage / 100);
     }
     
+    // Add previous balance if needed
     if (formData.includePreviousBalance) {
       total += students.reduce((sum, student) => sum + (student.CurrentBalance || 0), 0);
     }
@@ -573,17 +599,61 @@ const GenerateTuition = () => {
                   <FormHelperText>Để trống để bao gồm tất cả các ngành học</FormHelperText>
                 </FormControl>
               </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth disabled={dataLoading}>
+                  <InputLabel id="charge-mode-label">Phương thức thu</InputLabel>
+                  <Select
+                    labelId="charge-mode-label"
+                    name="chargeMode"
+                    value={formData.chargeMode}
+                    label="Phương thức thu"
+                    onChange={handleFormChange}
+                  >
+                    <MenuItem value="credit">Theo tín chỉ</MenuItem>
+                    <MenuItem value="semester">Theo học kỳ</MenuItem>
+                  </Select>
+                  <FormHelperText>
+                    {formData.chargeMode === 'credit' 
+                      ? 'Tính phí dựa trên số tín chỉ đã đăng ký của mỗi sinh viên' 
+                      : 'Áp dụng mức phí cố định cho toàn bộ học kỳ'}
+                  </FormHelperText>
+                </FormControl>
+              </Grid>
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Số tín chỉ mỗi đơn chữ"
-                  name="amountPerCredit"
-                  type="number"
-                  value={formData.amountPerCredit}
-                  onChange={handleFormChange}
-                  inputProps={{ min: 0 }}
-                  disabled={dataLoading}
-                />
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <AlertTitle>Thông tin phương thức tính học phí</AlertTitle>
+                  <Box component="ul" sx={{ pl: 2, m: 0 }}>
+                    <li><strong>Theo tín chỉ:</strong> Học phí được tính theo công thức: <em>Số tín chỉ × Mức phí mỗi tín chỉ</em>. Mỗi sinh viên sẽ đóng học phí dựa trên số tín chỉ thực tế đã đăng ký.</li>
+                    <li><strong>Theo học kỳ:</strong> Áp dụng mức phí cố định cho tất cả sinh viên, không phụ thuộc vào số lượng tín chỉ đã đăng ký.</li>
+                  </Box>
+                </Alert>
+              </Grid>
+              <Grid item xs={12}>
+                {formData.chargeMode === 'credit' ? (
+                  <TextField
+                    fullWidth
+                    label="Số tiền mỗi tín chỉ"
+                    name="amountPerCredit"
+                    type="number"
+                    value={formData.amountPerCredit}
+                    onChange={handleFormChange}
+                    inputProps={{ min: 0 }}
+                    disabled={dataLoading}
+                    helperText="Mức phí áp dụng cho mỗi tín chỉ sinh viên đã đăng ký"
+                  />
+                ) : (
+                  <TextField
+                    fullWidth
+                    label="Phí cố định một học kỳ"
+                    name="semesterFee"
+                    type="number"
+                    value={formData.semesterFee}
+                    onChange={handleFormChange}
+                    inputProps={{ min: 0 }}
+                    disabled={dataLoading}
+                    helperText="Mức phí cố định cho toàn bộ học kỳ, không phụ thuộc vào số tín chỉ"
+                  />
+                )}
               </Grid>
             </Grid>
             <Box sx={{ mt: 3 }}>
@@ -635,7 +705,14 @@ const GenerateTuition = () => {
               <Alert severity="error" sx={{ mb: 3 }}>{studentError}</Alert>
             ) : (
               <DataGrid
-                rows={filteredStudents.map(student => ({ id: student.UserID, ...student }))}
+                rows={filteredStudents.map(student => ({ 
+                  id: student.UserID, 
+                  ...student,
+                  // Calculate tuition amount based on current charging mode
+                  calculatedTuition: formData.chargeMode === 'credit' 
+                    ? student.TotalCredits * formData.amountPerCredit
+                    : formData.semesterFee
+                }))}
                 columns={[
                   { field: 'id', headerName: 'Mã SV', width: 120 },
                   { field: 'FullName', headerName: 'Họ và tên', width: 200, flex: 1 },
@@ -649,17 +726,21 @@ const GenerateTuition = () => {
                   },
                   { field: 'TotalCredits', headerName: 'Số tín chỉ', width: 120, type: 'number' },
                   {
-                    field: 'TuitionAmount',
-                    headerName: 'Số tiền',
+                    field: 'calculatedTuition',
+                    headerName: 'Học phí',
                     width: 150,
                     type: 'number',
-                    valueFormatter: (params) => formatCurrency(params.value || 0)
+                    valueFormatter: (params) => formatCurrency(params.value || 0),
+                    description: formData.chargeMode === 'credit' 
+                      ? 'Học phí tính theo số tín chỉ đã đăng ký' 
+                      : 'Học phí cố định theo học kỳ'
                   }
                 ]}
                 checkboxSelection
                 disableRowSelectionOnClick={false}
                 selectionModel={selectedStudents}
                 onSelectionModelChange={(newSelection) => setSelectedStudents(newSelection)}
+                onRowClick={(params) => handleSelectStudent(params.id)}
                 loading={studentsLoading}
                 autoHeight
                 pageSizeOptions={[10, 25, 50, 100]}

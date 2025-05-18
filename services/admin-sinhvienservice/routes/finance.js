@@ -332,7 +332,9 @@ router.post('/tuition/generate', async (req, res) => {
     academicYear,
     dueDate,
     studentIds,
+    chargeMode = 'credit',
     amountPerCredit = 850000,
+    semesterFee = 0,
     discountPercentage = 0,
     includePreviousBalance = true,
     paymentDeadline = 14,
@@ -347,11 +349,18 @@ router.post('/tuition/generate', async (req, res) => {
     });
   }
   
-  const transaction = new sql.Transaction();
+  // Validate semester fee for semester mode
+  if (chargeMode === 'semester' && (!semesterFee || isNaN(parseFloat(semesterFee)))) {
+    return res.status(400).json({ success: false, message: 'Phí học kỳ không hợp lệ' });
+  }
+  
+  let transaction;
   
   try {
     const poolConnection = await getPool();
-    await transaction.begin(poolConnection);
+    // Initialize transaction with the connection pool and start with READ_COMMITTED isolation
+    transaction = new sql.Transaction(poolConnection);
+    await transaction.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
     
     // Array to store the generated tuition IDs
     const generatedTuitionIds = [];
@@ -412,8 +421,11 @@ router.post('/tuition/generate', async (req, res) => {
           previousBalance = balanceResult.recordset[0].PreviousBalance || 0;
         }
         
-        // Calculate tuition amount
-        const baseTuitionAmount = TotalCredits * amountPerCredit;
+        // Determine credits to charge and base amount
+        const creditsToCharge = chargeMode === 'semester' ? 0 : TotalCredits;
+        const baseTuitionAmount = chargeMode === 'semester'
+          ? parseFloat(semesterFee)
+          : creditsToCharge * amountPerCredit;
         const discountAmount = discountPercentage > 0 ? (baseTuitionAmount * discountPercentage / 100) : 0;
         const finalAmount = baseTuitionAmount - discountAmount + previousBalance;
         
@@ -421,8 +433,8 @@ router.post('/tuition/generate', async (req, res) => {
         const insertResult = await new sql.Request(transaction)
           .input('studentId', sql.BigInt, studentId)
           .input('semesterId', sql.BigInt, semesterId)
-          .input('totalCredits', sql.Int, TotalCredits)
-          .input('amountPerCredit', sql.Decimal(10, 2), amountPerCredit)
+          .input('totalCredits', sql.Int, creditsToCharge)
+          .input('amountPerCredit', sql.Decimal(10, 2), chargeMode === 'semester' ? semesterFee : amountPerCredit)
           .input('totalAmount', sql.Decimal(10, 2), baseTuitionAmount)
           .input('scholarshipAmount', sql.Decimal(10, 2), discountAmount)
           .input('finalAmount', sql.Decimal(10, 2), finalAmount)
@@ -470,8 +482,8 @@ router.post('/tuition/generate', async (req, res) => {
       }
     });
   } catch (error) {
-    // If error, rollback the transaction
-    if (transaction._connected) {
+    // If error and transaction was initialized, rollback the transaction
+    if (transaction && transaction._connected) {
       await transaction.rollback();
     }
     

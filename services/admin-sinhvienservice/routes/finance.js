@@ -38,7 +38,10 @@ const tuition = [
 router.get('/tuition', async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', semesterId = '', status = '' } = req.query;
-    const offset = (page - 1) * limit;
+    // Parse pagination parameters
+    const pageInt = parseInt(page, 10);
+    const limitInt = parseInt(limit, 10);
+    const offset = (pageInt - 1) * limitInt;
     
     const poolConnection = await getPool();
     let query = `
@@ -82,9 +85,14 @@ router.get('/tuition', async (req, res) => {
       request.input('status', sql.VarChar, status);
     }
     
-    query += ` ORDER BY t.CreatedAt DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
-    request.input('offset', sql.Int, offset);
-    request.input('limit', sql.Int, parseInt(limit));
+    // Apply pagination only if limitInt > 0 (for 'all' mode skip pagination)
+    if (limitInt > 0) {
+      query += ` ORDER BY t.CreatedAt DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`;
+      request.input('offset', sql.Int, offset);
+      request.input('limit', sql.Int, limitInt);
+    } else {
+      query += ` ORDER BY t.CreatedAt DESC`;
+    }
     
     const result = await request.query(query);
     const countResult = await poolConnection.request().query(countQuery);

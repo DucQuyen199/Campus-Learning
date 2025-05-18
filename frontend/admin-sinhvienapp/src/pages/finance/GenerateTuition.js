@@ -381,38 +381,38 @@ const GenerateTuition = () => {
     setSearchTerm('');
   };
 
-  // Handle student selection
-  const handleSelectAllStudents = (event) => {
-    if (event.target.checked) {
-      setSelectedStudents(filteredStudents.map(student => student.UserID));
-    } else {
-      setSelectedStudents([]);
-    }
-    setSelectAll(event.target.checked);
-  };
-
-  const handleSelectStudent = (studentId) => {
-    if (!studentId) {
+  // Handle row selection and click
+  const handleRowClick = (params) => {
+    const id = params.id;
+    
+    if (!id) {
       console.error('Attempted to select a student with undefined ID');
       return;
     }
     
-    const selectedIndex = selectedStudents.indexOf(studentId);
-    let newSelected = [];
-
+    // Toggle selection
+    const selectedIndex = selectedStudents.indexOf(id);
+    let newSelected = [...selectedStudents];
+    
     if (selectedIndex === -1) {
-      newSelected = [...selectedStudents, studentId];
+      newSelected.push(id);
     } else {
-      newSelected = selectedStudents.filter(id => id !== studentId);
+      newSelected.splice(selectedIndex, 1);
     }
-
+    
     setSelectedStudents(newSelected);
     setSelectAll(newSelected.length === filteredStudents.length && filteredStudents.length > 0);
   };
 
-  const isStudentSelected = (studentId) => {
-    if (!studentId) return false;
-    return selectedStudents.indexOf(studentId) !== -1;
+  // Select or deselect all students
+  const handleSelectAllStudents = () => {
+    if (selectedStudents.length === filteredStudents.length) {
+      setSelectedStudents([]);
+      setSelectAll(false);
+    } else {
+      setSelectedStudents(filteredStudents.map(student => student.UserID));
+      setSelectAll(true);
+    }
   };
 
   // Handle student search
@@ -473,7 +473,8 @@ const GenerateTuition = () => {
 
   const handleSuccessClose = () => {
     setSuccessDialogOpen(false);
-    navigate('/finance/tuition');
+    // Navigate back to list and request showing all records
+    navigate('/finance/tuition', { state: { showAll: true } });
   };
 
   // Calculate summary data
@@ -681,19 +682,7 @@ const GenerateTuition = () => {
                   sx={{ width: 300, mr: 2 }}
                   disabled={studentsLoading}
                 />
-                <Typography variant="body2" color="text.secondary">
-                  Đã chọn {selectedStudents.length} / {filteredStudents.length} sinh viên
-                </Typography>
               </Box>
-              {filteredStudents.length > 0 && (
-                <Button 
-                  variant="outlined" 
-                  onClick={() => handleSelectAllStudents({ target: { checked: !selectAll } })}
-                  disabled={studentsLoading}
-                >
-                  {selectAll ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                </Button>
-              )}
             </Box>
             
             {studentsLoading ? (
@@ -704,49 +693,83 @@ const GenerateTuition = () => {
             ) : studentError ? (
               <Alert severity="error" sx={{ mb: 3 }}>{studentError}</Alert>
             ) : (
-              <DataGrid
-                rows={filteredStudents.map(student => ({ 
-                  id: student.UserID, 
-                  ...student,
-                  // Calculate tuition amount based on current charging mode
-                  calculatedTuition: formData.chargeMode === 'credit' 
-                    ? student.TotalCredits * formData.amountPerCredit
-                    : formData.semesterFee
-                }))}
-                columns={[
-                  { field: 'id', headerName: 'Mã SV', width: 120 },
-                  { field: 'FullName', headerName: 'Họ và tên', width: 200, flex: 1 },
-                  { field: 'ProgramName', headerName: 'Ngành học', width: 200, flex: 1 },
-                  {
-                    field: 'CurrentBalance',
-                    headerName: 'Công nợ hiện tại',
-                    width: 150,
-                    type: 'number',
-                    valueFormatter: (params) => formatCurrency(params.value || 0)
-                  },
-                  { field: 'TotalCredits', headerName: 'Số tín chỉ', width: 120, type: 'number' },
-                  {
-                    field: 'calculatedTuition',
-                    headerName: 'Học phí',
-                    width: 150,
-                    type: 'number',
-                    valueFormatter: (params) => formatCurrency(params.value || 0),
-                    description: formData.chargeMode === 'credit' 
-                      ? 'Học phí tính theo số tín chỉ đã đăng ký' 
-                      : 'Học phí cố định theo học kỳ'
-                  }
-                ]}
-                checkboxSelection
-                disableRowSelectionOnClick={false}
-                selectionModel={selectedStudents}
-                onSelectionModelChange={(newSelection) => setSelectedStudents(newSelection)}
-                onRowClick={(params) => handleSelectStudent(params.id)}
-                loading={studentsLoading}
-                autoHeight
-                pageSizeOptions={[10, 25, 50, 100]}
-                initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-                getRowId={(row) => row.id}
-              />
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" color="primary">
+                    Đã chọn {selectedStudents.length} / {filteredStudents.length} sinh viên
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    onClick={handleSelectAllStudents}
+                    disabled={studentsLoading || filteredStudents.length === 0}
+                  >
+                    {selectAll ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </Button>
+                </Box>
+                <DataGrid
+                  rows={filteredStudents.map(student => ({ 
+                    id: student.UserID, 
+                    ...student, 
+                    calculatedTuition: formData.chargeMode === 'credit' 
+                      ? student.TotalCredits * formData.amountPerCredit 
+                      : formData.semesterFee 
+                  }))}
+                  columns={[
+                    { field: 'id', headerName: 'Mã SV', width: 120 },
+                    { field: 'FullName', headerName: 'Họ và tên', width: 200, flex: 1 },
+                    { field: 'ProgramName', headerName: 'Ngành học', width: 200, flex: 1 },
+                    {
+                      field: 'CurrentBalance',
+                      headerName: 'Công nợ hiện tại',
+                      width: 150,
+                      type: 'number',
+                      valueFormatter: (params) => formatCurrency(params.value || 0)
+                    },
+                    { field: 'TotalCredits', headerName: 'Số tín chỉ', width: 120, type: 'number' },
+                    {
+                      field: 'calculatedTuition',
+                      headerName: 'Học phí',
+                      width: 180,
+                      type: 'number',
+                      valueFormatter: (params) => formatCurrency(params.value || 0),
+                      description: formData.chargeMode === 'credit' 
+                        ? 'Học phí tính theo số tín chỉ đã đăng ký' 
+                        : 'Học phí cố định theo học kỳ'
+                    }
+                  ]}
+                  checkboxSelection={false}
+                  selectionModel={selectedStudents}
+                  onSelectionModelChange={() => {}}
+                  isRowSelectable={(params) => true}
+                  onRowClick={handleRowClick}
+                  loading={studentsLoading}
+                  autoHeight
+                  pageSize={filteredStudents.length}
+                  rowsPerPageOptions={[filteredStudents.length]}
+                  hideFooterPagination
+                  getRowId={(row) => row.id}
+                  sx={{
+                    '& .MuiDataGrid-row.Mui-selected': {
+                      backgroundColor: 'rgba(25, 118, 210, 0.18)',
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.28)',
+                      },
+                    },
+                    '& .MuiDataGrid-row.Mui-selected:before': {
+                      content: '""',
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: '4px',
+                      backgroundColor: 'primary.main',
+                    },
+                    '& .MuiDataGrid-cell': {
+                      cursor: 'pointer',
+                    },
+                  }}
+                />
+              </>
             )}
             
             {!studentsLoading && selectedStudents.length === 0 && filteredStudents.length > 0 && (

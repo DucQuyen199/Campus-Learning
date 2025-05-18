@@ -277,7 +277,7 @@ function generateMockExamSchedule(userId) {
       Location: 'Room A201',
       ExamStatus: 'Scheduled',
       SubjectCode: 'COMP101',
-      SubjectName: 'Introduction to Computer Science',
+      SubjectName: '',
       Credits: 3,
       SemesterName: 'Spring 2025',
       AcademicYear: '2024-2025',

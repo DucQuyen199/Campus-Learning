@@ -52,4 +52,46 @@ router.get('/metrics/:userId', academicController.getMetrics);
  */
 router.get('/registrations/:userId', academicController.getRegisteredCourses);
 
+/**
+ * @route   GET /api/academic/available-courses
+ * @desc    Get all available courses for registration
+ * @access  Private
+ */
+router.get('/available-courses', academicController.getAvailableCourses);
+
+/**
+ * @route   POST /api/academic/register-course
+ * @desc    Register for a course
+ * @access  Private
+ */
+router.post('/register-course', academicController.registerCourse);
+
+/**
+ * @route   DELETE /api/academic/cancel-registration/:registrationId
+ * @desc    Cancel a course registration
+ * @access  Private
+ */
+router.delete('/cancel-registration/:registrationId', academicController.cancelRegistration);
+
+/**
+ * @route   GET /api/academic/semesters
+ * @desc    Get all semesters
+ * @access  Private
+ */
+router.get('/semesters', academicController.getSemesters);
+
+/**
+ * @route   GET /api/academic/registration-period
+ * @desc    Get current registration period info
+ * @access  Private
+ */
+router.get('/registration-period', academicController.getRegistrationPeriod);
+
+/**
+ * @route   GET /api/academic/retakeable-courses/:userId
+ * @desc    Get courses eligible for retake registration
+ * @access  Private
+ */
+router.get('/retakeable-courses/:userId', academicController.getRetakeableCourses);
+
 module.exports = router; 

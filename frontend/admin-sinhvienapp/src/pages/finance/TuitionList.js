@@ -37,12 +37,23 @@ import {
   CreditCard as CreditCardIcon,
   AttachMoney,
 } from '@mui/icons-material';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import { tuitionService, academicService } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
 
 const TuitionList = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // State to control fetching and displaying all records
+  const [showAllList, setShowAllList] = useState(false);
+
+  // If navigated back from generation with showAll flag, set showAllList
+  useEffect(() => {
+    if (location.state && location.state.showAll) {
+      setShowAllList(true);
+    }
+  }, [location.state]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tuitionList, setTuitionList] = useState([]);
@@ -54,6 +65,19 @@ const TuitionList = () => {
   const [semester, setSemester] = useState('');
   const [semesters, setSemesters] = useState([]);
   const [semestersLoading, setSemestersLoading] = useState(true);
+
+  // Reset filters and enable show-all when navigated from generation
+  useEffect(() => {
+    if (location.state && location.state.showAll) {
+      setSearch('');
+      setStatus('');
+      setSemester('');
+      setPage(0);
+      setShowAllList(true);
+      // Clear navigation state so this runs only once
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   // Fetch semesters for filter dropdown
   useEffect(() => {
@@ -77,10 +101,13 @@ const TuitionList = () => {
     setLoading(true);
     setError(null);
     try {
+      // Determine pagination or fetch-all mode
+      const fetchPage = showAllList ? 1 : page + 1;
+      const fetchLimit = showAllList ? -1 : rowsPerPage;
       // Fetch tuition data from API
       const response = await tuitionService.getAllTuition(
-        page + 1,
-        rowsPerPage,
+        fetchPage,
+        fetchLimit,
         search,
         semester,
         status
@@ -99,7 +126,11 @@ const TuitionList = () => {
           status: item.Status
         }));
         setTuitionList(list);
-        setTotalTuition(response.pagination?.total || 0);
+        setTotalTuition(response.pagination?.total || list.length);
+        // If in showAll mode, clear it after first load
+        if (showAllList) {
+          setShowAllList(false);
+        }
       } else {
         setError(response.message || 'Không thể tải dữ liệu học phí. Vui lòng thử lại sau.');
         setTuitionList([]);
@@ -116,7 +147,7 @@ const TuitionList = () => {
   // Initial fetch and when filters change
   useEffect(() => {
     fetchTuition();
-  }, [page, rowsPerPage, search, status, semester]);
+  }, [page, rowsPerPage, search, status, semester, showAllList]);
 
   // Handle pagination
   const handleChangePage = (event, newPage) => {
@@ -192,20 +223,36 @@ const TuitionList = () => {
         <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
           Quản lý học phí
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleGenerateTuition}
-          sx={{
-            borderRadius: 2,
-            px: 3,
-            py: 1,
-            fontWeight: 600,
-            boxShadow: (theme) => theme.shadows[2],
-          }}
-        >
-          Tạo hoá đơn học phí
-        </Button>
+        <Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleGenerateTuition}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              boxShadow: (theme) => theme.shadows[2],
+            }}
+          >
+            Tạo hoá đơn học phí
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<ReceiptIcon />}
+            onClick={() => setShowAllList(true)}
+            sx={{
+              borderRadius: 2,
+              ml: 2,
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+            }}
+          >
+            Hiển thị tất cả
+          </Button>
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -375,6 +422,7 @@ const TuitionList = () => {
           </Table>
         </TableContainer>
 
+        {!showAllList && (
         <TablePagination
           component="div"
           count={totalTuition}
@@ -386,6 +434,7 @@ const TuitionList = () => {
           labelRowsPerPage="Số hàng mỗi trang:"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} của ${count}`}
         />
+        )}
       </Card>
     </Box>
   );

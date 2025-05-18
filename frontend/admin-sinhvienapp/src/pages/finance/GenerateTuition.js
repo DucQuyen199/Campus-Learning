@@ -50,6 +50,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { DataGrid } from '@mui/x-data-grid';
 
 // Import API services
 import { tuitionService, academicService } from '../../services/api';
@@ -126,11 +127,15 @@ const GenerateTuition = () => {
             console.log('Selected semester:', currentSemester);
             
             // Ensure we update semesterId as a number
+            const semesterId = typeof currentSemester.SemesterID === 'string' 
+              ? parseInt(currentSemester.SemesterID, 10) 
+              : currentSemester.SemesterID;
+            
             setFormData(prev => ({
               ...prev,
               academicYear: currentSemester.AcademicYear,
               semester: currentSemester.SemesterName,
-              semesterId: parseInt(currentSemester.SemesterID)
+              semesterId: semesterId
             }));
           }
         } else {
@@ -154,13 +159,31 @@ const GenerateTuition = () => {
       setStudentsLoading(true);
       setStudentError(null);
       
-      const programsParam = formData.programs.length > 0 ? formData.programs.join(',') : '';
+      // Make sure we have a clean array of program IDs as strings
+      const programsParam = formData.programs.length > 0 
+        ? formData.programs.map(id => id.toString()).join(',') 
+        : '';
       
-      const response = await tuitionService.getTuitionStudents({
-        semesterId: formData.semesterId,
+      // Ensure semesterId is a number
+      const semesterId = parseInt(formData.semesterId, 10);
+      
+      if (isNaN(semesterId)) {
+        throw new Error("ID học kỳ không hợp lệ");
+      }
+      
+      console.log('Fetching tuition students with params:', {
+        semesterId,
         programIds: programsParam,
         hasPreviousBalance: false
       });
+      
+      const response = await tuitionService.getTuitionStudents({
+        semesterId,
+        programIds: programsParam,
+        hasPreviousBalance: false
+      });
+      
+      console.log('Student API response:', response);
       
       if (response.success) {
         setAllStudents(response.data || []);
@@ -169,11 +192,14 @@ const GenerateTuition = () => {
         setSelectAll(false);
         
         // Show info message if no students found
-        if ((response.data || []).length === 0) {
+        if (!response.data || response.data.length === 0) {
           setStudentError(response.message || 'Không có sinh viên nào phù hợp với tiêu chí đã chọn');
         }
       } else {
         setStudentError(response.message || 'Không thể tải danh sách sinh viên');
+        // Reset data to prevent UI issues
+        setAllStudents([]);
+        setFilteredStudents([]);
       }
     } catch (error) {
       console.error('Error fetching students:', error);
@@ -185,6 +211,12 @@ const GenerateTuition = () => {
         errorMessage = error.message;
       }
       setStudentError('Lỗi khi tải danh sách sinh viên: ' + errorMessage);
+      
+      // Reset state to prevent UI issues
+      setAllStudents([]);
+      setFilteredStudents([]);
+      setSelectedStudents([]);
+      setSelectAll(false);
     } finally {
       setStudentsLoading(false);
     }
@@ -202,11 +234,27 @@ const GenerateTuition = () => {
     if (name === 'semester') {
       const selectedSemester = semesters.find(s => s.SemesterName === value);
       if (selectedSemester) {
+        // Parse semesterId as a number to avoid type issues
+        const semesterId = typeof selectedSemester.SemesterID === 'string' 
+          ? parseInt(selectedSemester.SemesterID, 10) 
+          : selectedSemester.SemesterID;
+          
+        if (isNaN(semesterId)) {
+          console.error('Invalid semester ID:', selectedSemester.SemesterID);
+          return;
+        }
+          
         setFormData(prev => ({
           ...prev,
-          semesterId: selectedSemester.SemesterID,
+          semesterId: semesterId,
           academicYear: selectedSemester.AcademicYear
         }));
+        
+        console.log('Updated semester selection:', {
+          name: selectedSemester.SemesterName,
+          id: semesterId,
+          academicYear: selectedSemester.AcademicYear
+        });
       }
     }
   };
@@ -219,11 +267,29 @@ const GenerateTuition = () => {
     // Find semesters in this year
     const yearSemesters = semesters.filter(s => s.AcademicYear === year);
     if (yearSemesters.length > 0) {
+      const selectedSemester = yearSemesters[0];
+      
+      // Parse semesterId as a number to avoid type issues
+      const semesterId = typeof selectedSemester.SemesterID === 'string' 
+        ? parseInt(selectedSemester.SemesterID, 10) 
+        : selectedSemester.SemesterID;
+        
+      if (isNaN(semesterId)) {
+        console.error('Invalid semester ID:', selectedSemester.SemesterID);
+        return;
+      }
+        
       setFormData(prev => ({
         ...prev,
-        semester: yearSemesters[0].SemesterName,
-        semesterId: yearSemesters[0].SemesterID
+        semester: selectedSemester.SemesterName,
+        semesterId: semesterId
       }));
+      
+      console.log('Selected semester from year change:', {
+        name: selectedSemester.SemesterName,
+        id: semesterId,
+        academicYear: year
+      });
     }
   };
 
@@ -313,6 +379,11 @@ const GenerateTuition = () => {
   };
 
   const handleSelectStudent = (studentId) => {
+    if (!studentId) {
+      console.error('Attempted to select a student with undefined ID');
+      return;
+    }
+    
     const selectedIndex = selectedStudents.indexOf(studentId);
     let newSelected = [];
 
@@ -323,10 +394,13 @@ const GenerateTuition = () => {
     }
 
     setSelectedStudents(newSelected);
-    setSelectAll(newSelected.length === filteredStudents.length);
+    setSelectAll(newSelected.length === filteredStudents.length && filteredStudents.length > 0);
   };
 
-  const isStudentSelected = (studentId) => selectedStudents.indexOf(studentId) !== -1;
+  const isStudentSelected = (studentId) => {
+    if (!studentId) return false;
+    return selectedStudents.indexOf(studentId) !== -1;
+  };
 
   // Handle student search
   const handleSearch = (e) => {
@@ -560,59 +634,38 @@ const GenerateTuition = () => {
             ) : studentError ? (
               <Alert severity="error" sx={{ mb: 3 }}>{studentError}</Alert>
             ) : (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          checked={selectAll}
-                          onChange={handleSelectAllStudents}
-                          indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredStudents.length}
-                        />
-                      </TableCell>
-                      <TableCell>Mã SV</TableCell>
-                      <TableCell>Họ và tên</TableCell>
-                      <TableCell>Ngành học</TableCell>
-                      <TableCell align="right">Công nợ hiện tại</TableCell>
-                      <TableCell align="right">Số tín chỉ</TableCell>
-                      <TableCell align="right">Số tiền</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredStudents.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          Không có sinh viên nào phù hợp với tiêu chí đã chọn
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredStudents.map((student) => {
-                        const isSelected = isStudentSelected(student.UserID);
-                        return (
-                          <TableRow
-                            key={student.UserID}
-                            hover
-                            onClick={() => handleSelectStudent(student.UserID)}
-                            role="checkbox"
-                            selected={isSelected}
-                          >
-                            <TableCell padding="checkbox">
-                              <Checkbox checked={isSelected} />
-                            </TableCell>
-                            <TableCell>{student.UserID}</TableCell>
-                            <TableCell>{student.FullName}</TableCell>
-                            <TableCell>{student.ProgramName}</TableCell>
-                            <TableCell align="right">{formatCurrency(student.CurrentBalance || 0)}</TableCell>
-                            <TableCell align="right">{student.TotalCredits || 0}</TableCell>
-                            <TableCell align="right">{formatCurrency(student.TuitionAmount || 0)}</TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <DataGrid
+                rows={filteredStudents.map(student => ({ id: student.UserID, ...student }))}
+                columns={[
+                  { field: 'id', headerName: 'Mã SV', width: 120 },
+                  { field: 'FullName', headerName: 'Họ và tên', width: 200, flex: 1 },
+                  { field: 'ProgramName', headerName: 'Ngành học', width: 200, flex: 1 },
+                  {
+                    field: 'CurrentBalance',
+                    headerName: 'Công nợ hiện tại',
+                    width: 150,
+                    type: 'number',
+                    valueFormatter: (params) => formatCurrency(params.value || 0)
+                  },
+                  { field: 'TotalCredits', headerName: 'Số tín chỉ', width: 120, type: 'number' },
+                  {
+                    field: 'TuitionAmount',
+                    headerName: 'Số tiền',
+                    width: 150,
+                    type: 'number',
+                    valueFormatter: (params) => formatCurrency(params.value || 0)
+                  }
+                ]}
+                checkboxSelection
+                disableRowSelectionOnClick={false}
+                selectionModel={selectedStudents}
+                onSelectionModelChange={(newSelection) => setSelectedStudents(newSelection)}
+                loading={studentsLoading}
+                autoHeight
+                pageSizeOptions={[10, 25, 50, 100]}
+                initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+                getRowId={(row) => row.id}
+              />
             )}
             
             {!studentsLoading && selectedStudents.length === 0 && filteredStudents.length > 0 && (

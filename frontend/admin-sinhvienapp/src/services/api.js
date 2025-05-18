@@ -100,27 +100,39 @@ export const tuitionService = {
   getTuitionStudents: async (params) => {
     try {
       console.log('Fetching tuition students with params:', params);
+      // Create a copy of the params to avoid modifying the original
+      const queryParams = { ...params };
+      
       // Ensure semesterId is sent as a number
-      if (params.semesterId && typeof params.semesterId === 'string') {
-        params.semesterId = parseInt(params.semesterId);
+      if (queryParams.semesterId) {
+        if (typeof queryParams.semesterId === 'string') {
+          const parsedSemesterId = parseInt(queryParams.semesterId, 10);
+          if (!isNaN(parsedSemesterId)) {
+            queryParams.semesterId = parsedSemesterId;
+          } else {
+            throw new Error('Mã học kỳ không hợp lệ, phải là số');
+          }
+        }
+      } else {
+        throw new Error('Mã học kỳ không được để trống');
       }
       
-      const response = await apiClient.get('/finance/tuition/students', { params });
-      console.log('Tuition students response:', response);
-      return response.data;
+      const result = await apiClient.get('/finance/tuition/students', { params: queryParams });
+      console.log('Tuition students response:', result);
+      // Return the full response object: { success, data }
+      return result;
     } catch (error) {
       console.error('Error fetching tuition students:', error);
-      
       // Check if there's a response with error data from the server
       if (error.response && error.response.data) {
         console.log('Server error response:', error.response.data);
-        return error.response.data; // Return the server's error message
+        return error.response.data;
       }
-      
       // Generic error when no response from server
-      return { 
-        success: false, 
-        message: error.message || 'Không thể kết nối đến máy chủ' 
+      return {
+        success: false,
+        data: [],
+        message: error.message || 'Không thể kết nối đến máy chủ'
       };
     }
   },

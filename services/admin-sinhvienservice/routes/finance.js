@@ -107,62 +107,6 @@ router.get('/tuition', async (req, res) => {
   }
 });
 
-// Get a single tuition record
-router.get('/tuition/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // Validate that id is a valid number before proceeding
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid tuition ID provided. ID must be a number.' 
-      });
-    }
-    
-    const poolConnection = await getPool();
-    const result = await poolConnection.request()
-      .input('id', sql.BigInt, parseInt(id)) // Ensure id is parsed as an integer
-      .query(`
-        SELECT 
-          t.TuitionID, t.UserID, u.FullName, u.Email, 
-          s.SemesterName, s.AcademicYear,
-          t.TotalCredits, t.AmountPerCredit, t.TotalAmount,
-          t.ScholarshipAmount, t.FinalAmount, t.DueDate, t.Status,
-          t.CreatedAt, t.UpdatedAt,
-          (SELECT SUM(Amount) FROM TuitionPayments WHERE TuitionID = t.TuitionID AND Status = 'Completed') AS PaidAmount
-        FROM Tuition t
-        INNER JOIN Users u ON t.UserID = u.UserID
-        INNER JOIN Semesters s ON t.SemesterID = s.SemesterID
-        WHERE t.TuitionID = @id
-      `);
-    
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy học phí' });
-    }
-    
-    // Get payment history
-    const paymentsResult = await poolConnection.request()
-      .input('tuitionId', sql.BigInt, parseInt(id)) // Ensure id is parsed as an integer
-      .query(`
-        SELECT 
-          PaymentID, Amount, PaymentMethod, TransactionCode,
-          PaymentDate, Status, BankReference, Notes, CreatedAt
-        FROM TuitionPayments
-        WHERE TuitionID = @tuitionId
-        ORDER BY PaymentDate DESC
-      `);
-    
-    const tuition = result.recordset[0];
-    tuition.payments = paymentsResult.recordset;
-    
-    res.json({ success: true, data: tuition });
-  } catch (error) {
-    console.error('Error fetching tuition record:', error);
-    res.status(500).json({ success: false, message: 'Lỗi khi tải thông tin học phí', error: error.message });
-  }
-});
-
 // New endpoints for tuition generation
 
 // Get students for tuition generation
@@ -192,23 +136,43 @@ router.get('/tuition/students', async (req, res) => {
       SELECT 
         u.UserID, u.FullName, u.Email,
         p.ProgramName, p.ProgramID,
-        (SELECT COALESCE(SUM(t.FinalAmount - COALESCE(
-          (SELECT SUM(Amount) FROM TuitionPayments WHERE TuitionID = t.TuitionID AND Status = 'Completed'), 0)
-        ), 0)
-         FROM Tuition t 
-         WHERE t.UserID = u.UserID AND t.Status IN ('Unpaid', 'Partial')
-         AND t.SemesterID != @semesterId) AS CurrentBalance,
-        (SELECT COUNT(*) FROM CourseRegistrations cr 
-         INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
-         WHERE cr.UserID = u.UserID AND cc.SemesterID = @semesterId) AS RegisteredCourses,
-        (SELECT COALESCE(SUM(s.Credits), 0) FROM CourseRegistrations cr 
-         INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
-         INNER JOIN Subjects s ON cc.SubjectID = s.SubjectID
-         WHERE cr.UserID = u.UserID AND cc.SemesterID = @semesterId) AS TotalCredits,
-        (SELECT TOP 1 t.AmountPerCredit FROM Tuition t WHERE t.UserID = u.UserID ORDER BY t.CreatedAt DESC) AS LastAmountPerCredit
+        COALESCE(Balances.CurrentBalance, 0) AS CurrentBalance,
+        COALESCE(Courses.RegisteredCourses, 0) AS RegisteredCourses,
+        COALESCE(Courses.TotalCredits, 0) AS TotalCredits,
+        COALESCE(LastAmount.AmountPerCredit, 850000) AS LastAmountPerCredit
       FROM Users u
       INNER JOIN StudentPrograms sp ON u.UserID = sp.UserID
       INNER JOIN AcademicPrograms p ON sp.ProgramID = p.ProgramID
+      OUTER APPLY (
+        SELECT 
+          SUM(t.FinalAmount - COALESCE(tp.PaidAmount, 0)) AS CurrentBalance
+        FROM Tuition t 
+        LEFT JOIN (
+          SELECT TuitionID, SUM(Amount) AS PaidAmount 
+          FROM TuitionPayments 
+          WHERE Status = 'Completed' 
+          GROUP BY TuitionID
+        ) tp ON t.TuitionID = tp.TuitionID
+        WHERE t.UserID = u.UserID 
+          AND t.Status IN ('Unpaid', 'Partial')
+          AND t.SemesterID != @semesterId
+      ) AS Balances
+      OUTER APPLY (
+        SELECT 
+          COUNT(*) AS RegisteredCourses,
+          SUM(s.Credits) AS TotalCredits
+        FROM CourseRegistrations cr 
+        INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+        INNER JOIN Subjects s ON cc.SubjectID = s.SubjectID
+        WHERE cr.UserID = u.UserID AND cc.SemesterID = @semesterId
+      ) AS Courses
+      OUTER APPLY (
+        SELECT TOP 1 
+          t.AmountPerCredit
+        FROM Tuition t 
+        WHERE t.UserID = u.UserID 
+        ORDER BY t.CreatedAt DESC
+      ) AS LastAmount
       WHERE u.Role = 'STUDENT' AND u.AccountStatus = 'ACTIVE'
     `;
     
@@ -242,14 +206,22 @@ router.get('/tuition/students', async (req, res) => {
       }
     }
     
-    // Check for previous balance if requested
+    // Check for previous balance if requested - fix nested aggregation here too
     if (hasPreviousBalance === 'true') {
-      query += ` AND (SELECT COALESCE(SUM(t.FinalAmount - COALESCE(
-        (SELECT SUM(Amount) FROM TuitionPayments WHERE TuitionID = t.TuitionID AND Status = 'Completed'), 0)
-      ), 0)
-       FROM Tuition t 
-       WHERE t.UserID = u.UserID AND t.Status IN ('Unpaid', 'Partial')
-       AND t.SemesterID != @semesterId) > 0`;
+      query += ` AND EXISTS (
+        SELECT 1
+        FROM Tuition t
+        LEFT JOIN (
+          SELECT TuitionID, SUM(Amount) AS PaidAmount 
+          FROM TuitionPayments 
+          WHERE Status = 'Completed' 
+          GROUP BY TuitionID
+        ) tp ON t.TuitionID = tp.TuitionID
+        WHERE t.UserID = u.UserID 
+          AND t.Status IN ('Unpaid', 'Partial')
+          AND t.SemesterID != @semesterId
+          AND (t.FinalAmount - COALESCE(tp.PaidAmount, 0)) > 0
+      )`;
     }
     
     // Add order by
@@ -294,6 +266,62 @@ router.get('/tuition/students', async (req, res) => {
       message: 'Lỗi khi tải danh sách sinh viên', 
       error: error.message 
     });
+  }
+});
+
+// Get a single tuition record
+router.get('/tuition/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate that id is a valid number before proceeding
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã học phí không hợp lệ. Mã học phí phải là số.' 
+      });
+    }
+    
+    const poolConnection = await getPool();
+    const result = await poolConnection.request()
+      .input('id', sql.BigInt, parseInt(id)) // Ensure id is parsed as an integer
+      .query(`
+        SELECT 
+          t.TuitionID, t.UserID, u.FullName, u.Email, 
+          s.SemesterName, s.AcademicYear,
+          t.TotalCredits, t.AmountPerCredit, t.TotalAmount,
+          t.ScholarshipAmount, t.FinalAmount, t.DueDate, t.Status,
+          t.CreatedAt, t.UpdatedAt,
+          (SELECT SUM(Amount) FROM TuitionPayments WHERE TuitionID = t.TuitionID AND Status = 'Completed') AS PaidAmount
+        FROM Tuition t
+        INNER JOIN Users u ON t.UserID = u.UserID
+        INNER JOIN Semesters s ON t.SemesterID = s.SemesterID
+        WHERE t.TuitionID = @id
+      `);
+    
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy học phí' });
+    }
+    
+    // Get payment history
+    const paymentsResult = await poolConnection.request()
+      .input('tuitionId', sql.BigInt, parseInt(id)) // Ensure id is parsed as an integer
+      .query(`
+        SELECT 
+          PaymentID, Amount, PaymentMethod, TransactionCode,
+          PaymentDate, Status, BankReference, Notes, CreatedAt
+        FROM TuitionPayments
+        WHERE TuitionID = @tuitionId
+        ORDER BY PaymentDate DESC
+      `);
+    
+    const tuition = result.recordset[0];
+    tuition.payments = paymentsResult.recordset;
+    
+    res.json({ success: true, data: tuition });
+  } catch (error) {
+    console.error('Error fetching tuition record:', error);
+    res.status(500).json({ success: false, message: 'Lỗi khi tải thông tin học phí', error: error.message });
   }
 });
 
@@ -364,13 +392,21 @@ router.post('/tuition/generate', async (req, res) => {
             .input('studentId', sql.BigInt, studentId)
             .input('semesterId', sql.BigInt, semesterId)
             .query(`
-              SELECT COALESCE(SUM(t.FinalAmount - COALESCE(
-                (SELECT SUM(Amount) FROM TuitionPayments WHERE TuitionID = t.TuitionID AND Status = 'Completed'), 0)
-              ), 0) AS PreviousBalance
+              WITH PaymentSums AS (
+                SELECT 
+                  TuitionID, 
+                  SUM(Amount) AS PaidAmount
+                FROM TuitionPayments 
+                WHERE Status = 'Completed'
+                GROUP BY TuitionID
+              )
+              SELECT 
+                COALESCE(SUM(t.FinalAmount - COALESCE(ps.PaidAmount, 0)), 0) AS PreviousBalance
               FROM Tuition t 
+              LEFT JOIN PaymentSums ps ON t.TuitionID = ps.TuitionID
               WHERE t.UserID = @studentId 
-              AND t.Status IN ('Unpaid', 'Partial')
-              AND t.SemesterID != @semesterId
+                AND t.Status IN ('Unpaid', 'Partial')
+                AND t.SemesterID != @semesterId
             `);
           
           previousBalance = balanceResult.recordset[0].PreviousBalance || 0;

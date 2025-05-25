@@ -23,6 +23,9 @@ const CreatePost = ({ onPostCreated }) => {
   const [showVisibilityOptions, setShowVisibilityOptions] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [contentError, setContentError] = useState("")
+  const [location, setLocation] = useState(null)
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false)
+  const [locationError, setLocationError] = useState("")
   const fileInputRef = useRef(null)
 
   // IT topics for validation
@@ -168,6 +171,65 @@ const CreatePost = ({ onPostCreated }) => {
     }
   }, [])
 
+  // Get current location
+  const getCurrentLocation = () => {
+    // Clear previous location errors
+    setLocationError("")
+    if (!navigator.geolocation) {
+      setLocationError('Trình duyệt của bạn không hỗ trợ định vị.');
+      return;
+    }
+
+    setIsLoadingLocation(true);
+    
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          // Reverse geocoding to get location name
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+            { headers: { 'Accept-Language': 'vi' } }
+          );
+          const data = await response.json();
+          
+          setLocation({
+            latitude,
+            longitude,
+            displayName: data.display_name || 'Vị trí hiện tại',
+            address: data.address
+          });
+        } catch (error) {
+          console.error('Error fetching location name:', error);
+          setLocation({
+            latitude,
+            longitude,
+            displayName: 'Vị trí hiện tại',
+          });
+        } finally {
+          setIsLoadingLocation(false);
+        }
+      },
+      (error) => {
+        setIsLoadingLocation(false);
+        if (error.code === 1) {
+          // Permission denied
+          setLocationError('Quyền định vị bị từ chối. Vui lòng bật quyền truy cập vị trí nếu muốn sử dụng chức năng này.');
+        } else {
+          // Other errors
+          setLocationError('Không thể lấy vị trí của bạn. Vui lòng thử lại sau.');
+          console.error('Error getting location:', error);
+        }
+      }
+    );
+  };
+
+  // Remove location
+  const removeLocation = () => {
+    setLocation(null);
+  };
+
   const validateITContent = (text) => {
     // Kiểm tra nếu nội dung rỗng
     if (!text.trim()) return false;
@@ -199,6 +261,11 @@ const CreatePost = ({ onPostCreated }) => {
         formData.append("media", file)
       })
 
+      // Add location if available
+      if (location) {
+        formData.append("location", JSON.stringify(location))
+      }
+
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: {
@@ -213,6 +280,7 @@ const CreatePost = ({ onPostCreated }) => {
 
       setContent("")
       setMedia([])
+      setLocation(null)
       if (onPostCreated) {
         onPostCreated()
       }
@@ -254,7 +322,7 @@ const CreatePost = ({ onPostCreated }) => {
   }
 
   return (
-    <div className="flex flex-col w-full max-w-6xl mx-auto">
+    <div className="flex flex-col w-full">
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300">
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-white">
           <h2 className="font-semibold text-xl text-gray-800">Tạo bài viết mới</h2>
@@ -283,14 +351,14 @@ const CreatePost = ({ onPostCreated }) => {
                 </div>
                 <div className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 transition-all duration-200 hover:border-gray-300">
                   <textarea
-                    className="w-full resize-none bg-transparent border-none focus:outline-none p-0 min-h-[200px] text-gray-700 placeholder-gray-400 font-mono text-sm"
+                    className="w-full resize-none bg-transparent border-none focus:outline-none p-0 min-h-[300px] text-gray-700 placeholder-gray-400 font-mono text-sm"
                     placeholder="# Tiêu đề bài viết
 
 Chia sẻ ý tưởng, câu hỏi, hoặc bài viết về IT của bạn...
 
 Bạn có thể sử dụng **Markdown** để định dạng văn bản:
 - Danh sách
-- Code blocks \`\`\`
+- Code blocks ```
 - Và nhiều tính năng khác"
                     value={content}
                     onChange={(e) => {
@@ -309,13 +377,31 @@ Bạn có thể sử dụng **Markdown** để định dạng văn bản:
                 )}
               </div>
 
+              {/* Location display if selected */}
+              {location && (
+                <div className="flex items-center bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm">
+                  <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <div className="flex-1 truncate">
+                    <span className="font-medium">Vị trí: </span>
+                    <span className="truncate">{location.displayName}</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={removeLocation}
+                    className="ml-2 text-blue-500 hover:text-blue-700"
+                  >
+                    <XMarkIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+
               {media.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-gray-700 flex items-center">
                     <PaperClipIcon className="h-4 w-4 mr-1" />
                     Tệp đính kèm ({media.length})
                   </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {media.map((file, index) => (
                       <div
                         key={index}
@@ -451,18 +537,36 @@ Bạn có thể sử dụng **Markdown** để định dạng văn bản:
 
                   <button
                     type="button"
-                    className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-red-400 hover:bg-red-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm"
+                    onClick={getCurrentLocation}
+                    className={`flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm ${isLoadingLocation ? 'opacity-75 cursor-wait' : ''}`}
+                    disabled={isLoadingLocation || location !== null}
                   >
-                    <MapPinIcon className="h-5 w-5 text-red-500" />
-                    <span>Thêm vị trí</span>
+                    {isLoadingLocation ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Đang lấy vị trí...</span>
+                      </>
+                    ) : (
+                      <>
+                        <MapPinIcon className="h-5 w-5 text-blue-500" />
+                        <span>Thêm vị trí hiện tại</span>
+                      </>
+                    )}
                   </button>
                 </div>
 
+                {locationError && (
+                  <div className="text-red-500 text-sm mt-1">{locationError}</div>
+                )}
+
                 <button
                   type="submit"
-                  disabled={loading || (!content.trim() && media.length === 0)}
+                  disabled={loading || (!content.trim() && media.length === 0 && !location)}
                   className={`px-8 py-2.5 rounded-xl font-medium transition-all duration-300 ${
-                    loading || (!content.trim() && media.length === 0)
+                    loading || (!content.trim() && media.length === 0 && !location)
                       ? "bg-gray-100 cursor-not-allowed text-gray-400"
                       : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                   }`}
@@ -512,7 +616,7 @@ Bạn có thể sử dụng **Markdown** để định dạng văn bản:
               <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full shadow-sm">Hiển thị khi đăng</div>
             </div>
 
-            <div className="p-6">
+            <div className="p-6 sticky top-4">
               {/* User info */}
               {currentUser && (
                 <div className="flex items-center mb-4">
@@ -541,8 +645,16 @@ Bạn có thể sử dụng **Markdown** để định dạng văn bản:
                 </div>
               )}
 
+              {/* Location display in preview */}
+              {location && (
+                <div className="mb-4 flex items-center text-sm text-blue-700">
+                  <MapPinIcon className="h-4 w-4 mr-1.5" />
+                  <span className="truncate">{location.displayName}</span>
+                </div>
+              )}
+
               {/* Content */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 max-h-[500px] overflow-auto">
                 {content ? (
                   <div className="prose max-w-none text-gray-700">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>

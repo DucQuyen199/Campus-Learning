@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { 
@@ -9,7 +9,10 @@ import {
   BookmarkIcon as BookmarkOutline,
   GlobeAltIcon,
   LockClosedIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  MapPinIcon,
+  PencilIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 import {
@@ -21,8 +24,9 @@ import {
 
 import { Avatar } from '../index';
 
-const PostList = ({ initialPosts, onLike, onComment, onShare }) => {
+const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia }) => {
   const [posts, setPosts] = useState(initialPosts || []);
+  const [editingPost, setEditingPost] = useState(null);
 
   useEffect(() => {
     if (initialPosts) {
@@ -115,6 +119,44 @@ const PostList = ({ initialPosts, onLike, onComment, onShare }) => {
     }
   };
 
+  const handleEditPost = async (postId, updatedContent) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: updatedContent
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update post');
+      }
+      
+      // Update post in state
+      const updatedPosts = posts.map(post => {
+        if (post.PostID === postId) {
+          return {
+            ...post,
+            Content: updatedContent,
+            IsEdited: true
+          };
+        }
+        return post;
+      });
+      setPosts(updatedPosts);
+      setEditingPost(null);
+      return true;
+    } catch (error) {
+      console.error('Error updating post:', error);
+      throw error;
+    }
+  };
+
   if (!Array.isArray(posts) || posts.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-8 text-center">
@@ -140,13 +182,17 @@ const PostList = ({ initialPosts, onLike, onComment, onShare }) => {
           onShare={handleSharePost}
           onDelete={handleDeletePost}
           onReport={handleReportPost}
+          onEdit={handleEditPost}
+          onRefreshMedia={onRefreshMedia}
+          isEditing={editingPost === post.PostID}
+          setEditing={(isEditing) => setEditingPost(isEditing ? post.PostID : null)}
         />
       ))}
     </div>
   );
 };
 
-const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
+const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit, onRefreshMedia, isEditing, setEditing }) => {
   const [isLiked, setIsLiked] = useState(post.IsLiked === 1);
   const [showOptions, setShowOptions] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -156,6 +202,12 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
   const [commentError, setCommentError] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [editedContent, setEditedContent] = useState(post.Content);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [editMedia, setEditMedia] = useState(post.media || []);
+  const [newMedia, setNewMedia] = useState([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleLike = () => {
     setIsLiked(!isLiked);
@@ -333,6 +385,116 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
     }
   };
 
+  const handleEditSubmit = async () => {
+    if (!editedContent.trim() && editMedia.length === 0 && newMedia.length === 0) return;
+    
+    setIsSubmittingEdit(true);
+    try {
+      // First update the post content
+      await onEdit(post.PostID, editedContent);
+      
+      // Then handle any new media uploads
+      if (newMedia.length > 0) {
+        const token = localStorage.getItem('token');
+        const formData = new FormData();
+        
+        newMedia.forEach(file => {
+          formData.append('media', file);
+        });
+        
+        setUploadingMedia(true);
+        const mediaResponse = await fetch(`/api/posts/${post.PostID}/media`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+        
+        if (!mediaResponse.ok) {
+          throw new Error('Failed to upload media');
+        }
+        
+        // Refresh post data to get updated media list
+        if (onRefreshMedia) {
+          await onRefreshMedia(post.PostID);
+        }
+        
+        setNewMedia([]);
+      }
+      
+      setEditing(false);
+    } catch (error) {
+      console.error('Failed to update post:', error);
+      // You might want to show an error message to the user here
+    } finally {
+      setIsSubmittingEdit(false);
+      setUploadingMedia(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContent(post.Content);
+    setEditMedia(post.media || []);
+    setNewMedia([]);
+    setEditing(false);
+  };
+  
+  const handleAddMedia = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setNewMedia([...newMedia, ...files]);
+    }
+  };
+  
+  const handleRemoveNewMedia = (index) => {
+    setNewMedia(newMedia.filter((_, i) => i !== index));
+  };
+  
+  const handleRemoveExistingMedia = async (mediaId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${post.PostID}/media/${mediaId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete media');
+      }
+      
+      // Remove from UI
+      setEditMedia(editMedia.filter(media => media.MediaID !== mediaId));
+      
+      // Refresh post data to get updated media list
+      if (onRefreshMedia) {
+        await onRefreshMedia(post.PostID);
+      }
+    } catch (error) {
+      console.error('Error removing media:', error);
+      // Show error message
+    }
+  };
+
+  // Parse location if it exists
+  let location = null;
+  if (post.Location) {
+    if (typeof post.Location === 'string') {
+      try {
+        // Try to parse as JSON
+        location = JSON.parse(post.Location);
+      } catch (error) {
+        // If it's not valid JSON, treat it as a plain string location name
+        location = { displayName: post.Location };
+      }
+    } else {
+      // If it's already an object, use it directly
+      location = post.Location;
+    }
+  }
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
       {/* Post Header */}
@@ -349,6 +511,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
             <div className="flex items-center space-x-2">
               <h3 className="font-medium text-gray-900">{post.FullName}</h3>
               {getVisibilityIcon()}
+              {post.IsEdited && <span className="text-xs text-gray-500">(đã chỉnh sửa)</span>}
             </div>
             <p className="text-sm text-gray-500">{formatDate(post.CreatedAt)}</p>
           </div>
@@ -367,15 +530,27 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
                 const isOwner = currentUser.UserID === post.UserID || currentUser.id === post.UserID;
                 
                 return isOwner ? (
-                  <button
-                    onClick={() => {
-                      onDelete(post.PostID);
-                      setShowOptions(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  >
-                    Xóa bài viết
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        setEditing(true);
+                        setShowOptions(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 flex items-center"
+                    >
+                      <PencilIcon className="w-4 h-4 mr-2" />
+                      Chỉnh sửa bài viết
+                    </button>
+                    <button
+                      onClick={() => {
+                        onDelete(post.PostID);
+                        setShowOptions(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      Xóa bài viết
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => {
@@ -398,19 +573,161 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
         </div>
       </div>
 
+      {/* Location Information */}
+      {location && !isEditing && (
+        <div className="px-4 pb-2 flex items-center text-sm text-blue-700">
+          <MapPinIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
+          <span className="truncate">{location.displayName}</span>
+        </div>
+      )}
+
       {/* Post Content */}
       <div className="px-4 pb-3">
-        {post.Content && (
-          <div className="prose max-w-none mb-4">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {post.Content}
-            </ReactMarkdown>
+        {isEditing ? (
+          <div className="mb-4">
+            <textarea
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[150px]"
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              placeholder="Viết nội dung bài viết..."
+            />
+            
+            {/* Existing Media */}
+            {editMedia.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Media hiện tại</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {editMedia.map((media) => (
+                    <div key={media.MediaID} className="relative group">
+                      {media.MediaType === 'image' ? (
+                        <img
+                          src={media.MediaUrl.startsWith('http') ? media.MediaUrl : `/uploads/${media.MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`}
+                          alt="Media"
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-full h-24 bg-gray-800 rounded-lg flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExistingMedia(media.MediaID)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* New Media Preview */}
+            {newMedia.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Media mới</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {newMedia.map((file, index) => (
+                    <div key={index} className="relative group">
+                      {file.type.startsWith('image/') ? (
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt="Preview"
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                        />
+                      ) : file.type.startsWith('video/') ? (
+                        <div className="w-full h-24 bg-gray-800 rounded-lg flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      ) : (
+                        <div className="w-full h-24 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveNewMedia(index)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Media Upload Button */}
+            <div className="flex items-center mt-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center text-blue-600 hover:text-blue-800 text-sm"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Thêm ảnh/video
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*,video/*"
+                multiple
+                onChange={handleAddMedia}
+              />
+            </div>
+            
+            <div className="flex justify-end mt-4 space-x-2">
+              <button
+                onClick={handleCancelEdit}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                disabled={isSubmittingEdit || uploadingMedia}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center"
+                disabled={isSubmittingEdit || uploadingMedia}
+              >
+                {isSubmittingEdit || uploadingMedia ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {uploadingMedia ? 'Đang tải lên...' : 'Đang lưu...'}
+                  </>
+                ) : (
+                  'Lưu thay đổi'
+                )}
+              </button>
+            </div>
           </div>
+        ) : (
+          post.Content && (
+            <div className="prose max-w-none mb-4">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {post.Content}
+              </ReactMarkdown>
+            </div>
+          )
         )}
       </div>
 
       {/* Post Media */}
-      {post.media && post.media.length > 0 && (
+      {!isEditing && post.media && post.media.length > 0 && (
         <div className={`${post.media.length === 1 ? '' : 'grid grid-cols-2 gap-1'} mb-2`}>
           {post.media.map((media, index) => {
             // Log đường dẫn gốc để debug

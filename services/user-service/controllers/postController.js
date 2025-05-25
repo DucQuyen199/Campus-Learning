@@ -283,8 +283,12 @@ exports.updatePost = async (req, res) => {
   
   try {
     const { id } = req.params;
-    const { content, visibility, location } = req.body;
+    let { content, visibility, location } = req.body;
     const userId = req.user.UserID;
+
+    // Ensure visibility and location are null if not provided
+    visibility = visibility === undefined ? null : visibility;
+    location = location === undefined ? null : location;
     
     await transaction.begin();
     
@@ -302,17 +306,18 @@ exports.updatePost = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy bài viết hoặc không có quyền chỉnh sửa' });
     }
     
-    // Update the post
+    // Update the post, preserving existing visibility/location if null
     await transaction.request()
       .input('postId', sql.BigInt, id)
+      .input('userId', sql.BigInt, userId)
       .input('content', sql.NVarChar(sql.MAX), content)
       .input('visibility', sql.VarChar(20), visibility)
       .input('location', sql.NVarChar(255), location)
       .query(`
         UPDATE Posts
         SET Content = @content,
-            Visibility = @visibility,
-            Location = @location,
+            Visibility = COALESCE(@visibility, Visibility),
+            Location = COALESCE(@location, Location),
             UpdatedAt = GETDATE()
         WHERE PostID = @postId AND UserID = @userId
       `);
@@ -1161,6 +1166,186 @@ exports.sharePost = async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Đã xảy ra lỗi khi chia sẻ bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Add media to an existing post
+exports.addPostMedia = async (req, res) => {
+  const transaction = new sql.Transaction(pool);
+  
+  try {
+    const { id } = req.params;
+    const userId = req.user.UserID;
+    const files = req.files;
+    
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: 'Không có tệp nào được tải lên' });
+    }
+    
+    await transaction.begin();
+    
+    // Check if post exists and belongs to user
+    const checkResult = await transaction.request()
+      .input('postId', sql.BigInt, id)
+      .input('userId', sql.BigInt, userId)
+      .query(`
+        SELECT 1 FROM Posts
+        WHERE PostID = @postId AND UserID = @userId AND DeletedAt IS NULL
+      `);
+      
+    if (checkResult.recordset.length === 0) {
+      await transaction.rollback();
+      // Delete uploaded files
+      files.forEach(file => fs.unlinkSync(file.path));
+      return res.status(404).json({ message: 'Không tìm thấy bài viết hoặc không có quyền chỉnh sửa' });
+    }
+    
+    // Insert media files
+    for (const file of files) {
+      const isVideo = file.mimetype.startsWith('video/');
+      const mediaType = isVideo ? 'video' : 'image';
+      
+      // Đảm bảo đường dẫn file được lưu dưới dạng chuẩn hóa
+      const mediaUrl = file.path.replace(/^uploads\//, '');
+      
+      await transaction.request()
+        .input('postId', sql.BigInt, id)
+        .input('mediaUrl', sql.VarChar(255), mediaUrl)
+        .input('mediaType', sql.VarChar(20), mediaType)
+        .input('size', sql.Int, file.size)
+        .input('width', sql.Int, null)
+        .input('height', sql.Int, null)
+        .input('duration', sql.Int, null)
+        .query(`
+          INSERT INTO PostMedia (
+            PostID, MediaUrl, MediaType, Size,
+            Width, Height, Duration, CreatedAt
+          )
+          VALUES (
+            @postId, @mediaUrl, @mediaType, @size,
+            @width, @height, @duration, GETDATE()
+          )
+        `);
+    }
+    
+    // Update post's UpdatedAt timestamp
+    await transaction.request()
+      .input('postId', sql.BigInt, id)
+      .query(`
+        UPDATE Posts
+        SET UpdatedAt = GETDATE()
+        WHERE PostID = @postId
+      `);
+    
+    await transaction.commit();
+    
+    // Get updated media list
+    const mediaResult = await pool.request()
+      .input('postId', sql.BigInt, id)
+      .query(`
+        SELECT * FROM PostMedia 
+        WHERE PostID = @postId
+      `);
+    
+    res.status(201).json({
+      message: 'Thêm media vào bài viết thành công',
+      media: mediaResult.recordset
+    });
+    
+  } catch (error) {
+    await transaction.rollback();
+    // Delete uploaded files if error
+    if (req.files) {
+      req.files.forEach(file => fs.unlinkSync(file.path));
+    }
+    console.error('Add post media error:', error);
+    res.status(500).json({
+      message: 'Đã có lỗi xảy ra khi thêm media vào bài viết',
+      error: error.message
+    });
+  }
+};
+
+// Delete media from a post
+exports.deletePostMedia = async (req, res) => {
+  const transaction = new sql.Transaction(pool);
+  
+  try {
+    const { postId, mediaId } = req.params;
+    const userId = req.user.UserID;
+    
+    await transaction.begin();
+    
+    // Check if post exists and belongs to user
+    const checkResult = await transaction.request()
+      .input('postId', sql.BigInt, postId)
+      .input('userId', sql.BigInt, userId)
+      .query(`
+        SELECT 1 FROM Posts
+        WHERE PostID = @postId AND UserID = @userId AND DeletedAt IS NULL
+      `);
+      
+    if (checkResult.recordset.length === 0) {
+      await transaction.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy bài viết hoặc không có quyền chỉnh sửa' });
+    }
+    
+    // Get media file path before deletion
+    const mediaResult = await transaction.request()
+      .input('mediaId', sql.BigInt, mediaId)
+      .input('postId', sql.BigInt, postId)
+      .query(`
+        SELECT MediaUrl FROM PostMedia
+        WHERE MediaID = @mediaId AND PostID = @postId
+      `);
+    
+    if (mediaResult.recordset.length === 0) {
+      await transaction.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy media hoặc media không thuộc bài viết này' });
+    }
+    
+    const mediaUrl = mediaResult.recordset[0].MediaUrl;
+    
+    // Delete media from database
+    await transaction.request()
+      .input('mediaId', sql.BigInt, mediaId)
+      .input('postId', sql.BigInt, postId)
+      .query(`
+        DELETE FROM PostMedia
+        WHERE MediaID = @mediaId AND PostID = @postId
+      `);
+    
+    // Update post's UpdatedAt timestamp
+    await transaction.request()
+      .input('postId', sql.BigInt, postId)
+      .query(`
+        UPDATE Posts
+        SET UpdatedAt = GETDATE()
+        WHERE PostID = @postId
+      `);
+    
+    await transaction.commit();
+    
+    // Delete file from disk
+    try {
+      const filePath = `uploads/${mediaUrl.replace(/^uploads\//, '')}`;
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileError) {
+      console.error('Error deleting file:', fileError);
+      // Continue even if file deletion fails
+    }
+    
+    res.json({ message: 'Xóa media khỏi bài viết thành công' });
+    
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Delete post media error:', error);
+    res.status(500).json({
+      message: 'Đã có lỗi xảy ra khi xóa media khỏi bài viết',
       error: error.message
     });
   }

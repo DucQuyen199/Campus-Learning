@@ -497,6 +497,80 @@ const Profile = () => {
     }
   };
 
+  const handleEditPost = async (postId, updatedContent) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // First update the post content
+      const response = await fetch(`/api/posts/${postId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: updatedContent
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not update post');
+      }
+
+      // Update post in the UI
+      setUserPosts(userPosts.map(post => {
+        if (post.PostID === postId) {
+          return {
+            ...post,
+            Content: updatedContent,
+            IsEdited: true
+          };
+        }
+        return post;
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Error editing post:', error);
+      return false;
+    }
+  };
+
+  // Function to refresh posts after media changes
+  const refreshPostMedia = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not fetch updated post');
+      }
+
+      const updatedPost = await response.json();
+
+      // Update the post in the UI with new media
+      setUserPosts(userPosts.map(post => {
+        if (post.PostID === postId) {
+          return {
+            ...post,
+            media: updatedPost.media,
+            IsEdited: true
+          };
+        }
+        return post;
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Error refreshing post media:', error);
+      return false;
+    }
+  };
+
   const handleProfilePictureClick = () => {
     if (isOwnProfile && fileInputRef.current) {
       fileInputRef.current.click();
@@ -1197,6 +1271,8 @@ const Profile = () => {
                   onLike={handleLike}
                   onComment={handleComment}
                   onShare={(postId) => console.log('Share:', postId)}
+                  onEdit={handleEditPost}
+                  onRefreshMedia={refreshPostMedia}
                 />
               </div>
             )}

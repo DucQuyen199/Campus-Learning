@@ -60,6 +60,28 @@ const Chat = () => {
   // Add a state to hold members of current group fetched from server
   const [groupMembers, setGroupMembers] = useState([]);
 
+  // Modal states
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [potentialMembers, setPotentialMembers] = useState([]);
+  const [memberSearchTerm, setMemberSearchTerm] = useState('');
+  const [selectedNewMembers, setSelectedNewMembers] = useState([]);
+  const [isAddingMembers, setIsAddingMembers] = useState(false);
+  const [isRemovingMember, setIsRemovingMember] = useState(false);
+
+  // Group edit states
+  const [activeTab, setActiveTab] = useState('members');
+  const [editGroupName, setEditGroupName] = useState('');
+  const [isEditingGroup, setIsEditingGroup] = useState(false);
+  const [newGroupImage, setNewGroupImage] = useState(null);
+  const [newGroupImagePreview, setNewGroupImagePreview] = useState(null);
+  const [groupDescription, setGroupDescription] = useState('');
+  const [isSavingGroupInfo, setIsSavingGroupInfo] = useState(false);
+
+  // Determine if current user is group admin
+  const isGroupAdmin = currentConversation?.Participants?.some(p =>
+    (p.UserID || p.id) === (user?.UserID || user?.id) && p.ConversationParticipant?.Role === 'admin'
+  );
+
   // Function to fetch group members from database
   const fetchGroupMembers = async (conversationId) => {
     try {
@@ -74,7 +96,22 @@ const Chat = () => {
   // Clear members list when group members modal closes
   useEffect(() => {
     if (!showGroupMembers) setGroupMembers([]);
-  }, [showGroupMembers]);
+    if (!showAddMembers) {
+      setPotentialMembers([]);
+      setSelectedNewMembers([]);
+      setMemberSearchTerm('');
+    }
+  }, [showGroupMembers, showAddMembers]);
+
+  // Initialize the edit form when the modal opens
+  useEffect(() => {
+    if (showGroupMembers && currentConversation) {
+      setEditGroupName(currentConversation.Title || '');
+      setGroupDescription(currentConversation.Description || '');
+      setNewGroupImage(null);
+      setNewGroupImagePreview(null);
+    }
+  }, [showGroupMembers, currentConversation]);
 
   // Add a function to handle audio calls
   const handleAudioCall = (userId, userName) => {
@@ -834,10 +871,11 @@ const Chat = () => {
   // Get other participants in a conversation (excluding current user)
   const getOtherParticipants = (conversation) => {
     if (!conversation?.Participants || !user) return [];
-    return conversation.Participants.filter(p => 
-      (p.UserID !== user.UserID && p.UserID !== user.id) ||
-      (p.id !== user.UserID && p.id !== user.id)
-    );
+    const currentUserId = user.UserID || user.id;
+    return conversation.Participants.filter(p => {
+      const id = p.UserID || p.id;
+      return id !== currentUserId;
+    });
   };
 
   // Get conversation display name based on participants
@@ -1230,6 +1268,208 @@ const Chat = () => {
   const navigateToUserProfile = (userId) => {
     if (!userId) return;
     navigate(`/profile/${userId}`);
+  };
+
+  // Search for users to add to group
+  const searchPotentialMembers = async (query) => {
+    try {
+      setMemberSearchTerm(query);
+      let results = [];
+      
+      if (!query || query.length < 2) {
+        // If no query or too short, load suggested users
+        results = await chatApi.getSuggestedUsers(20, 1);
+      } else {
+        // Otherwise search by query
+        results = await chatApi.searchUsers(query, 30, 1);
+      }
+      
+      // Filter out current members
+      const currentMemberIds = groupMembers.map(m => m.UserID || m.id);
+      const filteredResults = results.filter(u => !currentMemberIds.includes(u.UserID || u.id));
+      
+      setPotentialMembers(filteredResults);
+    } catch (error) {
+      console.error('Error searching for users:', error);
+      showError('Không thể tìm kiếm người dùng');
+    }
+  };
+  
+  // Add selected users to the group
+  const addMembersToGroup = async () => {
+    if (!selectedNewMembers.length || !currentConversation) return;
+    
+    setIsAddingMembers(true);
+    try {
+      const result = await chatApi.addGroupParticipants(
+        currentConversation.ConversationID, 
+        selectedNewMembers.map(m => m.UserID || m.id)
+      );
+      
+      // Update the conversation with new members
+      if (result.conversation) {
+        setCurrentConversation(result.conversation);
+      }
+      
+      // Close the add members modal
+      setShowAddMembers(false);
+      
+      // Refresh the group members list
+      await fetchGroupMembers(currentConversation.ConversationID);
+      
+      // Clear selections
+      setSelectedNewMembers([]);
+      setPotentialMembers([]);
+    } catch (error) {
+      console.error('Failed to add members:', error);
+      showError(error.message || 'Không thể thêm thành viên vào nhóm');
+    } finally {
+      setIsAddingMembers(false);
+    }
+  };
+  
+  // Remove a member from the group
+  const removeMemberFromGroup = async (memberId) => {
+    if (!currentConversation || isRemovingMember) return;
+    
+    setIsRemovingMember(true);
+    try {
+      await chatApi.removeGroupParticipant(currentConversation.ConversationID, memberId);
+      
+      // Update the group members list
+      setGroupMembers(prev => prev.filter(m => (m.UserID || m.id) !== memberId));
+      
+      // Update the current conversation
+      if (currentConversation && currentConversation.Participants) {
+        setCurrentConversation(prev => ({
+          ...prev,
+          Participants: prev.Participants.filter(p => (p.UserID || p.id) !== memberId)
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+      showError(error.message || 'Không thể xóa thành viên khỏi nhóm');
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+  
+  // Leave the group
+  const leaveGroup = async () => {
+    if (!currentConversation || isRemovingMember) return;
+    
+    if (!confirm('Bạn có chắc chắn muốn rời khỏi nhóm này?')) {
+      return;
+    }
+    
+    setIsRemovingMember(true);
+    try {
+      await chatApi.leaveGroup(currentConversation.ConversationID);
+      
+      // Remove the conversation from the list
+      setConversations(prev => prev.filter(c => c.ConversationID !== currentConversation.ConversationID));
+      
+      // Clear current conversation
+      setCurrentConversation(null);
+      
+      // Close the group members modal
+      setShowGroupMembers(false);
+    } catch (error) {
+      console.error('Failed to leave group:', error);
+      showError(error.message || 'Không thể rời khỏi nhóm');
+    } finally {
+      setIsRemovingMember(false);
+    }
+  };
+
+  // Add a new function to handle group info changes
+  const handleGroupImageEdit = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Check file type
+    if (!file.type.match('image.*')) {
+      showError('Vui lòng chọn một tệp hình ảnh.');
+      return;
+    }
+    
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('Kích thước ảnh quá lớn. Vui lòng chọn ảnh nhỏ hơn 5MB.');
+      return;
+    }
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setNewGroupImagePreview(event.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    // Save file for upload
+    setNewGroupImage(file);
+  };
+
+  // Function to save updated group information
+  const saveGroupInfo = async () => {
+    if (!currentConversation || !editGroupName.trim()) return;
+    
+    setIsSavingGroupInfo(true);
+    try {
+      // Update group name and description
+      const updatedData = {
+        title: editGroupName.trim(),
+        description: groupDescription.trim()
+      };
+      
+      // First update the basic info
+      await chatApi.updateConversation(currentConversation.ConversationID, updatedData);
+      
+      // If we have a new image, upload it
+      if (newGroupImage) {
+        const formData = new FormData();
+        formData.append('image', newGroupImage);
+        
+        await axios.post(
+          `${import.meta.env.VITE_API_URL}/api/chat/conversations/${currentConversation.ConversationID}/image`, 
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }
+        );
+      }
+      
+      // Update the conversation in state
+      setCurrentConversation(prev => ({
+        ...prev,
+        Title: editGroupName.trim()
+      }));
+      
+      // Create a system message
+      const systemMessage = `${user.FullName || user.Username} đã cập nhật thông tin nhóm.`;
+      await chatApi.sendMessage(currentConversation.ConversationID, {
+        content: systemMessage,
+        type: 'system'
+      });
+      
+      // Reset the edit state
+      setIsEditingGroup(false);
+      setNewGroupImage(null);
+      setNewGroupImagePreview(null);
+      
+      // Refresh the conversation data
+      const updatedConversation = await chatApi.getConversationById(currentConversation.ConversationID);
+      setCurrentConversation(updatedConversation);
+      
+    } catch (error) {
+      console.error('Failed to update group info:', error);
+      showError(error.message || 'Không thể cập nhật thông tin nhóm');
+    } finally {
+      setIsSavingGroupInfo(false);
+    }
   };
 
   return (
@@ -1706,8 +1946,16 @@ const Chat = () => {
                   {/* Avatar */}
                   <div className="relative">
                     <Avatar 
-                      src={getConversationAvatarInfo(currentConversation).src}
-                      name={getConversationAvatarInfo(currentConversation).name}
+                      src={
+                        currentConversation.Type === 'private' && selectedUser
+                          ? (selectedUser.Image || selectedUser.Avatar)
+                          : getConversationAvatarInfo(currentConversation).src
+                      }
+                      name={
+                        currentConversation.Type === 'private' && selectedUser
+                          ? (selectedUser.FullName || selectedUser.Username)
+                          : getConversationAvatarInfo(currentConversation).name
+                      }
                       size="large"
                       className={currentConversation.Type === 'group' ? "cursor-pointer" : ""}
                       onClick={async (e) => {
@@ -1732,7 +1980,10 @@ const Chat = () => {
                   <div className="ml-3">
                     <div className="flex items-center">
                       <h3 className="text-lg font-semibold">
-                        {getConversationName(currentConversation)}
+                        {currentConversation.Type === 'private' && selectedUser
+                          ? (selectedUser.FullName || selectedUser.Username)
+                          : getConversationName(currentConversation)
+                        }
                       </h3>
                       {currentConversation.Type === 'private' && getOtherParticipants(currentConversation).length > 0 && (
                         <div className="flex ml-3">
@@ -2096,9 +2347,9 @@ const Chat = () => {
       {/* Group Members Modal */}
       {showGroupMembers && currentConversation && currentConversation.Type === 'group' && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl max-h-[80vh] flex flex-col">
+          <div className="bg-white rounded-lg w-full max-w-5xl p-6 shadow-xl max-h-[85vh] flex flex-col">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Thành viên nhóm</h3>
+              <h3 className="text-xl font-bold">Nhóm: {currentConversation.Title}</h3>
               <button 
                 onClick={() => setShowGroupMembers(false)}
                 className="text-gray-600 hover:text-gray-800"
@@ -2109,38 +2360,430 @@ const Chat = () => {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
-              <div className="space-y-3">
-                {groupMembers.map(member => (
-                  <div 
-                    key={member.UserID || member.id} 
-                    className="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
+            {/* Tab navigation */}
+            <div className="border-b mb-4">
+              <div className="flex space-x-6">
+                <button
+                  className={`py-3 px-1 font-medium text-sm border-b-2 transition-colors ${
+                    activeTab === 'members' 
+                      ? 'border-blue-500 text-blue-600' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setActiveTab('members')}
+                >
+                  Thành viên ({groupMembers.length})
+                </button>
+                <button
+                  className={`py-3 px-1 font-medium text-sm border-b-2 transition-colors ${
+                    activeTab === 'info' 
+                      ? 'border-blue-500 text-blue-600' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setActiveTab('info')}
+                >
+                  Thông tin nhóm
+                </button>
+              </div>
+            </div>
+            
+            {/* Members tab content */}
+            {activeTab === 'members' && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm text-gray-500">{groupMembers.length} thành viên</span>
+                  <button 
                     onClick={() => {
+                      setShowAddMembers(true);
                       setShowGroupMembers(false);
-                      navigateToUserProfile(member.UserID || member.id);
+                      searchPotentialMembers('');
                     }}
+                    className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 transition flex items-center"
                   >
-                    <div className="flex items-center">
-                      <Avatar 
-                        src={getUserAvatar(member)} 
-                        name={member.FullName || member.Username} 
-                        size="medium" 
-                        className="mr-3"
-                      />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Thêm thành viên
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {groupMembers.map(member => (
+                      <div 
+                        key={member.UserID || member.id} 
+                        className="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
+                        onClick={() => {
+                          setShowGroupMembers(false);
+                          navigateToUserProfile(member.UserID || member.id);
+                        }}
+                      >
+                        <div className="flex items-center">
+                          <Avatar 
+                            src={getUserAvatar(member)} 
+                            name={member.FullName || member.Username} 
+                            size="medium" 
+                            className="mr-3"
+                          />
+                          <div>
+                            <p className="font-medium">{member.FullName || member.Username}</p>
+                            <p className="text-xs text-gray-500">{member.Email || `@${member.Username}`}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          {member.ConversationParticipant?.Role === 'admin' && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs mr-2">Admin</span>
+                          )}
+                          <span className={`w-2 h-2 rounded-full ${isUserOnline(member.UserID || member.id) ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                          {isGroupAdmin && (member.UserID || member.id) !== (user?.UserID || user?.id) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Bạn có chắc chắn muốn xóa ${member.FullName || member.Username} khỏi nhóm?`)) {
+                                  removeMemberFromGroup(member.UserID || member.id);
+                                }
+                              }}
+                              className="ml-2 p-1 text-red-500 hover:bg-red-100 rounded-full transition-colors"
+                              title="Xóa khỏi nhóm"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Info tab content */}
+            {activeTab === 'info' && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm text-gray-500">Thông tin nhóm</span>
+                  <button 
+                    onClick={() => setIsEditingGroup(!isEditingGroup)}
+                    className={`px-3 py-1.5 ${isEditingGroup ? 'bg-gray-500' : 'bg-blue-500'} text-white text-sm rounded-lg hover:${isEditingGroup ? 'bg-gray-600' : 'bg-blue-600'} transition flex items-center`}
+                  >
+                    {isEditingGroup ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Hủy chỉnh sửa
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Chỉnh sửa
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto">
+                  {isEditingGroup ? (
+                    <div className="space-y-4">
+                      {/* Group Image Edit */}
+                      <div className="flex flex-col items-center">
+                        <div className="relative mb-3">
+                          {newGroupImagePreview ? (
+                            <img 
+                              src={newGroupImagePreview} 
+                              alt="Group Preview" 
+                              className="w-32 h-32 object-cover rounded-lg border"
+                            />
+                          ) : currentConversation.ImageUrl ? (
+                            <img 
+                              src={currentConversation.ImageUrl} 
+                              alt="Group" 
+                              className="w-32 h-32 object-cover rounded-lg border"
+                            />
+                          ) : (
+                            <div className="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                            </div>
+                          )}
+                          {newGroupImagePreview && (
+                            <button 
+                              onClick={() => {
+                                setNewGroupImage(null);
+                                setNewGroupImagePreview(null);
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.value = '';
+                                }
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        <label className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 cursor-pointer">
+                          <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleGroupImageEdit} 
+                          />
+                          Chọn ảnh nhóm
+                        </label>
+                      </div>
+                      
+                      {/* Group Name Edit */}
                       <div>
-                        <p className="font-medium">{member.FullName || member.Username}</p>
-                        <p className="text-xs text-gray-500">{member.Email || `@${member.Username}`}</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tên nhóm</label>
+                        <input
+                          type="text"
+                          value={editGroupName}
+                          onChange={(e) => setEditGroupName(e.target.value)}
+                          placeholder="Nhập tên nhóm"
+                          className="w-full p-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      {/* Group Description Edit */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả nhóm</label>
+                        <textarea
+                          value={groupDescription}
+                          onChange={(e) => setGroupDescription(e.target.value)}
+                          placeholder="Mô tả ngắn về nhóm"
+                          rows={3}
+                          className="w-full p-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      
+                      {/* Save Button */}
+                      <div className="flex justify-end">
+                        <button
+                          onClick={saveGroupInfo}
+                          disabled={!editGroupName.trim() || isSavingGroupInfo}
+                          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-blue-300 flex items-center"
+                        >
+                          {isSavingGroupInfo && (
+                            <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                          )}
+                          Lưu thay đổi
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center">
-                      {member.Role === 'admin' && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs mr-2">Admin</span>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Group Image Display */}
+                      <div className="flex justify-center">
+                        {currentConversation.ImageUrl ? (
+                          <img 
+                            src={currentConversation.ImageUrl} 
+                            alt="Group" 
+                            className="w-40 h-40 object-cover rounded-lg border"
+                          />
+                        ) : (
+                          <div className="w-40 h-40 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Group Name Display */}
+                      <div className="text-center">
+                        <h3 className="text-xl font-bold">{currentConversation.Title}</h3>
+                        <p className="text-gray-500 text-sm mt-1">Tạo bởi {currentConversation.CreatedBy}</p>
+                      </div>
+                      
+                      {/* Group Description Display */}
+                      {currentConversation.Description && (
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="font-medium text-gray-700 mb-2">Mô tả</h4>
+                          <p className="text-gray-600">{currentConversation.Description}</p>
+                        </div>
                       )}
-                      <span className={`w-2 h-2 rounded-full ${isUserOnline(member.UserID || member.id) ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                      
+                      {/* Group Stats */}
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <div className="text-2xl font-bold text-blue-600">{groupMembers.length}</div>
+                          <div className="text-xs text-blue-700 mt-1">Thành viên</div>
+                        </div>
+                        <div className="bg-green-50 p-3 rounded-lg">
+                          <div className="text-2xl font-bold text-green-600">
+                            {groupMembers.filter(m => isUserOnline(m.UserID || m.id)).length}
+                          </div>
+                          <div className="text-xs text-green-700 mt-1">Đang online</div>
+                        </div>
+                        <div className="bg-purple-50 p-3 rounded-lg">
+                          <div className="text-2xl font-bold text-purple-600">
+                            {messages.length}
+                          </div>
+                          <div className="text-xs text-purple-700 mt-1">Tin nhắn</div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
+            )}
+            
+            {/* Leave group button */}
+            <div className="pt-4 mt-4 border-t">
+              <button
+                onClick={leaveGroup}
+                className="w-full py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center"
+                disabled={isRemovingMember}
+              >
+                {isRemovingMember ? (
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                )}
+                Rời khỏi nhóm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Members Modal */}
+      {showAddMembers && currentConversation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-2xl p-6 shadow-xl max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Thêm thành viên</h3>
+              <button 
+                onClick={() => setShowAddMembers(false)}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={memberSearchTerm}
+                  onChange={(e) => searchPotentialMembers(e.target.value)}
+                  placeholder="Tìm kiếm người dùng..."
+                  className="w-full p-2.5 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            
+            {/* Selected users */}
+            {selectedNewMembers.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Đã chọn ({selectedNewMembers.length})</h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedNewMembers.map(user => (
+                    <div 
+                      key={user.UserID || user.id}
+                      className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center text-sm"
+                    >
+                      <span>{user.FullName || user.Username}</span>
+                      <button
+                        onClick={() => setSelectedNewMembers(prev => prev.filter(u => (u.UserID || u.id) !== (user.UserID || user.id)))}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Search results */}
+            <div className="flex-1 overflow-y-auto mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Kết quả tìm kiếm</h4>
+              {potentialMembers.length > 0 ? (
+                <div className="space-y-2">
+                  {potentialMembers.map(user => (
+                    <div
+                      key={user.UserID || user.id}
+                      className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg flex items-center justify-between cursor-pointer transition-colors"
+                      onClick={() => {
+                        // Add to selected users if not already selected
+                        if (!selectedNewMembers.some(u => (u.UserID || u.id) === (user.UserID || user.id))) {
+                          setSelectedNewMembers(prev => [...prev, user]);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center">
+                        <Avatar
+                          src={getUserAvatar(user)}
+                          name={user.FullName || user.Username}
+                          size="small"
+                          className="mr-2"
+                        />
+                        <div>
+                          <p className="font-medium">{user.FullName || user.Username}</p>
+                          <p className="text-xs text-gray-500">{user.Email || `@${user.Username}`}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center">
+                        <span className={`w-2 h-2 rounded-full ${isUserOnline(user.UserID || user.id) ? 'bg-green-500' : 'bg-gray-400'} mr-2`}></span>
+                        <button
+                          className="p-1 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!selectedNewMembers.some(u => (u.UserID || u.id) === (user.UserID || user.id))) {
+                              setSelectedNewMembers(prev => [...prev, user]);
+                            }
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  {memberSearchTerm ? 'Không tìm thấy người dùng phù hợp' : 'Tìm kiếm người dùng để thêm vào nhóm'}
+                </div>
+              )}
+            </div>
+            
+            {/* Action buttons */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                onClick={() => setShowAddMembers(false)}
+                className="px-4 py-2 text-gray-700 hover:text-gray-900 rounded-lg transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={addMembersToGroup}
+                className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed flex items-center"
+                disabled={selectedNewMembers.length === 0 || isAddingMembers}
+              >
+                {isAddingMembers && (
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                )}
+                Thêm thành viên
+              </button>
             </div>
           </div>
         </div>

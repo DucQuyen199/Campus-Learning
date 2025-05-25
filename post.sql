@@ -246,3 +246,60 @@ VALUES
 (1, N'Trung tâm dữ liệu (data center) là xương sống của hạ tầng công nghệ, và hiện nay Việt Nam đang đầu tư mạnh vào việc xây dựng các trung tâm dữ liệu mới với tiêu chuẩn quốc tế. Điều này không chỉ phục vụ các doanh nghiệp trong nước mà còn thu hút các tập đoàn quốc tế đến thuê hạ tầng. Việc xây dựng data center yêu cầu vốn lớn, kỹ thuật cao và đội ngũ quản lý chuyên sâu. Đây là xu hướng then chốt để đảm bảo an toàn dữ liệu quốc gia trong bối cảnh số hóa toàn diện.', 'regular', 'public', N'Cần Thơ', GETDATE(), GETDATE()),
 
 (1, N'Trong bối cảnh AI phát triển quá nhanh, nhu cầu về đạo đức công nghệ đang ngày càng cấp thiết. Các hệ thống AI nếu không được kiểm soát tốt có thể tạo ra thiên kiến, sai lệch và ảnh hưởng tiêu cực đến xã hội. Việt Nam đang bắt đầu xây dựng các khung đạo đức cho AI, hướng đến việc phát triển công nghệ có trách nhiệm. Các chuyên gia IT hiện nay không chỉ cần giỏi kỹ thuật mà còn phải hiểu về luật pháp, đạo đức và các tác động xã hội từ sản phẩm mà họ phát triển.', 'regular', 'public', N'Hải Phòng', GETDATE(), GETDATE());
+
+-- Bảng MediaComments: Quản lý bình luận cho từng media
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'MediaComments')
+BEGIN
+    CREATE TABLE MediaComments (
+        CommentID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của bình luận
+        MediaID BIGINT FOREIGN KEY REFERENCES PostMedia(MediaID), -- Media được bình luận
+        UserID BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Người bình luận
+        ParentCommentID BIGINT, -- ID bình luận cha (nếu là phản hồi)
+        Content NVARCHAR(MAX), -- Nội dung bình luận
+        LikesCount INT DEFAULT 0, -- Số lượt thích bình luận
+        RepliesCount INT DEFAULT 0, -- Số lượt phản hồi
+        CreatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm tạo
+        UpdatedAt DATETIME, -- Thời điểm cập nhật
+        DeletedAt DATETIME, -- Thời điểm xóa
+        IsEdited BIT DEFAULT 0, -- Đánh dấu đã chỉnh sửa
+        IsDeleted BIT DEFAULT 0 -- Đánh dấu đã xóa
+    );
+END;
+GO
+
+-- Thêm khóa ngoại tự tham chiếu cho ParentCommentID (nếu chưa tồn tại)
+IF NOT EXISTS (
+    SELECT * FROM sys.foreign_keys WHERE name = 'FK_MediaComments_ParentComment'
+)
+BEGIN
+    ALTER TABLE MediaComments
+    ADD CONSTRAINT FK_MediaComments_ParentComment
+    FOREIGN KEY (ParentCommentID) REFERENCES MediaComments(CommentID);
+END;
+GO
+
+-- Bảng MediaLikes: Quản lý lượt thích của media
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'MediaLikes')
+BEGIN
+    CREATE TABLE MediaLikes (
+        LikeID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của lượt thích
+        MediaID BIGINT FOREIGN KEY REFERENCES PostMedia(MediaID), -- Media được thích
+        UserID BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Người dùng thực hiện thích
+        CreatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm thích
+        CONSTRAINT UQ_Media_Like UNIQUE (MediaID, UserID) -- Đảm bảo mỗi người chỉ thích 1 lần
+    );
+END;
+GO
+
+-- Bảng MediaCommentLikes: Quản lý lượt thích của bình luận media
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'MediaCommentLikes')
+BEGIN
+    CREATE TABLE MediaCommentLikes (
+        CommentLikeID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của lượt thích bình luận
+        CommentID BIGINT FOREIGN KEY REFERENCES MediaComments(CommentID), -- Bình luận media được thích
+        UserID BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Người thích bình luận
+        CreatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm thích
+        CONSTRAINT UQ_MediaComment_Like UNIQUE (CommentID, UserID) -- Đảm bảo mỗi người chỉ thích 1 lần
+    );
+END;
+GO

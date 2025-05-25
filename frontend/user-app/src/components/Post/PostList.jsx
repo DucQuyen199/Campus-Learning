@@ -13,7 +13,10 @@ import {
   MapPinIcon,
   PencilIcon,
   XMarkIcon,
-  SparklesIcon
+  SparklesIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ArrowsPointingOutIcon
 } from '@heroicons/react/24/outline';
 
 import {
@@ -24,6 +27,117 @@ import {
 } from '@heroicons/react/24/solid';
 
 import { Avatar } from '../index';
+
+// Modal component for lightbox
+const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev }) => {
+  if (!isOpen || !media || media.length === 0) return null;
+
+  const currentMedia = media[currentIndex];
+  const isVideo = currentMedia.MediaType === 'video';
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') onClose();
+    if (e.key === 'ArrowRight') onNext();
+    if (e.key === 'ArrowLeft') onPrev();
+  };
+
+  // Add keyboard event listener when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      // Prevent body scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'auto';
+    };
+  }, [isOpen, currentIndex]);
+
+  // Prepare the media URL
+  let mediaUrl = '';
+  try {
+    if (!currentMedia.MediaUrl) {
+      mediaUrl = '/placeholder-image.svg';
+    } else if (currentMedia.MediaUrl.startsWith('http')) {
+      mediaUrl = currentMedia.MediaUrl;
+    } else {
+      let cleanPath = currentMedia.MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+      mediaUrl = `/uploads/${cleanPath}`;
+    }
+  } catch (error) {
+    console.error('Error processing media URL:', error);
+    mediaUrl = '/placeholder-image.svg';
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="absolute top-4 right-4 z-10">
+        <button 
+          onClick={onClose} 
+          className="p-2 bg-black bg-opacity-60 rounded-full text-white hover:bg-opacity-80 transition-opacity"
+        >
+          <XMarkIcon className="w-6 h-6" />
+        </button>
+      </div>
+      
+      {/* Media counter */}
+      <div className="absolute top-4 left-4 z-10 text-white bg-black bg-opacity-60 px-3 py-1 rounded-full text-sm">
+        {currentIndex + 1} / {media.length}
+      </div>
+      
+      {/* Media content */}
+      <div 
+        className="max-w-screen-lg max-h-screen p-4 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isVideo ? (
+          <video 
+            className="max-h-[85vh] max-w-full mx-auto"
+            src={mediaUrl}
+            controls
+            autoPlay
+            onError={(e) => {
+              console.error('Video failed to load:', mediaUrl);
+              e.target.onerror = null;
+              e.target.src = '/placeholder-video.svg';
+            }}
+          />
+        ) : (
+          <img 
+            className="max-h-[85vh] max-w-full mx-auto object-contain"
+            src={mediaUrl}
+            alt={`Media item ${currentIndex + 1}`}
+            onError={(e) => {
+              console.error('Image failed to load:', mediaUrl);
+              e.target.onerror = null;
+              e.target.src = '/placeholder-image.svg';
+            }}
+          />
+        )}
+      </div>
+      
+      {/* Navigation buttons */}
+      {media.length > 1 && (
+        <>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onPrev(); }} 
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 bg-black bg-opacity-60 rounded-full text-white hover:bg-opacity-80 transition-opacity"
+          >
+            <ChevronLeftIcon className="w-6 h-6" />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onNext(); }} 
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 bg-black bg-opacity-60 rounded-full text-white hover:bg-opacity-80 transition-opacity"
+          >
+            <ChevronRightIcon className="w-6 h-6" />
+          </button>
+        </>
+      )}
+    </div>
+  );
+};
 
 const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia, onLocationFilter, onBookmark }) => {
   const [posts, setPosts] = useState(initialPosts || []);
@@ -211,8 +325,12 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   const [newMedia, setNewMedia] = useState([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false);
+  // State for AI summarization
   const [aiSummary, setAiSummary] = useState(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  // New state for lightbox
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const fileInputRef = useRef(null);
 
   const handleLike = () => {
@@ -578,6 +696,21 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     }
   };
 
+  const handleMediaClick = (index) => {
+    setCurrentMediaIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const handleNextMedia = () => {
+    const mediaCount = post.media?.length || 0;
+    setCurrentMediaIndex((prevIndex) => (prevIndex + 1) % mediaCount);
+  };
+
+  const handlePrevMedia = () => {
+    const mediaCount = post.media?.length || 0;
+    setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + mediaCount) % mediaCount);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
       {/* Post Header */}
@@ -903,20 +1036,14 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
       {!isEditing && post.media && post.media.length > 0 && (
         <div className={`${post.media.length === 1 ? '' : 'grid grid-cols-2 gap-1'} mb-2`}>
           {post.media.map((media, index) => {
-            // Log đường dẫn gốc để debug
-            console.log('Original MediaUrl:', media.MediaUrl);
-            
             let mediaUrl = '';
             try {
               if (!media.MediaUrl) {
                 console.error('MediaUrl is missing for media:', media);
                 mediaUrl = '/placeholder-image.svg';
               } else if (media.MediaUrl.startsWith('http')) {
-                // Đường dẫn tuyệt đối - giữ nguyên
                 mediaUrl = media.MediaUrl;
               } else {
-                // Đảm bảo đường dẫn bắt đầu bằng /uploads/
-                // Xóa bỏ các tiền tố không cần thiết
                 let cleanPath = media.MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
                 mediaUrl = `/uploads/${cleanPath}`;
               }
@@ -925,43 +1052,68 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
               mediaUrl = '/placeholder-image.svg';
             }
             
-            console.log('Final media URL:', mediaUrl);
-            
             return (
               <div 
                 key={index} 
-                className={`overflow-hidden ${post.media.length === 1 ? 'max-h-[500px]' : 'max-h-[300px]'}`}
+                className={`overflow-hidden ${post.media.length === 1 ? 'max-h-[500px]' : 'max-h-[300px]'} relative group cursor-pointer`}
+                onClick={() => handleMediaClick(index)}
               >
                 {media.MediaType === 'image' ? (
-                  <img
-                    src={mediaUrl}
-                    alt={`Hình ảnh ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.log('Image failed to load:', mediaUrl);
-                      e.target.onerror = null; 
-                      e.target.src = '/placeholder-image.svg';
-                      e.target.classList.add('bg-gray-100');
-                    }}
-                  />
+                  <>
+                    <img
+                      src={mediaUrl}
+                      alt={`Hình ảnh ${index + 1}`}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = '/placeholder-image.svg';
+                        e.target.classList.add('bg-gray-100');
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity">
+                      <div className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowsPointingOutIcon className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                  </>
                 ) : (
-                  <video
-                    src={mediaUrl}
-                    controls
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.log('Video failed to load:', mediaUrl);
-                      e.target.onerror = null;
-                      e.target.classList.add('hidden');
-                      e.target.parentNode.innerHTML += '<div class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-sm">Không thể tải video</div>';
-                    }}
-                  />
+                  <>
+                    <video
+                      src={mediaUrl}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.classList.add('hidden');
+                        e.target.parentNode.innerHTML += '<div class="flex items-center justify-center h-full bg-gray-100 text-gray-500 text-sm">Không thể tải video</div>';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity flex items-center justify-center">
+                      <div className="absolute top-2 right-2 bg-black bg-opacity-50 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ArrowsPointingOutIcon className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="rounded-full bg-black bg-opacity-50 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Media Lightbox */}
+      <MediaLightbox 
+        isOpen={lightboxOpen}
+        media={post.media || []}
+        currentIndex={currentMediaIndex}
+        onClose={() => setLightboxOpen(false)}
+        onNext={handleNextMedia}
+        onPrev={handlePrevMedia}
+      />
 
       {/* Engagement Stats */}
       {(post.LikesCount > 0 || post.CommentsCount > 0) && (

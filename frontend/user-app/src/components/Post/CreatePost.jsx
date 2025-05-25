@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   PhotoIcon,
   VideoCameraIcon,
@@ -10,6 +12,7 @@ import {
   GlobeAltIcon,
   UserGroupIcon,
   LockClosedIcon,
+  InformationCircleIcon
 } from "@heroicons/react/24/outline"
 
 const CreatePost = ({ onPostCreated }) => {
@@ -142,14 +145,27 @@ const CreatePost = ({ onPostCreated }) => {
     "code review", "kiểm tra mã nguồn", "tài liệu kỹ thuật"
   ]
   
-  // Fetch current user info for preview
+  // Fetch current user info from localStorage or context
   useEffect(() => {
-    // Mock user data - in a real app, fetch from API or context
-    setCurrentUser({
-      name: "Nguyễn Văn A",
-      avatar: "https://i.pravatar.cc/300",
-      username: "nguyenvana",
-    })
+    const token = localStorage.getItem("token")
+    if (token) {
+      fetch("/api/users/me", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        setCurrentUser({
+          name: data.name,
+          avatar: data.avatar || "https://i.pravatar.cc/300",
+          username: data.username,
+        })
+      })
+      .catch(err => {
+        console.error("Error fetching user:", err)
+      })
+    }
   }, [])
 
   const validateITContent = (text) => {
@@ -238,22 +254,44 @@ const CreatePost = ({ onPostCreated }) => {
   }
 
   return (
-    <div className="flex flex-col w-full">
-      <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="p-3 border-b border-gray-100 flex justify-between items-center">
-          <h2 className="font-semibold text-lg text-gray-800">Tạo bài viết mới</h2>
-          <div className="text-xs text-emerald-600 font-medium">Chỉ dành cho nội dung về IT</div>
+    <div className="flex flex-col w-full max-w-6xl mx-auto">
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-white">
+          <h2 className="font-semibold text-xl text-gray-800">Tạo bài viết mới</h2>
+          <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              className="p-1.5 text-gray-500 hover:text-emerald-600 rounded-full hover:bg-emerald-50 transition-all duration-200"
+              title="Hỗ trợ Markdown"
+            >
+              <InformationCircleIcon className="w-5 h-5" />
+            </button>
+            <div className="text-sm text-emerald-600 font-medium px-3 py-1 bg-emerald-50 rounded-full">
+              Chỉ dành cho nội dung về IT
+            </div>
+          </div>
         </div>
         
-        <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
           {/* Create Post Form */}
-          <div className="md:w-1/2 border-r border-gray-100">
-            <form onSubmit={handleSubmit} className="p-4">
-              <div className="mb-3">
-                <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus-within:border-emerald-400 focus-within:ring-1 focus-within:ring-emerald-400 transition-all duration-200 hover:border-gray-300">
+          <div className="lg:w-3/5 p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">Nội dung bài viết</div>
+                  <div className="text-xs text-gray-500">Hỗ trợ định dạng Markdown</div>
+                </div>
+                <div className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 transition-all duration-200 hover:border-gray-300">
                   <textarea
-                    className="w-full resize-none bg-transparent border-none focus:outline-none p-0 min-h-[100px] text-gray-700 placeholder-gray-400"
-                    placeholder="Chia sẻ ý tưởng, câu hỏi, hoặc bài viết về IT của bạn..."
+                    className="w-full resize-none bg-transparent border-none focus:outline-none p-0 min-h-[200px] text-gray-700 placeholder-gray-400 font-mono text-sm"
+                    placeholder="# Tiêu đề bài viết
+
+Chia sẻ ý tưởng, câu hỏi, hoặc bài viết về IT của bạn...
+
+Bạn có thể sử dụng **Markdown** để định dạng văn bản:
+- Danh sách
+- Code blocks \`\`\`
+- Và nhiều tính năng khác"
                     value={content}
                     onChange={(e) => {
                       setContent(e.target.value)
@@ -262,14 +300,22 @@ const CreatePost = ({ onPostCreated }) => {
                   />
                 </div>
                 {contentError && (
-                  <div className="mt-1 text-red-500 text-xs">{contentError}</div>
+                  <div className="mt-2 text-red-500 text-sm flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {contentError}
+                  </div>
                 )}
               </div>
 
               {media.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Tệp đính kèm ({media.length})</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-700 flex items-center">
+                    <PaperClipIcon className="h-4 w-4 mr-1" />
+                    Tệp đính kèm ({media.length})
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {media.map((file, index) => (
                       <div
                         key={index}
@@ -334,48 +380,46 @@ const CreatePost = ({ onPostCreated }) => {
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-3">
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowVisibilityOptions(!showVisibilityOptions)}
-                    className="flex items-center space-x-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors duration-200"
+                    className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm"
                   >
                     {(() => {
                       const Icon = visibilityOptions.find((opt) => opt.id === visibility)?.icon
-                      return <Icon className="w-4 h-4" />
+                      return <Icon className="w-4 h-4 text-emerald-600" />
                     })()}
                     <span>{visibilityOptions.find((opt) => opt.id === visibility)?.label}</span>
-                    <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path
-                        fillRule="evenodd"
-                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                        clipRule="evenodd"
-                      />
+                    <svg className="w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
 
                   {showVisibilityOptions && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 w-64">
+                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-10 w-72 transform transition-all duration-200">
                       {visibilityOptions.map((option) => {
                         const Icon = option.icon
                         return (
                           <button
                             key={option.id}
                             type="button"
-                            className={`w-full text-left p-2 rounded hover:bg-gray-100 transition-colors duration-200 ${
-                              visibility === option.id ? "bg-emerald-50 text-emerald-600" : "text-gray-700"
+                            className={`w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 ${
+                              visibility === option.id ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200" : "text-gray-700"
                             }`}
                             onClick={() => {
                               setVisibility(option.id)
                               setShowVisibilityOptions(false)
                             }}
                           >
-                            <div className="flex items-center gap-2">
-                              <Icon className="w-4 h-4" />
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-full ${visibility === option.id ? 'bg-emerald-100' : 'bg-gray-100'}`}>
+                                <Icon className="w-4 h-4" />
+                              </div>
                               <div>
                                 <div className="font-medium">{option.label}</div>
-                                <div className="text-xs text-gray-500">{option.description}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">{option.description}</div>
                               </div>
                             </div>
                           </button>
@@ -386,15 +430,15 @@ const CreatePost = ({ onPostCreated }) => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 mt-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-gray-100">
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current.click()}
-                    className="flex items-center space-x-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors duration-200"
+                    className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm"
                   >
                     <PhotoIcon className="h-5 w-5 text-emerald-500" />
-                    <span>Ảnh</span>
+                    <span>Thêm ảnh</span>
                   </button>
                   <input
                     ref={fileInputRef}
@@ -407,26 +451,26 @@ const CreatePost = ({ onPostCreated }) => {
 
                   <button
                     type="button"
-                    className="flex items-center space-x-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 transition-colors duration-200"
+                    className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-red-400 hover:bg-red-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm"
                   >
                     <MapPinIcon className="h-5 w-5 text-red-500" />
-                    <span>Vị trí</span>
+                    <span>Thêm vị trí</span>
                   </button>
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading || (!content.trim() && media.length === 0)}
-                  className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+                  className={`px-8 py-2.5 rounded-xl font-medium transition-all duration-300 ${
                     loading || (!content.trim() && media.length === 0)
-                      ? "bg-gray-300 cursor-not-allowed text-gray-500"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md"
+                      ? "bg-gray-100 cursor-not-allowed text-gray-400"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                   }`}
                 >
                   {loading ? (
                     <div className="flex items-center space-x-2">
                       <svg
-                        className="animate-spin h-4 w-4 text-white"
+                        className="animate-spin h-5 w-5 text-white"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -455,28 +499,37 @@ const CreatePost = ({ onPostCreated }) => {
             </form>
           </div>
 
-          {/* Preview Panel - attached directly to the form */}
-          <div className="md:w-1/2">
-            <div className="p-3 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700">Xem trước bài viết</h3>
-              <div className="text-xs text-gray-500">Hiển thị khi đăng</div>
+          {/* Preview Panel */}
+          <div className="lg:w-2/5">
+            <div className="p-4 border-b border-gray-100 bg-gradient-to-l from-emerald-50 to-white flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-700 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                </svg>
+                Xem trước bài viết
+              </h3>
+              <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full shadow-sm">Hiển thị khi đăng</div>
             </div>
 
-            <div className="p-4">
+            <div className="p-6">
               {/* User info */}
               {currentUser && (
-                <div className="flex items-center mb-3">
-                  <img
-                    src={currentUser.avatar || "/placeholder.svg"}
-                    alt={currentUser.name}
-                    className="w-10 h-10 rounded-full object-cover border border-gray-200"
-                  />
+                <div className="flex items-center mb-4">
+                  <div className="relative">
+                    <img
+                      src={currentUser.avatar}
+                      alt={currentUser.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md"
+                    />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-400 border-2 border-white rounded-full"></div>
+                  </div>
                   <div className="ml-3">
                     <div className="font-medium text-gray-800">{currentUser.name}</div>
-                    <div className="flex items-center text-xs text-gray-500 space-x-1">
+                    <div className="flex items-center text-xs text-gray-500 space-x-2">
                       <span>{getFormattedDate()}</span>
                       <span>•</span>
-                      <span className="flex items-center">
+                      <span className="flex items-center bg-gray-100 px-2 py-0.5 rounded-full">
                         {(() => {
                           const Icon = visibilityOptions.find((opt) => opt.id === visibility)?.icon
                           return <Icon className="w-3 h-3 mr-1" />
@@ -489,17 +542,22 @@ const CreatePost = ({ onPostCreated }) => {
               )}
 
               {/* Content */}
-              {content ? (
-                <div className="prose max-w-none text-gray-700 mb-4">
-                  {content.split("\n").map((line, i) => (
-                    <p key={i}>{line || <br />}</p>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-4 text-center text-gray-400 italic">
-                  <p>Chưa có nội dung bài viết</p>
-                </div>
-              )}
+              <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                {content ? (
+                  <div className="prose max-w-none text-gray-700">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-gray-400 italic">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <p>Chưa có nội dung bài viết</p>
+                  </div>
+                )}
+              </div>
 
               {/* Media preview */}
               {media.length > 0 && (
@@ -561,15 +619,15 @@ const CreatePost = ({ onPostCreated }) => {
                 </div>
               )}
 
-              {/* Post actions (mocked) */}
-              <div className="flex items-center justify-between border-t border-gray-200 pt-3 mt-2 text-gray-600">
+              {/* Post actions */}
+              <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-4">
                 <button
                   type="button"
-                  className="flex items-center gap-1 px-3 py-1 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl transition-colors duration-200"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
+                    className="h-5 w-5 text-emerald-500"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -581,15 +639,15 @@ const CreatePost = ({ onPostCreated }) => {
                       d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
                     />
                   </svg>
-                  <span>Thích</span>
+                  <span className="font-medium">Thích</span>
                 </button>
                 <button
                   type="button"
-                  className="flex items-center gap-1 px-3 py-1 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl transition-colors duration-200"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
+                    className="h-5 w-5 text-blue-500"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -601,15 +659,15 @@ const CreatePost = ({ onPostCreated }) => {
                       d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                     />
                   </svg>
-                  <span>Bình luận</span>
+                  <span className="font-medium">Bình luận</span>
                 </button>
                 <button
                   type="button"
-                  className="flex items-center gap-1 px-3 py-1 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl transition-colors duration-200"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
+                    className="h-5 w-5 text-purple-500"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -621,7 +679,7 @@ const CreatePost = ({ onPostCreated }) => {
                       d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                     />
                   </svg>
-                  <span>Chia sẻ</span>
+                  <span className="font-medium">Chia sẻ</span>
                 </button>
               </div>
             </div>

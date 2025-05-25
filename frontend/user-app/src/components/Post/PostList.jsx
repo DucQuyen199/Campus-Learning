@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   HandThumbUpIcon as ThumbUpOutline,
   ChatBubbleLeftIcon as ChatOutline,
@@ -400,9 +402,9 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
       <div className="px-4 pb-3">
         {post.Content && (
           <div className="prose max-w-none mb-4">
-            {post.Content.split('\n').map((line, i) => (
-              <p key={i} className="mb-2 last:mb-0">{line || <br />}</p>
-            ))}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {post.Content}
+            </ReactMarkdown>
           </div>
         )}
       </div>
@@ -606,7 +608,11 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport }) => {
                   <div className="flex-1">
                     <div className="bg-gray-100 rounded-lg px-3 py-2">
                       <div className="font-medium text-sm">{comment.FullName}</div>
-                      <div className="text-sm">{comment.Content}</div>
+                      <div className="text-sm prose prose-sm max-w-none">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {comment.Content}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                     <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
                       <span>{formatDate(comment.CreatedAt)}</span>

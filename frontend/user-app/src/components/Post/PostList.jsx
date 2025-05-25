@@ -12,7 +12,8 @@ import {
   UserGroupIcon,
   MapPinIcon,
   PencilIcon,
-  XMarkIcon
+  XMarkIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 
 import {
@@ -24,7 +25,7 @@ import {
 
 import { Avatar } from '../index';
 
-const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia }) => {
+const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia, onLocationFilter, onBookmark }) => {
   const [posts, setPosts] = useState(initialPosts || []);
   const [editingPost, setEditingPost] = useState(null);
 
@@ -184,6 +185,8 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
           onReport={handleReportPost}
           onEdit={handleEditPost}
           onRefreshMedia={onRefreshMedia}
+          onLocationFilter={onLocationFilter}
+          onBookmark={onBookmark}
           isEditing={editingPost === post.PostID}
           setEditing={(isEditing) => setEditingPost(isEditing ? post.PostID : null)}
         />
@@ -192,10 +195,10 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
   );
 };
 
-const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit, onRefreshMedia, isEditing, setEditing }) => {
+const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit, onRefreshMedia, onLocationFilter, onBookmark, isEditing, setEditing }) => {
   const [isLiked, setIsLiked] = useState(post.IsLiked === 1);
   const [showOptions, setShowOptions] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(post.IsBookmarked === 1);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
@@ -207,6 +210,9 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   const [editMedia, setEditMedia] = useState(post.media || []);
   const [newMedia, setNewMedia] = useState([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [showFullContent, setShowFullContent] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleLike = () => {
@@ -214,9 +220,30 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     onLike(post.PostID);
   };
 
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked);
-    // Could implement bookmark functionality
+  const handleBookmark = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${post.PostID}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to bookmark post');
+      }
+      
+      // Toggle bookmark state locally
+      setIsBookmarked(!isBookmarked);
+      
+      // Call the onBookmark prop if provided
+      if (onBookmark) {
+        onBookmark(post.PostID);
+      }
+    } catch (error) {
+      console.error('Error bookmarking post:', error);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -495,6 +522,62 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     }
   }
 
+  const handleLocationClick = (locationData) => {
+    if (onLocationFilter && locationData) {
+      // Parse province/city from location data
+      let province = '';
+      
+      if (typeof locationData === 'string') {
+        try {
+          const parsed = JSON.parse(locationData);
+          province = parsed.address?.state || parsed.address?.city || parsed.displayName || locationData;
+        } catch (error) {
+          province = locationData;
+        }
+      } else {
+        province = locationData.address?.state || locationData.address?.city || locationData.displayName || '';
+      }
+      
+      if (province) {
+        onLocationFilter(province);
+      }
+    }
+  };
+
+  // New function to handle AI summarization with Gemini API
+  const handleAiSummarize = async () => {
+    if (!post.Content || isLoadingSummary) return;
+    
+    setIsLoadingSummary(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/ai/gemini/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          content: post.Content,
+          maxWords: 150,
+          language: 'vi'
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate summary');
+      }
+      
+      const data = await response.json();
+      setAiSummary(data.summary);
+    } catch (error) {
+      console.error('Error generating AI summary:', error);
+      setAiSummary('Không thể tạo tóm tắt. Vui lòng thử lại sau.');
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
       {/* Post Header */}
@@ -510,6 +593,16 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="font-medium text-gray-900">{post.FullName}</h3>
+              {location && !isEditing && (
+                <div 
+                  className="flex items-center text-xs text-blue-700 hover:underline cursor-pointer"
+                  onClick={() => handleLocationClick(location)}
+                  title="Lọc bài viết theo vị trí này"
+                >
+                  <MapPinIcon className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <span className="truncate">đang ở {location.displayName}</span>
+                </div>
+              )}
               {getVisibilityIcon()}
               {post.IsEdited && <span className="text-xs text-gray-500">(đã chỉnh sửa)</span>}
             </div>
@@ -572,14 +665,6 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
           )}
         </div>
       </div>
-
-      {/* Location Information */}
-      {location && !isEditing && (
-        <div className="px-4 pb-2 flex items-center text-sm text-blue-700">
-          <MapPinIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
-          <span className="truncate">{location.displayName}</span>
-        </div>
-      )}
 
       {/* Post Content */}
       <div className="px-4 pb-3">
@@ -718,9 +803,97 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
         ) : (
           post.Content && (
             <div className="prose max-w-none mb-4">
+              {/* Replace the notification banner with just an AI button for posts > 500 words */}
+              {post.Content.trim().split(/\s+/).length > 500 && !aiSummary && !isLoadingSummary && (
+                <div className="flex justify-end mb-3">
+                  <button
+                    onClick={handleAiSummarize}
+                    title="Tóm tắt bằng AI Gemini"
+                    className="flex items-center space-x-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1.5 rounded-md hover:opacity-90 transition-opacity"
+                  >
+                    <SparklesIcon className="w-4 h-4" />
+                    <span className="text-xs font-medium">AI Gemini</span>
+                  </button>
+                </div>
+              )}
+              
+              {/* Loading state */}
+              {isLoadingSummary && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-purple-100">
+                  <div className="flex items-center space-x-3">
+                    <svg className="animate-spin h-5 w-5 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm text-gray-700">Gemini đang tóm tắt nội dung...</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* AI Summary display */}
+              {aiSummary && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-purple-100">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center">
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 font-medium flex items-center">
+                        <SparklesIcon className="w-5 h-5 mr-1.5 text-purple-500" />
+                        Tóm tắt bởi Gemini AI
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => setAiSummary(null)} 
+                      className="text-gray-400 hover:text-gray-600"
+                      title="Đóng tóm tắt"
+                    >
+                      <XMarkIcon className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-gray-700 text-sm">{aiSummary}</p>
+                  {!showFullContent && (
+                    <button
+                      onClick={() => setShowFullContent(true)}
+                      className="mt-2 text-purple-600 hover:text-purple-800 text-xs flex items-center"
+                    >
+                      Đọc bài viết đầy đủ
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {post.Content}
+                {(() => {
+                  const wordCount = post.Content.trim().split(/\s+/).length;
+                  const shouldTruncate = (wordCount > 200 && !showFullContent) || (aiSummary && !showFullContent);
+                  
+                  if (shouldTruncate) {
+                    return post.Content.trim().split(/\s+/).slice(0, 200).join(' ') + '...';
+                  } else {
+                    return post.Content;
+                  }
+                })()}
               </ReactMarkdown>
+              
+              {post.Content.trim().split(/\s+/).length > 200 && (
+                <button
+                  onClick={() => setShowFullContent(!showFullContent)}
+                  className="text-blue-600 hover:text-blue-800 font-medium text-sm mt-2 flex items-center"
+                >
+                  {showFullContent ? 'Thu gọn' : 'Xem thêm'}
+                  {!showFullContent && (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                  {showFullContent && (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  )}
+                </button>
+              )}
             </div>
           )
         )}
@@ -858,6 +1031,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
           className={`flex items-center justify-center p-2 rounded-lg hover:bg-gray-100 ${
             isBookmarked ? 'text-blue-500' : 'text-gray-500'
           }`}
+          title={isBookmarked ? "Bỏ lưu bài viết" : "Lưu bài viết"}
         >
           {isBookmarked ? (
             <BookmarkSolid className="w-5 h-5" />

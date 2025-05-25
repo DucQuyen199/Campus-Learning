@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChatBubbleLeftRightIcon,
   HeartIcon,
@@ -6,28 +6,123 @@ import {
   ShareIcon,
   FunnelIcon
 } from '@heroicons/react/24/outline';
+import PostList from '../../components/Post/PostList';
 
 const Posts = () => {
   const [activeCategory, setActiveCategory] = useState('all');
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const posts = [
-    {
-      id: 1,
-      title: "Hướng dẫn sử dụng React Hooks",
-      content: "React Hooks là một tính năng mới được giới thiệu từ phiên bản 16.8...",
-      author: {
-        name: "Nguyễn Văn A",
-        avatar: "https://i.pravatar.cc/150?img=1"
-      },
-      publishDate: "2024-03-20",
-      category: "React",
-      likes: 150,
-      comments: 25,
-      bookmarks: 45,
-      tags: ["React", "JavaScript", "Frontend"]
-    },
-    // ... thêm dữ liệu mẫu khác
-  ];
+  useEffect(() => {
+    fetchPosts();
+  }, [activeCategory]);
+
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      let endpoint = `/api/posts?limit=20`;
+      if (activeCategory !== 'all') {
+        endpoint += `&category=${activeCategory}`;
+      }
+      
+      const response = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not fetch posts');
+      }
+
+      const data = await response.json();
+      setPosts(data.posts || []);
+    } catch (err) {
+      console.error('Error fetching posts:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLike = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not like post');
+      }
+
+      // Update like status in the UI
+      setPosts(posts.map(post => {
+        if (post.PostID === postId) {
+          return {
+            ...post,
+            IsLiked: !post.IsLiked,
+            LikesCount: post.IsLiked ? post.LikesCount - 1 : post.LikesCount + 1
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error liking post:', error);
+    }
+  };
+
+  const handleComment = async (postId, change = 1) => {
+    // Update comment count in UI
+    setPosts(posts.map(post => {
+      if (post.PostID === postId) {
+        return {
+          ...post,
+          CommentsCount: Math.max(0, post.CommentsCount + change)
+        };
+      }
+      return post;
+    }));
+  };
+
+  const handleBookmark = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to bookmark post');
+      }
+      
+      // Update bookmark status in UI
+      setPosts(posts.map(post => {
+        if (post.PostID === postId) {
+          return {
+            ...post,
+            IsBookmarked: !post.IsBookmarked,
+            BookmarksCount: post.IsBookmarked ? 
+              Math.max(0, post.BookmarksCount - 1) : 
+              (post.BookmarksCount || 0) + 1
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error bookmarking post:', error);
+    }
+  };
 
   const categories = [
     { id: 'all', name: 'Tất cả' },
@@ -56,7 +151,7 @@ const Posts = () => {
       <div className="bg-white rounded-xl shadow-sm p-4">
         <div className="flex items-center space-x-4">
           <FunnelIcon className="w-5 h-5 text-gray-400" />
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             {categories.map(category => (
               <button
                 key={category.id}
@@ -75,65 +170,28 @@ const Posts = () => {
       </div>
 
       {/* Posts List */}
-      <div className="space-y-6">
-        {posts.map((post) => (
-          <div key={post.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="p-6">
-              {/* Author Info */}
-              <div className="flex items-center space-x-3 mb-4">
-                <img
-                  src={post.author.avatar}
-                  alt={post.author.name}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div>
-                  <h3 className="font-medium">{post.author.name}</h3>
-                  <p className="text-sm text-gray-500">{post.publishDate}</p>
-                </div>
-              </div>
-
-              {/* Post Content */}
-              <div className="space-y-4">
-                <h2 className="text-xl font-semibold">{post.title}</h2>
-                <p className="text-gray-600">{post.content}</p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2">
-                  {post.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-sm"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-4 border-t">
-                  <div className="flex space-x-4">
-                    <button className="flex items-center space-x-2 text-gray-500 hover:text-blue-600">
-                      <HeartIcon className="w-5 h-5" />
-                      <span>{post.likes}</span>
-                    </button>
-                    <button className="flex items-center space-x-2 text-gray-500 hover:text-blue-600">
-                      <ChatBubbleLeftRightIcon className="w-5 h-5" />
-                      <span>{post.comments}</span>
-                    </button>
-                    <button className="flex items-center space-x-2 text-gray-500 hover:text-blue-600">
-                      <BookmarkIcon className="w-5 h-5" />
-                      <span>{post.bookmarks}</span>
-                    </button>
-                  </div>
-                  <button className="text-gray-500 hover:text-blue-600">
-                    <ShareIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {loading ? (
+        <div className="text-center py-10">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải bài viết...</p>
+        </div>
+      ) : error ? (
+        <div className="text-center py-10">
+          <p className="text-red-600">Không thể tải bài viết: {error}</p>
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="text-center py-10 bg-white rounded-xl shadow-sm">
+          <p className="text-gray-600">Không có bài viết nào trong danh mục này.</p>
+        </div>
+      ) : (
+        <PostList
+          initialPosts={posts}
+          onLike={handleLike}
+          onComment={handleComment}
+          onBookmark={handleBookmark}
+          onShare={(postId) => console.log('Share:', postId)}
+        />
+      )}
     </div>
   );
 };

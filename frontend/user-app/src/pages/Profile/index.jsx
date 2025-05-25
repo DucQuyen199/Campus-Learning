@@ -22,7 +22,8 @@ import {
   UserMinusIcon,
   ClockIcon,
   UserIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  BookmarkIcon
 } from '@heroicons/react/24/outline';
 import PostList from '../../components/Post/PostList';
 import { Avatar } from '../../components';
@@ -46,6 +47,11 @@ const Profile = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   
+  // Added state for bookmarked posts
+  const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(false);
+  const [bookmarksError, setBookmarksError] = useState(null);
+  
   // Friend system states
   const [friendshipStatus, setFriendshipStatus] = useState(null); // null, 'pending', 'accepted', 'rejected', 'blocked'
   const [friendRequestSending, setFriendRequestSending] = useState(false);
@@ -54,8 +60,8 @@ const Profile = () => {
   const [friendsLoading, setFriendsLoading] = useState(false);
   const [friendsError, setFriendsError] = useState(null);
 
-  // Tab state for posts
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'image', 'video'
+  // Tab state for posts - added 'saved'
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'image', 'video', 'saved'
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -751,6 +757,67 @@ const Profile = () => {
     }
   }, [userData, userId, isOwnProfile]);
 
+  // New function to fetch bookmarked posts
+  const fetchBookmarkedPosts = async () => {
+    if (!isOwnProfile) return; // Only fetch bookmarks for own profile
+    
+    try {
+      setBookmarksLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`/api/posts/bookmarks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Could not fetch bookmarked posts');
+      }
+
+      const data = await response.json();
+      setBookmarkedPosts(data.posts || []);
+    } catch (err) {
+      console.error('Error fetching bookmarked posts:', err);
+      setBookmarksError(err.message);
+    } finally {
+      setBookmarksLoading(false);
+    }
+  };
+
+  // Call fetchBookmarkedPosts when tab changes to 'saved'
+  useEffect(() => {
+    if (activeTab === 'saved' && isOwnProfile && bookmarkedPosts.length === 0 && !bookmarksLoading) {
+      fetchBookmarkedPosts();
+    }
+  }, [activeTab, isOwnProfile]);
+
+  // Add handling for bookmarks
+  const handleBookmark = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to toggle bookmark');
+      }
+      
+      // If on the saved posts tab, remove the post from the list
+      if (activeTab === 'saved') {
+        setBookmarkedPosts(prev => prev.filter(post => post.PostID !== postId));
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1217,7 +1284,7 @@ const Profile = () => {
             </h2>
 
             {/* Tabs for posts */}
-            <div className="flex space-x-2 mb-6">
+            <div className="flex flex-wrap gap-2 mb-6">
               <button
                 className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${activeTab === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 onClick={() => setActiveTab('all')}
@@ -1236,45 +1303,92 @@ const Profile = () => {
               >
                 Video
               </button>
+              {isOwnProfile && (
+                <button
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center ${activeTab === 'saved' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  onClick={() => setActiveTab('saved')}
+                >
+                  <BookmarkIcon className="w-4 h-4 mr-1" />
+                  Đã lưu
+                </button>
+              )}
             </div>
 
-            {/* Filter posts by tab */}
-            {postsLoading ? (
-              <div className="text-center py-10">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Đang tải bài viết...</p>
-              </div>
-            ) : postsError ? (
-              <div className="text-center py-10">
-                <p className="text-red-600">Không thể tải bài viết: {postsError}</p>
-              </div>
-            ) : filteredPosts(userPosts, activeTab).length === 0 ? (
-              <div className="text-center py-10 bg-gray-50 rounded-lg">
-                <p className="text-gray-600">
-                  {isOwnProfile 
-                    ? 'Bạn chưa có bài viết nào. Hãy chia sẻ điều gì đó với cộng đồng!' 
-                    : `${userData?.FullName} chưa có bài viết nào.`}
-                </p>
-                {isOwnProfile && (
+            {/* Filter posts by tab - Added handling for saved posts */}
+            {activeTab === 'saved' ? (
+              bookmarksLoading ? (
+                <div className="text-center py-10">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Đang tải bài viết đã lưu...</p>
+                </div>
+              ) : bookmarksError ? (
+                <div className="text-center py-10">
+                  <p className="text-red-600">Không thể tải bài viết đã lưu: {bookmarksError}</p>
+                </div>
+              ) : bookmarkedPosts.length === 0 ? (
+                <div className="text-center py-10 bg-gray-50 rounded-lg">
+                  <BookmarkIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-600">Bạn chưa lưu bài viết nào.</p>
+                  <p className="text-gray-500 mt-1">Bài viết đã lưu sẽ hiển thị tại đây.</p>
                   <button
                     onClick={() => navigate('/posts')}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
-                    Tạo bài viết
+                    Khám phá bài viết
                   </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <PostList 
+                    initialPosts={bookmarkedPosts} 
+                    onLike={handleLike}
+                    onComment={handleComment}
+                    onShare={(postId) => console.log('Share:', postId)}
+                    onEdit={handleEditPost}
+                    onRefreshMedia={refreshPostMedia}
+                    onBookmark={handleBookmark}
+                  />
+                </div>
+              )
             ) : (
-              <div className="space-y-6">
-                <PostList 
-                  initialPosts={filteredPosts(userPosts, activeTab)} 
-                  onLike={handleLike}
-                  onComment={handleComment}
-                  onShare={(postId) => console.log('Share:', postId)}
-                  onEdit={handleEditPost}
-                  onRefreshMedia={refreshPostMedia}
-                />
-              </div>
+              postsLoading ? (
+                <div className="text-center py-10">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Đang tải bài viết...</p>
+                </div>
+              ) : postsError ? (
+                <div className="text-center py-10">
+                  <p className="text-red-600">Không thể tải bài viết: {postsError}</p>
+                </div>
+              ) : filteredPosts(userPosts, activeTab).length === 0 ? (
+                <div className="text-center py-10 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">
+                    {isOwnProfile 
+                      ? 'Bạn chưa có bài viết nào. Hãy chia sẻ điều gì đó với cộng đồng!' 
+                      : `${userData?.FullName} chưa có bài viết nào.`}
+                  </p>
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => navigate('/posts')}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Tạo bài viết
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <PostList 
+                    initialPosts={filteredPosts(userPosts, activeTab)} 
+                    onLike={handleLike}
+                    onComment={handleComment}
+                    onShare={(postId) => console.log('Share:', postId)}
+                    onEdit={handleEditPost}
+                    onRefreshMedia={refreshPostMedia}
+                    onBookmark={handleBookmark}
+                  />
+                </div>
+              )
             )}
           </div>
         </div>

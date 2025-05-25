@@ -5,6 +5,10 @@ const sequelize = require('../config/database');
 
 exports.createConversation = async (req, res) => {
   try {
+    // Ensure authentication middleware has run
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Unauthorized: user not authenticated' });
+    }
     const { title, participants, type = 'private' } = req.body;
     const createdBy = req.user.id;
 
@@ -12,7 +16,7 @@ exports.createConversation = async (req, res) => {
     res.json(conversation);
   } catch (error) {
     console.error('Error creating conversation:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: error.message || 'Internal server error', stack: error.stack });
   }
 };
 
@@ -130,6 +134,7 @@ exports.markMessageAsRead = async (req, res) => {
   }
 };
 
+// Search users by query
 exports.searchUsers = async (req, res) => {
   try {
     const { query } = req.query;
@@ -139,12 +144,10 @@ exports.searchUsers = async (req, res) => {
       where: {
         [Op.and]: [
           { UserID: { [Op.ne]: userId } },
-          {
-            [Op.or]: [
-              { Username: { [Op.iLike]: `%${query}%` } },
-              { FullName: { [Op.iLike]: `%${query}%` } }
-            ]
-          }
+          { [Op.or]: [
+            { Username: { [Op.iLike]: `%${query}%` } },
+            { FullName: { [Op.iLike]: `%${query}%` } }
+          ]}
         ]
       },
       attributes: ['UserID', 'Username', 'FullName', 'Image'],
@@ -158,21 +161,18 @@ exports.searchUsers = async (req, res) => {
   }
 };
 
+// Update message status (read/delivered)
 exports.updateMessageStatus = async (req, res) => {
   try {
     const { messageId, status } = req.body;
     const userId = req.user.id;
-    
-    // Implementation to update message status directly
+
     const messageStatus = await sequelize.models.MessageStatus.findOne({
       where: { MessageID: messageId, UserID: userId }
     });
 
     if (messageStatus) {
-      await messageStatus.update({ 
-        Status: status,
-        UpdatedAt: sequelize.literal('GETDATE()')
-      });
+      await messageStatus.update({ Status: status, UpdatedAt: sequelize.literal('GETDATE()') });
     } else {
       await sequelize.models.MessageStatus.create({
         MessageID: messageId,
@@ -181,7 +181,7 @@ exports.updateMessageStatus = async (req, res) => {
         UpdatedAt: sequelize.literal('GETDATE()')
       });
     }
-    
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating message status:', error);
@@ -189,6 +189,7 @@ exports.updateMessageStatus = async (req, res) => {
   }
 };
 
+// Get users with pagination and optional search
 exports.getUsers = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -196,29 +197,20 @@ exports.getUsers = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const page = parseInt(req.query.page) || 1;
     const offset = (page - 1) * limit;
-    
-    const whereClause = {
-      [Op.and]: [
-        { UserID: { [Op.ne]: userId } },
-        { DeletedAt: null }
-      ]
-    };
-    
-    // Add search condition if search parameter is provided
+
+    const whereClause = { [Op.and]: [
+      { UserID: { [Op.ne]: userId } },
+      { DeletedAt: null }
+    ]};
     if (search.trim().length > 0) {
-      whereClause[Op.and].push({
-        [Op.or]: [
-          { Username: { [Op.iLike]: `%${search}%` } },
-          { FullName: { [Op.iLike]: `%${search}%` } },
-          { Email: { [Op.iLike]: `%${search}%` } }
-        ]
-      });
+      whereClause[Op.and].push({ [Op.or]: [
+        { Username: { [Op.iLike]: `%${search}%` } },
+        { FullName: { [Op.iLike]: `%${search}%` } },
+        { Email: { [Op.iLike]: `%${search}%` } }
+      ]});
     }
-    
-    // Get total count for pagination
+
     const total = await User.count({ where: whereClause });
-    
-    // Get users with pagination
     const users = await User.findAll({
       where: whereClause,
       attributes: ['UserID', 'Username', 'FullName', 'Image', 'Email'],
@@ -226,19 +218,51 @@ exports.getUsers = async (req, res) => {
       offset: offset,
       order: [['UserID', 'ASC']]
     });
-    
-    // Return users with pagination metadata
-    res.json({
-      data: users,
-      pagination: {
-        total,
-        page,
-        limit,
-        pages: Math.ceil(total / limit)
-      }
-    });
+
+    res.json({ data: users, pagination: { total, page, limit, pages: Math.ceil(total/limit) } });
   } catch (error) {
     console.error('Error getting users:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Get suggested users for chat (paginated, excluding existing participants)
+exports.getSuggestedUsers = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const offset = (page - 1) * limit;
+
+    const userConvs = await ConversationParticipant.findAll({
+      where: { UserID: userId },
+      attributes: ['ConversationID'],
+      raw: true
+    });
+    const convIds = userConvs.map(c => c.ConversationID);
+
+    let existingUserIds = [];
+    if (convIds.length > 0) {
+      const existing = await ConversationParticipant.findAll({
+        where: { ConversationID: { [Op.in]: convIds }, UserID: { [Op.ne]: userId } },
+        attributes: ['UserID'],
+        raw: true
+      });
+      existingUserIds = existing.map(p => p.UserID);
+    }
+
+    const whereClause = { UserID: { [Op.notIn]: [userId, ...existingUserIds] }, DeletedAt: null };
+    const suggestedUsers = await User.findAll({
+      where: whereClause,
+      attributes: ['UserID', 'Username', 'FullName', 'Image', 'Email'],
+      limit: limit,
+      offset: offset,
+      order: sequelize.literal('NEWID()')
+    });
+
+    res.json(suggestedUsers);
+  } catch (error) {
+    console.error('Error getting suggested users for chat:', error);
+    res.status(500).json({ message: error.message || 'Internal server error' });
   }
 };

@@ -100,7 +100,7 @@ Chat.createConversation = async function(title, participants, createdBy, type = 
       LastMessageAt: sequelize.literal('GETDATE()'),
       CreatedAt: sequelize.literal('GETDATE()'),
       UpdatedAt: sequelize.literal('GETDATE()')
-    }, { transaction: t, returning: false });
+    }, { transaction: t });
 
     // Add participants
     const allParticipants = [...new Set([...participants, createdBy])];
@@ -110,7 +110,7 @@ Chat.createConversation = async function(title, participants, createdBy, type = 
         UserID: userId,
         Role: userId === createdBy ? 'admin' : 'member',
         JoinedAt: sequelize.literal('GETDATE()')
-      }, { transaction: t, returning: false })
+      }, { transaction: t })
     ));
 
     await t.commit();

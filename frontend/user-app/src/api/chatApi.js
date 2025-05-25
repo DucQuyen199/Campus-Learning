@@ -104,8 +104,85 @@ export const chatApi = {
     }
   },
   
+  // Get suggested users for chat (when no search term is provided)
+  getSuggestedUsers: async (limit = 10, page = 1) => {
+    try {
+      // Try multiple potential endpoints to get suggested users
+      const possibleEndpoints = [
+        `/api/chat/users/suggested?limit=${limit}&page=${page}`,
+        `/api/friendships/suggestions/random?limit=${limit}&page=${page}`,
+        `/api/chat/users?limit=${limit}&page=${page}`,
+        `/api/users?limit=${limit}&page=${page}`
+      ];
+      
+      let response;
+      let endpointUsed;
+      
+      // Try each endpoint until one works
+      for (const endpoint of possibleEndpoints) {
+        try {
+          console.log(`Trying suggested users endpoint: ${endpoint}`);
+          response = await axios.get(`${import.meta.env.VITE_API_URL}${endpoint}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (response.status === 200) {
+            endpointUsed = endpoint;
+            console.log(`Successfully used endpoint for suggested users: ${endpoint}`);
+            break;
+          }
+        } catch (err) {
+          console.log(`Endpoint ${endpoint} failed:`, err.message);
+          // Continue to next endpoint
+        }
+      }
+      
+      // If all endpoints failed, try direct database query as fallback
+      if (!response) {
+        console.log('All suggested users endpoints failed, using fallback');
+        // Return empty array as last resort
+        return [];
+      }
+      
+      // Handle various response formats
+      const responseData = response.data;
+      console.log(`Suggested users API response from ${endpointUsed}:`, responseData);
+      
+      let resultUsers = [];
+      
+      if (Array.isArray(responseData)) {
+        resultUsers = responseData;
+      } else if (responseData && Array.isArray(responseData.users)) {
+        resultUsers = responseData.users;
+      } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
+        resultUsers = responseData.data;
+      } else if (responseData && responseData.suggestions && Array.isArray(responseData.suggestions)) {
+        resultUsers = responseData.suggestions;
+      } else if (responseData && typeof responseData === 'object') {
+        // Extract any array we can find in the response
+        const possibleArrays = Object.values(responseData).filter(Array.isArray);
+        if (possibleArrays.length > 0) {
+          // Use the first array found
+          resultUsers = possibleArrays[0];
+        }
+      }
+      
+      if (resultUsers.length === 0) {
+        console.warn('No users found in suggested users API response');
+      }
+      
+      return resultUsers;
+    } catch (error) {
+      console.error('Failed to get suggested users:', error);
+      return [];
+    }
+  },
+  
   // Search users using the same endpoint as MainLayout
-  searchUsers: async (query, limit = 20) => {
+  searchUsers: async (query, limit = 20, page = 1) => {
     try {
       if (!query || query.trim().length < 2) {
         return [];
@@ -113,10 +190,10 @@ export const chatApi = {
       
       // Try multiple potential endpoints
       const possibleEndpoints = [
-        `/api/chat/users?search=${encodeURIComponent(query)}&limit=${limit}`,
-        `/api/users/search?q=${encodeURIComponent(query)}&limit=${limit}`,
-        `/api/search?q=${encodeURIComponent(query)}&limit=${limit}`,
-        `/api/users?q=${encodeURIComponent(query)}&limit=${limit}`
+        `/api/chat/users?search=${encodeURIComponent(query)}&limit=${limit}&page=${page}`,
+        `/api/users/search?q=${encodeURIComponent(query)}&limit=${limit}&page=${page}`,
+        `/api/search?q=${encodeURIComponent(query)}&limit=${limit}&page=${page}`,
+        `/api/users?q=${encodeURIComponent(query)}&limit=${limit}&page=${page}`
       ];
       
       let response;
@@ -153,24 +230,25 @@ export const chatApi = {
       const responseData = response.data;
       console.log(`Search users API response from ${endpointUsed}:`, responseData);
       
+      let resultUsers = [];
+      
       // Handle various response formats
       if (Array.isArray(responseData)) {
-        return responseData;
+        resultUsers = responseData;
       } else if (responseData && Array.isArray(responseData.users)) {
-        return responseData.users;
+        resultUsers = responseData.users;
       } else if (responseData && responseData.data && Array.isArray(responseData.data)) {
-        return responseData.data;
+        resultUsers = responseData.data;
       } else if (responseData && typeof responseData === 'object') {
         // Extract any array we can find in the response
         const possibleArrays = Object.values(responseData).filter(Array.isArray);
         if (possibleArrays.length > 0) {
           // Use the first array found
-          return possibleArrays[0];
+          resultUsers = possibleArrays[0];
         }
       }
       
-      console.warn('Unexpected response format from search API:', responseData);
-      return [];
+      return resultUsers;
     } catch (error) {
       console.error('Failed to search users:', error);
       

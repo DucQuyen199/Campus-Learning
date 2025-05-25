@@ -24,6 +24,9 @@ router.post('/messages/status', authenticate, chatController.updateMessageStatus
 // Get users for new conversation (with search and pagination)
 router.get('/users', authenticate, chatController.getUsers);
 
+// Get suggested users for chat (users not in conversations with current user)
+router.get('/users/suggested', authenticate, chatController.getSuggestedUsers);
+
 // Search users with pagination
 router.get('/users/search', authenticate, chatController.getUsers);
 

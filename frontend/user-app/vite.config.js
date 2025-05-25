@@ -42,6 +42,7 @@ export default defineConfig({
     global: 'window',
   },
   optimizeDeps: {
+    exclude: ['simple-peer', '@wasmer/wasi', '@wasmer/wasmfs', 'pyodide', 'quickjs-emscripten'],
     esbuildOptions: {
       define: {
         global: 'globalThis',

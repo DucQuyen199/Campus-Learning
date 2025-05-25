@@ -3,16 +3,22 @@ const { pool, sql } = require('../config/db');
 const { sequelize } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 const judgeConfig = require('../config/judge0Config');
+const executionConfig = require('../config/executionConfig');
 
 // Judge0 API configuration
 const JUDGE0_API_URL = judgeConfig.JUDGE0_API_URL;
 const JUDGE0_API_KEY = judgeConfig.JUDGE0_API_KEY;
 const JUDGE0_API_HOST = judgeConfig.JUDGE0_API_HOST;
 
+// Local execution service configuration
+const EXECUTION_SERVICE_URL = executionConfig.EXECUTION_SERVICE_URL;
+const USE_EXECUTION_SERVICE = executionConfig.USE_EXECUTION_SERVICE;
+
 // Flag to determine if Judge0 API is available
 const isJudge0Available = !!JUDGE0_API_KEY;
 
-console.log(`Judge0 API ${isJudge0Available ? 'is available' : 'is NOT available'} - using ${isJudge0Available ? 'real code evaluation' : 'local evaluation (all solutions accepted)'}`);
+console.log(`Judge0 API ${isJudge0Available ? 'is available' : 'is NOT available'}`);
+console.log(`Local execution service ${USE_EXECUTION_SERVICE ? 'is enabled' : 'is disabled'}`);
 
 /**
  * Get list of all competitions
@@ -1152,20 +1158,99 @@ async function processSubmission(submissionId, sourceCode, languageId, testCases
           break;
         }
       }
-    } else {
-      // Local evaluation (simplified for development)
-      console.log('JUDGE0_API_KEY not found, using local evaluation instead');
+    } else if (USE_EXECUTION_SERVICE) {
+      // Local evaluation using our executionService
+      console.log('Using local execution service for evaluation');
       
-      // Since we don't have a real code evaluation service,
-      // we'll automatically mark the submission as accepted for now
+      try {
+        // Get the language name from the languageId
+        const languageName = Object.keys(getJudge0LanguageMap()).find(key => 
+          getJudge0LanguageMap()[key] === languageId
+        ) || 'cpp';
+        
+        // Create test case array in the format expected by executionService
+        const formattedTestCases = testCases.map(tc => ({
+          input: tc.input || tc.Input || '',
+          output: tc.output || tc.Output || ''
+        }));
+        
+        // Call our executionService API
+        const response = await axios.post(`${EXECUTION_SERVICE_URL}/api/code-execution/execute-tests`, {
+          code: sourceCode,
+          language: languageName,
+          testCases: formattedTestCases
+        });
+        
+        if (!response.data.success) {
+          throw new Error(response.data.message || 'Execution service error');
+        }
+        
+        const result = response.data.data;
+        console.log(`Local execution results: ${result.passedCount}/${result.totalCount} test cases passed`);
+        
+        // Check if all test cases passed
+        if (result.passedCount === result.totalCount) {
+          totalScore = problem.Points;
+          overallStatus = 'accepted';
+        } else {
+          // Not all test cases passed, find the first failing test to get the error
+          const failedTest = result.results.find(r => !r.passed);
+          
+          if (failedTest) {
+            if (failedTest.error) {
+              // Compilation or runtime error
+              overallStatus = failedTest.error.includes('Compilation') ? 'compilation_error' : 'runtime_error';
+              errorMessage = failedTest.error;
+            } else {
+              // Wrong answer
+              overallStatus = 'wrong_answer';
+              errorMessage = 'Your output did not match the expected output';
+              
+              // Add detailed diff information if available
+              if (failedTest.diffInfo) {
+                errorMessage += `\n${failedTest.diffInfo.message}`;
+                if (failedTest.diffInfo.type === 'content_mismatch') {
+                  errorMessage += `\nExpected: "${failedTest.diffInfo.expectedContext}"`;
+                  errorMessage += `\nActual: "${failedTest.diffInfo.actualContext}"`;
+                }
+              }
+            }
+          } else {
+            overallStatus = 'wrong_answer';
+            errorMessage = 'Your solution failed some test cases';
+          }
+          
+          // Calculate partial score based on passed test cases
+          totalScore = Math.floor((result.passedCount / result.totalCount) * problem.Points);
+        }
+        
+        // Set execution metrics from the result
+        const executionTimes = result.results.map(r => r.executionTime || 0);
+        maxExecutionTime = Math.max(...executionTimes) / 1000; // Convert to seconds
+        maxMemoryUsed = 10000; // Placeholder since we don't track memory usage precisely
+        
+      } catch (error) {
+        console.error('Error in local evaluation:', error);
+        overallStatus = 'runtime_error';
+        errorMessage = `Error evaluating submission: ${error.message}`;
+        
+        // Log more details if available
+        if (error.response) {
+          console.error('Error response:', {
+            status: error.response.status,
+            data: error.response.data
+          });
+        }
+      }
+    } else {
+      // Simple pass-through evaluation (for development only)
+      console.log('WARNING: Both Judge0 and local execution service are disabled. Using pass-through evaluation (all submissions accepted).');
+      
       totalScore = problem.Points;
       maxExecutionTime = 0.1; // Fake execution time
       maxMemoryUsed = 10000; // Fake memory usage (10MB)
       overallStatus = 'accepted';
-      errorMessage = null; // No error message needed
-      
-      // Log the "results"
-      console.log(`Local evaluation completed with status: ${overallStatus}, score: ${totalScore}`);
+      errorMessage = null;
     }
     
     // Ensure score is not negative
@@ -1293,6 +1378,18 @@ async function processSubmission(submissionId, sourceCode, languageId, testCases
       console.error(`Error updating failed submission ${submissionId}:`, updateError);
     }
   }
+}
+
+// Helper function to get the language map
+function getJudge0LanguageMap() {
+  return {
+    'c': 50,
+    'cpp': 54,
+    'java': 62,
+    'python': 71,
+    'javascript': 63,
+    // ... other languages ...
+  };
 }
 
 /**

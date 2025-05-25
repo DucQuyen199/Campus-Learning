@@ -745,6 +745,27 @@ public class Main {
                     <pre className="bg-red-50 p-3 rounded-md text-sm overflow-x-auto whitespace-pre-wrap text-red-700">
                       {results.message}
                     </pre>
+                    
+                    {/* Display detailed comparison info if available */}
+                    {results.message.includes('Outputs differ') && results.diffInfo && (
+                      <div className="mt-2 border-t border-red-200 pt-2">
+                        <h4 className="text-sm font-medium text-red-600 mb-1">Chi tiết lỗi so sánh:</h4>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div>
+                            <div className="text-xs font-medium text-red-700 mb-1">Kết quả mong đợi:</div>
+                            <pre className="bg-green-50 p-2 rounded-md text-xs overflow-x-auto whitespace-pre-wrap text-green-800">
+                              {results.diffInfo.expectedContext}
+                            </pre>
+                          </div>
+                          <div>
+                            <div className="text-xs font-medium text-red-700 mb-1">Kết quả của bạn:</div>
+                            <pre className="bg-red-50 p-2 rounded-md text-xs overflow-x-auto whitespace-pre-wrap text-red-800">
+                              {results.diffInfo.actualContext}
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

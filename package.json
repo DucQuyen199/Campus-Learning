@@ -37,7 +37,9 @@
     "nodemailer": "^6.6.3",
     "pyodide": "^0.27.5",
     "quickjs-emscripten": "^0.31.0",
+    "react-markdown": "^10.1.0",
     "recharts": "^2.15.3",
+    "remark-gfm": "^4.0.1",
     "socket.io": "^4.2.0"
   },
   "devDependencies": {

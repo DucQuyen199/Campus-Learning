@@ -1,6 +1,7 @@
-const { Chat, Message, User } = require('../models');
+const { Chat, Message, User, ConversationParticipant } = require('../models');
 const { io } = require('../socket');
 const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 
 exports.createConversation = async (req, res) => {
   try {
@@ -18,7 +19,38 @@ exports.createConversation = async (req, res) => {
 exports.getUserConversations = async (req, res) => {
   try {
     const userId = req.user.id;
-    const conversations = await Chat.getUserConversations(userId);
+    
+    // Directly use Sequelize query instead of the static method
+    const conversations = await Chat.findAll({
+      include: [
+        {
+          model: User,
+          as: 'Participants',
+          attributes: ['UserID', 'Username', 'FullName', 'Image'],
+          through: { 
+            attributes: ['Role'],
+            where: { LeftAt: null }
+          }
+        },
+        {
+          model: Message,
+          as: 'Messages',
+          limit: 1,
+          order: [['CreatedAt', 'DESC']],
+          include: [{
+            model: User,
+            as: 'Sender',
+            attributes: ['UserID', 'Username', 'FullName', 'Image']
+          }]
+        }
+      ],
+      where: {
+        IsActive: true,
+        '$Participants.UserID$': userId
+      },
+      order: [['LastMessageAt', 'DESC']]
+    });
+
     res.json(conversations);
   } catch (error) {
     console.error('Error getting conversations:', error);
@@ -30,15 +62,14 @@ exports.getConversationMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
-    
+
+    // Fetch messages using the static helper (chronological order)
     const messages = await Chat.getConversationMessages(conversationId, userId);
-    res.json(messages);
+    return res.json(messages);
   } catch (error) {
     console.error('Error getting messages:', error);
-    if (error.message === 'Not authorized to view this conversation') {
-      return res.status(403).json({ message: error.message });
-    }
-    res.status(500).json({ message: 'Internal server error' });
+    return res.status(error.message === 'Not authorized to view this conversation' ? 403 : 500)
+      .json({ message: error.message || 'Internal server error' });
   }
 };
 
@@ -46,14 +77,12 @@ exports.sendMessage = async (req, res) => {
   try {
     const { conversationId, content, type = 'text' } = req.body;
     const senderId = req.user.id;
-    
-    const message = await Chat.sendMessage(conversationId, senderId, content, type);
-    res.json(message);
+
+    // Delegate message creation to Chat.sendMessage static to avoid trigger/OUTPUT conflict
+    const messageWithSender = await Chat.sendMessage(conversationId, senderId, content, type);
+    return res.json(messageWithSender);
   } catch (error) {
     console.error('Error sending message:', error);
-    if (error.message === 'Not authorized to send messages in this conversation') {
-      return res.status(403).json({ message: error.message });
-    }
     res.status(500).json({ message: 'Internal server error' });
   }
 };
@@ -64,14 +93,12 @@ exports.sendMessageToConversation = async (req, res) => {
     const { conversationId } = req.params;
     const { content, type = 'text' } = req.body;
     const senderId = req.user.id;
-    
-    const message = await Chat.sendMessage(conversationId, senderId, content, type);
-    res.json(message);
+
+    // Delegate message creation to Chat.sendMessage to avoid trigger/OUTPUT conflict
+    const messageWithSender = await Chat.sendMessage(conversationId, senderId, content, type);
+    return res.json(messageWithSender);
   } catch (error) {
     console.error('Error sending message to conversation:', error);
-    if (error.message === 'Not authorized to send messages in this conversation') {
-      return res.status(403).json({ message: error.message });
-    }
     res.status(500).json({ message: 'Internal server error' });
   }
 };
@@ -136,7 +163,25 @@ exports.updateMessageStatus = async (req, res) => {
     const { messageId, status } = req.body;
     const userId = req.user.id;
     
-    await Chat.updateMessageStatus(messageId, userId, status);
+    // Implementation to update message status directly
+    const messageStatus = await sequelize.models.MessageStatus.findOne({
+      where: { MessageID: messageId, UserID: userId }
+    });
+
+    if (messageStatus) {
+      await messageStatus.update({ 
+        Status: status,
+        UpdatedAt: sequelize.literal('GETDATE()')
+      });
+    } else {
+      await sequelize.models.MessageStatus.create({
+        MessageID: messageId,
+        UserID: userId,
+        Status: status,
+        UpdatedAt: sequelize.literal('GETDATE()')
+      });
+    }
+    
     res.json({ success: true });
   } catch (error) {
     console.error('Error updating message status:', error);

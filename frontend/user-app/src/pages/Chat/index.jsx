@@ -23,6 +23,7 @@ const Chat = () => {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
+  const messageCacheRef = useRef({});
   const [newMessage, setNewMessage] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [user, setUser] = useState(null);
@@ -365,7 +366,11 @@ const Chat = () => {
             socket.current.on('new-message', (message) => {
               // Add the new message to the messages state if it's for the current conversation
               if (currentConversation && message.ConversationID === currentConversation.ConversationID) {
-                setMessages(prevMessages => [message, ...prevMessages]);
+                setMessages(prevMessages => {
+                  const updated = [...prevMessages, message];
+                  messageCacheRef.current[currentConversation.ConversationID] = updated;
+                  return updated;
+                });
               }
               
               // When receiving a message, also update the conversations list
@@ -577,18 +582,24 @@ const Chat = () => {
     };
     
     // Add pending message to UI immediately
-    setMessages(prevMessages => [pendingMessage, ...prevMessages]);
+    setMessages(prevMessages => {
+      const updated = [...prevMessages, pendingMessage];
+      messageCacheRef.current[currentConversation.ConversationID] = updated;
+      return updated;
+    });
     
     try {
       // Send message to server using the chatApi service
       const response = await chatApi.sendMessage(currentConversation.ConversationID, { content: messageText });
 
       // Replace pending message with actual message in UI
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
+      setMessages(prevMessages => {
+        const updated = prevMessages.map(msg =>
           msg.MessageID === messageId ? { ...response, Sender: pendingMessage.Sender } : msg
-        )
-      );
+        );
+        messageCacheRef.current[currentConversation.ConversationID] = updated;
+        return updated;
+      });
       
       // Update the conversations list to move this conversation to the top
       const updatedConversation = {
@@ -750,6 +761,15 @@ const Chat = () => {
 
   // Add back the handleConversationSelect function
   const handleConversationSelect = (conv) => {
+    // Load cached messages if available
+    const cached = messageCacheRef.current[conv.ConversationID];
+    if (cached) {
+      setMessages(cached);
+    } else if (conv.Messages && conv.Messages.length > 0) {
+      setMessages(conv.Messages);
+    } else {
+      setMessages([]);
+    }
     console.log('Selecting conversation:', conv.ConversationID);
     setCurrentConversation(conv);
     
@@ -900,27 +920,16 @@ const Chat = () => {
 
   // Fetch messages when conversation changes
   useEffect(() => {
-    // Store the abort controller reference
     const abortController = new AbortController();
-    
     const fetchMessages = async () => {
       if (!currentConversation) return;
-      
+      // If we have cached messages for this conversation, use them
+      const cached = messageCacheRef.current[currentConversation.ConversationID];
+      if (cached) {
+        setMessages(cached);
+        return;
+      }
       try {
-        // Check if we have recent messages in the conversation object
-        if (currentConversation.Messages && currentConversation.Messages.length > 0) {
-          console.log('Using messages from conversation object');
-          // Only fetch new messages if conversation data is older than 1 minute
-          const lastRefreshTime = localStorage.getItem(`lastMessagesRefresh_${currentConversation.ConversationID}`);
-          const currentTime = Date.now();
-          
-          if (lastRefreshTime && (currentTime - parseInt(lastRefreshTime)) < 60000) {
-            // Use the existing messages
-            setMessages(currentConversation.Messages);
-            return;
-          }
-        }
-        
         // Fetch messages from API with abort signal
         const response = await axios.get(
           `${import.meta.env.VITE_API_URL}/api/chat/messages/${currentConversation.ConversationID}`,
@@ -929,23 +938,15 @@ const Chat = () => {
             signal: abortController.signal
           }
         );
-        
         setMessages(response.data);
-        // Update last refresh timestamp
-        localStorage.setItem(`lastMessagesRefresh_${currentConversation.ConversationID}`, Date.now().toString());
+        // Cache messages
+        messageCacheRef.current[currentConversation.ConversationID] = response.data;
       } catch (error) {
-        // Ignore aborted requests
-        if (error.name === 'AbortError') {
-          console.log('Message fetch aborted');
-          return;
-        }
+        if (error.name === 'AbortError') return;
         console.error('Error fetching messages:', error);
       }
     };
-    
     fetchMessages();
-    
-    // Cleanup: abort fetch if component unmounts or conversation changes
     return () => {
       abortController.abort();
     };
@@ -1128,82 +1129,199 @@ const Chat = () => {
         {/* Create Group Modal */}
         {showCreateGroup && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl">
-              <h3 className="text-xl font-bold mb-4">Tạo nhóm mới</h3>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên nhóm</label>
-                <input
-                  type="text"
-                  value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
-                  placeholder="Nhập tên nhóm"
-                  className="w-full p-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            <div className="bg-white rounded-lg w-full max-w-4xl p-6 shadow-xl h-[80vh] flex flex-col">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold">Tạo nhóm mới</h3>
+                <button 
+                  onClick={() => setShowCreateGroup(false)}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
               
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Thêm thành viên</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={userSearchTerm}
-                    onChange={(e) => handleUserSearch(e.target.value)}
-                    placeholder="Tìm kiếm người dùng..."
-                    className="w-full p-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  {isSearchingUsers && (
-                    <div className="absolute right-3 top-3 animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                  )}
-                  
-                  {/* Search results */}
-                  {searchUsers.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white shadow-lg rounded-lg border max-h-60 overflow-y-auto">
-                      {searchUsers.map(user => (
-                        <div 
-                          key={user.UserID || user.id} 
-                          className="p-2.5 hover:bg-gray-50 cursor-pointer flex items-center"
-                          onClick={() => selectUser(user)}
-                        >
-                          <Avatar 
-                            src={user.Image || user.Avatar} 
-                            name={user.FullName || user.Username} 
-                            size="small" 
-                          />
-                          <span className="ml-2">{user.FullName || user.Username}</span>
-                        </div>
-                      ))}
+              <div className="flex-1 flex gap-6 overflow-hidden">
+                {/* Left side - Group Info */}
+                <div className="w-1/2 flex flex-col">
+                  <h4 className="font-medium text-gray-700 mb-2">Thông tin nhóm</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg border mb-4">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tên nhóm</label>
+                      <input
+                        type="text"
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                        placeholder="Nhập tên nhóm"
+                        className="w-full p-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                     </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Selected users */}
-              {selectedUsers.length > 0 && (
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Thành viên đã chọn</label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedUsers.map(user => (
-                      <div 
-                        key={user.UserID || user.id} 
-                        className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full flex items-center"
-                      >
-                        <span className="mr-1">{user.FullName || user.Username}</span>
-                        <button 
-                          onClick={() => removeSelectedUser(user.UserID || user.id)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
+                    
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh nhóm (tùy chọn)</label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p className="mt-1 text-sm text-gray-500">Kéo thả ảnh hoặc bấm để tải lên</p>
                       </div>
-                    ))}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả nhóm (tùy chọn)</label>
+                      <textarea
+                        placeholder="Mô tả ngắn về nhóm"
+                        rows={4}
+                        className="w-full p-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      ></textarea>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <h4 className="font-medium text-gray-700 mb-2">Thành viên đã chọn ({selectedUsers.length})</h4>
+                    <div className="bg-gray-50 rounded-lg border overflow-y-auto max-h-64 p-2">
+                      {selectedUsers.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 p-2">
+                          {selectedUsers.map(user => (
+                            <div 
+                              key={user.UserID || user.id} 
+                              className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-full flex items-center"
+                            >
+                              <Avatar 
+                                src={user.Image || user.Avatar} 
+                                name={user.FullName || user.Username} 
+                                size="tiny"
+                                className="mr-2"
+                              />
+                              <span className="text-sm">{user.FullName || user.Username}</span>
+                              <button 
+                                onClick={() => removeSelectedUser(user.UserID || user.id)}
+                                className="ml-2 text-blue-600 hover:text-blue-800"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-gray-500">
+                          Chưa có thành viên nào được chọn
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
+                
+                {/* Right side - User Search */}
+                <div className="w-1/2 flex flex-col">
+                  <h4 className="font-medium text-gray-700 mb-2">Thêm thành viên</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg border flex-1 flex flex-col">
+                    <div className="relative mb-4">
+                      <input
+                        type="text"
+                        value={userSearchTerm}
+                        onChange={(e) => handleUserSearch(e.target.value)}
+                        placeholder="Tìm kiếm người dùng..."
+                        className="w-full p-2.5 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      {isSearchingUsers && (
+                        <div className="absolute right-3 top-2.5 animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto">
+                      {searchUsers.length > 0 ? (
+                        <div className="space-y-2">
+                          {searchUsers.map(user => (
+                            <div 
+                              key={user.UserID || user.id} 
+                              className="p-3 hover:bg-white rounded-md cursor-pointer flex items-center justify-between transition-colors"
+                              onClick={() => selectUser(user)}
+                            >
+                              <div className="flex items-center">
+                                <Avatar 
+                                  src={user.Image || user.Avatar} 
+                                  name={user.FullName || user.Username} 
+                                  size="small" 
+                                  className="mr-3"
+                                />
+                                <div>
+                                  <p className="font-medium">{user.FullName || user.Username}</p>
+                                  <p className="text-xs text-gray-500">{user.Email || `@${user.Username}`}</p>
+                                </div>
+                              </div>
+                              <button className="p-1 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : userSearchTerm.length > 0 && !isSearchingUsers ? (
+                        <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                          </svg>
+                          <p>Không tìm thấy người dùng nào</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                          <p>Tìm kiếm người dùng để thêm vào nhóm</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="mt-4">
+                      <p className="text-sm text-gray-500 mb-2">Gợi ý</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {onlineUsers.slice(0, 4).map(onlineUser => {
+                          // Bỏ qua người dùng hiện tại
+                          if (user && (onlineUser.UserID === user.UserID || onlineUser.id === user.id)) return null;
+                          return (
+                            <div 
+                              key={onlineUser.UserID || onlineUser.id} 
+                              className="p-2 bg-white rounded-md border cursor-pointer flex items-center gap-2"
+                              onClick={() => {
+                                const userObj = {
+                                  UserID: onlineUser.UserID || onlineUser.id,
+                                  Username: onlineUser.Username,
+                                  FullName: onlineUser.FullName,
+                                  Image: onlineUser.Image || onlineUser.Avatar
+                                };
+                                if (!selectedUsers.some(u => u.UserID === userObj.UserID)) {
+                                  selectUser(userObj);
+                                }
+                              }}
+                            >
+                              <div className="relative">
+                                <Avatar 
+                                  src={onlineUser.Image || onlineUser.Avatar} 
+                                  name={onlineUser.FullName || onlineUser.Username} 
+                                  size="tiny" 
+                                />
+                                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white"></div>
+                              </div>
+                              <span className="text-xs truncate">{onlineUser.FullName || onlineUser.Username}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
                 <button 
                   onClick={() => setShowCreateGroup(false)}
                   className="px-4 py-2 text-gray-700 hover:text-gray-900 rounded-lg transition-colors"
@@ -1212,7 +1330,7 @@ const Chat = () => {
                 </button>
                 <button 
                   onClick={createGroup}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-blue-300"
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
                   disabled={!groupName.trim() || selectedUsers.length === 0}
                 >
                   Tạo nhóm

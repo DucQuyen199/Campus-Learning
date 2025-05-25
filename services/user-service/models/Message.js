@@ -32,7 +32,7 @@ const Message = sequelize.define('Message', {
   },
   Content: {
     type: DataTypes.TEXT,
-    allowNull: false
+    allowNull: true
   },
   MediaUrl: {
     type: DataTypes.STRING(255),
@@ -58,6 +58,14 @@ const Message = sequelize.define('Message', {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
+  CreatedAt: {
+    type: DataTypes.DATE,
+    allowNull: false
+  },
+  UpdatedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
   DeletedAt: {
     type: DataTypes.DATE,
     allowNull: true
@@ -65,7 +73,14 @@ const Message = sequelize.define('Message', {
 }, {
   tableName: 'Messages',
   timestamps: false,
-  returning: false
+  indexes: [
+    {
+      fields: ['ConversationID']
+    },
+    {
+      fields: ['CreatedAt']
+    }
+  ]
 });
 
 module.exports = Message; 

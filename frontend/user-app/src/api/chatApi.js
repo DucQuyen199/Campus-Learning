@@ -14,6 +14,12 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Remove cache-control header if it exists to avoid CORS issues
+    if (config.headers['cache-control']) {
+      delete config.headers['cache-control'];
+    }
+    
     return config;
   },
   (error) => {

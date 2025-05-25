@@ -6,6 +6,10 @@ const fs = require('fs');
 const User = require('./User');
 const UserAchievement = require('./UserAchievement');
 const Achievement = require('./Achievement');
+const Chat = require('./Chat');
+const Message = require('./Message');
+const ConversationParticipant = require('./ConversationParticipant');
+const MessageStatus = require('./MessageStatus');
 
 // Only import models we're sure are Sequelize models
 // The other models will be loaded dynamically if they exist and are Sequelize models
@@ -17,12 +21,16 @@ const setupAssociations = () => {
   try {
     // Create a map of all models that are Sequelize models
     const models = {
-      User
+      User,
+      Chat,
+      Message,
+      ConversationParticipant,
+      MessageStatus
     };
     
     // Dynamically load models only if they are Sequelize models
     const modelFiles = [
-      'Achievement', 'UserAchievement', 'Chat', 'Message', 'MessageStatus', 'ConversationParticipant',
+      'Achievement', 'UserAchievement',
       'Course', 'CourseEnrollment', 'CourseLesson', 'LessonProgress',
       'Exam', 'ExamQuestion', 'ExamParticipant', 'ExamAnswer', 'ExamAnswerTemplate', 'ExamMonitoringLog', 'EssayAnswerAnalysis',
       'Story', 'StoryView', 'PaymentHistory', 'PaymentTransaction', 'Friendship', 'Report', 'Ranking'
@@ -57,6 +65,37 @@ const setupAssociations = () => {
       models.User.hasOne(models.Ranking, { foreignKey: 'UserID' });
       models.Ranking.belongsTo(models.User, { foreignKey: 'UserID' });
     }
+
+    // Chat associations
+    if (models.Chat && models.User && models.ConversationParticipant) {
+      console.log('Setting up Chat associations');
+      models.Chat.belongsToMany(models.User, { 
+        through: models.ConversationParticipant, 
+        foreignKey: 'ConversationID', 
+        as: 'Participants' 
+      });
+      models.User.belongsToMany(models.Chat, { 
+        through: models.ConversationParticipant, 
+        foreignKey: 'UserID', 
+        as: 'Conversations' 
+      });
+    }
+
+    // Message associations
+    if (models.Message && models.Chat && models.User) {
+      console.log('Setting up Message associations');
+      models.Chat.hasMany(models.Message, { 
+        foreignKey: 'ConversationID', 
+        as: 'Messages' 
+      });
+      models.Message.belongsTo(models.Chat, { 
+        foreignKey: 'ConversationID' 
+      });
+      models.Message.belongsTo(models.User, { 
+        foreignKey: 'SenderID', 
+        as: 'Sender' 
+      });
+    }
     
     console.log('Model associations completed');
     
@@ -73,6 +112,10 @@ module.exports = {
   sequelize,
   setupAssociations,
   User,
+  Chat,
+  Message,
+  ConversationParticipant,
+  MessageStatus,
   // Add any other models we're certain about
   UserAchievement,
   Achievement

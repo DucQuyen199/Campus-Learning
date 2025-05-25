@@ -22,6 +22,14 @@ router.delete('/:id', authenticateToken, postController.deletePost);
 router.post('/:postId/like', authenticateToken, postController.likePost);
 router.post('/:postId/share', authenticateToken, postController.sharePost);
 
+// Media routes for posts
+router.post('/:id/media',
+  authenticateToken,
+  uploadMiddleware.array('media', 10),
+  postController.addPostMedia
+);
+router.delete('/:postId/media/:mediaId', authenticateToken, postController.deletePostMedia);
+
 // Comment routes
 router.get('/:postId/comments', postController.getComments);
 router.post('/:postId/comments', authenticateToken, postController.addComment);

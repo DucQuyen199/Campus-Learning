@@ -317,7 +317,11 @@ CREATE TABLE [dbo].[ConversationParticipants] (
     FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID])
 );
 
+GO
 
+-- Add unique constraint to prevent duplicate conversation participants
+ALTER TABLE [dbo].[ConversationParticipants]
+ADD CONSTRAINT [UQ_ConversationParticipants_ConversationID_UserID] UNIQUE NONCLUSTERED ([ConversationID], [UserID]);
 GO
 
 CREATE TABLE [dbo].[Reports] (

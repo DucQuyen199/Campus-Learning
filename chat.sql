@@ -123,6 +123,23 @@ CREATE INDEX IX_Stories_ExpiresAt ON Stories(ExpiresAt); -- Tối ưu truy vấn
 CREATE INDEX IX_ConversationParticipants_UserID ON ConversationParticipants(UserID); -- Tối ưu truy vấn cuộc trò chuyện của người dùng
 go
 
+-- Remove duplicate entries before adding unique constraint
+;WITH DuplicateCTE AS (
+  SELECT ParticipantID,
+         ROW_NUMBER() OVER (PARTITION BY ConversationID, UserID ORDER BY ParticipantID) AS rn
+  FROM ConversationParticipants
+)
+DELETE FROM ConversationParticipants
+WHERE ParticipantID IN (
+  SELECT ParticipantID FROM DuplicateCTE WHERE rn > 1
+);
+GO
+
+-- Add unique constraint to prevent duplicate conversation participants
+ALTER TABLE ConversationParticipants
+ADD CONSTRAINT UQ_ConversationParticipants_ConversationID_UserID UNIQUE (ConversationID, UserID);
+GO
+
 use campushubt
 select * from Messages;
 -- User 1 và User 2

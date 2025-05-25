@@ -48,10 +48,22 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id', 'x-client-version', 'x-client-platform'],
-  credentials: true
+  origin: function(origin, callback) {
+    const allowedOrigins = ['http://localhost:3000', 'http://localhost:5004', 'http://localhost:5173'];
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (isDevelopment || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-HTTP-Method-Override', 'Accept', 'cache-control']
 }));
 app.use(morgan('dev'));
 app.use(helmet({

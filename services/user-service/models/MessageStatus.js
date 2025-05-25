@@ -32,7 +32,7 @@ const MessageStatus = sequelize.define('MessageStatus', {
   },
   UpdatedAt: {
     type: DataTypes.DATE,
-    allowNull: false
+    defaultValue: sequelize.literal('GETDATE()')
   }
 }, {
   tableName: 'MessageStatus',

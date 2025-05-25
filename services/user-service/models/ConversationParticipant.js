@@ -25,7 +25,8 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
   },
   JoinedAt: {
     type: DataTypes.DATE,
-    allowNull: false
+    allowNull: false,
+    defaultValue: sequelize.literal('GETDATE()')
   },
   LeftAt: {
     type: DataTypes.DATE,
@@ -40,11 +41,7 @@ const ConversationParticipant = sequelize.define('ConversationParticipant', {
   },
   LastReadMessageID: {
     type: DataTypes.BIGINT,
-    allowNull: true,
-    references: {
-      model: 'Messages',
-      key: 'MessageID'
-    }
+    allowNull: true
   },
   IsAdmin: {
     type: DataTypes.BOOLEAN,

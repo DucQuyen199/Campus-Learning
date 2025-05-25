@@ -317,6 +317,5 @@ Chat.updateMessageStatus = async function(messageId, userId, status) {
   }
 };
 
-module.exports = { 
-  Chat
-}; 
+// Export the Chat model directly
+module.exports = Chat; 

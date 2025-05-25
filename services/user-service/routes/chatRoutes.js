@@ -33,4 +33,19 @@ router.get('/users/suggested', authenticate, chatController.getSuggestedUsers);
 // Search users with pagination
 router.get('/users/search', authenticate, chatController.getUsers);
 
+// Add participants to a group conversation
+router.post('/conversations/:conversationId/participants', authenticate, chatController.addParticipants);
+
+// Remove a participant from a group conversation
+router.delete('/conversations/:conversationId/participants/:participantId', authenticate, chatController.removeParticipant);
+
+// Leave a group conversation (self-removal)
+router.delete('/conversations/:conversationId/leave', authenticate, chatController.leaveConversation);
+
+// Update conversation info
+router.put('/conversations/:conversationId', authenticate, chatController.updateConversation);
+
+// Update conversation image
+router.post('/conversations/:conversationId/image', authenticate, chatController.updateConversationImage);
+
 module.exports = router; 

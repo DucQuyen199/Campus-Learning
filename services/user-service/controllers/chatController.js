@@ -298,3 +298,373 @@ exports.getConversationById = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+// Add participants to a group conversation
+exports.addParticipants = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { participants } = req.body;
+    const userId = req.user.id;
+
+    // Validate input
+    if (!Array.isArray(participants) || participants.length === 0) {
+      return res.status(400).json({ message: 'Participants array is required' });
+    }
+
+    // Find the conversation
+    const conversation = await Chat.findOne({
+      where: { 
+        ConversationID: conversationId, 
+        Type: 'group', 
+        IsActive: true 
+      },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Group conversation not found' });
+    }
+
+    // Check if user is a participant and has admin rights
+    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
+    if (!userParticipant) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+
+    // Get current participant IDs to avoid duplicates
+    const existingParticipantIds = conversation.Participants.map(p => p.UserID);
+    
+    // Filter out users that are already participants
+    const newParticipants = participants.filter(id => !existingParticipantIds.includes(Number(id)));
+    
+    if (newParticipants.length === 0) {
+      return res.status(400).json({ message: 'All users are already participants' });
+    }
+
+    // Add new participants to the conversation
+    const participantRecords = newParticipants.map(participantId => ({
+      ConversationID: conversationId,
+      UserID: participantId,
+      Role: 'member',
+      JoinedAt: new Date()
+    }));
+
+    await ConversationParticipant.bulkCreate(participantRecords);
+
+    // Get updated list of participants
+    const updatedConversation = await Chat.findOne({
+      where: { ConversationID: conversationId },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID', 'Username', 'FullName', 'Image'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    // Notify all participants about new members
+    const addedUsers = await User.findAll({
+      where: { UserID: { [Op.in]: newParticipants } },
+      attributes: ['UserID', 'Username', 'FullName', 'Image']
+    });
+
+    // Create a system message about the new members
+    const addedNames = addedUsers.map(u => u.FullName || u.Username).join(', ');
+    const systemMessage = await Message.create({
+      ConversationID: conversationId,
+      SenderID: userId,
+      Type: 'system',
+      Content: `${req.user.FullName || req.user.Username} đã thêm ${addedNames} vào nhóm.`
+    });
+
+    // Emit socket event to all participants
+    conversation.Participants.forEach(participant => {
+      io.to(`user:${participant.UserID}`).emit('group-members-added', {
+        conversationId,
+        addedMembers: addedUsers,
+        systemMessage
+      });
+    });
+
+    // Emit to new participants
+    newParticipants.forEach(participantId => {
+      io.to(`user:${participantId}`).emit('added-to-group', {
+        conversation: updatedConversation,
+        addedBy: userId
+      });
+    });
+
+    res.status(200).json({ 
+      message: 'Participants added successfully',
+      conversation: updatedConversation
+    });
+  } catch (error) {
+    console.error('Error adding participants:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Remove a participant from a group conversation
+exports.removeParticipant = async (req, res) => {
+  try {
+    const { conversationId, participantId } = req.params;
+    const userId = req.user.id;
+
+    // Find the conversation
+    const conversation = await Chat.findOne({
+      where: { 
+        ConversationID: conversationId, 
+        Type: 'group',
+        IsActive: true 
+      },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID', 'Username', 'FullName'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Group conversation not found' });
+    }
+
+    // Check if user is a participant and has admin rights or is removing themselves
+    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
+    if (!userParticipant) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+
+    // Only allow self-removal or admin removal
+    const isAdmin = userParticipant.ConversationParticipant?.Role === 'admin';
+    const isSelfRemoval = Number(participantId) === userId;
+    
+    if (!isAdmin && !isSelfRemoval) {
+      return res.status(403).json({ message: 'You do not have permission to remove other participants' });
+    }
+
+    // Check if participant exists
+    const participant = conversation.Participants.find(p => p.UserID === Number(participantId));
+    if (!participant) {
+      return res.status(404).json({ message: 'Participant not found in this conversation' });
+    }
+
+    // Set LeftAt to mark participant as removed instead of deleting
+    await ConversationParticipant.update(
+      { LeftAt: new Date() },
+      { 
+        where: { 
+          ConversationID: conversationId, 
+          UserID: participantId 
+        } 
+      }
+    );
+
+    // Create a system message about the removal
+    const actionUser = req.user.FullName || req.user.Username;
+    const removedUser = participant.FullName || participant.Username;
+    
+    const messageContent = isSelfRemoval 
+      ? `${actionUser} đã rời khỏi nhóm.`
+      : `${actionUser} đã xóa ${removedUser} khỏi nhóm.`;
+    
+    const systemMessage = await Message.create({
+      ConversationID: conversationId,
+      SenderID: userId,
+      Type: 'system',
+      Content: messageContent
+    });
+
+    // Emit socket event to all participants about the removal
+    conversation.Participants.forEach(p => {
+      io.to(`user:${p.UserID}`).emit('group-member-removed', {
+        conversationId,
+        removedMemberId: Number(participantId),
+        removedBy: userId,
+        systemMessage
+      });
+    });
+
+    // Notify the removed participant if they're not the one removing themselves
+    if (!isSelfRemoval) {
+      io.to(`user:${participantId}`).emit('removed-from-group', {
+        conversationId,
+        removedBy: userId
+      });
+    }
+
+    res.status(200).json({ 
+      message: 'Participant removed successfully',
+      participantId: Number(participantId)
+    });
+  } catch (error) {
+    console.error('Error removing participant:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Leave a group conversation (wrapper for removeParticipant for self-removal)
+exports.leaveConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    
+    // Use the removeParticipant method with the current user as participant
+    req.params.participantId = userId;
+    return this.removeParticipant(req, res);
+  } catch (error) {
+    console.error('Error leaving conversation:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Update conversation information (title, description, etc.)
+exports.updateConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { title, description } = req.body;
+    const userId = req.user.id;
+
+    // Find the conversation
+    const conversation = await Chat.findOne({
+      where: { 
+        ConversationID: conversationId,
+        IsActive: true 
+      },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Check if user is a participant
+    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
+    if (!userParticipant) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+
+    // Prepare update data
+    const updateData = {};
+    
+    if (title !== undefined) {
+      updateData.Title = title;
+    }
+    
+    if (description !== undefined) {
+      updateData.Description = description;
+    }
+    
+    // Update conversation
+    await Chat.update(updateData, { 
+      where: { ConversationID: conversationId } 
+    });
+
+    // Get the updated conversation
+    const updatedConversation = await Chat.findOne({
+      where: { ConversationID: conversationId },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID', 'Username', 'FullName', 'Image'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    // Emit socket event to notify participants about the update
+    conversation.Participants.forEach(participant => {
+      io.to(`user:${participant.UserID}`).emit('conversation-updated', {
+        conversationId,
+        updatedBy: userId,
+        updatedConversation
+      });
+    });
+
+    res.status(200).json(updatedConversation);
+  } catch (error) {
+    console.error('Error updating conversation:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+// Update conversation image
+exports.updateConversationImage = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    // Find the conversation
+    const conversation = await Chat.findOne({
+      where: { 
+        ConversationID: conversationId,
+        IsActive: true 
+      },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+
+    // Check if user is a participant
+    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
+    if (!userParticipant) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+
+    // Process the image (you'll need to implement file storage logic)
+    // This example assumes you're saving to a local directory
+    const imageUrl = `/uploads/groups/${conversationId}.jpg`;
+    
+    // Update conversation with image URL
+    await Chat.update(
+      { ImageUrl: imageUrl },
+      { where: { ConversationID: conversationId } }
+    );
+
+    // Get the updated conversation
+    const updatedConversation = await Chat.findOne({
+      where: { ConversationID: conversationId },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID', 'Username', 'FullName', 'Image'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    // Emit socket event to notify participants about the update
+    conversation.Participants.forEach(participant => {
+      io.to(`user:${participant.UserID}`).emit('conversation-image-updated', {
+        conversationId,
+        updatedBy: userId,
+        imageUrl
+      });
+    });
+
+    res.status(200).json(updatedConversation);
+  } catch (error) {
+    console.error('Error updating conversation image:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

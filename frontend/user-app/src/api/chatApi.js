@@ -390,6 +390,56 @@ export const chatApi = {
   addCallParticipant: async (callId, data) => {
     const response = await axiosInstance.post(`/calls/${callId}/participants`, data);
     return response.data;
+  },
+  
+  // Group chat participant management
+  addGroupParticipants: async (conversationId, participants) => {
+    try {
+      // Ensure all participant IDs are numbers
+      const participantIds = Array.isArray(participants) 
+        ? participants.map(p => typeof p === 'object' ? Number(p.UserID || p.id) : Number(p))
+        : [];
+        
+      const response = await axiosInstance.post(`/conversations/${conversationId}/participants`, {
+        participants: participantIds
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to add participants to group:', error);
+      throw {
+        message: error.response?.data?.message || 'Failed to add participants to group',
+        status: error.response?.status,
+        originalError: error
+      };
+    }
+  },
+  
+  removeGroupParticipant: async (conversationId, participantId) => {
+    try {
+      const response = await axiosInstance.delete(`/conversations/${conversationId}/participants/${participantId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to remove participant from group:', error);
+      throw {
+        message: error.response?.data?.message || 'Failed to remove participant from group',
+        status: error.response?.status,
+        originalError: error
+      };
+    }
+  },
+  
+  leaveGroup: async (conversationId) => {
+    try {
+      const response = await axiosInstance.delete(`/conversations/${conversationId}/leave`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to leave group:', error);
+      throw {
+        message: error.response?.data?.message || 'Failed to leave group',
+        status: error.response?.status,
+        originalError: error
+      };
+    }
   }
 };
 

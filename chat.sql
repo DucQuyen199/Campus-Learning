@@ -5,15 +5,32 @@ CREATE TABLE Conversations (
     ConversationID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của cuộc trò chuyện
     Type VARCHAR(20) DEFAULT 'private', -- Loại cuộc trò chuyện
     Title NVARCHAR(255), -- Tiêu đề (cho nhóm chat)
+    Description NVARCHAR(MAX), -- Mô tả nhóm (thêm mới)
     CreatedBy BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Người tạo
     CreatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm tạo
     UpdatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm cập nhật
     LastMessageAt DATETIME, -- Thời điểm tin nhắn cuối
     IsActive BIT DEFAULT 1, -- Trạng thái hoạt động
+    ImageUrl VARCHAR(255), -- Đường dẫn hình ảnh (thêm mới)
     CONSTRAINT CHK_Conversation_Type CHECK (Type IN ('private', 'group')) -- Kiểm tra loại cuộc trò chuyện hợp lệ
 );
 END
 GO
+
+-- Add Description column if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Conversations') AND name = 'Description')
+BEGIN
+    ALTER TABLE Conversations ADD Description NVARCHAR(MAX);
+END
+GO
+
+-- Add ImageUrl column if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Conversations') AND name = 'ImageUrl')
+BEGIN
+    ALTER TABLE Conversations ADD ImageUrl VARCHAR(255);
+END
+GO
+
 -- Bảng ConversationParticipants: Quản lý người tham gia cuộc trò chuyện
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationParticipants')
 BEGIN
@@ -22,7 +39,7 @@ CREATE TABLE ConversationParticipants (
     ConversationID BIGINT FOREIGN KEY REFERENCES Conversations(ConversationID), -- Liên kết với cuộc trò chuyện
     UserID BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Liên kết với người dùng
     JoinedAt DATETIME DEFAULT GETDATE(), -- Thời điểm tham gia
-    LeftAt DATETIME, -- Thời điểm rời đi
+    LeftAt DATETIME NULL, -- Thời điểm rời đi (NULL nghĩa là chưa rời nhóm)
     Role VARCHAR(20) DEFAULT 'member', -- Vai trò trong cuộc trò chuyện
     LastReadMessageID BIGINT, -- ID tin nhắn cuối cùng đã đọc
     IsAdmin BIT DEFAULT 0, -- Có phải admin không
@@ -247,3 +264,37 @@ INSERT INTO Messages (ConversationID, SenderID, Content) VALUES (@Convo2_3, 2, N
 
 -- User 3 nhắn user 2
 INSERT INTO Messages (ConversationID, SenderID, Content) VALUES (@Convo2_3, 3, N'Chào bạn 2!');
+
+-- Cập nhật bảng ConversationParticipants nếu đã tồn tại
+IF EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationParticipants')
+BEGIN
+    -- Kiểm tra xem cột LeftAt đã có giá trị mặc định NULL chưa
+    IF NOT EXISTS (SELECT * FROM sys.default_constraints 
+                    WHERE parent_object_id = OBJECT_ID('ConversationParticipants') 
+                    AND parent_column_id = COLUMNPROPERTY(OBJECT_ID('ConversationParticipants'), 'LeftAt', 'ColumnId')
+                    AND definition = 'NULL')
+    BEGIN
+        -- Xóa ràng buộc mặc định cũ nếu có
+        DECLARE @DefaultConstraintName NVARCHAR(128)
+        SELECT @DefaultConstraintName = name
+        FROM sys.default_constraints 
+        WHERE parent_object_id = OBJECT_ID('ConversationParticipants') 
+        AND parent_column_id = COLUMNPROPERTY(OBJECT_ID('ConversationParticipants'), 'LeftAt', 'ColumnId')
+        
+        IF @DefaultConstraintName IS NOT NULL
+        BEGIN
+            EXEC('ALTER TABLE ConversationParticipants DROP CONSTRAINT ' + @DefaultConstraintName)
+        END
+        
+        -- Đặt giá trị mặc định NULL cho cột LeftAt
+        ALTER TABLE ConversationParticipants ALTER COLUMN LeftAt DATETIME NULL
+    END
+    
+    -- Thêm chỉ mục cho LeftAt để tối ưu truy vấn tìm thành viên hiện tại (LeftAt IS NULL)
+    IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ConversationParticipants_LeftAt' AND object_id = OBJECT_ID('ConversationParticipants'))
+    BEGIN
+        EXEC sp_executesql N'CREATE INDEX IX_ConversationParticipants_LeftAt ON ConversationParticipants(LeftAt);';
+    END
+END
+GO
+

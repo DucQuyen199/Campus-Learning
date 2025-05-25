@@ -248,19 +248,34 @@ export const submitSolution = async (competitionId, problemId, sourceCode, langu
         language
       }
     );
+    console.log(`Submission response:`, response.data);
+    
+    // If submission has additional result details, include them in the response
+    if (response.data?.data?.results) {
+      const results = response.data.data.results;
+      return {
+        ...response.data,
+        data: {
+          ...response.data.data,
+          diffInfo: results.diffInfo || null, // Include any diff information if available
+        }
+      };
+    }
+    
     return response.data;
   } catch (error) {
-    console.error(`Error submitting solution for competition ${competitionId}, problem ${problemId}:`, 
+    console.error(`Submission error for competition ${competitionId}, problem ${problemId}:`, 
       error.response ? {
         status: error.response.status,
         data: error.response.data
       } : error.message);
     
-    if (error.response) {
-      return error.response.data;
-    }
-    
-    throw error;
+    // Return error in a consistent format
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Error submitting solution',
+      error: error.message
+    };
   }
 };
 

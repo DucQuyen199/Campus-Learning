@@ -664,14 +664,17 @@ apiRouter.post('/execute-tests', async (req, res) => {
                 passedCount++;
             }
             
-            // Add result
+            // Add result with detailed comparison information
             results.push({
                 passed,
                 input,
                 expectedOutput,
                 actualOutput: stdout,
+                normalizedActual: normalizedActual,  // Include normalized outputs for debugging
+                normalizedExpected: normalizedExpected,
                 error: stderr,
-                executionTime
+                executionTime,
+                diffInfo: passed ? null : generateDiffInfo(normalizedExpected, normalizedActual)
             });
         }
         
@@ -702,7 +705,43 @@ function normalizeOutput(output) {
         .trim()
         .replace(/\r\n|\r|\n/g, '\n')  // Normalize line endings
         .replace(/\s+/g, ' ')          // Replace multiple spaces with single space
+        .replace(/[ \t]+(\n)/g, '$1')  // Remove trailing spaces before newlines
+        .replace(/(\n)[ \t]+/g, '$1')  // Remove leading spaces after newlines
+        .replace(/^\s+|\s+$/g, '')     // Remove leading/trailing whitespace again to be safe
         .toLowerCase();                // Case-insensitive comparison
+}
+
+// Add helper function to generate diff information
+function generateDiffInfo(expected, actual) {
+    if (expected === actual) return null;
+    
+    // If lengths are different, report that
+    if (expected.length !== actual.length) {
+        return {
+            type: 'length_mismatch',
+            message: `Expected output length: ${expected.length}, Actual output length: ${actual.length}`
+        };
+    }
+    
+    // Find the first position where they differ
+    let position = 0;
+    for (; position < expected.length; position++) {
+        if (expected[position] !== actual[position]) break;
+    }
+    
+    // Extract context around the difference
+    const contextStart = Math.max(0, position - 10);
+    const contextEnd = Math.min(expected.length, position + 10);
+    const expectedContext = expected.substring(contextStart, contextEnd);
+    const actualContext = actual.substring(contextStart, contextEnd);
+    
+    return {
+        type: 'content_mismatch',
+        message: `Outputs differ at position ${position}`,
+        expectedContext,
+        actualContext,
+        position
+    };
 }
 
 // Add a global error handler

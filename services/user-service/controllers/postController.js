@@ -1349,4 +1349,163 @@ exports.deletePostMedia = async (req, res) => {
       error: error.message
     });
   }
+};
+
+// Toggle bookmark for a post
+exports.toggleBookmark = async (req, res) => {
+  const transaction = new sql.Transaction(pool);
+  
+  try {
+    const { postId } = req.params;
+    const userId = req.user.UserID;
+
+    await transaction.begin();
+
+    // Check if already bookmarked
+    const checkResult = await transaction.request()
+      .input('postId', sql.BigInt, postId)
+      .input('userId', sql.BigInt, userId)
+      .query(`
+        SELECT 1 FROM PostBookmarks
+        WHERE PostID = @postId AND UserID = @userId
+      `);
+
+    if (checkResult.recordset.length > 0) {
+      // Remove bookmark
+      await transaction.request()
+        .input('postId', sql.BigInt, postId)
+        .input('userId', sql.BigInt, userId)
+        .query(`
+          DELETE FROM PostBookmarks
+          WHERE PostID = @postId AND UserID = @userId;
+
+          UPDATE Posts
+          SET BookmarksCount = CASE WHEN BookmarksCount > 0 THEN BookmarksCount - 1 ELSE 0 END
+          WHERE PostID = @postId;
+        `);
+    } else {
+      // Add bookmark
+      await transaction.request()
+        .input('postId', sql.BigInt, postId)
+        .input('userId', sql.BigInt, userId)
+        .query(`
+          INSERT INTO PostBookmarks (PostID, UserID, CreatedAt)
+          VALUES (@postId, @userId, GETDATE());
+
+          UPDATE Posts
+          SET BookmarksCount = BookmarksCount + 1
+          WHERE PostID = @postId;
+        `);
+    }
+
+    await transaction.commit();
+    res.json({ 
+      success: true,
+      message: 'Bookmark status updated successfully',
+      isBookmarked: checkResult.recordset.length === 0 // true if newly bookmarked, false if removed
+    });
+
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Toggle bookmark error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while processing your request',
+      error: error.message
+    });
+  }
+};
+
+// Get bookmarked posts for current user
+exports.getBookmarkedPosts = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const query = `
+      SELECT 
+        p.PostID,
+        p.UserID,
+        p.Content,
+        p.Type,
+        p.Visibility,
+        p.Location,
+        p.CreatedAt,
+        p.UpdatedAt,
+        p.LikesCount,
+        p.CommentsCount,
+        p.SharesCount,
+        p.BookmarksCount,
+        u.Username,
+        u.FullName,
+        u.Image as UserImage,
+        1 as IsBookmarked, -- Always 1 since these are bookmarked posts
+        CASE WHEN EXISTS (
+          SELECT 1 FROM PostLikes 
+          WHERE PostID = p.PostID AND UserID = @userId
+        ) THEN 1 ELSE 0 END as IsLiked,
+        (SELECT COUNT(*) FROM PostBookmarks WHERE UserID = @userId) as TotalCount
+      FROM Posts p
+      INNER JOIN Users u ON p.UserID = u.UserID
+      INNER JOIN PostBookmarks b ON p.PostID = b.PostID
+      WHERE b.UserID = @userId AND p.DeletedAt IS NULL
+      ORDER BY b.CreatedAt DESC
+      OFFSET @offset ROWS
+      FETCH NEXT @limit ROWS ONLY
+    `;
+
+    const request = pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('offset', sql.Int, offset)
+      .input('limit', sql.Int, parseInt(limit));
+
+    const result = await request.query(query);
+
+    // Get total count from the first record
+    const totalCount = result.recordset.length > 0 ? result.recordset[0].TotalCount : 0;
+
+    // Fetch media for each post
+    const posts = await Promise.all(result.recordset.map(async (post) => {
+      const mediaResult = await pool.request()
+        .input('postId', sql.BigInt, post.PostID)
+        .query(`
+          SELECT 
+            MediaID,
+            MediaUrl,
+            MediaType,
+            ThumbnailUrl,
+            Size,
+            Width,
+            Height,
+            Duration
+          FROM PostMedia 
+          WHERE PostID = @postId
+        `);
+
+      return {
+        ...post,
+        media: mediaResult.recordset,
+        TotalCount: undefined // Remove from individual post objects
+      };
+    }));
+
+    res.json({
+      posts,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalBookmarks: totalCount,
+        totalPages: Math.ceil(totalCount / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get bookmarked posts error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while fetching bookmarked posts',
+      error: error.message
+    });
+  }
 }; 

@@ -171,6 +171,31 @@ CREATE TABLE [dbo].[PostShares] (
     CONSTRAINT [CHK_Share_Type] CHECK ([ShareType] IN ('link', 'embed', 'copy'))
 );
 
+
+-- Create PostBookmarks table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PostBookmarks')
+BEGIN
+CREATE TABLE PostBookmarks (
+    BookmarkID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    PostID BIGINT FOREIGN KEY REFERENCES Posts(PostID),
+    UserID BIGINT FOREIGN KEY REFERENCES Users(UserID),
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    CONSTRAINT UQ_PostBookmarks_PostID_UserID UNIQUE (PostID, UserID)
+);
+
+-- Create index for faster lookups by UserID
+CREATE INDEX IX_PostBookmarks_UserID ON PostBookmarks(UserID);
+END
+GO
+
+-- Add BookmarksCount to Posts table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Posts') AND name = 'BookmarksCount')
+BEGIN
+    ALTER TABLE Posts ADD BookmarksCount INT NOT NULL DEFAULT 0;
+END
+GO
+
+
 use campushubt;
 
 -- 1. Xóa index phụ thuộc vào cột ExpiresAt

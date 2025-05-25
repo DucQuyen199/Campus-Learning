@@ -8,6 +8,10 @@ const uploadMiddleware = require('../middleware/upload');
 router.get('/', postController.getPosts);
 // Route to get posts by user ID - must come before /:id route
 router.get('/user/:userId', authenticateToken, postController.getPostsByUserId);
+
+// Get all bookmarked posts (should be before '/:id' to avoid route conflict)
+router.get('/bookmarks', authenticateToken, postController.getBookmarkedPosts);
+
 // Route to get a specific post by ID
 router.get('/:id', postController.getPost);
 
@@ -35,5 +39,10 @@ router.get('/:postId/comments', postController.getComments);
 router.post('/:postId/comments', authenticateToken, postController.addComment);
 router.post('/comments/:commentId/like', authenticateToken, postController.likeComment);
 router.delete('/comments/:commentId', authenticateToken, postController.deleteComment);
+
+// Add these routes to support bookmarking functionality
+
+// Bookmark/unbookmark a post
+router.post('/:postId/bookmark', authenticateToken, postController.toggleBookmark);
 
 module.exports = router; 

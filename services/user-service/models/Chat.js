@@ -88,6 +88,70 @@ const dateFormatter = {
 
 // Static methods for chat operations
 Chat.createConversation = async function(title, participants, createdBy, type = 'private') {
+  // Normalize IDs to ensure consistency and avoid duplicates due to type mismatch
+  const participantIds = Array.isArray(participants) ? participants.map(id => Number(id)) : [];
+  const creatorId = Number(createdBy);
+
+  // For group chats, check if a group with exact same participants already exists
+  if (type === 'group' && participantIds.length > 0) {
+    try {
+      // First, ensure all participants includes the creator
+      const allParticipantIds = [...new Set([...participantIds, creatorId])];
+      
+      // Get all conversations the creator is part of
+      const creatorConversations = await sequelize.models.ConversationParticipant.findAll({
+        where: {
+          UserID: creatorId,
+          LeftAt: null
+        },
+        attributes: ['ConversationID'],
+        raw: true
+      });
+      
+      const conversationIds = creatorConversations.map(c => c.ConversationID);
+      
+      if (conversationIds.length > 0) {
+        // For each conversation, check if it has the same participants
+        for (const convId of conversationIds) {
+          // Get conversation info to check if it's a group
+          const conversation = await this.findByPk(convId);
+          if (!conversation || conversation.Type !== 'group') continue;
+          
+          // Get all participants of this conversation
+          const participants = await sequelize.models.ConversationParticipant.findAll({
+            where: {
+              ConversationID: convId,
+              LeftAt: null
+            },
+            attributes: ['UserID'],
+            raw: true
+          });
+          
+          const participantIds = participants.map(p => Number(p.UserID));
+          
+          // If participant count matches and all the same people
+          if (participantIds.length === allParticipantIds.length && 
+              allParticipantIds.every(id => participantIds.includes(id)) &&
+              participantIds.every(id => allParticipantIds.includes(id))) {
+            
+            // Found existing conversation with same participants, return it
+            return await Chat.findByPk(convId, {
+              include: [{
+                model: sequelize.models.User,
+                as: 'Participants',
+                attributes: ['UserID', 'Username', 'FullName', 'Image'],
+                through: { attributes: ['Role'] }
+              }]
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Error checking for existing conversation:', error);
+      // Continue with creation if check fails
+    }
+  }
+
   const t = await sequelize.transaction();
   
   try {
@@ -95,7 +159,7 @@ Chat.createConversation = async function(title, participants, createdBy, type = 
     const conversation = await this.create({
       Type: type,
       Title: title,
-      CreatedBy: createdBy,
+      CreatedBy: creatorId,
       // Use SQL Server's GETDATE() function for all date fields
       LastMessageAt: sequelize.literal('GETDATE()'),
       CreatedAt: sequelize.literal('GETDATE()'),
@@ -103,7 +167,7 @@ Chat.createConversation = async function(title, participants, createdBy, type = 
     }, { transaction: t });
 
     // Add participants
-    const allParticipants = [...new Set([...participants, createdBy])];
+    const allParticipants = [...new Set([...participantIds, creatorId])];
     await Promise.all(allParticipants.map(userId => 
       sequelize.models.ConversationParticipant.create({
         ConversationID: conversation.ConversationID,

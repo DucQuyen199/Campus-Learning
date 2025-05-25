@@ -266,3 +266,35 @@ exports.getSuggestedUsers = async (req, res) => {
     res.status(500).json({ message: error.message || 'Internal server error' });
   }
 };
+
+// Get a single conversation by ID with participants
+exports.getConversationById = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+
+    const conversation = await Chat.findOne({
+      where: { ConversationID: conversationId, IsActive: true },
+      include: [{
+        model: User,
+        as: 'Participants',
+        attributes: ['UserID', 'Username', 'FullName', 'Image'],
+        through: { attributes: ['Role'], where: { LeftAt: null } }
+      }]
+    });
+
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+    // Ensure requesting user is a participant
+    const isParticipant = conversation.Participants.some(p => p.UserID === userId);
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Not authorized to view this conversation' });
+    }
+
+    res.json(conversation);
+  } catch (error) {
+    console.error('Error getting conversation by id:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};

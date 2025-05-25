@@ -1,7 +1,8 @@
 import React from 'react';
 
-const Avatar = ({ src, alt, name, className = '', size = 'medium' }) => {
+const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) => {
   const sizeClasses = {
+    tiny: 'h-6 w-6',
     small: 'h-8 w-8',
     medium: 'h-12 w-12',
     large: 'h-16 w-16',
@@ -11,6 +12,7 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium' }) => {
   
   // Determine the actual pixel size for UI Avatars
   const pixelSizes = {
+    tiny: 24,
     small: 32,
     medium: 48,
     large: 64,
@@ -38,7 +40,10 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium' }) => {
   const imageSrc = src || getUiAvatarUrl();
   
   return (
-    <div className={`overflow-hidden rounded-full ${sizeClasses[size]} bg-gray-100 flex-shrink-0`}>
+    <div 
+      className={`overflow-hidden rounded-full ${sizeClasses[size]} bg-gray-100 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
+      onClick={onClick}
+    >
       <img 
         src={imageSrc} 
         alt={alt || 'User avatar'} 

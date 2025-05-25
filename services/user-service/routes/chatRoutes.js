@@ -6,6 +6,9 @@ const chatController = require('../controllers/chatController');
 // Get all conversations for current user
 router.get('/conversations', authenticate, chatController.getUserConversations);
 
+// Get a single conversation by ID
+router.get('/conversations/:conversationId', authenticate, chatController.getConversationById);
+
 // Create a new conversation
 router.post('/conversations', authenticate, chatController.createConversation);
 

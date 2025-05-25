@@ -54,6 +54,28 @@ const Chat = () => {
   const [isVideoCall, setIsVideoCall] = useState(false);
   const [callLoading, setCallLoading] = useState(false);
 
+  // Add a new state for showing group members modal
+  const [showGroupMembers, setShowGroupMembers] = useState(false);
+
+  // Add a state to hold members of current group fetched from server
+  const [groupMembers, setGroupMembers] = useState([]);
+
+  // Function to fetch group members from database
+  const fetchGroupMembers = async (conversationId) => {
+    try {
+      const conv = await chatApi.getConversationById(conversationId);
+      setGroupMembers(conv.Participants || []);
+    } catch (error) {
+      console.error('Error fetching group members:', error);
+      showError('Không thể tải danh sách thành viên nhóm');
+    }
+  };
+
+  // Clear members list when group members modal closes
+  useEffect(() => {
+    if (!showGroupMembers) setGroupMembers([]);
+  }, [showGroupMembers]);
+
   // Add a function to handle audio calls
   const handleAudioCall = (userId, userName) => {
     try {
@@ -764,7 +786,7 @@ const Chat = () => {
   };
 
   // Add back the handleConversationSelect function
-  const handleConversationSelect = (conv) => {
+  const handleConversationSelect = async (conv) => {
     // Load cached messages if available
     const cached = messageCacheRef.current[conv.ConversationID];
     if (cached) {
@@ -775,17 +797,23 @@ const Chat = () => {
       setMessages([]);
     }
     console.log('Selecting conversation:', conv.ConversationID);
-    setCurrentConversation(conv);
-    
+    // For group chats, fetch full conversation with participants
+    let selectedConv = conv;
+    if (conv.Type === 'group') {
+      try {
+        selectedConv = await chatApi.getConversationById(conv.ConversationID);
+      } catch (error) {
+        console.error('Error loading full group conversation:', error);
+      }
+    }
+    setCurrentConversation(selectedConv);
     // Save selected conversation to localStorage
-    localStorage.setItem('currentConversationId', conv.ConversationID);
+    localStorage.setItem('currentConversationId', selectedConv.ConversationID);
     
-    // If it's a private conversation, set the selected user
-    if (conv.Type !== 'group') {
-      const otherParticipants = getOtherParticipants(conv);
-      if (otherParticipants.length > 0) {
-        const otherUser = otherParticipants[0];
-        // Set selected user with all necessary fields
+    if (selectedConv.Type !== 'group') {
+      const others = getOtherParticipants(selectedConv);
+      if (others.length > 0) {
+        const otherUser = others[0];
         setSelectedUser({
           ...otherUser,
           UserID: otherUser.UserID || otherUser.id,
@@ -796,28 +824,9 @@ const Chat = () => {
           Image: getUserAvatar(otherUser)
         });
       } else {
-        // If no other participants found, try to get user info from messages
-        if (conv.Messages && conv.Messages.length > 0) {
-          const lastMessage = conv.Messages[0];
-          if (lastMessage.Sender && (lastMessage.Sender.UserID !== user.UserID && lastMessage.Sender.id !== user.id)) {
-            setSelectedUser({
-              ...lastMessage.Sender,
-              UserID: lastMessage.Sender.UserID || lastMessage.Sender.id,
-              FullName: lastMessage.Sender.FullName || lastMessage.Sender.Username,
-              Email: lastMessage.Sender.Email,
-              Phone: lastMessage.Sender.Phone,
-              Bio: lastMessage.Sender.Bio,
-              Image: getUserAvatar(lastMessage.Sender)
-            });
-          } else {
-            setSelectedUser(null);
-          }
-        } else {
-          setSelectedUser(null);
-        }
+        setSelectedUser(null);
       }
     } else {
-      // For group chats, set selected user to null
       setSelectedUser(null);
     }
   };
@@ -1083,7 +1092,9 @@ const Chat = () => {
 
   // Add user to selected list
   const selectUser = (user) => {
-    setSelectedUsers([...selectedUsers, user]);
+    const updated = [...selectedUsers, user];
+    setSelectedUsers(updated);
+    localStorage.setItem('chat_create_group_selectedUsers', JSON.stringify(updated));
     setSearchUsers(searchUsers.filter(u => u.UserID !== user.UserID));
     setUserSearchTerm('');
     
@@ -1093,16 +1104,28 @@ const Chat = () => {
 
   // Remove user from selected list
   const removeSelectedUser = (userId) => {
-    setSelectedUsers(selectedUsers.filter(u => u.UserID !== userId));
+    const updated = selectedUsers.filter(u => u.UserID !== userId);
+    setSelectedUsers(updated);
+    localStorage.setItem('chat_create_group_selectedUsers', JSON.stringify(updated));
     
     // Refresh suggestions when removing a user
     handleUserSearch(userSearchTerm);
   };
 
-  // Load suggested users when modal opens
+  // Handle persistence and loading suggestions when create group modal opens/closes
   useEffect(() => {
     if (showCreateGroup) {
+      // Load persisted selected users
+      const saved = localStorage.getItem('chat_create_group_selectedUsers');
+      if (saved) {
+        try { setSelectedUsers(JSON.parse(saved)); } catch {}
+      }
+      // Load suggested users for modal
       handleUserSearch('');
+    } else {
+      // Modal closed, clear selected users and persisted data
+      setSelectedUsers([]);
+      localStorage.removeItem('chat_create_group_selectedUsers');
     }
   }, [showCreateGroup]);
 
@@ -1128,49 +1151,66 @@ const Chat = () => {
       const data = {
         title: groupName,
         type: 'group',
-        createdBy: currentUserId,
         participants: participants
       };
       
       // Create new conversation first
-      const newConversation = await chatApi.createConversation(data);
-      
-      // If we have a group image, upload it
-      if (groupImage) {
-        try {
-          const formData = new FormData();
-          formData.append('image', groupImage);
-          formData.append('conversationId', newConversation.ConversationID);
-          
-          await axios.post(`${import.meta.env.VITE_API_URL}/api/chat/conversations/${newConversation.ConversationID}/image`, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
+      try {
+        const newConversation = await chatApi.createConversation(data);
+        
+        // If we have a group image, upload it
+        if (groupImage) {
+          try {
+            const formData = new FormData();
+            formData.append('image', groupImage);
+            formData.append('conversationId', newConversation.ConversationID);
+            
+            await axios.post(`${import.meta.env.VITE_API_URL}/api/chat/conversations/${newConversation.ConversationID}/image`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            
+            // Update the new conversation with the image URL if available in response
+            if (newConversation.ImageUrl) {
+              newConversation.ImageUrl = `${import.meta.env.VITE_API_URL}/uploads/groups/${newConversation.ConversationID}.jpg`;
             }
-          });
-          
-          // Update the new conversation with the image URL if available in response
-          if (newConversation.ImageUrl) {
-            newConversation.ImageUrl = `${import.meta.env.VITE_API_URL}/uploads/groups/${newConversation.ConversationID}.jpg`;
+          } catch (imageError) {
+            console.error('Error uploading group image:', imageError);
+            // Continue with group creation even if image upload fails
           }
-        } catch (imageError) {
-          console.error('Error uploading group image:', imageError);
-          // Continue with group creation even if image upload fails
+        }
+        
+        // Add the new conversation to the list and select it
+        setConversations([newConversation, ...conversations]);
+        setCurrentConversation(newConversation);
+        
+        // Reset group creation state
+        setGroupName('');
+        setSelectedUsers([]);
+        setGroupImage(null);
+        setGroupImagePreview(null);
+        setShowCreateGroup(false);
+      } catch (apiError) {
+        console.error('Error creating group:', apiError);
+        
+        // Handle specific error cases
+        if (apiError.data && apiError.data.message) {
+          if (apiError.data.message.includes('Validation error') || 
+              apiError.data.message.includes('duplicate') || 
+              apiError.data.message.includes('unique constraint') ||
+              apiError.data.message.includes('already exists')) {
+            showError('Nhóm chat với thành viên này đã tồn tại hoặc có lỗi dữ liệu. Vui lòng thử lại với thành viên khác.');
+          } else {
+            showError(`Không thể tạo nhóm: ${apiError.data.message}`);
+          }
+        } else {
+          showError('Không thể tạo nhóm. Vui lòng thử lại sau.');
         }
       }
-      
-      // Add the new conversation to the list and select it
-      setConversations([newConversation, ...conversations]);
-      setCurrentConversation(newConversation);
-      
-      // Reset group creation state
-      setGroupName('');
-      setSelectedUsers([]);
-      setGroupImage(null);
-      setGroupImagePreview(null);
-      setShowCreateGroup(false);
     } catch (error) {
-      console.error('Error creating group:', error);
+      console.error('Error in group creation process:', error);
       showError('Không thể tạo nhóm. Vui lòng thử lại.');
     } finally {
       setLoading(false);
@@ -1185,6 +1225,12 @@ const Chat = () => {
       </div>
     );
   }
+
+  // Add a function to navigate to user profile
+  const navigateToUserProfile = (userId) => {
+    if (!userId) return;
+    navigate(`/profile/${userId}`);
+  };
 
   return (
     <div className="flex h-[93vh] bg-gray-100 w-full rounded-xl shadow-lg">
@@ -1663,6 +1709,14 @@ const Chat = () => {
                       src={getConversationAvatarInfo(currentConversation).src}
                       name={getConversationAvatarInfo(currentConversation).name}
                       size="large"
+                      className={currentConversation.Type === 'group' ? "cursor-pointer" : ""}
+                      onClick={async (e) => {
+                        if (currentConversation.Type === 'group') {
+                          e.stopPropagation();
+                          await fetchGroupMembers(currentConversation.ConversationID);
+                          setShowGroupMembers(true);
+                        }
+                      }}
                     />
                     {/* Group indicator */}
                     {currentConversation.Type === 'group' && (
@@ -1708,8 +1762,42 @@ const Chat = () => {
                       )}
                     </div>
                     {currentConversation.Type === 'group' && currentConversation.Participants && (
-                      <div className="text-sm text-gray-500">
-                        {currentConversation.Participants.length} thành viên
+                      <div className="flex flex-col">
+                        <div className="text-sm text-gray-500">
+                          {currentConversation.Participants.length} thành viên
+                        </div>
+                        <div className="flex items-center mt-1">
+                          <div className="flex -space-x-2 mr-2">
+                            {currentConversation.Participants.slice(0, 3).map(member => (
+                              <Avatar 
+                                key={member.UserID || member.id}
+                                src={getUserAvatar(member)}
+                                name={member.FullName || member.Username}
+                                size="tiny"
+                                className="border border-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigateToUserProfile(member.UserID || member.id);
+                                }}
+                              />
+                            ))}
+                            {currentConversation.Participants.length > 3 && (
+                              <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-600 border border-white">
+                                +{currentConversation.Participants.length - 3}
+                              </div>
+                            )}
+                          </div>
+                          <button 
+                            className="text-xs text-blue-600 hover:underline"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await fetchGroupMembers(currentConversation.ConversationID);
+                              setShowGroupMembers(true);
+                            }}
+                          >
+                            Xem tất cả
+                          </button>
+                        </div>
                       </div>
                     )}
                     {currentConversation.Type === 'private' && getOtherParticipants(currentConversation).length > 0 && (
@@ -2004,6 +2092,59 @@ const Chat = () => {
           )}
         </div>
       </div>
+
+      {/* Group Members Modal */}
+      {showGroupMembers && currentConversation && currentConversation.Type === 'group' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md p-6 shadow-xl max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Thành viên nhóm</h3>
+              <button 
+                onClick={() => setShowGroupMembers(false)}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              <div className="space-y-3">
+                {groupMembers.map(member => (
+                  <div 
+                    key={member.UserID || member.id} 
+                    className="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer flex items-center justify-between transition-colors"
+                    onClick={() => {
+                      setShowGroupMembers(false);
+                      navigateToUserProfile(member.UserID || member.id);
+                    }}
+                  >
+                    <div className="flex items-center">
+                      <Avatar 
+                        src={getUserAvatar(member)} 
+                        name={member.FullName || member.Username} 
+                        size="medium" 
+                        className="mr-3"
+                      />
+                      <div>
+                        <p className="font-medium">{member.FullName || member.Username}</p>
+                        <p className="text-xs text-gray-500">{member.Email || `@${member.Username}`}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      {member.Role === 'admin' && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs mr-2">Admin</span>
+                      )}
+                      <span className={`w-2 h-2 rounded-full ${isUserOnline(member.UserID || member.id) ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

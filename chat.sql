@@ -1,4 +1,6 @@
 -- Bảng Conversations: Quản lý cuộc trò chuyện
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Conversations')
+BEGIN
 CREATE TABLE Conversations (
     ConversationID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của cuộc trò chuyện
     Type VARCHAR(20) DEFAULT 'private', -- Loại cuộc trò chuyện
@@ -10,8 +12,11 @@ CREATE TABLE Conversations (
     IsActive BIT DEFAULT 1, -- Trạng thái hoạt động
     CONSTRAINT CHK_Conversation_Type CHECK (Type IN ('private', 'group')) -- Kiểm tra loại cuộc trò chuyện hợp lệ
 );
-go
+END
+GO
 -- Bảng ConversationParticipants: Quản lý người tham gia cuộc trò chuyện
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'ConversationParticipants')
+BEGIN
 CREATE TABLE ConversationParticipants (
     ParticipantID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của người tham gia
     ConversationID BIGINT FOREIGN KEY REFERENCES Conversations(ConversationID), -- Liên kết với cuộc trò chuyện
@@ -24,8 +29,11 @@ CREATE TABLE ConversationParticipants (
     IsMuted BIT DEFAULT 0, -- Có bị tắt thông báo không
     CONSTRAINT CHK_Participant_Role CHECK (Role IN ('member', 'admin', 'moderator')) -- Kiểm tra vai trò hợp lệ
 );
-go
+END
+GO
 -- Bảng Messages: Quản lý tin nhắn trong cuộc trò chuyện
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Messages')
+BEGIN
 CREATE TABLE Messages (
     MessageID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của tin nhắn
     ConversationID BIGINT FOREIGN KEY REFERENCES Conversations(ConversationID), -- Liên kết với cuộc trò chuyện
@@ -42,8 +50,11 @@ CREATE TABLE Messages (
     DeletedAt DATETIME, -- Thời điểm xóa
     CONSTRAINT CHK_Message_Type CHECK (Type IN ('text', 'image', 'video', 'file', 'audio', 'location')) -- Kiểm tra loại tin nhắn hợp lệ
 );
-go
+END
+GO
 -- Bảng Calls: Quản lý cuộc gọi video/audio
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Calls')
+BEGIN
 CREATE TABLE Calls (
     CallID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của cuộc gọi
     ConversationID BIGINT FOREIGN KEY REFERENCES Conversations(ConversationID), -- Liên kết với cuộc trò chuyện
@@ -58,8 +69,11 @@ CREATE TABLE Calls (
     CONSTRAINT CHK_Call_Type CHECK (Type IN ('audio', 'video')), -- Kiểm tra loại cuộc gọi hợp lệ
     CONSTRAINT CHK_Call_Status CHECK (Status IN ('initiated', 'ringing', 'ongoing', 'ended', 'missed', 'rejected')) -- Kiểm tra trạng thái hợp lệ
 );
-go
+END
+GO
 -- Bảng CallParticipants: Quản lý người tham gia cuộc gọi
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CallParticipants')
+BEGIN
 CREATE TABLE CallParticipants (
     CallParticipantID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của người tham gia
     CallID BIGINT FOREIGN KEY REFERENCES Calls(CallID), -- Liên kết với cuộc gọi
@@ -71,8 +85,11 @@ CREATE TABLE CallParticipants (
     NetworkQuality VARCHAR(20), -- Chất lượng mạng
     CONSTRAINT CHK_CallParticipant_Status CHECK (Status IN ('invited', 'joined', 'left', 'declined')) -- Kiểm tra trạng thái hợp lệ
 );
-go
+END
+GO
 -- Bảng MessageStatus: Theo dõi trạng thái tin nhắn
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'MessageStatus')
+BEGIN
 CREATE TABLE MessageStatus (
     StatusID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của trạng thái
     MessageID BIGINT FOREIGN KEY REFERENCES Messages(MessageID), -- Liên kết với tin nhắn
@@ -82,8 +99,12 @@ CREATE TABLE MessageStatus (
     CONSTRAINT CHK_Message_Status CHECK (Status IN ('sent', 'delivered', 'read')), -- Kiểm tra trạng thái hợp lệ
     CONSTRAINT UQ_Message_User_Status UNIQUE (MessageID, UserID) -- Đảm bảo không trùng lặp
 );
+END
+GO
 
 -- Bảng UserPresence: Theo dõi trạng thái hoạt động của người dùng
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserPresence')
+BEGIN
 CREATE TABLE UserPresence (
     PresenceID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của trạng thái
     UserID BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Liên kết với người dùng
@@ -93,8 +114,11 @@ CREATE TABLE UserPresence (
     LastLocation NVARCHAR(MAX), -- Vị trí cuối cùng (định dạng JSON)
     CONSTRAINT CHK_Presence_Status CHECK (Status IN ('online', 'offline', 'away', 'busy', 'in_call')) -- Kiểm tra trạng thái hợp lệ
 );
-go
+END
+GO
 -- Bảng Notifications: Quản lý thông báo
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Notifications')
+BEGIN
 CREATE TABLE Notifications (
     NotificationID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của thông báo
     UserID BIGINT FOREIGN KEY REFERENCES Users(UserID), -- Người nhận thông báo
@@ -112,32 +136,72 @@ CREATE TABLE Notifications (
         'reply', 'story_view', 'mention', 'reaction'
     ))
 );
-go
+END
+GO
 -- Tạo các chỉ mục (Index) cho tính năng real-time
-CREATE INDEX IX_Messages_ConversationID ON Messages(ConversationID); -- Tối ưu truy vấn tin nhắn theo cuộc trò chuyện
-CREATE INDEX IX_Messages_CreatedAt ON Messages(CreatedAt DESC); -- Tối ưu sắp xếp tin nhắn theo thời gian
-CREATE INDEX IX_Calls_Status ON Calls(Status); -- Tối ưu truy vấn cuộc gọi theo trạng thái
-CREATE INDEX IX_UserPresence_Status ON UserPresence(Status); -- Tối ưu truy vấn trạng thái người dùng
-CREATE INDEX IX_Notifications_UserID_IsRead ON Notifications(UserID, IsRead); -- Tối ưu truy vấn thông báo chưa đọc
-CREATE INDEX IX_Stories_ExpiresAt ON Stories(ExpiresAt); -- Tối ưu truy vấn story hết hạn
-CREATE INDEX IX_ConversationParticipants_UserID ON ConversationParticipants(UserID); -- Tối ưu truy vấn cuộc trò chuyện của người dùng
-go
-
--- Remove duplicate entries before adding unique constraint
-;WITH DuplicateCTE AS (
-  SELECT ParticipantID,
-         ROW_NUMBER() OVER (PARTITION BY ConversationID, UserID ORDER BY ParticipantID) AS rn
-  FROM ConversationParticipants
-)
-DELETE FROM ConversationParticipants
-WHERE ParticipantID IN (
-  SELECT ParticipantID FROM DuplicateCTE WHERE rn > 1
-);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Messages_ConversationID' AND object_id = OBJECT_ID(N'dbo.Messages','U'))
+BEGIN
+    EXEC sp_executesql N'CREATE INDEX IX_Messages_ConversationID ON dbo.Messages(ConversationID);'; -- Tối ưu truy vấn tin nhắn theo cuộc trò chuyện
+END
 GO
 
--- Add unique constraint to prevent duplicate conversation participants
-ALTER TABLE ConversationParticipants
-ADD CONSTRAINT UQ_ConversationParticipants_ConversationID_UserID UNIQUE (ConversationID, UserID);
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Messages_CreatedAt' AND object_id = OBJECT_ID(N'dbo.Messages','U'))
+BEGIN
+    EXEC sp_executesql N'CREATE INDEX IX_Messages_CreatedAt ON dbo.Messages(CreatedAt DESC);'; -- Tối ưu sắp xếp tin nhắn theo thời gian
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Calls_Status' AND object_id = OBJECT_ID(N'dbo.Calls','U'))
+BEGIN
+    EXEC sp_executesql N'CREATE INDEX IX_Calls_Status ON dbo.Calls(Status);'; -- Tối ưu truy vấn cuộc gọi theo trạng thái
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_UserPresence_Status' AND object_id = OBJECT_ID(N'dbo.UserPresence','U'))
+BEGIN
+    EXEC sp_executesql N'CREATE INDEX IX_UserPresence_Status ON dbo.UserPresence(Status);'; -- Tối ưu truy vấn trạng thái người dùng
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Notifications_UserID_IsRead' AND object_id = OBJECT_ID(N'dbo.Notifications','U'))
+BEGIN
+    EXEC sp_executesql N'CREATE INDEX IX_Notifications_UserID_IsRead ON dbo.Notifications(UserID, IsRead);'; -- Tối ưu truy vấn thông báo chưa đọc
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Stories_ExpiresAt' AND object_id = OBJECT_ID(N'dbo.Stories','U'))
+BEGIN
+    IF OBJECT_ID(N'dbo.Stories','U') IS NOT NULL
+    BEGIN
+        EXEC sp_executesql N'CREATE INDEX IX_Stories_ExpiresAt ON dbo.Stories(ExpiresAt);'; -- Tối ưu truy vấn story hết hạn
+    END
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_ConversationParticipants_UserID' AND object_id = OBJECT_ID(N'dbo.ConversationParticipants','U'))
+BEGIN
+    EXEC sp_executesql N'CREATE INDEX IX_ConversationParticipants_UserID ON dbo.ConversationParticipants(UserID);'; -- Tối ưu truy vấn cuộc trò chuyện của người dùng
+END
+GO
+
+-- Check if unique constraint exists before adding it
+IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE name = 'UQ_ConversationParticipants_ConversationID_UserID' AND parent_object_id = OBJECT_ID('ConversationParticipants'))
+BEGIN
+    -- Remove duplicate entries before adding unique constraint
+    WITH DuplicateCTE AS (
+      SELECT ParticipantID,
+             ROW_NUMBER() OVER (PARTITION BY ConversationID, UserID ORDER BY ParticipantID) AS rn
+      FROM ConversationParticipants
+    )
+    DELETE FROM ConversationParticipants
+    WHERE ParticipantID IN (
+      SELECT ParticipantID FROM DuplicateCTE WHERE rn > 1
+    );
+
+    -- Add unique constraint to prevent duplicate conversation participants
+    ALTER TABLE ConversationParticipants
+    ADD CONSTRAINT UQ_ConversationParticipants_ConversationID_UserID UNIQUE (ConversationID, UserID);
+END
 GO
 
 use campushubt

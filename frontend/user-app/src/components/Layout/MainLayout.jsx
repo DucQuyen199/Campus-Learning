@@ -125,7 +125,7 @@ const MainLayout = ({ children }) => {
   
   const navigation = [
     { name: 'Trang Chủ', icon: HomeIcon, href: '/home' },
-    { name: 'Khóa Học IT', icon: BookOpenIcon, href: '/courses' },
+    { name: 'Khóa Học', icon: BookOpenIcon, href: '/courses' },
     { name: 'Sự Kiện', icon: CalendarIcon, href: '/events' },
     { name: 'Bài Viết', icon: ChatBubbleLeftRightIcon, href: '/posts' },
     { name: 'AI Chat', icon: SparklesIcon, href: '/ai-chat' },
@@ -486,28 +486,10 @@ const MainLayout = ({ children }) => {
                 </button>
                 
                 <div className="flex-shrink-0">
-                  <Link to="/home" className="group flex items-center space-x-3 hover:opacity-95 transition-all">
-                    <div className="relative flex items-center justify-center">
-                      {/* Outer glow */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 via-blue-500 to-purple-600 rounded-2xl blur-sm opacity-70 group-hover:opacity-100 transition duration-300 scale-105 group-hover:scale-110"></div>
-                      
-                      {/* Inner container with gradient background */}
-                      <div className="relative bg-gradient-to-br from-emerald-500 via-blue-600 to-indigo-700 p-2.5 rounded-xl shadow-lg flex items-center justify-center z-10">
-                        {/* Logo symbol - double hexagon */}
-                        <div className="relative w-7 h-7 flex items-center justify-center">
-                          <div className="absolute w-full h-full bg-white rounded-md rotate-45"></div>
-                          <div className="absolute w-3/4 h-3/4 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-sm rotate-45"></div>
-                          <CodeBracketIcon className="relative z-10 h-3.5 w-3.5 text-white" />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col">
-                      <span className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 via-blue-600 to-indigo-600 tracking-tight mb-0 leading-none">
-                        CAMPUST
-                      </span>
-                      <span className="text-xs tracking-widest text-gray-500 font-medium uppercase leading-none">Learning Platform</span>
-                    </div>
+                  <Link to="/home" className="hover:opacity-95 transition-all">
+                    <span className="font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
+                      Campust HUBT
+                    </span>
                   </Link>
                 </div>
               </div>

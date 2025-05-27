@@ -541,20 +541,24 @@ const getTuitionStatistics = async (req, res) => {
       params.semesterId = { type: sql.BigInt, value: semesterId };
     }
     
-    // Get overall statistics
+    // Get overall statistics with pre-aggregated payments
     const statsQuery = `
       SELECT
-        COUNT(t.TuitionID) as TotalInvoices,
-        SUM(t.FinalAmount) as TotalAmount,
-        SUM(CASE WHEN t.Status = 'paid' THEN t.FinalAmount ELSE 0 END) as TotalPaid,
-        SUM(CASE WHEN t.Status = 'unpaid' THEN t.FinalAmount ELSE 0 END) as TotalUnpaid,
-        SUM(CASE WHEN t.Status = 'partial' THEN 
-          (t.FinalAmount - ISNULL((SELECT SUM(tp.Amount) FROM TuitionPayments tp WHERE tp.TuitionID = t.TuitionID AND tp.Status = 'Completed'), 0))
-        ELSE 0 END) as TotalPartial,
-        SUM(CASE WHEN t.Status = 'overdue' THEN t.FinalAmount ELSE 0 END) as TotalOverdue,
-        SUM(CASE WHEN t.Status = 'waived' THEN t.FinalAmount ELSE 0 END) as TotalWaived,
-        AVG(t.FinalAmount) as AverageAmount
+        COUNT(t.TuitionID) AS TotalInvoices,
+        SUM(t.FinalAmount) AS TotalAmount,
+        SUM(CASE WHEN t.Status = 'paid' THEN t.FinalAmount ELSE 0 END) AS TotalPaid,
+        SUM(CASE WHEN t.Status = 'unpaid' THEN t.FinalAmount ELSE 0 END) AS TotalUnpaid,
+        SUM(CASE WHEN t.Status = 'partial' THEN t.FinalAmount - ISNULL(tp.PaidAmount, 0) ELSE 0 END) AS TotalPartial,
+        SUM(CASE WHEN t.Status = 'overdue' THEN t.FinalAmount ELSE 0 END) AS TotalOverdue,
+        SUM(CASE WHEN t.Status = 'waived' THEN t.FinalAmount ELSE 0 END) AS TotalWaived,
+        AVG(t.FinalAmount) AS AverageAmount
       FROM Tuition t
+      LEFT JOIN (
+        SELECT TuitionID, SUM(Amount) AS PaidAmount
+        FROM TuitionPayments
+        WHERE Status = 'Completed'
+        GROUP BY TuitionID
+      ) tp ON t.TuitionID = tp.TuitionID
       WHERE ${whereClause}
     `;
     

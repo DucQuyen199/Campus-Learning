@@ -463,24 +463,7 @@ const Login = () => {
                 padding: { xs: 3, sm: 5, md: 6 },
                 overflow: 'auto'
               }}>
-                {/* University header */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                  <Box 
-                    component="img"
-                    src={HUBT_LOGO}
-                    alt="HUBT Logo"
-                    sx={{ 
-                      height: 60, 
-                      mr: 2,
-                      backgroundColor: 'white',
-                      padding: 1,
-                      borderRadius: 1
-                    }}
-                  />
-                  <Typography variant="h4" fontWeight="bold">
-                    HUBT
-                  </Typography>
-                </Box>
+                {/* University header removed */}
                 
                 {/* University intro */}
                 <Box sx={{ mb: 4 }}>

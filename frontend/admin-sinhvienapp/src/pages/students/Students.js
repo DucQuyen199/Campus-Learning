@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { Add, Search, Edit, Delete, Visibility, Person, FilterAlt, Close } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
 // API URL from environment or default
@@ -14,6 +14,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5011/api';
 
 const Students = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +26,45 @@ const Students = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showAllEnabled, setShowAllEnabled] = useState(true);
   const [allStudentsLoaded, setAllStudentsLoaded] = useState(false); // Track if all students are loaded
+
+  // Check if we were navigated here from AddStudent with a newly created student
+  useEffect(() => {
+    if (location.state?.refresh) {
+      // Set message from navigation state
+      setError(location.state.message || 'Sinh viên đã được thêm thành công!');
+      setOpenSnackbar(true);
+      
+      // If we have a newly created student details, add it to the list
+      if (location.state.newStudent) {
+        // Select the newly created student to show details
+        setSelectedStudent(location.state.newStudent);
+        
+        // Add the student to the list if not already present
+        const newStudentId = location.state.newStudent.UserID || location.state.newStudent.id;
+        if (newStudentId && !students.some(s => s.id === newStudentId)) {
+          const formattedStudent = {
+            id: newStudentId,
+            studentId: newStudentId,
+            fullName: location.state.newStudent.FullName || `${location.state.newStudent.firstName || ''} ${location.state.newStudent.lastName || ''}`,
+            email: location.state.newStudent.Email || location.state.newStudent.email,
+            program: location.state.newStudent.ProgramName || 'N/A',
+            school: location.state.newStudent.School || 'N/A',
+            status: location.state.newStudent.AccountStatus === 'ACTIVE' ? 'Active' : 'Inactive',
+            fullDetails: location.state.newStudent
+          };
+          
+          setStudents(prevStudents => [formattedStudent, ...prevStudents]);
+          setTotalCount(prevCount => prevCount + 1);
+        }
+      } else {
+        // If we don't have the student details but need to refresh, reload the data
+        fetchStudents(0, pageSize, '', true);
+      }
+      
+      // Clear the navigation state to prevent showing the message again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const fetchStudents = async (page = 0, size = 100, search = '', prioritizeId = false) => {
     setLoading(true);

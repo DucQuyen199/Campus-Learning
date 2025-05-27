@@ -1,4 +1,5 @@
 const express = require('express');
+const financeController = require('../src/controllers/financeController');
 const router = express.Router();
 const sql = require('mssql');
 const { getPool } = require('../src/config/db');
@@ -550,26 +551,7 @@ router.post('/tuition/:id/payment', (req, res) => {
 });
 
 // Get tuition statistics
-router.get('/statistics', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      totalTuition: 24800000,
-      collectedAmount: 16300000,
-      outstandingAmount: 8500000,
-      paymentRate: 65.7,
-      paymentMethods: [
-        { name: 'Bank Transfer', value: 65 },
-        { name: 'Cash', value: 35 }
-      ],
-      programBreakdown: [
-        { program: 'Computer Science', students: 120, totalAmount: 10200000, collected: 8500000 },
-        { program: 'Business Administration', students: 85, totalAmount: 7225000, collected: 5100000 },
-        { program: 'Electrical Engineering', students: 65, totalAmount: 5525000, collected: 2700000 }
-      ]
-    }
-  });
-});
+router.get('/statistics', financeController.getTuitionStatistics);
 
 // Get academic programs for tuition
 router.get('/programs', async (req, res) => {

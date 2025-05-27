@@ -213,7 +213,7 @@ const getStudentById = async (req, res) => {
     const query = `
       SELECT 
         u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth,
-        u.Gender, u.PhoneNumber, u.Address, u.City, u.Country,
+        sd.Gender, u.PhoneNumber, u.Address, u.City, u.Country,
         u.Status, u.AccountStatus, u.CreatedAt, u.UpdatedAt, u.Avatar,
         sd.*
       FROM Users u
@@ -316,7 +316,7 @@ const getStudentById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      student: studentData
+      data: studentData
     });
   } catch (error) {
     console.error('Error fetching student details:', error);

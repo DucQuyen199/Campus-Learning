@@ -44,30 +44,30 @@ const StudentEdit = () => {
           }
         });
         
-        if (response.data.success) {
+        if (response.data && response.data.success && response.data.data) {
           const studentData = response.data.data;
           setStudent(studentData);
           
           // Format date for input field (yyyy-MM-dd)
           let formattedDob = '';
-          if (studentData.DateOfBirth) {
+          if (studentData && studentData.DateOfBirth) {
             const date = new Date(studentData.DateOfBirth);
             formattedDob = date.toISOString().split('T')[0];
           }
 
           // Set form data
           setFormData({
-            FullName: studentData.FullName || '',
-            Email: studentData.Email || '',
-            PhoneNumber: studentData.PhoneNumber || '',
-            Address: studentData.Address || '',
-            City: studentData.City || '',
-            School: studentData.School || '',
+            FullName: studentData?.FullName || '',
+            Email: studentData?.Email || '',
+            PhoneNumber: studentData?.PhoneNumber || '',
+            Address: studentData?.Address || '',
+            City: studentData?.City || '',
+            School: studentData?.School || '',
             DateOfBirth: formattedDob,
-            AccountStatus: studentData.AccountStatus || 'ACTIVE'
+            AccountStatus: studentData?.AccountStatus || 'ACTIVE'
           });
         } else {
-          throw new Error(response.data.message || 'Failed to fetch student details');
+          throw new Error(response.data?.message || 'Failed to fetch student details');
         }
       } catch (error) {
         console.error('Error fetching student details:', error);

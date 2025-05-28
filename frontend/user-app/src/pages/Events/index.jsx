@@ -140,27 +140,40 @@ const CategoryChip = ({ category }) => {
   )
 }
 
-// Skeleton loading component for events
+// Enhanced Skeleton loading component for events - cập nhật để giống Courses
 const EventCardSkeleton = () => (
-  <div className="bg-white rounded-xl overflow-hidden animate-pulse shadow-sm border border-gray-100">
-    <div className="aspect-[16/9] bg-gray-100"></div>
-    <div className="p-6">
-      <div className="space-y-4">
-        <div className="h-7 bg-gray-100 rounded-lg w-3/4"></div>
-        <div className="flex gap-2">
-          <div className="h-5 bg-gray-100 rounded-md w-20"></div>
-          <div className="h-5 bg-gray-100 rounded-md w-24"></div>
+  <div className="bg-white rounded-2xl overflow-hidden animate-pulse border border-gray-200 shadow-lg h-full flex flex-col">
+    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 relative">
+      <div className="absolute top-3 right-3 flex gap-2">
+        <div className="h-5 w-12 bg-gray-300 rounded-xl"></div>
+      </div>
+      <div className="absolute top-3 left-3 flex flex-col gap-2">
+        <div className="h-5 w-16 bg-gray-300 rounded-xl"></div>
+        <div className="h-5 w-12 bg-gray-300 rounded-xl"></div>
+      </div>
+    </div>
+    <div className="p-5 space-y-3 flex-1 flex flex-col">
+      <div className="space-y-2">
+        <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-3/4"></div>
+        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-full"></div>
+        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-4/5"></div>
+      </div>
+      <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg">
+          <div className="h-3 bg-gray-300 rounded-full w-3"></div>
+          <div className="h-3 bg-gray-300 rounded-lg w-8"></div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="h-4 bg-gray-100 rounded-md"></div>
-          <div className="h-4 bg-gray-100 rounded-md"></div>
-          <div className="h-4 bg-gray-100 rounded-md"></div>
-          <div className="h-4 bg-gray-100 rounded-md"></div>
+        <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg">
+          <div className="h-3 bg-gray-300 rounded-full w-3"></div>
+          <div className="h-3 bg-gray-300 rounded-lg w-6"></div>
         </div>
-        <div className="flex justify-between items-center pt-4">
-          <div className="h-6 bg-gray-100 rounded-md w-1/4"></div>
-          <div className="h-8 bg-gray-100 rounded-md w-24"></div>
+      </div>
+      <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-auto">
+        <div className="space-y-1">
+          <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-16"></div>
+          <div className="h-3 bg-gray-200 rounded-lg w-12"></div>
         </div>
+        <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl w-16"></div>
       </div>
     </div>
   </div>
@@ -291,19 +304,59 @@ const Events = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section - Thu nhỏ chiều cao */}
-      <div className="relative h-[40vh] w-full overflow-hidden">
+    <div className="min-h-screen bg-white">
+      {/* Hero Section - Thu nhỏ chiều cao và thay đổi background */}
+      <div className="relative h-[40vh] w-full overflow-hidden bg-white">
+        {/* Flower Bloom Animation - tương tự trang Courses */}
         <div className="absolute inset-0">
-          <img
-            src="https://images.unsplash.com/photo-1540575467063-178a50c2df87"
-            alt="Events Cover"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-900/90 to-indigo-900/90" />
+          {/* Random floating flowers */}
+          <div className="absolute top-20 left-10 w-8 h-8 text-pink-300 opacity-60 animate-pulse">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+          <div className="absolute top-32 right-20 w-6 h-6 text-purple-300 opacity-50 animate-bounce" style={{animationDelay: '0.5s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div className="absolute top-10 right-1/3 w-10 h-10 text-blue-300 opacity-40 animate-spin" style={{animationDuration: '8s', animationDelay: '1s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.5c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10-4.5-10-10-10zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"/>
+              <circle cx="12" cy="8" r="2"/>
+              <circle cx="8" cy="16" r="1.5"/>
+              <circle cx="16" cy="16" r="1.5"/>
+            </svg>
+          </div>
+          <div className="absolute bottom-20 left-1/4 w-12 h-12 text-rose-300 opacity-30 animate-pulse" style={{animationDelay: '2s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </div>
+          <div className="absolute top-40 left-2/3 w-7 h-7 text-green-300 opacity-45 animate-bounce" style={{animationDelay: '1.5s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 8C8 10 5.9 16.17 3.82 21.34l1.89.66.95-2.46c.48-.06.96-.14 1.34-.27C9.34 18.93 10 14.91 11 11c3 1 6 3 8 4.5 2-1.5 3-4.5 1-6.5-1.5-1.5-3-1-3-1z"/>
+            </svg>
+          </div>
+          <div className="absolute bottom-32 right-10 w-9 h-9 text-yellow-300 opacity-35 animate-spin" style={{animationDuration: '6s', animationDelay: '0.8s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l2.09 6.26L20 9.27l-5 4.87L16.18 21 12 17.77 7.82 21 9 14.14 4 9.27l5.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div className="absolute top-60 left-12 w-5 h-5 text-indigo-300 opacity-50 animate-pulse" style={{animationDelay: '3s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>
+            </svg>
+          </div>
+          <div className="absolute bottom-10 left-1/2 w-11 h-11 text-teal-300 opacity-25 animate-bounce" style={{animationDelay: '2.5s'}}>
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+          </div>
         </div>
         
-        {/* Hero Content - Thu gọn spacing */}
+        {/* Hero Content - Thu gọn spacing và đổi màu text */}
         <div className="relative h-full max-w-[1920px] mx-auto px-6 sm:px-8 lg:px-12">
           <div className="flex flex-col justify-center h-full">
             <motion.div
@@ -312,17 +365,17 @@ const Events = () => {
               transition={{ duration: 0.6 }}
               className="max-w-5xl"
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full text-white/90 text-sm font-medium mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-gray-700 text-sm font-medium mb-4">
                 <CalendarDaysIcon className="w-4 h-4" />
                 <span>{Array.isArray(events) ? events.length : 0} sự kiện đang diễn ra</span>
               </div>
-              <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 leading-tight">
+              <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold text-gray-900 mb-4 leading-tight">
                 Khám phá sự kiện công nghệ{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
                   dành cho bạn
                 </span>
               </h1>
-              <p className="text-base md:text-lg text-white/80 max-w-3xl">
+              <p className="text-base md:text-lg text-gray-600 max-w-3xl">
                 Tham gia các sự kiện công nghệ hấp dẫn từ các tổ chức hàng đầu và kết nối với cộng đồng developer
               </p>
             </motion.div>
@@ -330,8 +383,8 @@ const Events = () => {
         </div>
       </div>
 
-      {/* Main Content - Điều chỉnh margin top */}
-      <div className="max-w-[1920px] mx-auto px-6 sm:px-8 lg:px-12 -mt-12 relative z-10 pb-20">
+      {/* Main Content - Điều chỉnh margin top để di chuyển cao lên */}
+      <div className="max-w-[1920px] mx-auto px-6 sm:px-8 lg:px-12 -mt-14 relative z-10 pb-20">
         {/* Search and Filters Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -435,10 +488,10 @@ const Events = () => {
           </div>
         </motion.div>
 
-        {/* Events Grid - Điều chỉnh số cột và gap */}
+        {/* Events Grid - Điều chỉnh số cột để giống trang Courses */}
         <div className={`grid ${
           viewMode === "grid" 
-            ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6" 
+            ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" 
             : "grid-cols-1 gap-4"
         }`}>
           {filteredEvents.map((event, index) => (
@@ -450,12 +503,12 @@ const Events = () => {
               className={`group cursor-pointer ${viewMode === "list" ? "flex" : ""}`}
               onClick={() => handleViewDetail(event.EventID)}
             >
-              {/* Event Card - Điều chỉnh kích thước cho phù hợp */}
-              <div className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all overflow-hidden border border-gray-100 ${
-                viewMode === "list" ? "flex w-full" : "flex flex-col"
+              {/* Event Card - Điều chỉnh kích thước cho phù hợp và aspect ratio vuông */}
+              <div className={`bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-500 hover:-translate-y-2 overflow-hidden border border-gray-200/80 ${
+                viewMode === "list" ? "flex w-full" : "flex flex-col h-full"
               }`}>
-                {/* Image Container - Điều chỉnh tỷ lệ */}
-                <div className={`relative ${viewMode === "list" ? "w-72" : "aspect-[4/3]"}`}>
+                {/* Image Container - Điều chỉnh tỷ lệ vuông giống Courses */}
+                <div className={`relative ${viewMode === "list" ? "w-72" : "aspect-square"}`}>
                   <img
                     src={event.ImageUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87"}
                     alt={event.Title}
@@ -471,39 +524,43 @@ const Events = () => {
                   </div>
                 </div>
 
-                {/* Content - Điều chỉnh padding và spacing */}
-                <div className="flex-1 p-6">
-                  <div className="flex gap-2 mb-3">
+                {/* Content - Điều chỉnh padding và spacing giống Courses */}
+                <div className="flex-1 p-5 space-y-3 flex flex-col">
+                  <div className="flex gap-2 mb-2">
                     <CategoryChip category={event.Category} />
                     <DifficultyBadge difficulty={event.Difficulty} />
                   </div>
                   
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-purple-600 transition-colors">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-purple-600 transition-colors leading-tight">
                     {event.Title}
                   </h3>
                   
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <MapPinIcon className="w-4 h-4 text-gray-400" />
-                      <span>{event.Location}</span>
+                  <div className="space-y-2 text-xs text-gray-600 flex-1">
+                    <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg">
+                      <MapPinIcon className="w-3 h-3 text-gray-400" />
+                      <span className="font-medium truncate">{event.Location}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <UsersIcon className="w-4 h-4 text-gray-400" />
-                      <span>{event.CurrentAttendees}/{event.MaxAttendees} người tham gia</span>
+                    <div className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded-lg">
+                      <UsersIcon className="w-3 h-3 text-gray-400" />
+                      <span className="font-medium">{event.CurrentAttendees}/{event.MaxAttendees}</span>
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                    <div className="font-bold">
+                  <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <div className="flex flex-col">
                       {event.Price > 0 ? (
-                        <span className="text-purple-600">{event.Price.toLocaleString()}đ</span>
+                        <span className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                          {event.Price.toLocaleString()}₫
+                        </span>
                       ) : (
-                        <span className="text-emerald-600">Miễn phí</span>
+                        <span className="text-lg font-bold bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent">
+                          Miễn phí
+                        </span>
                       )}
                     </div>
-                    <button className="flex items-center gap-1 text-sm font-medium text-purple-600 hover:text-purple-700">
+                    <button className="px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105 shadow-md flex items-center gap-1">
                       Chi tiết
-                      <ArrowUpRightIcon className="w-4 h-4" />
+                      <ArrowUpRightIcon className="w-3 h-3" />
                     </button>
                   </div>
                 </div>

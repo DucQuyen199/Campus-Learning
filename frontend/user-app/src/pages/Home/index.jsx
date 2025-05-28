@@ -23,6 +23,14 @@ import {
   GlobeAltIcon,
   DevicePhoneMobileIcon,
   CommandLineIcon,
+  StarIcon,
+  SparklesIcon,
+  AcademicCapIcon,
+  TrophyIcon,
+  ClockIcon,
+  CheckBadgeIcon,
+  FireIcon,
+  BoltIcon,
 } from "@heroicons/react/24/outline"
 import { setUser } from '@/store/slices/authSlice';
 
@@ -192,299 +200,463 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-white pt-16 pb-24">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <section className="relative overflow-hidden bg-white pt-16 pb-25">
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
               className="text-center lg:text-left"
             >
-              <div className="inline-flex items-center px-3 py-1 mb-6 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-sm font-medium">
-                <span className="flex h-2 w-2 mr-2">
-                  <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-indigo-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+              <motion.h1
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-5xl md:text-6xl lg:text-7xl font-black mb-8 leading-tight"
+              >
+                <span className="text-slate-900">Thành thạo</span>{" "}
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-violet-600 to-purple-600">
+                  Công nghệ
                 </span>
-                Nền tảng học IT hàng đầu Việt Nam
-              </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-gray-900 leading-tight">
-                Làm chủ công nghệ,{" "}
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
-                  xây dựng tương lai
+                <br />
+                <span className="text-slate-900">Tạo dựng</span>{" "}
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600">
+                  Tương lai
                 </span>
-              </h1>
-              <p className="text-lg md:text-xl mb-10 text-gray-600 leading-relaxed max-w-xl">
-                Khám phá hơn 500+ khóa học IT chất lượng cao từ cơ bản đến chuyên sâu. Học từ các chuyên gia hàng đầu
-                trong ngành và xây dựng sự nghiệp công nghệ vững chắc.
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center lg:justify-start gap-4">
+              </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+                className="text-xl md:text-2xl mb-12 text-slate-600 leading-relaxed max-w-2xl"
+              >
+                Khám phá hơn <span className="text-slate-900 font-bold">500+</span> khóa học IT chất lượng cao. 
+                Học từ các chuyên gia hàng đầu và xây dựng sự nghiệp công nghệ thành công.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+                className="flex flex-col sm:flex-row justify-center lg:justify-start gap-6 mb-12"
+              >
                 <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => navigate("/courses")}
-                  className="px-8 py-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-indigo-500/20 transition-all duration-300 flex items-center justify-center gap-2"
+                  className="group px-8 py-4 bg-gradient-to-r from-blue-600 to-violet-600 text-white rounded-2xl font-bold text-lg shadow-xl hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 flex items-center justify-center gap-3"
                 >
-                  <PlayIcon className="w-5 h-5" />
-                  Bắt đầu học
+                  <PlayIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                  Bắt đầu học ngay
+                  <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </motion.button>
                 <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    console.log('Navigating to roadmaps');
-                    navigate("/roadmaps");
-                  }}
-                  className="px-8 py-4 border border-gray-300 bg-white text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center justify-center gap-2"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate("/roadmaps")}
+                  className="group px-8 py-4 border-2 border-slate-300 bg-white/80 backdrop-blur-sm text-slate-700 rounded-2xl font-bold text-lg hover:bg-slate-50 hover:border-slate-400 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg"
                 >
+                  <AcademicCapIcon className="w-6 h-6 group-hover:scale-110 transition-transform" />
                   Xem lộ trình
-                  <ArrowRightIcon className="w-5 h-5" />
                 </motion.button>
-              </div>
-              <div className="mt-10 flex items-center justify-center lg:justify-start space-x-6">
-                <div className="flex -space-x-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-medium text-gray-600"
-                    >
-                      {String.fromCharCode(64 + i)}
-                    </div>
-                  ))}
+              </motion.div>
+
+              {/* Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+                className="grid grid-cols-3 gap-8 max-w-lg mx-auto lg:mx-0"
+              >
+                <div className="text-center">
+                  <div className="text-3xl font-black text-slate-900 mb-1">10K+</div>
+                  <div className="text-slate-600 text-sm">Học viên</div>
                 </div>
-                <div className="text-sm text-gray-600">
-                  <span className="font-semibold text-indigo-600">10,000+</span> học viên đã tham gia
+                <div className="text-center">
+                  <div className="text-3xl font-black text-slate-900 mb-1">500+</div>
+                  <div className="text-slate-600 text-sm">Khóa học</div>
                 </div>
-              </div>
+                <div className="text-center">
+                  <div className="text-3xl font-black text-slate-900 mb-1">98%</div>
+                  <div className="text-slate-600 text-sm">Hài lòng</div>
+                </div>
+              </motion.div>
             </motion.div>
 
-            {/* Quotes Section */}
+            {/* Enhanced Quotes Section */}
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
               className="relative"
             >
-              <div className="absolute -z-10 top-0 right-0 w-72 h-72 bg-indigo-100 rounded-full opacity-70 blur-3xl"></div>
-              <div className="absolute -z-10 bottom-0 left-0 w-72 h-72 bg-violet-100 rounded-full opacity-70 blur-3xl"></div>
-
-              <div className="relative bg-white rounded-2xl p-8 border border-gray-200 shadow-xl">
-                <div className="relative z-10">
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentQuoteIndex}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.5 }}
-                      className="text-center"
-                    >
-                      <div className="w-12 h-12 mx-auto mb-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <ChatBubbleLeftRightIcon className="w-6 h-6 text-indigo-600" />
-                      </div>
-                      <p className="text-xl md:text-2xl text-gray-800 mb-8 italic">
-                        "{famousQuotes[currentQuoteIndex].quote}"
-                      </p>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-gray-900">{famousQuotes[currentQuoteIndex].author}</p>
-                        <p className="text-sm text-gray-500">{famousQuotes[currentQuoteIndex].role}</p>
-                      </div>
-                    </motion.div>
-                  </AnimatePresence>
-                  <div className="flex justify-center mt-8 gap-2">
-                    {famousQuotes.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentQuoteIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                          index === currentQuoteIndex ? "bg-indigo-600 w-6" : "bg-gray-300 hover:bg-gray-400"
-                        }`}
-                        aria-label={`Quote ${index + 1}`}
-                      />
-                    ))}
-                  </div>
+              <div className="relative bg-white/80 backdrop-blur-lg rounded-3xl p-8 border border-slate-200 shadow-2xl">
+                <div className="absolute -top-4 -left-4 w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl rotate-12"></div>
+                <div className="absolute -bottom-4 -right-4 w-8 h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-xl -rotate-12"></div>
+                
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={currentQuoteIndex}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.5 }}
+                    className="text-center"
+                  >
+                    <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg">
+                      <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" />
+                    </div>
+                    <blockquote className="text-xl md:text-2xl text-slate-700 mb-8 italic font-medium leading-relaxed">
+                      "{famousQuotes[currentQuoteIndex].quote}"
+                    </blockquote>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-slate-900">{famousQuotes[currentQuoteIndex].author}</p>
+                      <p className="text-slate-600">{famousQuotes[currentQuoteIndex].role}</p>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+                
+                <div className="flex justify-center mt-8 gap-3">
+                  {famousQuotes.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuoteIndex(index)}
+                      className={`h-3 rounded-full transition-all duration-300 ${
+                        index === currentQuoteIndex 
+                          ? "bg-gradient-to-r from-blue-500 to-violet-600 w-8" 
+                          : "bg-slate-300 hover:bg-slate-400 w-3"
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
-
-              <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg rotate-6 opacity-20"></div>
-              <div className="absolute -top-6 -left-6 w-24 h-24 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-lg -rotate-6 opacity-20"></div>
             </motion.div>
           </div>
         </div>
       </section>
 
       {/* Popular Courses */}
-      <section className="py-20 bg-gray-50">
+      <section className="py-24 bg-slate-50">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Khóa học <span className="text-indigo-600">phổ biến</span>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <div className="inline-flex items-center px-6 py-3 mb-6 rounded-full bg-gradient-to-r from-orange-100 to-red-100 border border-orange-200/50 shadow-lg">
+              <FireIcon className="w-5 h-5 mr-2 text-orange-600" />
+              <span className="text-orange-800 font-semibold">Khóa học được yêu thích nhất</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">
+              Khóa học <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">phổ biến</span>
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Bắt đầu hành trình học tập của bạn với những khóa học được yêu thích nhất
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+              Bắt đầu hành trình học tập với những khóa học được hàng nghìn học viên lựa chọn
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {loading ? (
-              // Loading skeleton
+              // Enhanced Loading skeleton
               Array(4).fill(0).map((_, index) => (
-                <div key={index} className="bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 animate-pulse">
-                  <div className="h-48 bg-gray-200"></div>
-                  <div className="p-6">
-                    <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div key={index} className="group">
+                  <div className="bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-200/50 animate-pulse">
+                    <div className="h-56 bg-slate-200"></div>
+                    <div className="p-6">
+                      <div className="h-6 bg-slate-200 rounded-xl w-3/4 mb-4"></div>
+                      <div className="h-4 bg-slate-200 rounded-lg w-full mb-2"></div>
+                      <div className="h-4 bg-slate-200 rounded-lg w-2/3 mb-6"></div>
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="h-4 bg-slate-200 rounded-lg w-20"></div>
+                        <div className="h-4 bg-slate-200 rounded-lg w-16"></div>
+                      </div>
+                      <div className="h-12 bg-slate-200 rounded-xl w-full"></div>
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              popularCourses.map((course) => (
+              popularCourses.map((course, index) => (
                 <motion.div
                   key={course.CourseID || course.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
                   viewport={{ once: true }}
                   whileHover={{
-                    y: -8,
-                    transition: { duration: 0.2 },
+                    y: -10,
+                    transition: { duration: 0.3 },
                   }}
-                  className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100"
+                  className="group relative"
                 >
-                  <div className="relative">
-                    <img
-                      src={course.ImageUrl || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
-                      alt={course.Title || course.title}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="absolute top-4 right-4">
-                      <span className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-full">
-                        {course.Level || 'All Levels'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      {course.Title || course.title}
-                    </h3>
-                    <p className="text-gray-600 mb-4 line-clamp-2">
-                      {course.ShortDescription || course.Description || course.description || 'Không có mô tả'}
-                    </p>
-                    <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                      <div className="flex items-center">
-                        <UserGroupIcon className="h-4 w-4 mr-1" />
-                        {course.EnrolledCount || 0} học viên
+                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-violet-600 rounded-3xl blur opacity-0 group-hover:opacity-15 transition duration-300"></div>
+                  <div className="relative bg-white rounded-3xl overflow-hidden shadow-xl group-hover:shadow-2xl transition-all duration-300 border border-slate-200/50">
+                    <div className="relative overflow-hidden">
+                      <img
+                        src={course.ImageUrl || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
+                        alt={course.Title || course.title}
+                        className="w-full h-56 object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
+                      <div className="absolute top-4 right-4">
+                        <span className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-violet-600 text-white text-sm font-bold rounded-full shadow-lg">
+                          {course.Level || 'All Levels'}
+                        </span>
                       </div>
-                      <div className="flex items-center">
-                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {course.Duration || 0} phút
+                      <div className="absolute top-4 left-4">
+                        <div className="flex items-center space-x-1">
+                          <StarIcon className="w-4 h-4 text-yellow-400 fill-current" />
+                          <span className="text-white text-sm font-semibold bg-black/30 backdrop-blur-sm px-2 py-1 rounded-full">
+                            4.9
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => navigate(`/courses/${course.CourseID || course.id}`)}
-                      className="block w-full text-center py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      Xem chi tiết
-                    </button>
+                    <div className="p-6">
+                      <h3 className="text-xl font-black text-slate-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2">
+                        {course.Title || course.title}
+                      </h3>
+                      <p className="text-slate-600 mb-4 line-clamp-2 leading-relaxed">
+                        {course.ShortDescription || course.Description || course.description || 'Không có mô tả'}
+                      </p>
+                      <div className="flex items-center justify-between text-sm text-slate-500 mb-6">
+                        <div className="flex items-center bg-slate-100 rounded-full px-3 py-1.5">
+                          <UserGroupIcon className="h-4 w-4 mr-1.5 text-blue-500" />
+                          <span className="font-semibold">{course.EnrolledCount || 0}</span>
+                        </div>
+                        <div className="flex items-center bg-slate-100 rounded-full px-3 py-1.5">
+                          <ClockIcon className="h-4 w-4 mr-1.5 text-violet-500" />
+                          <span className="font-semibold">{course.Duration || 0}h</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => navigate(`/courses/${course.CourseID || course.id}`)}
+                        className="group/btn w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-violet-600 hover:from-blue-600 hover:to-violet-700 text-white font-bold rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-blue-500/25 flex items-center justify-center gap-2"
+                      >
+                        Xem chi tiết
+                        <ArrowRightIcon className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))
             )}
           </div>
 
-          <div className="text-center mt-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="text-center mt-16"
+          >
             <button
               onClick={() => navigate("/courses")}
-              className="inline-flex items-center text-indigo-600 hover:text-indigo-700 font-medium"
+              className="group inline-flex items-center px-8 py-4 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white font-bold rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-slate-900/25"
             >
-              Xem tất cả khóa học
-              <ChevronRightIcon className="w-5 h-5 ml-1" />
+              Khám phá tất cả khóa học
+              <ChevronRightIcon className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </button>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Tại sao chọn <span className="text-indigo-600">Campus Learning</span>?
+      <section className="py-24 bg-white relative overflow-hidden">
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-20"
+          >
+            <div className="inline-flex items-center px-6 py-3 mb-6 rounded-full bg-gradient-to-r from-indigo-100 to-purple-100 border border-indigo-200/50 shadow-lg">
+              <BoltIcon className="w-5 h-5 mr-2 text-indigo-600" />
+              <span className="text-indigo-800 font-semibold">Tính năng vượt trội</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">
+              Tại sao chọn <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">Campus Learning</span>?
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Chúng tôi cung cấp giải pháp học tập toàn diện với công nghệ hiện đại
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
+              Nền tảng học tập toàn diện với công nghệ AI tiên tiến và phương pháp giảng dạy hiện đại
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-white p-6 rounded-xl border border-gray-200 hover:border-indigo-200 hover:shadow-md transition-all duration-300"
+                whileHover={{
+                  y: -5,
+                  transition: { duration: 0.2 }
+                }}
+                className="group relative"
               >
-                <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center mb-4">
-                  <feature.icon className="h-6 w-6 text-indigo-600" />
+                <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-0 group-hover:opacity-15 transition duration-300"></div>
+                <div className="relative bg-white p-8 rounded-3xl border border-slate-200/50 hover:border-indigo-200 hover:shadow-xl transition-all duration-300 h-full">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                    <feature.icon className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-black text-slate-900 mb-4 group-hover:text-indigo-600 transition-colors">{feature.title}</h3>
+                  <p className="text-slate-600 leading-relaxed">{feature.description}</p>
+                  
+                  {/* Hover effect decoration */}
+                  <div className="absolute top-6 right-6 w-2 h-2 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300"></div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
               </motion.div>
             ))}
           </div>
+
+          {/* Additional CTA */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="text-center mt-16"
+          >
+            <div className="inline-flex items-center space-x-2 text-slate-600 mb-4">
+              <CheckBadgeIcon className="w-5 h-5 text-green-500" />
+              <span>Được tin tưởng bởi hơn 10,000+ học viên</span>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Stats Section */}
-      <section className="py-20 bg-gray-50">
-        <div className="container mx-auto px-4">
+      <section className="py-24 bg-white relative overflow-hidden">
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="inline-flex items-center px-4 py-2 mb-6 rounded-full bg-slate-100 border border-slate-200">
+              <TrophyIcon className="w-5 h-5 mr-2 text-amber-500" />
+              <span className="text-slate-800 font-semibold">Thành tích ấn tượng</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">
+              Những con số biết nói
+            </h2>
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+              Minh chứng cho chất lượng và sự tin tưởng từ cộng đồng học viên
+            </p>
+          </motion.div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
               viewport={{ once: true }}
-              className="text-center"
+              whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+              className="text-center group"
             >
-              <div className="text-4xl font-bold text-indigo-600 mb-2">10,000+</div>
-              <div className="text-gray-600">Học viên</div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-cyan-100 rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <div className="relative bg-white border border-slate-200 rounded-3xl p-8 group-hover:bg-slate-50 transition-all duration-300 shadow-lg">
+                  <div className="text-5xl md:text-6xl font-black text-blue-600 mb-3">
+                    10K+
+                  </div>
+                  <div className="text-slate-800 font-semibold text-lg">Học viên</div>
+                  <div className="text-slate-600 text-sm mt-1">Đang học tập</div>
+                </div>
+              </div>
             </motion.div>
+
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
               viewport={{ once: true }}
-              className="text-center"
+              whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+              className="text-center group"
             >
-              <div className="text-4xl font-bold text-indigo-600 mb-2">500+</div>
-              <div className="text-gray-600">Khóa học</div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-100 to-purple-100 rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <div className="relative bg-white border border-slate-200 rounded-3xl p-8 group-hover:bg-slate-50 transition-all duration-300 shadow-lg">
+                  <div className="text-5xl md:text-6xl font-black text-violet-600 mb-3">
+                    500+
+                  </div>
+                  <div className="text-slate-800 font-semibold text-lg">Khóa học</div>
+                  <div className="text-slate-600 text-sm mt-1">Chất lượng cao</div>
+                </div>
+              </div>
             </motion.div>
+
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
               viewport={{ once: true }}
-              className="text-center"
+              whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+              className="text-center group"
             >
-              <div className="text-4xl font-bold text-indigo-600 mb-2">100+</div>
-              <div className="text-gray-600">Giảng viên</div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <div className="relative bg-white border border-slate-200 rounded-3xl p-8 group-hover:bg-slate-50 transition-all duration-300 shadow-lg">
+                  <div className="text-5xl md:text-6xl font-black text-emerald-600 mb-3">
+                    100+
+                  </div>
+                  <div className="text-slate-800 font-semibold text-lg">Giảng viên</div>
+                  <div className="text-slate-600 text-sm mt-1">Chuyên gia hàng đầu</div>
+                </div>
+              </div>
             </motion.div>
+
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
               viewport={{ once: true }}
-              className="text-center"
+              whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+              className="text-center group"
             >
-              <div className="text-4xl font-bold text-indigo-600 mb-2">98%</div>
-              <div className="text-gray-600">Hài lòng</div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-orange-100 to-pink-100 rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                <div className="relative bg-white border border-slate-200 rounded-3xl p-8 group-hover:bg-slate-50 transition-all duration-300 shadow-lg">
+                  <div className="text-5xl md:text-6xl font-black text-orange-600 mb-3">
+                    98%
+                  </div>
+                  <div className="text-slate-800 font-semibold text-lg">Hài lòng</div>
+                  <div className="text-slate-600 text-sm mt-1">Đánh giá 5 sao</div>
+                </div>
+              </div>
             </motion.div>
           </div>
+
+          {/* Additional Stats */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            viewport={{ once: true }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16"
+          >
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-900 mb-2">1M+</div>
+              <div className="text-slate-600">Giờ học đã hoàn thành</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-900 mb-2">50K+</div>
+              <div className="text-slate-600">Dự án thực tế</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-900 mb-2">95%</div>
+              <div className="text-slate-600">Tỷ lệ có việc làm</div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -684,7 +856,7 @@ const Home = () => {
                   className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
+                    <path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.074-4.947c-.061-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.844 0-3.196.016-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
                   </svg>
                 </a>
                 <a

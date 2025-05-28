@@ -28,6 +28,28 @@ import {
 
 import { Avatar } from '../index';
 
+// Custom styles for Markdown elements
+const markdownStyles = {
+  table: 'min-w-full border border-gray-300 border-collapse my-4',
+  thead: 'bg-gray-50',
+  th: 'border border-gray-300 px-4 py-2 font-semibold text-left',
+  td: 'border border-gray-300 px-4 py-2',
+  ul: 'list-disc pl-6 space-y-1 my-4',
+  ol: 'list-decimal pl-6 space-y-1 my-4',
+  li: 'pl-1',
+};
+
+// Components mapping for ReactMarkdown
+const markdownComponents = {
+  table: ({node, ...props}) => <table className={markdownStyles.table} {...props} />,
+  thead: ({node, ...props}) => <thead className={markdownStyles.thead} {...props} />,
+  th: ({node, ...props}) => <th className={markdownStyles.th} {...props} />,
+  td: ({node, ...props}) => <td className={markdownStyles.td} {...props} />,
+  ul: ({node, ...props}) => <ul className={markdownStyles.ul} {...props} />,
+  ol: ({node, ...props}) => <ol className={markdownStyles.ol} {...props} />,
+  li: ({node, ...props}) => <li className={markdownStyles.li} {...props} />,
+};
+
 // Modal component for lightbox
 const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev }) => {
   if (!isOpen || !media || media.length === 0) return null;
@@ -996,18 +1018,20 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                 </div>
               )}
 
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {(() => {
-                  const wordCount = post.Content.trim().split(/\s+/).length;
-                  const shouldTruncate = (wordCount > 200 && !showFullContent) || (aiSummary && !showFullContent);
-                  
-                  if (shouldTruncate) {
-                    return post.Content.trim().split(/\s+/).slice(0, 200).join(' ') + '...';
-                  } else {
-                    return post.Content;
-                  }
-                })()}
-              </ReactMarkdown>
+              <div className="prose prose-sm max-w-none overflow-x-auto">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {(() => {
+                    const wordCount = post.Content.trim().split(/\s+/).length;
+                    const shouldTruncate = (wordCount > 200 && !showFullContent) || (aiSummary && !showFullContent);
+                    return shouldTruncate
+                      ? post.Content.trim().split(/\s+/).slice(0, 200).join(' ') + '...'
+                      : post.Content;
+                  })()}
+                </ReactMarkdown>
+              </div>
               
               {post.Content.trim().split(/\s+/).length > 200 && (
                 <button
@@ -1251,8 +1275,11 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                   <div className="flex-1">
                     <div className="bg-gray-100 rounded-lg px-3 py-2">
                       <div className="font-medium text-sm">{comment.FullName}</div>
-                      <div className="text-sm prose prose-sm max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <div className="text-sm prose prose-sm max-w-none overflow-x-auto">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
                           {comment.Content}
                         </ReactMarkdown>
                       </div>

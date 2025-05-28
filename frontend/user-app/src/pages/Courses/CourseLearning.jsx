@@ -6,8 +6,35 @@ import courseApi from '../../api/courseApi';
 import { useAuth } from '../../contexts/AuthContext';
 import { Avatar } from '../../components';
 import axios from 'axios';
-import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, XCircleIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import CodeServerEditor from '../AiTestLocal/components/CodeServerEditor';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+// CSS cho Markdown được thêm vào component
+const markdownStyles = {
+  table: 'min-w-full border border-gray-300 border-collapse my-4',
+  thead: 'bg-gray-50',
+  th: 'border border-gray-300 px-4 py-2 text-left font-semibold',
+  td: 'border border-gray-300 px-4 py-2',
+  ul: 'list-disc pl-6 space-y-1 my-4',
+  ol: 'list-decimal pl-6 space-y-1 my-4',
+  li: 'pl-1',
+  'li > ul': 'mt-2 mb-0',
+  'li > ol': 'mt-2 mb-0',
+  h1: 'text-2xl font-bold mt-6 mb-4',
+  h2: 'text-xl font-bold mt-5 mb-3',
+  h3: 'text-lg font-bold mt-4 mb-2',
+  p: 'my-3',
+  blockquote: 'border-l-4 border-gray-200 pl-4 py-2 italic my-4',
+  pre: 'bg-gray-50 p-4 rounded my-4 overflow-x-auto',
+  code: 'bg-gray-50 p-1 rounded text-sm font-mono',
+};
+
+// Gemini API configuration
+const GEMINI_API_KEY = "AIzaSyDLh0Md76lI4wZLgDrO9jAQemim6czJQE0";
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
 const CourseLearning = () => {
   const { courseId } = useParams();
@@ -26,7 +53,11 @@ const CourseLearning = () => {
   const [error, setError] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [contentType, setContentType] = useState('video'); // 'video', 'text', 'quiz', 'code'
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [videoSummary, setVideoSummary] = useState(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
   const contentRef = useRef(null);
+  const videoContainerRef = useRef(null);
   
   // Get lessonId from URL if provided
   useEffect(() => {
@@ -438,6 +469,92 @@ const CourseLearning = () => {
     navigate(`/courses/${courseId}/learn?lessonId=${lesson.LessonID}`);
   };
 
+  // Toggle fullscreen mode
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    
+    // If entering fullscreen, hide sidebar
+    if (!isFullScreen) {
+      setIsSidebarOpen(false);
+    }
+  };
+  
+  // Request video summary directly from Gemini API
+  const requestVideoSummary = async () => {
+    if (!currentLesson) return;
+    
+    setIsSummarizing(true);
+    setVideoSummary(null);
+    
+    try {
+      // Get video context from lesson
+      const videoContext = currentLesson.Content || currentLesson.Description || 
+                          `Video about ${currentLesson.Title} from ${course.Title}`;
+      
+      // Create prompt for Gemini - explicitly requesting Markdown format
+      const prompt = `
+        Tôi đang xem một video về: "${currentLesson.Title}" 
+        từ khóa học "${course.Title}".
+        
+        Nội dung video:
+        ${videoContext}
+        
+        Vui lòng tạo một bản tóm tắt ngắn gọn, trọng tâm về nội dung video này bằng tiếng Việt.
+        Tóm tắt nên bao gồm:
+        - Điểm chính của video
+        - Các khái niệm quan trọng
+        - Kết luận hoặc điểm then chốt
+        
+        QUAN TRỌNG: Định dạng kết quả theo cú pháp Markdown để dễ đọc, sử dụng:
+        - Các tiêu đề (# hoặc ##)
+        - Các điểm đánh dấu (-)
+        - In đậm (**) cho các từ khóa quan trọng
+        - Tạo bảng để tổng hợp thông tin quan trọng, định dạng theo Markdown standard như sau:
+          | Tiêu đề 1 | Tiêu đề 2 | Tiêu đề 3 |
+          | --------- | --------- | --------- |
+          | Nội dung 1 | Nội dung 2 | Nội dung 3 |
+      `;
+      
+      console.log("Calling Gemini API with URL:", GEMINI_API_URL);
+      
+      // Call Gemini API directly
+      const response = await axios.post(GEMINI_API_URL, {
+        contents: [
+          {
+            parts: [
+              { text: prompt }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 800
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log("Gemini API response:", response.data);
+      
+      if (response.data && response.data.candidates && response.data.candidates.length > 0) {
+        // Extract the summary text from Gemini response
+        const summaryText = response.data.candidates[0].content.parts[0].text;
+        setVideoSummary(summaryText);
+      } else {
+        console.error("Unexpected Gemini API response format:", response.data);
+        toast.error('Không thể tạo tóm tắt video. Vui lòng thử lại sau.');
+      }
+    } catch (error) {
+      console.error('Error summarizing with Gemini API:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      toast.error('Lỗi khi tạo tóm tắt video. Vui lòng thử lại sau.');
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -484,7 +601,7 @@ const CourseLearning = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3">
+      <header className={`bg-white border-b border-gray-200 px-6 py-3 ${isFullScreen ? 'hidden' : ''}`}>
         <div className="flex justify-between items-center">
           <div className="flex items-center">
             <button 
@@ -500,7 +617,7 @@ const CourseLearning = () => {
             </Link>
             <span className="text-gray-400 mx-2">/</span>
             <Link to={`/courses/${courseId}`} className="text-gray-500 hover:text-blue-600 text-sm">
-              {course.Title}
+              {course?.Title}
             </Link>
           </div>
           <div className="flex items-center space-x-4">
@@ -521,8 +638,8 @@ const CourseLearning = () => {
         {/* Sidebar */}
         <aside 
           className={`bg-white w-80 border-r border-gray-200 flex-shrink-0 transition-all duration-300 transform ${
-            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:relative md:translate-x-0 absolute z-10 h-full`}
+            (isSidebarOpen && !isFullScreen) ? 'translate-x-0' : '-translate-x-full'
+          } md:relative md:translate-x-0 ${isFullScreen ? 'hidden md:hidden' : ''} absolute z-10 h-full`}
         >
           <div className="flex flex-col h-full">
             <div className="p-4 border-b border-gray-200">
@@ -622,62 +739,65 @@ const CourseLearning = () => {
         </aside>
         
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto bg-white">
-          <div className="max-w-4xl mx-auto px-4 py-8">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-              <div>
-                <h1 className="text-2xl font-bold mb-2">
-                  {currentLesson.Title}
-                  {currentLesson.Type === 'coding' || currentLesson.Type === 'exercise' ? (
-                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Bài thực hành
+        <main className={`flex-1 overflow-y-auto bg-white ${isFullScreen ? 'p-0' : ''}`}>
+          <div className={`${isFullScreen ? 'w-full h-full p-0 max-w-none' : 'w-full px-4 py-8'}`}>
+            {/* Title section */}
+            {!isFullScreen && (
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 max-w-7xl mx-auto">
+                <div>
+                  <h1 className="text-2xl font-bold mb-2">
+                    {currentLesson?.Title}
+                    {currentLesson?.Type === 'coding' || currentLesson?.Type === 'exercise' ? (
+                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Bài thực hành
+                      </span>
+                    ) : null}
+                  </h1>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <span>Module {course?.Modules?.findIndex(m => m.ModuleID === currentModule?.ModuleID) + 1}: {currentModule?.Title}</span>
+                    <span className="mx-2">•</span>
+                    <span>{currentLesson?.Duration || 0} phút</span>
+                    {currentLesson?.Type && (
+                      <>
+                        <span className="mx-2">•</span>
+                        <span className="capitalize">{
+                          currentLesson?.Type === 'video' ? 'Video' :
+                          currentLesson?.Type === 'text' ? 'Bài đọc' :
+                          currentLesson?.Type === 'quiz' ? 'Trắc nghiệm' :
+                          currentLesson?.Type === 'coding' || currentLesson?.Type === 'exercise' ? 'Thực hành' :
+                          currentLesson?.Type === 'assignment' ? 'Bài tập' :
+                          'Bài học'
+                        }</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 md:mt-0">
+                  {completedLessons.includes(currentLesson?.LessonID) ? (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Đã hoàn thành
                     </span>
-                  ) : null}
-                </h1>
-                <div className="flex items-center text-sm text-gray-500">
-                  <span>Module {course.Modules.findIndex(m => m.ModuleID === currentModule.ModuleID) + 1}: {currentModule.Title}</span>
-                  <span className="mx-2">•</span>
-                  <span>{currentLesson.Duration || 0} phút</span>
-                  {currentLesson.Type && (
-                    <>
-                      <span className="mx-2">•</span>
-                      <span className="capitalize">{
-                        currentLesson.Type === 'video' ? 'Video' :
-                        currentLesson.Type === 'text' ? 'Bài đọc' :
-                        currentLesson.Type === 'quiz' ? 'Trắc nghiệm' :
-                        currentLesson.Type === 'coding' || currentLesson.Type === 'exercise' ? 'Thực hành' :
-                        currentLesson.Type === 'assignment' ? 'Bài tập' :
-                        'Bài học'
-                      }</span>
-                    </>
+                  ) : (
+                    <button
+                      onClick={handleMarkComplete}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Đánh dấu hoàn thành
+                    </button>
                   )}
                 </div>
               </div>
-              
-              <div className="mt-4 md:mt-0">
-                {completedLessons.includes(currentLesson.LessonID) ? (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Đã hoàn thành
-                  </span>
-                ) : (
-                  <button
-                    onClick={handleMarkComplete}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-                  >
-                    <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Đánh dấu hoàn thành
-                  </button>
-                )}
-              </div>
-            </div>
+            )}
             
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
-              <div ref={contentRef} className="p-6">
+            <div className={`${isFullScreen ? 'w-full h-full' : 'w-full bg-white overflow-hidden mb-6'}`}>
+              <div ref={contentRef} className={`${isFullScreen ? 'p-0 h-full' : 'w-full'}`}>
                 {console.log('Rendering content with type:', contentType)}
                 {console.log('Current lesson has CodeExercise:', !!currentLesson?.CodeExercise || !!currentLesson?.codeExercise || !!currentLesson?.Exercise)}
                 
@@ -686,8 +806,8 @@ const CourseLearning = () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                     <p className="ml-3 text-gray-600">Đang chuyển hướng...</p>
                   </div>
-                ) : contentType === 'video' && currentLesson.VideoUrl ? (
-                  <div className="aspect-video mb-6">
+                ) : contentType === 'video' && currentLesson?.VideoUrl ? (
+                  <div className={`${isFullScreen ? 'w-full h-full' : 'w-full aspect-video'} relative mx-auto`} ref={videoContainerRef}>
                     <iframe
                       title={currentLesson.Title}
                       src={currentLesson.VideoUrl}
@@ -695,6 +815,42 @@ const CourseLearning = () => {
                       frameBorder="0"
                       allowFullScreen
                     ></iframe>
+                    
+                    {/* Video controls overlay */}
+                    <div className="absolute top-4 right-4 flex space-x-2">
+                      <button
+                        onClick={toggleFullScreen}
+                        className="p-2 bg-black bg-opacity-50 rounded-lg text-white hover:bg-opacity-70 transition-opacity"
+                        title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}
+                      >
+                        {isFullScreen ? (
+                          <ArrowsPointingInIcon className="h-5 w-5" />
+                        ) : (
+                          <ArrowsPointingOutIcon className="h-5 w-5" />
+                        )}
+                      </button>
+                      
+                      <button
+                        onClick={requestVideoSummary}
+                        disabled={isSummarizing}
+                        className={`p-2 bg-black bg-opacity-50 rounded-lg text-white hover:bg-opacity-70 transition-opacity ${
+                          isSummarizing ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        title="Tóm tắt video với AI"
+                      >
+                        <DocumentTextIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                    
+                    {/* Exit fullscreen button when in fullscreen mode */}
+                    {isFullScreen && (
+                      <button
+                        onClick={toggleFullScreen}
+                        className="absolute top-4 left-4 p-2 bg-black bg-opacity-50 rounded-lg text-white hover:bg-opacity-70 transition-opacity"
+                      >
+                        <ArrowsPointingInIcon className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
                 ) : contentType === 'code' ? (
                   <div className="mb-6">
@@ -724,8 +880,8 @@ const CourseLearning = () => {
                       }}
                     />
                   </div>
-                ) : (currentLesson.CodeExercise || currentLesson.codeExercise || currentLesson.Exercise) && 
-                   !(currentLesson.Type === 'coding' || currentLesson.Type === 'exercise') ? (
+                ) : (currentLesson?.CodeExercise || currentLesson?.codeExercise || currentLesson?.Exercise) && 
+                   !(currentLesson?.Type === 'coding' || currentLesson?.Type === 'exercise') ? (
                   <div className="mb-6">
                     <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                       <div className="flex">
@@ -748,7 +904,7 @@ const CourseLearning = () => {
                       />
                     </div>
                   </div>
-                ) : contentType === 'quiz' && currentLesson.Quiz ? (
+                ) : contentType === 'quiz' && currentLesson?.Quiz ? (
                   <div className="mb-6">
                     <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
                       <div className="flex">
@@ -770,12 +926,81 @@ const CourseLearning = () => {
                     dangerouslySetInnerHTML={{ __html: currentLesson.Content || '<p>Không có nội dung cho bài học này.</p>' }} 
                   />
                 )}
+                
+                {/* AI Summary Section */}
+                {contentType === 'video' && !isFullScreen && (
+                  <div className="mt-6 max-w-7xl mx-auto">
+                    {isSummarizing ? (
+                      <div className="p-4 bg-blue-50 rounded-lg flex items-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-blue-500 mr-3"></div>
+                        <p>Đang tạo tóm tắt video với AI...</p>
+                      </div>
+                    ) : videoSummary ? (
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <h3 className="font-bold text-lg mb-4 flex items-center">
+                          <DocumentTextIcon className="h-5 w-5 mr-2" />
+                          Tóm tắt nội dung video
+                        </h3>
+                        <div className="prose prose-sm max-w-none overflow-x-auto">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              // Định dạng bảng với viền rõ ràng
+                              table: ({node, ...props}) => <table className={markdownStyles.table} {...props} />,
+                              thead: ({node, ...props}) => <thead className={markdownStyles.thead} {...props} />,
+                              th: ({node, ...props}) => <th className={markdownStyles.th} {...props} />,
+                              td: ({node, ...props}) => <td className={markdownStyles.td} {...props} />,
+                              
+                              // Định dạng danh sách với thụt lề đúng
+                              ul: ({node, ...props}) => <ul className={markdownStyles.ul} {...props} />,
+                              ol: ({node, ...props}) => <ol className={markdownStyles.ol} {...props} />,
+                              li: ({node, ...props}) => <li className={markdownStyles.li} {...props} />,
+                              
+                              // Định dạng tiêu đề
+                              h1: ({node, ...props}) => <h1 className={markdownStyles.h1} {...props} />,
+                              h2: ({node, ...props}) => <h2 className={markdownStyles.h2} {...props} />,
+                              h3: ({node, ...props}) => <h3 className={markdownStyles.h3} {...props} />,
+                              
+                              // Định dạng khác
+                              p: ({node, ...props}) => <p className={markdownStyles.p} {...props} />,
+                              blockquote: ({node, ...props}) => <blockquote className={markdownStyles.blockquote} {...props} />,
+                              pre: ({node, ...props}) => <pre className={markdownStyles.pre} {...props} />,
+                              code: ({inline, ...props}) => inline ? 
+                                <code className={markdownStyles.code} {...props} /> : 
+                                <code className={`block ${markdownStyles.pre}`} {...props} />,
+                            }}
+                          >
+                            {videoSummary}
+                          </ReactMarkdown>
+                        </div>
+                        <div className="flex justify-end mt-4">
+                          <button 
+                            onClick={() => setVideoSummary(null)}
+                            className="text-sm text-gray-600 hover:text-gray-800"
+                          >
+                            Ẩn tóm tắt
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center">
+                        <button
+                          onClick={requestVideoSummary}
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                        >
+                          <DocumentTextIcon className="h-5 w-5 mr-2" />
+                          Tạo tóm tắt video với AI
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             
-            {/* Additional Resources Section */}
-            {currentLesson.Resources && currentLesson.Resources.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            {/* Additional Resources Section - only show when not in fullscreen */}
+            {!isFullScreen && currentLesson?.Resources && currentLesson.Resources.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6 max-w-7xl mx-auto">
                 <h2 className="text-lg font-bold mb-4">Tài liệu bổ sung</h2>
                 <ul className="space-y-2">
                   {currentLesson.Resources.map((resource, index) => (
@@ -797,31 +1022,46 @@ const CourseLearning = () => {
               </div>
             )}
             
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8">
-              <button
-                onClick={navigateToPrevLesson}
-                className="px-4 py-2 border border-gray-300 rounded-md flex items-center text-gray-700 hover:bg-gray-50"
-              >
-                <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Bài trước
-              </button>
-              
-              <button
-                onClick={navigateToNextLesson}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700"
-              >
-                Bài tiếp theo
-                <svg className="w-5 h-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
+            {/* Navigation Buttons - only show when not in fullscreen */}
+            {!isFullScreen && (
+              <div className="flex justify-between mt-8 max-w-7xl mx-auto">
+                <button
+                  onClick={navigateToPrevLesson}
+                  className="px-4 py-2 border border-gray-300 rounded-md flex items-center text-gray-700 hover:bg-gray-50"
+                >
+                  <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Bài trước
+                </button>
+                
+                <button
+                  onClick={navigateToNextLesson}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md flex items-center hover:bg-blue-700"
+                >
+                  Bài tiếp theo
+                  <svg className="w-5 h-5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </main>
       </div>
+      
+      {/* Fullscreen exit button overlay */}
+      {isFullScreen && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50">
+          <button
+            onClick={toggleFullScreen}
+            className="px-4 py-2 bg-black bg-opacity-50 rounded-lg text-white flex items-center hover:bg-opacity-70 transition-opacity"
+          >
+            <ArrowsPointingInIcon className="h-5 w-5 mr-2" />
+            Thoát chế độ toàn màn hình
+          </button>
+        </div>
+      )}
     </div>
   );
 };

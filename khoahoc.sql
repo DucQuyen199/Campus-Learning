@@ -164,7 +164,7 @@ CREATE TABLE PracticeTestCases (
     CreatedAt DATETIME DEFAULT GETDATE()
 );
 
-
+use campushubt;
 -- Thêm khóa học với các bài thực hành đầy đủ
 -- Thêm khóa học với InstructorID là NULL
 INSERT INTO Courses (
@@ -187,7 +187,7 @@ VALUES (
     'vi', 
     1800, -- 30 giờ
     200,
-    1299000.00, -- Giá đầy đủ
+    0, -- Giá đầy đủ
     'https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg',
     'https://www.youtube.com/embed/dQw4w9WgXcQ',
     '["Kiến thức cơ bản về HTML, CSS và JavaScript", "Máy tính có kết nối internet", "Hiểu biết cơ bản về lập trình"]',
@@ -255,8 +255,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module1ID,
-    'Các công nghệ web hiện đại',
-    'Tìm hiểu về các công nghệ web phổ biến hiện nay.',
+    N'Các công nghệ web hiện đại',
+    N'Tìm hiểu về các công nghệ web phổ biến hiện nay.',
     'text',
     '<h3>Công nghệ Frontend</h3><p>React, Vue, Angular là ba framework phổ biến nhất hiện nay.</p><h3>Công nghệ Backend</h3><p>Node.js, Django, Ruby on Rails là các lựa chọn hàng đầu.</p>',
     20, -- 20 phút
@@ -273,8 +273,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module1ID,
-    'Bài tập thực hành: Tạo trang HTML đầu tiên',
-    'Bài tập thực hành tạo trang HTML đơn giản.',
+    N'Bài tập thực hành: Tạo trang HTML đầu tiên',
+    N'Bài tập thực hành tạo trang HTML đơn giản.',
     'coding',
     '<p>Hãy tạo một trang HTML đơn giản với tiêu đề và đoạn văn bản.</p><p><strong>Yêu cầu:</strong></p><ul><li>Tạo file HTML với tiêu đề "Hello Web"</li><li>Thêm một đoạn văn "Đây là trang web đầu tiên của tôi"</li><li>Sử dụng thẻ h1 cho tiêu đề chính</li></ul>',
     25, -- 25 phút
@@ -295,8 +295,8 @@ INSERT INTO CodingExercises (
 )
 VALUES (
     @Lesson3ID,
-    'Tạo trang HTML đầu tiên',
-    'Hãy tạo một trang HTML với tiêu đề "Hello Web" và đoạn văn "Đây là trang web đầu tiên của tôi".',
+    N'Tạo trang HTML đầu tiên',
+    N'Hãy tạo một trang HTML với tiêu đề "Hello Web" và đoạn văn "Đây là trang web đầu tiên của tôi".',
     'html',
     '<!DOCTYPE html>\n<html>\n<head>\n  <title></title>\n</head>\n<body>\n  <!-- Thêm nội dung tại đây -->\n  \n</body>\n</html>',
     '<!DOCTYPE html>\n<html>\n<head>\n  <title>Hello Web</title>\n</head>\n<body>\n  <h1>Hello Web</h1>\n  <p>Đây là trang web đầu tiên của tôi</p>\n</body>\n</html>',
@@ -314,17 +314,17 @@ INSERT INTO CourseModules (
 )
 VALUES (
     @CourseID,
-    'JavaScript cơ bản',
-    'Module này giới thiệu về JavaScript, ngôn ngữ lập trình phổ biến nhất trên web.',
+    N'JavaScript cơ bản',
+    N'Module này giới thiệu về JavaScript, ngôn ngữ lập trình phổ biến nhất trên web.',
     2,
     240, -- 4 giờ
     1, -- Đã publish
     'https://www.youtube.com/embed/hdI2bqOjy3c',
     'https://images.pexels.com/photos/574071/pexels-photo-574071.jpeg',
-    'Luyện tập JavaScript từ cơ bản đến nâng cao.',
-    'Hiểu và sử dụng được JavaScript cho các ứng dụng web.',
-    'Kiến thức cơ bản về HTML và CSS.',
-    'Code mẫu, bài tập và quiz.',
+    N'Luyện tập JavaScript từ cơ bản đến nâng cao.',
+    N'Hiểu và sử dụng được JavaScript cho các ứng dụng web.',
+    N'Kiến thức cơ bản về HTML và CSS.',
+    N'Code mẫu, bài tập và quiz.',
     0 -- Không phải draft
 );
 
@@ -340,8 +340,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module2ID,
-    'Giới thiệu JavaScript',
-    'Tìm hiểu về JavaScript và tại sao nó quan trọng.',
+    N'Giới thiệu JavaScript',
+    N'Tìm hiểu về JavaScript và tại sao nó quan trọng.',
     'video',
     NULL,
     'https://www.youtube.com/embed/hdI2bqOjy3c',
@@ -359,8 +359,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module2ID,
-    'Biến và kiểu dữ liệu trong JavaScript',
-    'Học về cách khai báo biến và các kiểu dữ liệu trong JavaScript.',
+    N'Biến và kiểu dữ liệu trong JavaScript',
+    N'Học về cách khai báo biến và các kiểu dữ liệu trong JavaScript.',
     'text',
     '<h3>Biến trong JavaScript</h3><p>JavaScript có ba cách khai báo biến: var, let và const.</p><pre>let name = "John";\nconst age = 30;\nvar isStudent = true;</pre><h3>Kiểu dữ liệu</h3><p>JavaScript có các kiểu dữ liệu: String, Number, Boolean, Object, Array, null và undefined.</p>',
     40, -- 40 phút
@@ -377,8 +377,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module2ID,
-    'Bài tập thực hành: Tính tổng các số trong mảng',
-    'Bài tập thực hành về mảng và vòng lặp trong JavaScript.',
+    N'Bài tập thực hành: Tính tổng các số trong mảng',
+    N'Bài tập thực hành về mảng và vòng lặp trong JavaScript.',
     'coding',
     '<h3>Yêu cầu:</h3><p>Viết một hàm có tên <code>sumArray</code> nhận vào một mảng số nguyên và trả về tổng của tất cả các phần tử trong mảng đó.</p><h4>Ví dụ:</h4><ul><li>Input: <code>[1, 2, 3, 4]</code> => Output: <code>10</code></li><li>Input: <code>[10, 20, 30]</code> => Output: <code>60</code></li><li>Input: <code>[-5, 10, -15, 20]</code> => Output: <code>10</code></li></ul><p>// Bài tập 1: Viết hàm tính tổng mảng\n// Test cases: [1,2,3,4] -> 10, [10,20,30] -> 60, [-5,10,-15,20] -> 10</p>',
     45, -- 45 phút
@@ -399,8 +399,8 @@ INSERT INTO CodingExercises (
 )
 VALUES (
     @Lesson6ID,
-    'Tính tổng các số trong mảng',
-    'Viết hàm sumArray nhận vào một mảng số và trả về tổng của chúng.',
+    N'Tính tổng các số trong mảng',
+    N'Viết hàm sumArray nhận vào một mảng số và trả về tổng của chúng.',
     'javascript',
     '// Viết hàm tính tổng các số trong mảng\nfunction sumArray(numbers) {\n  // Viết code của bạn ở đây\n  \n}\n\n// Ví dụ: sumArray([1, 2, 3, 4]) sẽ trả về 10',
     'function sumArray(numbers) {\n  let sum = 0;\n  for (let i = 0; i < numbers.length; i++) {\n    sum += numbers[i];\n  }\n  return sum;\n}',
@@ -418,17 +418,17 @@ INSERT INTO CourseModules (
 )
 VALUES (
     @CourseID,
-    'React Cơ Bản',
-    'Module này giới thiệu về React, thư viện JavaScript phổ biến để xây dựng giao diện người dùng.',
+    N'React Cơ Bản',
+    N'Module này giới thiệu về React, thư viện JavaScript phổ biến để xây dựng giao diện người dùng.',
     3,
     300, -- 5 giờ
     1, -- Đã publish
     'https://www.youtube.com/embed/w7ejDZ8SWv8',
     'https://images.pexels.com/photos/11035474/pexels-photo-11035474.jpeg',
-    'Xây dựng các component trong React và quản lý state.',
-    'Hiểu cách React hoạt động và xây dựng ứng dụng web với React.',
-    'Kiến thức vững về JavaScript, HTML và CSS.',
-    'Code mẫu, bài tập và tài liệu tham khảo.',
+    N'Xây dựng các component trong React và quản lý state.',
+    N'Hiểu cách React hoạt động và xây dựng ứng dụng web với React.',
+    N'Kiến thức vững về JavaScript, HTML và CSS.',
+    N'Code mẫu, bài tập và tài liệu tham khảo.',
     0 -- Không phải draft
 );
 
@@ -444,8 +444,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module3ID,
-    'Giới thiệu về React',
-    'Hiểu về React và cách nó thay đổi cách tiếp cận phát triển web.',
+    N'Giới thiệu về React',
+    N'Hiểu về React và cách nó thay đổi cách tiếp cận phát triển web.',
     'video',
     NULL,
     'https://www.youtube.com/embed/w7ejDZ8SWv8',
@@ -463,8 +463,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module3ID,
-    'Bài tập thực hành: Tạo React Component đầu tiên',
-    'Thực hành tạo và sử dụng component trong React.',
+    N'Bài tập thực hành: Tạo React Component đầu tiên',
+    N'Thực hành tạo và sử dụng component trong React.',
     'coding',
     '<h3>Yêu cầu:</h3><p>Tạo một React component có tên <code>UserProfile</code> nhận vào 3 props:</p><ul><li><code>name</code>: Tên người dùng</li><li><code>email</code>: Email của người dùng</li><li><code>avatar</code>: URL ảnh đại diện</li></ul><p>Component cần hiển thị:</p><ul><li>Ảnh đại diện với alt text là tên người dùng</li><li>Tên người dùng trong thẻ h3</li><li>Email trong thẻ p</li></ul><p>Tất cả được bọc trong một div với className="user-profile"</p><p>// Bài tập 1: Tạo Component UserProfile\n// Hiển thị thông tin người dùng như tên, email và avatar</p>',
     60, -- 60 phút
@@ -485,8 +485,8 @@ INSERT INTO CodingExercises (
 )
 VALUES (
     @Lesson8ID,
-    'Tạo React Component hiển thị thông tin người dùng',
-    'Tạo một React component để hiển thị thông tin người dùng bao gồm tên, email và avatar.',
+    N'Tạo React Component hiển thị thông tin người dùng',
+    N'Tạo một React component để hiển thị thông tin người dùng bao gồm tên, email và avatar.',
     'javascript',
     'import React from "react";\n\n// Tạo component UserProfile\nconst UserProfile = (props) => {\n  // Viết code ở đây\n  \n};\n\nexport default UserProfile;',
     'import React from "react";\n\nconst UserProfile = ({ name, email, avatar }) => {\n  return (\n    <div className="user-profile">\n      <img src={avatar} alt={name} />\n      <h3>{name}</h3>\n      <p>{email}</p>\n    </div>\n  );\n};\n\nexport default UserProfile;',
@@ -503,8 +503,8 @@ INSERT INTO CourseLessons (
 )
 VALUES (
     @Module3ID,
-    'Bài tập thực hành: Xây dựng Todo App với React',
-    'Xây dựng ứng dụng Todo List đơn giản với React Hooks.',
+    N'Bài tập thực hành: Xây dựng Todo App với React',
+    N'Xây dựng ứng dụng Todo List đơn giản với React Hooks.',
     'coding',
     '<h3>Yêu cầu:</h3><p>Xây dựng ứng dụng Todo List với các chức năng:</p><ul><li>Thêm công việc mới</li><li>Đánh dấu công việc đã hoàn thành</li><li>Xóa công việc</li></ul><p>Sử dụng React Hooks:</p><ul><li>useState để quản lý danh sách todo và input</li><li>Tạo các hàm xử lý sự kiện cho các chức năng</li></ul><p>// Bài tập 1: Todo List App\n// Tạo ứng dụng quản lý công việc đơn giản</p>',
     90, -- 90 phút
@@ -525,8 +525,8 @@ INSERT INTO CodingExercises (
 )
 VALUES (
     @Lesson9ID,
-    'Xây dựng ứng dụng Todo List với React',
-    'Xây dựng ứng dụng Todo List đơn giản sử dụng React hooks.',
+    N'Xây dựng ứng dụng Todo List với React',
+    N'Xây dựng ứng dụng Todo List đơn giản sử dụng React hooks.',
     'javascript',
     'import React, { useState } from "react";\n\nconst TodoApp = () => {\n  // Tạo state cho danh sách todo\n  const [todos, setTodos] = useState([]);\n  \n  // Tạo state cho input text\n  const [inputText, setInputText] = useState("");\n  \n  // Hàm thêm todo mới\n  const addTodo = () => {\n    // Viết code thêm todo mới vào danh sách\n    \n  };\n  \n  // Hàm đánh dấu todo đã hoàn thành\n  const toggleTodo = (index) => {\n    // Viết code đánh dấu todo hoàn thành\n    \n  };\n  \n  // Hàm xóa todo\n  const deleteTodo = (index) => {\n    // Viết code xóa todo\n    \n  };\n  \n  return (\n    <div className="todo-app">\n      <h1>Todo List</h1>\n      \n      {/* Form thêm todo */}\n      <div className="input-container">\n        <input\n          type="text"\n          value={inputText}\n          onChange={(e) => setInputText(e.target.value)}\n          placeholder="Thêm công việc mới..."\n        />\n        <button onClick={addTodo}>Thêm</button>\n      </div>\n      \n      {/* Danh sách todo */}\n      <ul className="todo-list">\n        {todos.map((todo, index) => (\n          <li key={index} className={todo.completed ? "completed" : ""}>\n            <span onClick={() => toggleTodo(index)}>{todo.text}</span>\n            <button onClick={() => deleteTodo(index)}>Xóa</button>\n          </li>\n        ))}\n      </ul>\n    </div>\n  );\n};\n\nexport default TodoApp;',
     'import React, { useState } from "react";\n\nconst TodoApp = () => {\n  const [todos, setTodos] = useState([]);\n  const [inputText, setInputText] = useState("");\n  \n  const addTodo = () => {\n    if (inputText.trim() !== "") {\n      setTodos([...todos, { text: inputText, completed: false }]);\n      setInputText("");\n    }\n  };\n  \n  const toggleTodo = (index) => {\n    const newTodos = [...todos];\n    newTodos[index].completed = !newTodos[index].completed;\n    setTodos(newTodos);\n  };\n  \n  const deleteTodo = (index) => {\n    const newTodos = todos.filter((_, i) => i !== index);\n    setTodos(newTodos);\n  };\n  \n  return (\n    <div className="todo-app">\n      <h1>Todo List</h1>\n      \n      <div className="input-container">\n        <input\n          type="text"\n          value={inputText}\n          onChange={(e) => setInputText(e.target.value)}\n          placeholder="Thêm công việc mới..."\n        />\n        <button onClick={addTodo}>Thêm</button>\n      </div>\n      \n      <ul className="todo-list">\n        {todos.map((todo, index) => (\n          <li key={index} className={todo.completed ? "completed" : ""}>\n            <span onClick={() => toggleTodo(index)}>{todo.text}</span>\n            <button onClick={() => deleteTodo(index)}>Xóa</button>\n          </li>\n        ))}\n      </ul>\n    </div>\n  );\n};\n\nexport default TodoApp;',

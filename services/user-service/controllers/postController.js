@@ -1436,7 +1436,6 @@ exports.getBookmarkedPosts = async (req, res) => {
         p.LikesCount,
         p.CommentsCount,
         p.SharesCount,
-        p.BookmarksCount,
         u.Username,
         u.FullName,
         u.Image as UserImage,
@@ -1445,10 +1444,14 @@ exports.getBookmarkedPosts = async (req, res) => {
           SELECT 1 FROM PostLikes 
           WHERE PostID = p.PostID AND UserID = @userId
         ) THEN 1 ELSE 0 END as IsLiked,
-        (SELECT COUNT(*) FROM PostBookmarks WHERE UserID = @userId) as TotalCount
+        bmkCount.TotalCount as TotalCount
       FROM Posts p
       INNER JOIN Users u ON p.UserID = u.UserID
       INNER JOIN PostBookmarks b ON p.PostID = b.PostID
+      -- subquery for total bookmarks count
+      CROSS APPLY (
+        SELECT COUNT(*) as TotalCount FROM PostBookmarks WHERE UserID = @userId
+      ) bmkCount
       WHERE b.UserID = @userId AND p.DeletedAt IS NULL
       ORDER BY b.CreatedAt DESC
       OFFSET @offset ROWS
@@ -1462,7 +1465,7 @@ exports.getBookmarkedPosts = async (req, res) => {
 
     const result = await request.query(query);
 
-    // Get total count from the first record
+    // Determine total count from cross applied field or zero
     const totalCount = result.recordset.length > 0 ? result.recordset[0].TotalCount : 0;
 
     // Fetch media for each post
@@ -1485,8 +1488,7 @@ exports.getBookmarkedPosts = async (req, res) => {
 
       return {
         ...post,
-        media: mediaResult.recordset,
-        TotalCount: undefined // Remove from individual post objects
+        media: mediaResult.recordset
       };
     }));
 

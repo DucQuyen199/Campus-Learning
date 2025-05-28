@@ -46,6 +46,7 @@
     "react-router-dom": "^6.22.3",
     "react-share": "^5.1.0",
     "react-toastify": "^11.0.5",
+    "remark-gfm": "^4.0.1",
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.7.5"
   },

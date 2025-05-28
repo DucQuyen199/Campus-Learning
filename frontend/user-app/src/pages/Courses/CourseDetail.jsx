@@ -218,7 +218,8 @@ const CourseDetail = () => {
   const isFreeCourse = price === 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-white">
+      <div className="container mx-auto px-4 py-8">
       {course.isLimitedView && (
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded shadow">
           <div className="flex items-start">
@@ -252,7 +253,7 @@ const CourseDetail = () => {
       </div>
       
       {/* Course Hero Section */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white rounded-xl shadow-lg mb-8 overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-900 to-blue-700 text-white rounded-2xl shadow-lg mb-8 overflow-hidden">
         <div className="container mx-auto p-6 md:p-8 flex flex-col md:flex-row">
           <div className="md:w-3/5 mb-6 md:mb-0 md:pr-6">
             <div className="flex items-center mb-2">
@@ -314,14 +315,14 @@ const CourseDetail = () => {
             {isEnrolled ? (
               <Link 
                 to={`/courses/${courseId}/learn`}
-                className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
+                className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-2xl transition duration-200"
               >
                 Tiếp tục học
               </Link>
             ) : (
               <button
                 onClick={handleEnroll}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg transition duration-200"
+                className="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-2xl transition duration-200"
               >
                 {isFreeCourse ? 'Đăng ký miễn phí' : 'Mua ngay'}
               </button>
@@ -329,7 +330,7 @@ const CourseDetail = () => {
           </div>
           
           <div className="md:w-2/5">
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-md overflow-hidden">
               {course.ImageUrl ? (
                 <img 
                   src={course.ImageUrl} 
@@ -402,7 +403,7 @@ const CourseDetail = () => {
       </div>
       
       {/* Course Content Tabs */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+      <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-8">
         <div className="border-b">
           <div className="flex">
             <button
@@ -488,7 +489,7 @@ const CourseDetail = () => {
               {course.Modules && course.Modules.length > 0 ? (
                 <div className="space-y-4">
                   {course.Modules.map((module, moduleIndex) => (
-                    <div key={module.ModuleID || moduleIndex} className="border rounded-lg overflow-hidden">
+                    <div key={module.ModuleID || moduleIndex} className="border rounded-2xl overflow-hidden">
                       <div className="bg-gray-50 p-4 flex justify-between items-center">
                         <h3 className="font-medium">{module.Title}</h3>
                         <div className="text-sm text-gray-500">
@@ -558,7 +559,7 @@ const CourseDetail = () => {
               <h2 className="text-xl font-bold mb-6">Thông tin giảng viên</h2>
               
               {course.Instructor ? (
-                <div className="flex flex-col md:flex-row bg-gray-50 rounded-lg p-6 shadow-sm">
+                <div className="flex flex-col md:flex-row bg-gray-50 rounded-2xl p-6 shadow-sm">
                   <div className="md:w-1/4 mb-4 md:mb-0 flex justify-center md:justify-start">
                     <Avatar 
                       src={course.Instructor.Image || course.Instructor.AvatarUrl}
@@ -592,7 +593,7 @@ const CourseDetail = () => {
                   </div>
                 </div>
               ) : (
-                <div className="bg-gray-50 rounded-lg p-6">
+                <div className="bg-gray-50 rounded-2xl p-6">
                   <p className="text-gray-500">Chưa có thông tin về giảng viên.</p>
                 </div>
               )}
@@ -603,19 +604,20 @@ const CourseDetail = () => {
       
       {/* CTA Section */}
       {!isEnrolled && (
-        <div className="bg-blue-50 rounded-lg p-8 text-center">
+        <div className="bg-blue-50 rounded-2xl p-8 text-center">
           <h2 className="text-2xl font-bold mb-4">Sẵn sàng để nâng cao kỹ năng của bạn?</h2>
           <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
             Học ngay hôm nay và nhận đầy đủ quyền truy cập vào tất cả các tài liệu khóa học, bài tập thực hành và hỗ trợ từ giảng viên.
           </p>
           <button
             onClick={handleEnroll}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition duration-200"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-2xl transition duration-200"
           >
             {isFreeCourse ? 'Đăng ký miễn phí ngay' : 'Mua ngay'}
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 };

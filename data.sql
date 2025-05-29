@@ -1687,3 +1687,39 @@ END
 
 GO
 
+use campushubt;
+
+USE CampusHubT;
+GO
+
+-- Xóa bảng PasswordResets nếu đã tồn tại
+IF OBJECT_ID(N'[dbo].[PasswordResets]', N'U') IS NOT NULL
+    DROP TABLE [dbo].[PasswordResets];
+GO
+
+-- Tạo bảng PasswordResets với hỗ trợ OTP
+CREATE TABLE [dbo].[PasswordResets] (
+    [ResetID] INT IDENTITY(1,1) PRIMARY KEY,
+    [UserID] BIGINT NOT NULL,
+    [OTP] CHAR(6) NOT NULL,
+    [ExpiresAt] DATETIME NOT NULL,
+    [CreatedAt] DATETIME NOT NULL DEFAULT GETDATE(),
+    [IsUsed] BIT NOT NULL DEFAULT 0,
+    [AttemptCount] INT NOT NULL DEFAULT 0,
+    CONSTRAINT FK_PasswordResets_Users FOREIGN KEY ([UserID]) 
+        REFERENCES [dbo].[Users]([UserID])
+        ON DELETE CASCADE
+);
+GO
+
+-- Tạo chỉ mục để truy vấn nhanh theo UserID
+CREATE NONCLUSTERED INDEX IX_PasswordResets_UserID 
+ON [dbo].[PasswordResets]([UserID]);
+GO
+
+-- (Tùy chọn) Nếu muốn đảm bảo mỗi user chỉ có 1 OTP đang hoạt động
+-- Có thể tạo một chỉ mục lọc theo IsUsed = 0
+CREATE UNIQUE NONCLUSTERED INDEX IX_PasswordResets_UserID_Active 
+ON [dbo].[PasswordResets]([UserID])
+WHERE [IsUsed] = 0;
+GO

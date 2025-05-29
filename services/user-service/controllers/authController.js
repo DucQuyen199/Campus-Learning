@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool, sql } = require('../config/db');
+const { v4: uuidv4 } = require('uuid');
 
 exports.register = async (req, res) => {
   try {
@@ -414,5 +415,190 @@ exports.checkAuth = async (req, res) => {
       message: 'Đã có lỗi xảy ra khi kiểm tra xác thực',
       error: error.message
     });
+  }
+};
+
+// Handle forgot password: generate token and send reset link
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    // Find user by email
+    const userResult = await pool.request()
+      .input('email', sql.VarChar, email)
+      .query(`SELECT UserID FROM Users WHERE Email = @email AND DeletedAt IS NULL`);
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Email not found' });
+    }
+    const userId = userResult.recordset[0].UserID;
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 3600000); // 1 hour
+    
+    // Delete any existing OTP for this user
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query(`DELETE FROM PasswordResets WHERE UserID = @userId`);
+    
+    // Store new OTP
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('otp', sql.VarChar, otp)
+      .input('expiresAt', sql.DateTime, expiresAt)
+      .query(
+        `INSERT INTO PasswordResets (UserID, OTP, ExpiresAt) VALUES (@userId, @otp, @expiresAt)`
+      );
+    
+    // In a production environment, you would send this OTP via SMS or email
+    // For now, we'll log it to the console for testing purposes
+    console.log('Password reset OTP for user', email, ':', otp);
+    
+    // Return success but don't include the OTP in the response
+    res.json({ message: 'OTP sent to email', userId });
+  } catch (error) {
+    console.error('ForgotPassword Error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Handle reset password: verify token and update password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { userId, otp, password } = req.body;
+    
+    if (!userId || !otp || !password) {
+      return res.status(400).json({ message: 'User ID, OTP, and password are all required' });
+    }
+    
+    // Verify OTP
+    const otpResult = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('otp', sql.VarChar, otp)
+      .query(
+        `SELECT ResetID, ExpiresAt, AttemptCount, IsUsed FROM PasswordResets 
+         WHERE UserID = @userId AND OTP = @otp`
+      );
+    
+    if (otpResult.recordset.length === 0) {
+      // Increment attempt count for security tracking if we found any pending OTP for this user
+      await pool.request()
+        .input('userId', sql.BigInt, userId)
+        .query(
+          `UPDATE PasswordResets SET AttemptCount = AttemptCount + 1 
+           WHERE UserID = @userId AND IsUsed = 0`
+        );
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+    
+    const resetEntry = otpResult.recordset[0];
+    
+    // Check if OTP is expired
+    if (new Date(resetEntry.ExpiresAt) < new Date()) {
+      return res.status(400).json({ message: 'OTP has expired' });
+    }
+    
+    // Check if OTP has already been used
+    if (resetEntry.IsUsed) {
+      return res.status(400).json({ message: 'OTP has already been used' });
+    }
+    
+    // Check if too many attempts
+    if (resetEntry.AttemptCount >= 5) {
+      return res.status(400).json({ message: 'Too many attempts. Please request a new OTP.' });
+    }
+    
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(password, 12);
+    
+    // Update user password
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('password', sql.VarChar, hashedPassword)
+      .query(
+        `UPDATE Users SET Password = @password WHERE UserID = @userId`
+      );
+      
+    // Mark OTP as used
+    await pool.request()
+      .input('resetId', sql.Int, resetEntry.ResetID)
+      .query(
+        `UPDATE PasswordResets SET IsUsed = 1 WHERE ResetID = @resetId`
+      );
+      
+    res.json({ message: 'Password reset successful', success: true });
+  } catch (error) {
+    console.error('ResetPassword Error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Verify OTP without resetting password
+exports.verifyOTP = async (req, res) => {
+  try {
+    const { userId, otp } = req.body;
+    
+    if (!userId || !otp) {
+      return res.status(400).json({ message: 'User ID and OTP are required' });
+    }
+    
+    // Verify OTP
+    const otpResult = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('otp', sql.VarChar, otp)
+      .query(
+        `SELECT ResetID, ExpiresAt, AttemptCount, IsUsed FROM PasswordResets 
+         WHERE UserID = @userId AND OTP = @otp`
+      );
+    
+    if (otpResult.recordset.length === 0) {
+      // Increment attempt count for security tracking
+      await pool.request()
+        .input('userId', sql.BigInt, userId)
+        .query(
+          `UPDATE PasswordResets SET AttemptCount = AttemptCount + 1 
+           WHERE UserID = @userId AND IsUsed = 0`
+        );
+      return res.status(400).json({ message: 'Invalid OTP', verified: false });
+    }
+    
+    const resetEntry = otpResult.recordset[0];
+    
+    // Check if OTP is expired
+    if (new Date(resetEntry.ExpiresAt) < new Date()) {
+      return res.status(400).json({ message: 'OTP has expired', verified: false });
+    }
+    
+    // Check if OTP has already been used
+    if (resetEntry.IsUsed) {
+      return res.status(400).json({ message: 'OTP has already been used', verified: false });
+    }
+    
+    // Check if too many attempts
+    if (resetEntry.AttemptCount >= 5) {
+      return res.status(400).json({ 
+        message: 'Too many attempts. Please request a new OTP.', 
+        verified: false 
+      });
+    }
+    
+    // OTP is valid, but we don't mark it as used yet
+    // Update attempt count to track verification
+    await pool.request()
+      .input('resetId', sql.Int, resetEntry.ResetID)
+      .query(
+        `UPDATE PasswordResets SET AttemptCount = AttemptCount + 1 WHERE ResetID = @resetId`
+      );
+    
+    // Return success
+    res.json({ 
+      message: 'OTP verified successfully', 
+      verified: true,
+      userId 
+    });
+  } catch (error) {
+    console.error('VerifyOTP Error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 }; 

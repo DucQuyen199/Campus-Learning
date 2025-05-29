@@ -334,7 +334,14 @@ exports.getConversationById = async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to view this conversation' });
     }
 
-    res.json(conversation);
+    // Fetch full message history for this conversation
+    const messages = await Chat.getConversationMessages(conversationId, userId);
+    // Merge messages into conversation object
+    const convData = conversation.toJSON();
+    convData.Messages = messages;
+    // Return conversation with full messages
+    return res.json(convData);
+
   } catch (error) {
     console.error('Error getting conversation by id:', error);
     res.status(500).json({ message: 'Internal server error' });

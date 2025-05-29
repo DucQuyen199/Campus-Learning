@@ -23,17 +23,30 @@ const Friends = () => {
   const queryParams = new URLSearchParams(location.search);
   const userId = queryParams.get('userId');
   
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'pending', 'sent', 'suggestions'
-  const [friends, setFriends] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const [sentRequests, setSentRequests] = useState([]);
-  const [suggestions, setSuggestions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(() => {
+    // Restore the last active tab from sessionStorage
+    const savedTab = sessionStorage.getItem('friendsActiveTab');
+    return savedTab || 'all';
+  }); // 'all', 'pending', 'sent', 'suggestions'
+  const [friends, setFriends] = useState(() => {
+    const saved = sessionStorage.getItem('friends');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [pendingRequests, setPendingRequests] = useState(() => {
+    const saved = sessionStorage.getItem('pendingRequests');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [sentRequests, setSentRequests] = useState(() => {
+    const saved = sessionStorage.getItem('sentRequests');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [notification, setNotification] = useState({ type: null, message: null });
   const [viewingUser, setViewingUser] = useState(null);
   const [isOwnFriends, setIsOwnFriends] = useState(true);
+  const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -100,6 +113,7 @@ const Friends = () => {
         }
 
         const data = await response.json();
+        console.log('API response data:', data);
         
         // Handle the response data
         if (userId) {
@@ -109,7 +123,13 @@ const Friends = () => {
           // For current user's profile, we get categorized lists
           setFriends(data.friends || []);
           setPendingRequests(data.pendingRequests || []);
-          setSentRequests(data.sentRequests || []);
+          if (data.sentRequests && Array.isArray(data.sentRequests)) {
+            console.log('Setting sent requests from API:', data.sentRequests);
+            setSentRequests(data.sentRequests);
+          } else {
+            console.warn('No sentRequests array in API response or invalid format:', data.sentRequests);
+          }
+          console.log('Setting sent requests:', data.sentRequests || []);
           
           // Lưu vào sessionStorage để khôi phục khi reload
           sessionStorage.setItem('friends', JSON.stringify(data.friends || []));
@@ -168,6 +188,88 @@ const Friends = () => {
       fetchFriendships();
     }
   }, [activeTab, isOwnFriends, fetchFriendships]);
+
+  // Debug logs for sent requests tab
+  useEffect(() => {
+    if (activeTab === 'sent') {
+      console.log('Current sent requests:', sentRequests);
+      console.log('Sent requests from sessionStorage:', JSON.parse(sessionStorage.getItem('sentRequests') || '[]'));
+    }
+  }, [activeTab, sentRequests]);
+
+  // Force fetch data when switching to sent tab
+  useEffect(() => {
+    if (activeTab === 'sent' && isOwnFriends) {
+      // Fetch new data directly from API when on sent tab
+      console.log('Fetching sent requests from API...');
+      
+      const fetchSentRequests = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          
+          // Show loading state
+          setLoading(true);
+          
+          // Get data from API
+          const response = await fetch('/api/friendships', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to fetch sent requests');
+          }
+          
+          const data = await response.json();
+          console.log('Fresh API data for sent requests:', data);
+          
+          // Update state with latest data
+          if (data && data.sentRequests) {
+            setSentRequests(data.sentRequests);
+            // Update sessionStorage as well
+            sessionStorage.setItem('sentRequests', JSON.stringify(data.sentRequests));
+          }
+        } catch (error) {
+          console.error('Error fetching sent requests:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchSentRequests();
+    }
+  }, [activeTab, isOwnFriends]);
+
+  // Helper function to fetch sent requests directly
+  const fetchSentRequestsOnly = async () => {
+    try {
+      console.log('Fetching just sent requests...');
+      const token = localStorage.getItem('token');
+      if (!token) return [];
+      
+      const response = await fetch('/api/friendships', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch sent requests');
+      }
+      
+      const data = await response.json();
+      console.log('API data for direct sent requests fetch:', data);
+      
+      return data.sentRequests || [];
+    } catch (error) {
+      console.error('Error fetching sent requests directly:', error);
+      return [];
+    }
+  };
 
   useEffect(() => {
     // Khôi phục dữ liệu từ sessionStorage khi component mount
@@ -485,6 +587,7 @@ const Friends = () => {
         return;
       }
 
+      console.log('Sending friend request to user ID:', userId);
       const response = await fetch('/api/friendships', {
         method: 'POST',
         headers: {
@@ -500,6 +603,7 @@ const Friends = () => {
       }
 
       const data = await response.json();
+      console.log('Friend request sent successfully, API response:', data);
       
       // Update local state - move from suggestions to sent requests
       const requestedUser = suggestions.find(user => user.UserID === userId);
@@ -512,6 +616,7 @@ const Friends = () => {
           CreatedAt: data.friendship.RequestedAt
         }];
         
+        console.log('Adding to sent requests:', newSentRequests);
         setSentRequests(newSentRequests);
         // Remove from suggestions
         const newSuggestions = suggestions.filter(user => user.UserID !== userId);
@@ -521,6 +626,50 @@ const Friends = () => {
         sessionStorage.setItem('sentRequests', JSON.stringify(newSentRequests));
         sessionStorage.setItem('friendsLastFetched', Date.now().toString());
       }
+
+      // Get the most up-to-date sent requests from the API
+      const delayMs = 1000; // Wait for 1 second to allow backend to update
+      setTimeout(async () => {
+        try {
+          const updatedSentRequests = await fetchSentRequestsOnly();
+          console.log('Updated sent requests after direct API call:', updatedSentRequests);
+          
+          if (updatedSentRequests && updatedSentRequests.length > 0) {
+            setSentRequests(updatedSentRequests);
+            sessionStorage.setItem('sentRequests', JSON.stringify(updatedSentRequests));
+          }
+        } catch (error) {
+          console.error('Error fetching updated sent requests:', error);
+        }
+      }, delayMs);
+
+      // Fetch the updated list of sent requests after a short delay
+      setTimeout(() => {
+        try {
+          fetch('/api/friendships', {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json'
+            }
+          })
+          .then(response => {
+            if (response.ok) return response.json();
+            throw new Error('Failed to fetch updated sent requests');
+          })
+          .then(data => {
+            if (data && data.sentRequests) {
+              console.log('Updated sent requests from API after sending:', data.sentRequests);
+              setSentRequests(data.sentRequests);
+              sessionStorage.setItem('sentRequests', JSON.stringify(data.sentRequests));
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching updated sent requests:', error);
+          });
+        } catch (error) {
+          console.error('Error in fetch updated requests:', error);
+        }
+      }, 1000);
 
       showNotification('success', 'Đã gửi lời mời kết bạn');
     } catch (err) {
@@ -721,7 +870,16 @@ const Friends = () => {
     return null;
   };
 
-  if (loading) {
+  // For sent tab, show loading state when fetching
+  const showSentLoading = activeTab === 'sent' && loading;
+
+  // Persist active tab so it survives page reloads
+  useEffect(() => {
+    sessionStorage.setItem('friendsActiveTab', activeTab);
+  }, [activeTab]);
+
+  // Show full-screen spinner only if no cached data exists
+  if (loading && friends.length === 0 && pendingRequests.length === 0 && sentRequests.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="flex flex-col items-center space-y-4">
@@ -743,6 +901,9 @@ const Friends = () => {
 
   // Filter based on search term
   const filteredUsers = filterUsers(displayedUsers);
+  console.log('Active tab:', activeTab);
+  console.log('Displayed users:', displayedUsers);
+  console.log('Filtered users:', filteredUsers);
 
   // Determine if we should show loading for suggestions tab
   const showTabLoading = activeTab === 'suggestions' && suggestionsLoading;
@@ -891,10 +1052,22 @@ const Friends = () => {
                   Tải thêm gợi ý
                 </button>
               )}
+              {activeTab === 'sent' && (
+                <button 
+                  onClick={() => {
+                    setLoading(true);
+                    fetchFriendships().finally(() => setLoading(false));
+                  }}
+                  className="flex items-center px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50"
+                >
+                  <ArrowPathIcon className="h-4 w-4 mr-2" />
+                  Làm mới danh sách
+                </button>
+              )}
             </div>
 
             {/* Loading State */}
-            {showTabLoading && (
+            {(showTabLoading || showSentLoading) && (
               <div className="flex items-center justify-center h-64">
                 <div className="flex flex-col items-center space-y-4">
                   <div className="animate-spin rounded-full h-10 w-10 border-[3px] border-blue-600 border-t-transparent"></div>
@@ -904,7 +1077,7 @@ const Friends = () => {
             )}
 
             {/* User Grid */}
-            {!showTabLoading && filteredUsers.length > 0 && (
+            {!showTabLoading && !showSentLoading && filteredUsers.length > 0 && (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {filteredUsers.map(user => (
                   <div 
@@ -1008,7 +1181,7 @@ const Friends = () => {
             )}
 
             {/* Empty State */}
-            {!showTabLoading && filteredUsers.length === 0 && (
+            {!showTabLoading && !showSentLoading && filteredUsers.length === 0 && (
               <div className="text-center py-12">
                 <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                   <UserCircleIcon className="h-8 w-8 text-gray-400" />
@@ -1028,6 +1201,17 @@ const Friends = () => {
                         ? 'Chúng tôi sẽ gợi ý những người phù hợp để bạn kết bạn.'
                         : 'Bạn chưa gửi lời mời kết bạn cho ai.'}
                 </p>
+                {activeTab === 'sent' && (
+                  <button 
+                    onClick={() => {
+                      setLoading(true);
+                      fetchFriendships().finally(() => setLoading(false));
+                    }}
+                    className="mt-4 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                  >
+                    Làm mới danh sách
+                  </button>
+                )}
               </div>
             )}
           </div>

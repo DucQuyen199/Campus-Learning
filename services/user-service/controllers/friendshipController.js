@@ -91,6 +91,9 @@ exports.getAllFriendships = async (req, res) => {
     const pendingRequests = [];
     const sentRequests = [];
 
+    // Debug logs
+    console.log('Total records from database:', records.length);
+
     records.forEach(record => {
       const userData = {
         UserID: record.UserID,
@@ -107,14 +110,29 @@ exports.getAllFriendships = async (req, res) => {
         UpdatedAt: record.UpdatedAt
       };
 
+      // Add detailed logging for each record
+      console.log('Processing record:', {
+        UserID: record.UserID,
+        RequesterID: record.RequesterID,
+        AddresseeID: record.AddresseeID, 
+        Status: record.Status,
+        CurrentUserID: currentUserId
+      });
+
       if (record.Status === 'accepted') {
         friends.push(userData);
-      } else if (record.Status === 'pending' && record.FriendID === currentUserId) {
+      } else if (record.Status === 'pending' && record.AddresseeID === currentUserId) {
         pendingRequests.push(userData);
-      } else if (record.Status === 'pending' && record.UserID === currentUserId) {
+      } else if (record.Status === 'pending' && record.RequesterID === currentUserId) {
+        console.log('Adding to sent requests:', userData);
         sentRequests.push(userData);
       }
     });
+
+    // Log final results
+    console.log('Friends count:', friends.length);
+    console.log('Pending requests count:', pendingRequests.length);
+    console.log('Sent requests count:', sentRequests.length);
 
     res.json({ 
       friends, 
@@ -256,16 +274,21 @@ exports.sendFriendRequest = async (req, res) => {
   const transaction = new sql.Transaction(pool);
   
   try {
+    console.log('sendFriendRequest called with body:', req.body);
     const { addresseeId } = req.body;
     const requesterId = req.user.userId;
 
+    console.log(`Processing friend request: requester=${requesterId}, addressee=${addresseeId}`);
+
     if (!addresseeId) {
+      console.log('Invalid addressee ID');
       return res.status(400).json({
         message: 'ID người nhận không hợp lệ'
       });
     }
 
     if (requesterId == addresseeId) {
+      console.log('Cannot send request to self');
       return res.status(400).json({
         message: 'Không thể gửi yêu cầu kết bạn cho chính mình'
       });
@@ -281,8 +304,11 @@ exports.sendFriendRequest = async (req, res) => {
         WHERE UserID = @userId AND DeletedAt IS NULL
       `);
 
+    console.log('User check result:', userCheckResult.recordset);
+
     if (userCheckResult.recordset.length === 0) {
       await transaction.rollback();
+      console.log('User not found');
       return res.status(404).json({
         message: 'Không tìm thấy người dùng'
       });
@@ -298,10 +324,13 @@ exports.sendFriendRequest = async (req, res) => {
             OR (UserID = @friendId AND FriendID = @userId))
       `);
 
+    console.log('Friendship check result:', checkResult.recordset);
+
     if (checkResult.recordset.length > 0) {
       const friendship = checkResult.recordset[0];
       await transaction.rollback();
       
+      console.log('Existing friendship found with status:', friendship.Status);
       if (friendship.Status === 'pending') {
         return res.status(400).json({
           message: 'Đã tồn tại yêu cầu kết bạn'
@@ -317,6 +346,7 @@ exports.sendFriendRequest = async (req, res) => {
       }
     }
 
+    console.log('Creating new friend request');
     // Create friend request
     const result = await transaction.request()
       .input('userId', sql.BigInt, requesterId)
@@ -327,7 +357,31 @@ exports.sendFriendRequest = async (req, res) => {
         VALUES (@userId, @friendId, 'pending', GETDATE(), GETDATE())
       `);
 
+    const newFriendship = result.recordset[0];
+    console.log('Friend request created:', newFriendship);
+
     await transaction.commit();
+    
+    // After committing the transaction, fetch the updated friendships list
+    console.log('Transaction committed, fetching updated friendships for user', requesterId);
+    
+    // Get all friendships for the requester to verify the new request is included
+    const updatedFriendships = await pool.request()
+      .input('currentUserId', sql.BigInt, requesterId)
+      .query(`
+        SELECT 
+          f.FriendshipID, 
+          f.UserID, 
+          f.FriendID,
+          f.Status,
+          u.Username,
+          u.FullName
+        FROM Friendships f
+        JOIN Users u ON f.FriendID = u.UserID
+        WHERE f.UserID = @currentUserId AND f.Status = 'pending'
+      `);
+    
+    console.log('Updated sent requests after creating new request:', updatedFriendships.recordset);
 
     res.status(201).json({
       message: 'Đã gửi yêu cầu kết bạn',

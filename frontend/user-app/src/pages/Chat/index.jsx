@@ -839,14 +839,34 @@ const Chat = () => {
 
   // Add back the handleConversationSelect function
   const handleConversationSelect = async (conv) => {
-    // Load cached messages if available
-    const cached = messageCacheRef.current[conv.ConversationID];
-    if (cached) {
-      setMessages(cached);
-    } else if (conv.Messages && conv.Messages.length > 0) {
-      setMessages(conv.Messages);
+    // Load messages from cache: in-memory or localStorage, fallback to conv.Messages
+    const convId = conv.ConversationID;
+    const inMemory = messageCacheRef.current[convId];
+    if (inMemory) {
+      setMessages(inMemory);
     } else {
-      setMessages([]);
+      const localCache = localStorage.getItem(`chat_messages_${convId}`);
+      if (localCache) {
+        try {
+          const parsed = JSON.parse(localCache);
+          if (Array.isArray(parsed)) {
+            setMessages(parsed);
+            messageCacheRef.current[convId] = parsed;
+          }
+        } catch (e) {
+          console.error('Error parsing localStorage messages:', e);
+          // Fallback to server-provided messages
+          if (conv.Messages && conv.Messages.length > 0) {
+            setMessages(conv.Messages);
+          } else {
+            setMessages([]);
+          }
+        }
+      } else if (conv.Messages && conv.Messages.length > 0) {
+        setMessages(conv.Messages);
+      } else {
+        setMessages([]);
+      }
     }
     console.log('Selecting conversation:', conv.ConversationID);
     // For group chats, fetch full conversation with participants
@@ -989,11 +1009,24 @@ const Chat = () => {
     let abortController;
     const fetchMessages = async () => {
       if (!currentConversation) return;
-      // If we have cached messages for this conversation, use them
-      const cached = messageCacheRef.current[currentConversation.ConversationID];
-      if (cached) {
-        setMessages(cached);
-        return;
+      // Check in-memory cache first or localStorage
+      const convId = currentConversation.ConversationID;
+      const inMemory = messageCacheRef.current[convId];
+      if (inMemory) {
+        setMessages(inMemory);
+      } else {
+        const localCache = localStorage.getItem(`chat_messages_${convId}`);
+        if (localCache) {
+          try {
+            const parsed = JSON.parse(localCache);
+            if (Array.isArray(parsed)) {
+              setMessages(parsed);
+              messageCacheRef.current[convId] = parsed;
+            }
+          } catch (e) {
+            console.error('Error parsing localStorage messages:', e);
+          }
+        }
       }
       // Otherwise, fetch messages from API
       abortController = new AbortController();
@@ -1018,6 +1051,20 @@ const Chat = () => {
       abortController?.abort();
     };
   }, [currentConversation]);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (currentConversation?.ConversationID && Array.isArray(messages)) {
+      try {
+        localStorage.setItem(
+          `chat_messages_${currentConversation.ConversationID}`,
+          JSON.stringify(messages)
+        );
+      } catch (e) {
+        console.error('Error saving messages to localStorage:', e);
+      }
+    }
+  }, [messages, currentConversation]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

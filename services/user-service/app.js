@@ -46,6 +46,31 @@ const aiRoutes = require('./routes/aiRoutes');
 const competitionRoutes = require('./routes/competitionRoutes');
 const app = express();
 
+// Initialize in-memory caches
+app.locals.conversationCache = {};
+
+// Cache cleanup interval (every 15 minutes)
+setInterval(() => {
+  console.log('Running cache cleanup...');
+  const now = Date.now();
+  
+  // Clean up conversation cache
+  if (app.locals.conversationCache) {
+    let expiredCount = 0;
+    Object.keys(app.locals.conversationCache).forEach(key => {
+      const cacheEntry = app.locals.conversationCache[key];
+      // Remove entries older than 15 minutes
+      if (now - cacheEntry.timestamp > 15 * 60 * 1000) {
+        delete app.locals.conversationCache[key];
+        expiredCount++;
+      }
+    });
+    if (expiredCount > 0) {
+      console.log(`Removed ${expiredCount} expired conversation cache entries`);
+    }
+  }
+}, 15 * 60 * 1000); // 15 minutes
+
 // Middleware
 app.use(cors({
   origin: function(origin, callback) {

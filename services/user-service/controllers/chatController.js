@@ -24,6 +24,31 @@ exports.getUserConversations = async (req, res) => {
   try {
     const userId = req.user.id;
     
+    // Check for If-None-Match header for ETags
+    const clientEtag = req.headers['if-none-match'];
+    
+    // Generate a cache key based on user ID
+    const cacheKey = `conversations:${userId}`;
+    
+    // Check if we have a cached response
+    if (req.app.locals.conversationCache && req.app.locals.conversationCache[cacheKey]) {
+      const cachedData = req.app.locals.conversationCache[cacheKey];
+      
+      // If client sent matching ETag, return 304 Not Modified
+      if (clientEtag && clientEtag === cachedData.etag) {
+        return res.status(304).end();
+      }
+      
+      // Check if cache is still fresh (less than 10 seconds old)
+      const now = Date.now();
+      if (now - cachedData.timestamp < 10000) { // 10 seconds cache
+        // Return cached data with ETag
+        res.setHeader('ETag', cachedData.etag);
+        res.setHeader('Cache-Control', 'private, max-age=10');
+        return res.json(cachedData.data);
+      }
+    }
+    
     // Directly use Sequelize query instead of the static method
     const conversations = await Chat.findAll({
       include: [
@@ -55,6 +80,23 @@ exports.getUserConversations = async (req, res) => {
       order: [['LastMessageAt', 'DESC']]
     });
 
+    // Generate a simple ETag based on conversation data
+    const etag = `W/"${Buffer.from(JSON.stringify(conversations)).toString('base64').substring(0, 27)}"`;
+    
+    // Store in cache
+    if (!req.app.locals.conversationCache) {
+      req.app.locals.conversationCache = {};
+    }
+    
+    req.app.locals.conversationCache[cacheKey] = {
+      data: conversations,
+      etag: etag,
+      timestamp: Date.now()
+    };
+    
+    // Return response with caching headers
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'private, max-age=10');
     res.json(conversations);
   } catch (error) {
     console.error('Error getting conversations:', error);

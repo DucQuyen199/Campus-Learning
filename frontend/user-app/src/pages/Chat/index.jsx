@@ -27,7 +27,7 @@ const Chat = () => {
   const [newMessage, setNewMessage] = useState('');
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
@@ -45,6 +45,7 @@ const Chat = () => {
   const fileInputRef = useRef(null);
   const socket = useRef();
   const scrollRef = useRef();
+  const initialConversationsFetchedRef = useRef(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { initiateCall } = useCall();
@@ -376,246 +377,368 @@ const Chat = () => {
     }
   };
 
-  // Initialize socket connection
+  // Connect to Socket.io server and set up event handlers
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user) return; // Don't connect if user isn't loaded
+    
+    // Only connect socket once
+    if (!socket.current) {
+      console.log('Initializing socket connection...');
+      
+      // Create socket connection with auth token
+      socket.current = io(import.meta.env.VITE_API_URL, {
+        auth: { token: localStorage.getItem('token') },
+        transports: ['websocket', 'polling'], // Prefer WebSocket
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5
+      });
+      
+      // Setup connection event handlers
+      socket.current.on('connect', () => {
+        console.log('Socket connected successfully');
+      });
+      
+      socket.current.on('connect_error', (err) => {
+        console.error('Socket connection error:', err.message);
+      });
 
-    let mounted = true; // Track if component is mounted
+      socket.current.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+      });
 
-    // Get user data
+      // Set up event listener for online users
+      socket.current.on('getUsers', (users) => {
+        setOnlineUsers(users);
+      });
+      
+      // Listen for new messages
+      socket.current.on('new-message', (message) => {
+        // Add message to state if it belongs to the current conversation
+        if (currentConversation && message.ConversationID === currentConversation.ConversationID) {
+          setMessages(prevMessages => {
+            const updatedMessages = [...prevMessages, message];
+            // Also update cache
+            messageCacheRef.current[currentConversation.ConversationID] = updatedMessages;
+            return updatedMessages;
+          });
+        }
+        
+        // Play notification sound for new messages
+        const audio = new Audio('/sounds/message.mp3');
+        audio.play().catch(e => console.log('Error playing sound:', e));
+      });
+      
+      // Listen for conversation updates
+      socket.current.on('conversation-updated', ({ conversationId, lastMessage }) => {
+        setConversations(prevConversations => {
+          // Find the conversation that needs to be updated
+          const conversationIndex = prevConversations.findIndex(
+            c => c.ConversationID === conversationId
+          );
+          
+          if (conversationIndex === -1) {
+            // If conversation not found, fetch all conversations
+            fetchConversations(0, true);
+            return prevConversations;
+          }
+          
+          // Update the conversation with the new message
+          const conversation = prevConversations[conversationIndex];
+          const updatedConversation = {
+            ...conversation,
+            LastMessageAt: new Date().toISOString(),
+            Messages: [lastMessage, ...(conversation.Messages || []).slice(1)]
+          };
+          
+          // Remove the updated conversation and add it to the top
+          return [
+            updatedConversation,
+            ...prevConversations.filter(c => c.ConversationID !== conversationId)
+          ];
+        });
+      });
+    }
+
+    // Clean up socket connection when component unmounts
+    return () => {
+      // Only disconnect on full component unmount
+      if (socket.current) {
+        console.log('Component unmounting, cleaning up socket connection');
+        socket.current.disconnect();
+        socket.current = null;
+      }
+    };
+  }, [user]); // Only depend on user
+
+  // Optimized fetch for user data with better error handling
+  useEffect(() => {
+    let mounted = true;
+    
     const fetchUser = async () => {
       try {
-        setLoading(true);
-        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+        // Check if token exists
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.log('No token found, redirecting to login');
+          navigate('/login');
+          return;
+        }
+        
+        // Get current user data
+        const userResponse = await axios.get(`${import.meta.env.VITE_API_URL}/api/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 8000 // 8 second timeout
         });
         
-        // Only update state if component is still mounted
         if (!mounted) return;
         
-        setUser(response.data);
-        
-        // Connect to socket server
-        try {
-          // Only create a new socket connection if one doesn't exist already
-          if (!socket.current || socket.current.connected === false) {
-            console.log('Initializing socket connection...');
-            socket.current = io(import.meta.env.VITE_API_URL, {
-              auth: { token },
-              reconnection: true,
-              reconnectionAttempts: 5,
-              reconnectionDelay: 1000,
-              timeout: 10000
-            });
-            
-            // Add connection event handlers
-            socket.current.on('connect', () => {
-              console.log('Socket connected successfully');
-              // Join user's personal room
-              socket.current.emit('join_room', `user:${response.data.UserID || response.data.id}`);
-            });
-            
-            socket.current.on('connect_error', (err) => {
-              console.error('Socket connection error:', err.message);
-            });
-            
-            // Listen for online users
-            socket.current.on('getUsers', (users) => {
-              setOnlineUsers(users);
-            });
-
-            // Listen for new messages
-            socket.current.on('new-message', (message) => {
-              // Add the new message to the messages state if it's for the current conversation
-              if (currentConversation && message.ConversationID === currentConversation.ConversationID) {
-                setMessages(prevMessages => {
-                  const updated = [...prevMessages, message];
-                  messageCacheRef.current[currentConversation.ConversationID] = updated;
-                  return updated;
-                });
-              }
-              
-              // When receiving a message, also update the conversations list
-              setConversations(prevConversations => {
-                // Find the conversation that received this message
-                const conversationId = message.ConversationID;
-                const conversation = prevConversations.find(c => c.ConversationID === conversationId);
-                
-                if (!conversation) return prevConversations; // If conversation not found, don't update
-                
-                // Create updated conversation with the new message
-                const updatedConversation = {
-                  ...conversation,
-                  LastMessageAt: message.CreatedAt || new Date().toISOString(),
-                  Messages: [
-                    {
-                      ...message,
-                      Sender: message.Sender || { 
-                        UserID: message.SenderID,
-                        // Use existing sender info if available
-                        ...(conversation.Participants?.find(p => p.UserID === message.SenderID) || {})
-                      }
-                    },
-                    ...(conversation.Messages || []).slice(1)
-                  ]
-                };
-                
-                // If this is the current active conversation, update it
-                if (currentConversation && currentConversation.ConversationID === conversationId) {
-                  setCurrentConversation(updatedConversation);
-                }
-                
-                // Update lastConversationsRefresh to prevent unnecessary API calls
-                localStorage.setItem('lastConversationsRefresh', Date.now().toString());
-                
-                // Move this conversation to the top of the list
-                return [
-                  updatedConversation,
-                  ...prevConversations.filter(c => c.ConversationID !== conversationId)
-                ];
-              });
-            });
-
-            // Listen for conversation updates (when someone else sends a message)
-            socket.current.on('conversation-updated', (data) => {
-              const { conversationId, lastMessage } = data;
-              
-              // Update the conversations list
-              setConversations(prevConversations => {
-                // Find the conversation that was updated
-                const conversation = prevConversations.find(c => c.ConversationID === conversationId);
-                if (!conversation) return prevConversations; // If conversation not found, don't update
-                
-                // Create updated conversation with the last message
-                const updatedConversation = {
-                  ...conversation,
-                  LastMessageAt: lastMessage.CreatedAt || new Date().toISOString(),
-                  Messages: conversation.Messages ? 
-                    [lastMessage, ...conversation.Messages.slice(1)] : 
-                    [lastMessage]
-                };
-                
-                // Update lastConversationsRefresh to prevent unnecessary API calls
-                localStorage.setItem('lastConversationsRefresh', Date.now().toString());
-                
-                // Move this conversation to the top of the list
-                return [
-                  updatedConversation,
-                  ...prevConversations.filter(c => c.ConversationID !== conversationId)
-                ];
-              });
-            });
-          } else {
-            console.log('Socket already connected, reusing connection');
-          }
-        } catch (socketError) {
-          console.error('Failed to initialize socket:', socketError);
-          // Continue without socket if it fails
+        if (!userResponse.data) {
+          console.log('Invalid user data response');
+          navigate('/login');
+          return;
         }
         
-        // Make sure isRefreshingConversations is reset before starting
-        setIsRefreshingConversations(false);
+        setUser(userResponse.data);
         
-        // First load conversations to ensure they're available
-        let userConversations = [];
-        try {
-          userConversations = await fetchConversations();
-          console.log('Initial conversations loaded:', userConversations.length);
-          
-          // Only proceed with user profile handling if component is still mounted
-          if (!mounted) return;
-          
-          // Now that user and conversations are loaded, handle navigation from profile
-          if (location.state?.selectedUser) {
-            console.log('User navigated from profile page with:', location.state.selectedUser);
-            handleUserFromProfile(location.state.selectedUser);
-          } else {
-            // Try to restore previously selected conversation from localStorage
-            const savedConversationId = localStorage.getItem('currentConversationId');
-            if (savedConversationId) {
-              // Select the saved conversation if it exists
-              const savedConversation = userConversations.find(c => 
-                c.ConversationID === parseInt(savedConversationId)
-              );
-              
-              if (savedConversation) {
-                console.log('Restoring previously selected conversation:', savedConversation.ConversationID);
-                handleConversationSelect(savedConversation);
-              } else {
-                console.log('Saved conversation not found, selecting first conversation');
-                localStorage.removeItem('currentConversationId');
-                
-                // Select first conversation if available
-                if (userConversations.length > 0) {
-                  handleConversationSelect(userConversations[0]);
-                }
-              }
-            } else if (userConversations.length > 0) {
-              // If no saved conversation, select the first one
-              handleConversationSelect(userConversations[0]);
-            }
-          }
-        } catch (error) {
-          console.log('Initial conversation load failed:', error.message);
+        // Handle selectedUser from profile navigation
+        if (location.state?.selectedUser) {
+          console.log('User navigated from profile page with:', location.state.selectedUser);
+          handleUserFromProfile(location.state.selectedUser);
+          return; // Don't proceed with conversation loading since handleUserFromProfile will handle it
         }
+        
+        // Restore conversations and selected conversation will be handled in the useEffect 
+        // that watches for user state changes
+        // Set loading to false after user data is fetched
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching user:', error);
-        navigate('/login');
-      } finally {
         if (mounted) {
-          setLoading(false);
+          if (error.response?.status === 401) {
+            navigate('/login');
+          } else {
+            setError('Failed to load user data. Please refresh the page.');
+            setLoading(false);
+          }
         }
       }
     };
 
+    // Set loading to false immediately to show UI while data is being fetched
+    setLoading(false);
     fetchUser();
     
-    // Cleanup function
     return () => {
-      mounted = false; // Mark component as unmounted
-      if (socket.current) {
-        console.log('Disconnecting socket...');
-        socket.current.disconnect();
-      }
+      mounted = false;
     };
   }, [navigate, location.state]);
   
-  // Fetch conversations whenever user changes
-  useEffect(() => {
-    // Only fetch conversations once when the user loads and conversations are empty
-    if (user && !isRefreshingConversations && conversations.length === 0) {
-      console.log('User loaded, fetching conversations...');
-      fetchConversations().catch(err => {
-        console.log('Failed to fetch conversations:', err.message);
-      });
+  // Optimized fetchConversations with proper caching
+  const fetchConversations = async (retryCount = 0, forceRefresh = false) => {
+    // Ensure user is loaded before fetching conversations
+    if (!user || !user.UserID) {
+      console.log('Delaying conversation fetch: user not loaded yet');
+      return Promise.reject(new Error('User not loaded yet'));
     }
     
-    // Set up a visibility change handler instead of periodic polling
-    if (user) {
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && !isRefreshingConversations) {
-          // The page became visible after being hidden
-          const lastRefresh = localStorage.getItem('lastConversationsRefresh');
-          const now = Date.now();
-          
-          // Only refresh if it's been more than 10 minutes since last refresh
-          if (!lastRefresh || (now - parseInt(lastRefresh)) > 600000) {
-            console.log('Tab became visible after being hidden for a while, refreshing conversations...');
-            fetchConversations().catch(err => {
-              console.log('Failed to refresh conversations on visibility change:', err.message);
-            });
-          }
-        }
-      };
-      
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      
-      return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-      };
+    // Use an actual state variable to prevent race conditions
+    if (isRefreshingConversations) {
+      console.log('Already refreshing conversations, skipping duplicate fetch');
+      return Promise.resolve(conversations); 
     }
-  }, [user, isRefreshingConversations, conversations.length]);
+    
+    // Set refreshing flag
+    setIsRefreshingConversations(true);
+    setLoading(true); // Set loading state while fetching
+    
+    try {
+      console.log('Fetching conversations...');
+      
+      // Use AbortController for proper timeout handling
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 15000);
+      
+      // Get ETag from localStorage if available
+      const etag = localStorage.getItem('conversationsEtag');
+      
+      // Set up headers with ETag for conditional request
+      const headers = { 
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      };
+      
+      // Only send If-None-Match if not forcing refresh
+      if (!forceRefresh && etag) {
+        headers['If-None-Match'] = etag;
+      }
+      
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/chat/conversations`, {
+        headers,
+        signal: abortController.signal,
+        validateStatus: function (status) {
+          // Accept 304 Not Modified as a valid status
+          return (status >= 200 && status < 300) || status === 304;
+        }
+      });
+      
+      // Clear timeout
+      clearTimeout(timeoutId);
+      
+      // If server responded with 304 Not Modified, use current data
+      if (response.status === 304) {
+        console.log('Server returned 304 Not Modified, using cached conversations');
+        // Save last check time even if we got a 304
+        localStorage.setItem('lastConversationsRefresh', Date.now().toString());
+        // If empty conversations array, open create group modal
+        if (conversations.length === 0 && !initialConversationsFetchedRef.current) {
+          initialConversationsFetchedRef.current = true;
+          setShowCreateGroup(true);
+        }
+        setLoading(false);
+        return conversations;
+      }
+      
+      // Store the new ETag if provided
+      const newEtag = response.headers.etag;
+      if (newEtag) {
+        localStorage.setItem('conversationsEtag', newEtag);
+      }
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.log(`Loaded ${response.data.length} conversations`);
+        
+        // Sort conversations by last message time
+        const sortedConversations = [...response.data].sort((a, b) => {
+          const dateA = a.LastMessageAt ? new Date(a.LastMessageAt) : new Date(0);
+          const dateB = b.LastMessageAt ? new Date(b.LastMessageAt) : new Date(0);
+          return dateB - dateA;
+        });
+        
+        // Update conversations state
+        setConversations(sortedConversations);
+        
+        // Save current time as last refresh time
+        localStorage.setItem('lastConversationsRefresh', Date.now().toString());
+        // If empty conversations array, open create group modal
+        if (sortedConversations.length === 0 && !initialConversationsFetchedRef.current) {
+          initialConversationsFetchedRef.current = true;
+          setTimeout(() => setShowCreateGroup(true), 100);
+        }
+        
+        // Mark as fetched
+        initialConversationsFetchedRef.current = true;
+        setLoading(false);
+        
+        // Return conversations for further processing
+        return sortedConversations;
+      } else {
+        console.error('Invalid conversations data format:', response.data);
+        setLoading(false);
+        if (conversations.length > 0) {
+          return conversations;
+        }
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      setLoading(false);
+      
+      // Handle specific errors
+      if (error.name === 'AbortError') {
+        console.log('Fetch conversations timed out');
+      } else if (error.response && error.response.status === 401) {
+        console.log('Unauthorized, redirecting to login...');
+        navigate('/login');
+        return [];
+      }
+      
+      // If fail count is less than 2, retry with exponential backoff
+      if (retryCount < 2) {
+        const nextRetryDelay = Math.pow(2, retryCount) * 1000;
+        console.log(`Retrying fetch conversations in ${nextRetryDelay}ms (attempt ${retryCount + 1}/3)...`);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, nextRetryDelay));
+        
+        // Reset refreshing flag before retry
+        setIsRefreshingConversations(false);
+        
+        return fetchConversations(retryCount + 1);
+      }
+      
+      // After all retries, return existing conversations or empty array
+      return conversations.length > 0 ? conversations : [];
+    } finally {
+      setIsRefreshingConversations(false);
+    }
+  };
+  
+  // Fetch conversations with better logic to prevent continuous loading
+  useEffect(() => {
+    // Add a debounce mechanism to prevent rapid consecutive calls
+    let fetchTimeout;
+    
+    // Only fetch when user is loaded and !isRefreshingConversations
+    if (user && !isRefreshingConversations) {
+      clearTimeout(fetchTimeout);
+      fetchTimeout = setTimeout(() => {
+        // Only fetch if first load or cache expired
+        const lastRefreshTime = localStorage.getItem('lastConversationsRefresh');
+        const currentTime = Date.now();
+        const shouldFetch =
+          !lastRefreshTime ||
+          (currentTime - parseInt(lastRefreshTime)) > 30000;
+        
+        if (shouldFetch) {
+          fetchConversations()
+            .then(loadedConversations => {
+              // On first fetch, if no conversations, open the create-group modal
+              if (!initialConversationsFetchedRef.current) {
+                initialConversationsFetchedRef.current = true;
+                if (loadedConversations.length === 0) {
+                  setShowCreateGroup(true);
+                  return;
+                }
+              }
+              // Restore previously selected conversation or select first conversation
+              const savedConversationId = localStorage.getItem('currentConversationId');
+              
+              if (savedConversationId && !currentConversation) {
+                // Find the saved conversation
+                const savedConversation = loadedConversations.find(c => 
+                  c.ConversationID === parseInt(savedConversationId)
+                );
+                
+                if (savedConversation) {
+                  console.log('Restoring previously selected conversation:', savedConversation.ConversationID);
+                  handleConversationSelect(savedConversation);
+                } else if (loadedConversations.length > 0) {
+                  // If saved conversation not found but we have conversations, select the first one
+                  console.log('Saved conversation not found, selecting first conversation');
+                  localStorage.removeItem('currentConversationId');
+                  handleConversationSelect(loadedConversations[0]);
+                }
+              } else if (loadedConversations.length > 0 && !currentConversation) {
+                // If no saved conversation, select the first one
+                handleConversationSelect(loadedConversations[0]);
+              }
+            })
+            .catch(error => {
+              console.error('Failed to fetch conversations:', error);
+              // If fetch fails but we have no conversations, show create group modal
+              if (conversations.length === 0 && !initialConversationsFetchedRef.current) {
+                initialConversationsFetchedRef.current = true;
+                setShowCreateGroup(true);
+              }
+            });
+        }
+      }, 100); // Reduce delay to make UI more responsive
+    }
+    
+    return () => {
+      clearTimeout(fetchTimeout);
+    };
+  }, [user, isRefreshingConversations, currentConversation]);
 
   // Handle sending a message
   const handleSubmit = async (e) => {
@@ -711,114 +834,6 @@ const Chat = () => {
       
       // Display error to user
       showError('Không thể gửi tin nhắn. Vui lòng thử lại sau.');
-    }
-  };
-
-  // Fetch conversations with retry mechanism
-  const fetchConversations = async (retryCount = 0, forceRefresh = false) => {
-    // Ensure user is loaded before fetching conversations
-    if (!user || !user.UserID) {
-      console.log('Delaying conversation fetch: user not loaded yet');
-      return Promise.reject(new Error('User not loaded yet'));
-    }
-    
-    // Use an actual state variable instead of a window property to prevent race conditions
-    if (isRefreshingConversations) {
-      console.log('Already refreshing conversations, skipping duplicate fetch');
-      return Promise.resolve(conversations); // Return current conversations instead of rejecting
-    }
-    
-    // Check if we have data in cache and it's recent (within last 10 minutes)
-    const lastRefreshTime = localStorage.getItem('lastConversationsRefresh');
-    const currentTime = Date.now();
-    
-    if (!forceRefresh && conversations.length > 0 && lastRefreshTime) {
-      const ageInMs = currentTime - parseInt(lastRefreshTime);
-      console.log(`Conversation cache age: ${Math.floor(ageInMs/1000)} seconds`);
-      
-      // If cache is less than 10 minutes old, use it
-      if (ageInMs < 600000) {
-        console.log('Using cached conversations (less than 10 minutes old)');
-        return Promise.resolve(conversations);
-      }
-    }
-    
-    // Set refreshing flag
-    setIsRefreshingConversations(true);
-    
-    try {
-      console.log('Fetching conversations...');
-      
-      // Use a timeout promise to handle potential hanging requests
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Fetch conversations timeout')), 15000)
-      );
-      
-      const fetchPromise = axios.get(`${import.meta.env.VITE_API_URL}/api/chat/conversations`, {
-        headers: { 
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Cache-Control': 'no-cache' // Prevent browser caching
-        }
-      });
-      
-      // Race the fetch against a timeout
-      const response = await Promise.race([fetchPromise, timeoutPromise]);
-      
-      if (response.data && Array.isArray(response.data)) {
-        console.log(`Loaded ${response.data.length} conversations`);
-        
-        // Sort conversations by last message time
-        const sortedConversations = [...response.data].sort((a, b) => {
-          const dateA = a.LastMessageAt ? new Date(a.LastMessageAt) : new Date(0);
-          const dateB = b.LastMessageAt ? new Date(b.LastMessageAt) : new Date(0);
-          return dateB - dateA;
-        });
-        
-        // Update conversations state
-        setConversations(sortedConversations);
-        
-        // Save current time as last refresh time
-        localStorage.setItem('lastConversationsRefresh', currentTime.toString());
-        
-        // Return conversations for further processing
-        return sortedConversations;
-      } else {
-        console.error('Invalid conversations data format:', response.data);
-        if (conversations.length > 0) {
-          // If we have existing conversations, return those rather than empty array
-          return conversations;
-        }
-        return [];
-      }
-    } catch (error) {
-      console.error('Error fetching conversations:', error);
-      
-      // Handle specific errors
-      if (error.response && error.response.status === 401) {
-        // Unauthorized - token may be expired
-        console.log('Unauthorized, redirecting to login...');
-        navigate('/login');
-        return [];
-      }
-      
-      // If fail count is less than 2, retry with exponential backoff
-      if (retryCount < 2) {
-        const nextRetryDelay = Math.pow(2, retryCount) * 1000;
-        console.log(`Retrying fetch conversations in ${nextRetryDelay}ms (attempt ${retryCount + 1}/3)...`);
-        
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, nextRetryDelay));
-        
-        // Reset refreshing flag before retry
-        setIsRefreshingConversations(false);
-        
-        return fetchConversations(retryCount + 1);
-      }
-      
-      // After all retries, return existing conversations or empty array
-      return conversations.length > 0 ? conversations : [];
-    } finally {
-      setIsRefreshingConversations(false);
     }
   };
 
@@ -1841,94 +1856,113 @@ const Chat = () => {
             </div>
           ) : (
             <>
-              {filteredConversations.map((conv) => (
-                <div
-                  key={conv.ConversationID}
-                  className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                    currentConversation?.ConversationID === conv.ConversationID ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                  }`}
-                  onClick={() => handleConversationSelect(conv)}
-                >
-                  <div className="flex items-center">
-                    {/* Avatar */}
-                    <div className="flex-shrink-0 mr-3 relative">
-                      <Avatar 
-                        src={getConversationAvatarInfo(conv).src}
-                        name={getConversationAvatarInfo(conv).name}
-                        size="medium"
-                      />
-                      {/* Group indicator */}
-                      {conv.Type === 'group' && (
-                        <div className="absolute -bottom-1 -right-1 bg-purple-500 rounded-full p-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
+              {loading && conversations.length === 0 ? (
+                // Show skeleton loaders while loading
+                <>
+                  {[1, 2, 3, 4, 5].map((index) => (
+                    <div key={index} className="p-3 border-b animate-pulse">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full mr-3"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                    
-                    {/* Conversation details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-base truncate flex items-center">
-                        {getConversationName(conv)}
-                        {/* Call buttons next to username */}
-                        {conv.Type === 'private' && getOtherParticipants(conv).length > 0 && (
-                          <div className="flex ml-2">
-                            <button
-                              className="p-1 rounded-full hover:bg-gray-200 transition-colors mr-1"
-                              title="Audio Call"
-                              onClick={(e) => {
-                                e.stopPropagation(); 
-                                const otherId = getOtherParticipants(conv)[0]?.UserID;
-                                const otherName = getOtherParticipants(conv)[0]?.Username || getOtherParticipants(conv)[0]?.FullName;
-                                handleAudioCall(otherId, otherName);
-                              }}
-                            >
-                              <PhoneIcon className="h-3 w-3 text-gray-600" />
-                            </button>
-                            <button
-                              className="p-1 rounded-full hover:bg-gray-200 transition-colors"
-                              title="Video Call"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const otherId = getOtherParticipants(conv)[0]?.UserID;
-                                const otherName = getOtherParticipants(conv)[0]?.Username || getOtherParticipants(conv)[0]?.FullName;
-                                handleVideoCall(otherId, otherName);
-                              }}
-                            >
-                              <VideoCameraIcon className="h-3 w-3 text-gray-600" />
-                            </button>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {filteredConversations.map((conv) => (
+                    <div
+                      key={conv.ConversationID}
+                      className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                        currentConversation?.ConversationID === conv.ConversationID ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                      }`}
+                      onClick={() => handleConversationSelect(conv)}
+                    >
+                      <div className="flex items-center">
+                        {/* Avatar */}
+                        <div className="flex-shrink-0 mr-3 relative">
+                          <Avatar 
+                            src={getConversationAvatarInfo(conv).src}
+                            name={getConversationAvatarInfo(conv).name}
+                            size="medium"
+                          />
+                          {/* Group indicator */}
+                          {conv.Type === 'group' && (
+                            <div className="absolute -bottom-1 -right-1 bg-purple-500 rounded-full p-1">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Conversation details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-base truncate flex items-center">
+                            {getConversationName(conv)}
+                            {/* Call buttons next to username */}
+                            {conv.Type === 'private' && getOtherParticipants(conv).length > 0 && (
+                              <div className="flex ml-2">
+                                <button
+                                  className="p-1 rounded-full hover:bg-gray-200 transition-colors mr-1"
+                                  title="Audio Call"
+                                  onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    const otherId = getOtherParticipants(conv)[0]?.UserID;
+                                    const otherName = getOtherParticipants(conv)[0]?.Username || getOtherParticipants(conv)[0]?.FullName;
+                                    handleAudioCall(otherId, otherName);
+                                  }}
+                                >
+                                  <PhoneIcon className="h-3 w-3 text-gray-600" />
+                                </button>
+                                <button
+                                  className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                                  title="Video Call"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const otherId = getOtherParticipants(conv)[0]?.UserID;
+                                    const otherName = getOtherParticipants(conv)[0]?.Username || getOtherParticipants(conv)[0]?.FullName;
+                                    handleVideoCall(otherId, otherName);
+                                  }}
+                                >
+                                  <VideoCameraIcon className="h-3 w-3 text-gray-600" />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-500 truncate">
-                        {conv.Messages && conv.Messages.length > 0 
-                          ? `${conv.Messages[0].Sender?.Username || 'Không xác định'}: ${conv.Messages[0].Content}`
-                          : 'Chưa có tin nhắn'}
-                      </div>
-                    </div>
-                    
-                    {/* Online indicator and timestamp */}
-                    <div className="flex flex-col items-end ml-3">
-                      {conv.Type === 'private' && getOtherParticipants(conv).length > 0 && 
-                        isUserOnline(getOtherParticipants(conv)[0]?.UserID) && (
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      )}
-                      {conv.Messages && conv.Messages.length > 0 && conv.Messages[0].CreatedAt && (
-                        <div className="text-xs text-gray-400 mt-1">
-                          {safeFormatDate(conv.Messages[0].CreatedAt)}
+                          <div className="text-sm text-gray-500 truncate">
+                            {conv.Messages && conv.Messages.length > 0 
+                              ? `${conv.Messages[0].Sender?.Username || 'Không xác định'}: ${conv.Messages[0].Content}`
+                              : 'Chưa có tin nhắn'}
+                          </div>
                         </div>
-                      )}
+                        
+                        {/* Online indicator and timestamp */}
+                        <div className="flex flex-col items-end ml-3">
+                          {conv.Type === 'private' && getOtherParticipants(conv).length > 0 && 
+                            isUserOnline(getOtherParticipants(conv)[0]?.UserID) && (
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          )}
+                          {conv.Messages && conv.Messages.length > 0 && conv.Messages[0].CreatedAt && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {safeFormatDate(conv.Messages[0].CreatedAt)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-              {filteredConversations.length === 0 && (
-                <div className="text-center p-4 text-gray-500">
-                  {searchTerm ? 
-                    `Không tìm thấy cuộc trò chuyện nào với từ khóa "${searchTerm}"` : 
-                    'Đang tải danh sách trò chuyện...'}
-                </div>
+                  ))}
+                  {filteredConversations.length === 0 && (
+                    <div className="text-center p-4 text-gray-500">
+                      {searchTerm ? 
+                        `Không tìm thấy cuộc trò chuyện nào với từ khóa "${searchTerm}"` : 
+                        'Đang tải danh sách trò chuyện...'}
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -2136,58 +2170,79 @@ const Chat = () => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-              {messages.map((message, index) => (
-                <div
-                  ref={scrollRef}
-                  key={message.MessageID || index}
-                  className={`flex mb-3 ${
-                    message.SenderID === user?.UserID || message.SenderID === user?.id ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  {/* Sender avatar (only for messages from others) */}
-                  {message.SenderID !== user?.UserID && message.SenderID !== user?.id && (
-                    <div className="flex-shrink-0 mr-2">
-                      <Avatar 
-                        src={getUserAvatar(message.Sender)}
-                        name={message.Sender?.FullName || message.Sender?.Username || 'Người dùng'}
-                        size="small"
-                      />
-                    </div>
-                  )}
-                  
-                  {/* Message bubble */}
-                  <div
-                    className={`max-w-[70%] p-3 rounded-lg shadow-sm ${
-                      message.SenderID === user?.UserID || message.SenderID === user?.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white'
-                    }`}
-                  >
-                    {/* Sender name (only for messages from others and in group chats) */}
-                    {(message.SenderID !== user?.UserID && message.SenderID !== user?.id && 
-                      currentConversation.Type === 'group' && message.Sender) && (
-                      <div className={`text-xs font-medium mb-1 ${
-                        message.SenderID === user?.UserID || message.SenderID === user?.id
-                        ? 'text-blue-200' : 'text-blue-600'
-                      }`}>
-                        {message.Sender.FullName || message.Sender.Username || 'Người dùng'}
+              {loading ? (
+                // Show message skeletons while loading
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className={`flex mb-4 ${i % 2 === 0 ? 'justify-end' : 'justify-start'}`}>
+                      {i % 2 !== 0 && (
+                        <div className="flex-shrink-0 mr-2">
+                          <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+                        </div>
+                      )}
+                      <div className={`max-w-[70%] p-3 rounded-lg animate-pulse ${i % 2 === 0 ? 'bg-blue-200' : 'bg-gray-200'}`}>
+                        <div className="h-3 bg-gray-300 rounded w-full mb-2"></div>
+                        <div className="h-3 bg-gray-300 rounded w-3/4"></div>
                       </div>
-                    )}
-                    
-                    <p className="text-sm">{message.Content}</p>
-                    <span className={`text-xs mt-1 block text-right ${
-                      message.SenderID === user?.UserID || message.SenderID === user?.id
-                      ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
-                      {safeFormatDate(message.CreatedAt)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {messages.length === 0 && (
+                    </div>
+                  ))}
+                </>
+              ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-400">
                   Bắt đầu cuộc trò chuyện bằng cách gửi tin nhắn
                 </div>
+              ) : (
+                // Existing message rendering
+                <>
+                  {messages.map((message, index) => (
+                    <div
+                      ref={scrollRef}
+                      key={message.MessageID || index}
+                      className={`flex mb-3 ${
+                        message.SenderID === user?.UserID || message.SenderID === user?.id ? 'justify-end' : 'justify-start'
+                      }`}
+                    >
+                      {/* Sender avatar (only for messages from others) */}
+                      {message.SenderID !== user?.UserID && message.SenderID !== user?.id && (
+                        <div className="flex-shrink-0 mr-2">
+                          <Avatar 
+                            src={getUserAvatar(message.Sender)}
+                            name={message.Sender?.FullName || message.Sender?.Username || 'Người dùng'}
+                            size="small"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Message bubble */}
+                      <div
+                        className={`max-w-[70%] p-3 rounded-lg shadow-sm ${
+                          message.SenderID === user?.UserID || message.SenderID === user?.id
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-white'
+                        }`}
+                      >
+                        {/* Sender name (only for messages from others and in group chats) */}
+                        {(message.SenderID !== user?.UserID && message.SenderID !== user?.id && 
+                          currentConversation.Type === 'group' && message.Sender) && (
+                          <div className={`text-xs font-medium mb-1 ${
+                            message.SenderID === user?.UserID || message.SenderID === user?.id
+                            ? 'text-blue-200' : 'text-blue-600'
+                          }`}>
+                            {message.Sender.FullName || message.Sender.Username || 'Người dùng'}
+                          </div>
+                        )}
+                        
+                        <p className="text-sm">{message.Content}</p>
+                        <span className={`text-xs mt-1 block text-right ${
+                          message.SenderID === user?.UserID || message.SenderID === user?.id
+                          ? 'text-blue-100' : 'text-gray-500'
+                        }`}>
+                          {safeFormatDate(message.CreatedAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
 

@@ -306,3 +306,19 @@ GO
 
 
 use campushubt;
+
+ IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PostBookmarks' AND schema_id = SCHEMA_ID('dbo'))
+      BEGIN
+        CREATE TABLE dbo.PostBookmarks (
+          BookmarkID BIGINT IDENTITY(1,1) PRIMARY KEY,
+          PostID BIGINT FOREIGN KEY REFERENCES dbo.Posts(PostID),
+          UserID BIGINT FOREIGN KEY REFERENCES dbo.Users(UserID),
+          CreatedAt DATETIME DEFAULT GETDATE(),
+          CONSTRAINT UQ_PostBookmarks_PostID_UserID UNIQUE (PostID, UserID)
+        );
+        CREATE INDEX IX_PostBookmarks_UserID ON dbo.PostBookmarks(UserID);
+      END
+      IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.Posts') AND name = 'BookmarksCount')
+      BEGIN
+        ALTER TABLE dbo.Posts ADD BookmarksCount INT NOT NULL DEFAULT 0;
+      END

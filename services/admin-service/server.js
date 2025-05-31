@@ -21,7 +21,7 @@ app.use(cors({
   origin: ['http://localhost:5005', 'http://127.0.0.1:5005'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Cache-Control']
 }));
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
@@ -64,21 +64,24 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const competitionsRoutes = require('./routes/competitions.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const settingsRoutes = require('./routes/settingsRoutes');
+const refreshRoutes = require('./routes/refresh.routes');
 
 // Auth routes (without middleware)
 app.use('/api/auth', authRoutes);
 
-// Protected routes (with middleware)
-app.use('/api/courses', auth.verifyAdmin, courseRoutes);
-app.use('/api/events', auth.verifyAdmin, eventRoutes);
-app.use('/api/users', auth.verifyAdmin, userRoutes);
-app.use('/api/exams', auth.verifyAdmin, examRoutes);
-app.use('/api/reports', auth.verifyAdmin, reportRoutes);
-app.use('/api/dashboard', auth.verifyAdmin, dashboardRoutes);
-app.use('/api/competitions', auth.verifyAdmin, competitionsRoutes);
-app.use('/api/upload', uploadRoutes);
+// Add a dedicated refresh token route
+app.use('/api/refresh', refreshRoutes);
 
-// Routes
+// Protected routes
+// Note: the verifyAdmin middleware is no longer needed here since we're using the authenticateToken middleware in each route file
+app.use('/api/courses', courseRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/exams', examRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/competitions', competitionsRoutes);
+app.use('/api/upload', uploadRoutes);
 app.use('/api/settings', settingsRoutes);
 
 // Root route

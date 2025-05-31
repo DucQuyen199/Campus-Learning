@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const coursesController = require('../controllers/courses.controller');
-const { verifyToken, isAdmin } = require('../middleware/auth');
+const { verifyAdmin, authenticateToken } = require('../middleware/auth');
 
-// Course management routes - add authentication to all routes
+// Apply authentication to all routes in this router
+router.use(authenticateToken);
+
+// Course management routes
 router.get('/', coursesController.getAllCourses);
 router.post('/', coursesController.createCourse);
 router.get('/:id', coursesController.getCourseById);

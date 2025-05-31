@@ -46,6 +46,7 @@ const LoginPage = () => {
     if (isAuthenticated) {
       const savedPath = localStorage.getItem('auth_redirect');
       if (savedPath) {
+        console.log('Redirecting to saved path:', savedPath);
         localStorage.removeItem('auth_redirect');
         navigate(savedPath, { replace: true });
       } else {
@@ -91,6 +92,16 @@ const LoginPage = () => {
         password: password,
         role: 'ADMIN'
       });
+      
+      // After successful login, check if there's a saved redirect path
+      const savedPath = localStorage.getItem('auth_redirect');
+      if (savedPath) {
+        console.log('Login successful, redirecting to:', savedPath);
+        localStorage.removeItem('auth_redirect');
+        navigate(savedPath, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError(

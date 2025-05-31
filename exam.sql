@@ -69,7 +69,7 @@ CREATE TABLE [dbo].[EssayAnswerAnalysis] (
     PRIMARY KEY CLUSTERED ([AnalysisID] ASC),
     FOREIGN KEY ([AnswerID]) REFERENCES [dbo].[ExamAnswers] ([AnswerID])
 );
-
+use campushubt;
 CREATE TABLE [dbo].[ExamParticipants] (
     [ParticipantID]     BIGINT         IDENTITY (1, 1) NOT NULL,
     [ExamID]            BIGINT         NULL,

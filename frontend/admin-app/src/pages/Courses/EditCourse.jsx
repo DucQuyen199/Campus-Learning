@@ -139,6 +139,17 @@ const EditCourse = () => {
         const modulesResponse = await api.get(`/courses/${courseId}/modules`);
         setModules(modulesResponse.data);
       } catch (err) {
+        console.error('Error fetching course:', err);
+        if (err.response?.status === 401) {
+          // Handle auth error separately to prevent automatic redirects
+          setError('Authentication error. Please login again.');
+          showNotification('Session expired. Please login again.', 'error');
+          // Save current path before redirecting
+          localStorage.setItem('auth_redirect', `/courses/edit/${courseId}`);
+          // Manually navigate to login instead of automatic redirect
+          navigate('/login');
+          return;
+        }
         setError(err.response?.data?.message || 'Error fetching course data');
         showNotification('Failed to load course data', 'error');
       } finally {
@@ -147,7 +158,20 @@ const EditCourse = () => {
     };
 
     fetchCourse();
-  }, [courseId, showNotification]);
+    
+    // Add event listener for auth errors
+    const handleAuthError = () => {
+      // Save current path before redirecting
+      localStorage.setItem('auth_redirect', `/courses/edit/${courseId}`);
+      navigate('/login');
+    };
+    
+    window.addEventListener('auth:error', handleAuthError);
+    
+    return () => {
+      window.removeEventListener('auth:error', handleAuthError);
+    };
+  }, [courseId, showNotification, navigate]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -172,6 +196,19 @@ const EditCourse = () => {
       await api.put(`/courses/${courseId}`, courseData);
       showNotification('Course updated successfully', 'success');
     } catch (err) {
+      console.error('Error updating course:', err);
+      
+      // Handle auth errors specifically
+      if (err.response?.status === 401) {
+        setError('Authentication error. Please login again.');
+        showNotification('Session expired. Please login again.', 'error');
+        // Save current path before redirecting
+        localStorage.setItem('auth_redirect', `/courses/edit/${courseId}`);
+        // Manually navigate to login
+        navigate('/login');
+        return;
+      }
+      
       setError(err.response?.data?.message || 'Error updating course');
       showNotification('Failed to update course', 'error');
     } finally {

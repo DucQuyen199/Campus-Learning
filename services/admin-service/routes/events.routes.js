@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const eventController = require('../controllers/event.controller');
+const { authenticateToken } = require('../middleware/auth');
+
+// Apply authentication to all routes
+router.use(authenticateToken);
 
 // Event management routes
 router.get('/', eventController.getAllEvents);

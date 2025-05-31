@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
@@ -62,13 +62,29 @@ const theme = createTheme({
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
-  // Lưu đường dẫn hiện tại vào localStorage khi isAuthenticated là false
+  // Save current path to localStorage when not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated && location.pathname !== '/login') {
       localStorage.setItem('auth_redirect', location.pathname);
     }
   }, [isLoading, isAuthenticated, location]);
+  
+  // Listen for auth:error events from API interceptors
+  useEffect(() => {
+    const handleAuthError = (event) => {
+      console.log('Auth error event detected, redirecting to login');
+      // Current path is already saved by the event dispatcher
+      navigate('/login');
+    };
+    
+    window.addEventListener('auth:error', handleAuthError);
+    
+    return () => {
+      window.removeEventListener('auth:error', handleAuthError);
+    };
+  }, [navigate]);
 
   if (isLoading) {
     // Show loading spinner while checking auth status

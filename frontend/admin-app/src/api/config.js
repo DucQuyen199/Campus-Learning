@@ -29,8 +29,16 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
+// Check if we're on the client side before accessing localStorage
+const getToken = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('admin_token');
+  }
+  return null;
+};
+
 adminApi.interceptors.request.use(config => {
-  const token = localStorage.getItem('admin_token');
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -52,6 +60,9 @@ adminApi.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      // Check if the error response indicates a token expiration
+      const isTokenExpired = error.response?.data?.code === 'TOKEN_EXPIRED';
+
       if (isRefreshing) {
         try {
           // Wait for the other refresh call
@@ -61,6 +72,8 @@ adminApi.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${token}`;
           return adminApi(originalRequest);
         } catch (err) {
+          // Don't redirect automatically, let the component handle it
+          console.error('Error refreshing token:', err);
           return Promise.reject(err);
         }
       }
@@ -73,30 +86,55 @@ adminApi.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        const response = await adminApi.post('/auth/refresh', { refreshToken });
+        // Use the dedicated refresh endpoint
+        const response = await axios.post(`${apiUrl}/refresh`, { refreshToken }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
         if (response.data?.token) {
+          // Store the new tokens
           localStorage.setItem('admin_token', response.data.token);
           localStorage.setItem('admin_refresh_token', response.data.refreshToken);
           
+          // Update headers for future requests
           adminApi.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
           originalRequest.headers.Authorization = `Bearer ${response.data.token}`;
           
+          // Process queued requests with the new token
           processQueue(null, response.data.token);
+          
+          // Retry the original request with the new token
           return adminApi(originalRequest);
+        } else {
+          throw new Error('Refresh response did not contain a token');
         }
       } catch (refreshError) {
         processQueue(refreshError, null);
         
-        // Lưu URL hiện tại trước khi chuyển hướng
-        const currentPath = window.location.pathname;
-        if (currentPath !== '/login') {
-          localStorage.setItem('auth_redirect', currentPath);
+        // Store current path but DON'T redirect automatically - let the component handle it
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          if (currentPath !== '/login') {
+            localStorage.setItem('auth_redirect', currentPath);
+          }
+          
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('admin_refresh_token');
+          
+          // REMOVE automatic redirect
+          // window.location.href = '/login';
+          
+          // Instead, dispatch a custom event that components can listen for
+          const authErrorEvent = new CustomEvent('auth:error', { 
+            detail: { 
+              error: refreshError,
+              message: 'Authentication failed. Please log in again.'
+            } 
+          });
+          window.dispatchEvent(authErrorEvent);
         }
-        
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_refresh_token');
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

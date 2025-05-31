@@ -123,6 +123,17 @@ exports.getCourseById = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Validate that ID is present
+    if (!id) {
+      return res.status(400).json({ message: 'Course ID is required' });
+    }
+    
+    // Check that the user is authenticated
+    if (!req.user || !req.user.UserID) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+    
     const {
       title,
       description,
@@ -131,20 +142,58 @@ exports.updateCourse = async (req, res) => {
       category,
       price,
       imageUrl,
-      isPublished
+      isPublished,
+      // Support camelCase and PascalCase for API flexibility
+      Title,
+      Description,
+      InstructorID,
+      Level,
+      Category,
+      Price,
+      ImageUrl,
+      IsPublished
     } = req.body;
 
+    // Use the provided value or fallback to alternative field name
+    const courseTitle = title || Title;
+    const courseDescription = description || Description;
+    const courseInstructorId = instructorId || InstructorID;
+    const courseLevel = level || Level;
+    const courseCategory = category || Category;
+    const coursePrice = price || Price;
+    const courseImageUrl = imageUrl || ImageUrl;
+    const courseIsPublished = isPublished !== undefined ? isPublished : (IsPublished !== undefined ? IsPublished : false);
+    
+    if (!courseTitle) {
+      return res.status(400).json({ message: 'Course title is required' });
+    }
+
     const pool = await poolPromise;
+    
+    // First check if the course exists
+    const courseCheck = await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .query(`
+        SELECT CourseID FROM Courses
+        WHERE CourseID = @courseId AND DeletedAt IS NULL
+      `);
+      
+    if (courseCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Course not found' });
+    }
+    
+    // Update the course
     await pool.request()
       .input('courseId', sql.BigInt, id)
-      .input('title', sql.NVarChar(255), title)
-      .input('description', sql.NVarChar(sql.MAX), description)
-      .input('instructorId', sql.BigInt, instructorId)
-      .input('level', sql.VarChar(50), level)
-      .input('category', sql.VarChar(50), category)
-      .input('price', sql.Decimal(10,2), price)
-      .input('imageUrl', sql.VarChar(255), imageUrl)
-      .input('isPublished', sql.Bit, isPublished)
+      .input('title', sql.NVarChar(255), courseTitle)
+      .input('description', sql.NVarChar(sql.MAX), courseDescription)
+      .input('instructorId', sql.BigInt, courseInstructorId)
+      .input('level', sql.VarChar(50), courseLevel)
+      .input('category', sql.VarChar(50), courseCategory)
+      .input('price', sql.Decimal(10,2), coursePrice || 0)
+      .input('imageUrl', sql.VarChar(255), courseImageUrl)
+      .input('isPublished', sql.Bit, courseIsPublished)
+      .input('updatedBy', sql.BigInt, req.user.UserID)
       .query(`
         UPDATE Courses
         SET Title = @title,
@@ -159,10 +208,16 @@ exports.updateCourse = async (req, res) => {
         WHERE CourseID = @courseId AND DeletedAt IS NULL
       `);
 
-    return res.status(200).json({ message: 'Course updated successfully' });
+    return res.status(200).json({ 
+      message: 'Course updated successfully',
+      courseId: id
+    });
   } catch (error) {
     console.error('Error in updateCourse:', error);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ 
+      message: 'Server error while updating course',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 

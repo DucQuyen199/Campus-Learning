@@ -140,10 +140,21 @@ router.post('/refresh', async (req, res) => {
     }
     
     // Verify refresh token
-    const decoded = jwt.verify(
-      refreshToken, 
-      process.env.JWT_REFRESH_SECRET || 'refresh_secret_key'
-    );
+    let decoded;
+    try {
+      decoded = jwt.verify(
+        refreshToken, 
+        process.env.JWT_REFRESH_SECRET || 'refresh_secret_key'
+      );
+    } catch (jwtError) {
+      console.error('JWT Verification Error:', jwtError);
+      
+      if (jwtError instanceof jwt.TokenExpiredError) {
+        return res.status(401).json({ message: 'Refresh token expired' });
+      }
+      
+      return res.status(401).json({ message: 'Invalid refresh token' });
+    }
     
     // Check token type to ensure it's a refresh token
     if (decoded.tokenType !== 'refresh') {

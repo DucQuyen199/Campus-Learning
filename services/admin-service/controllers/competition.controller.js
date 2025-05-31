@@ -85,23 +85,24 @@ exports.getCompetition = async (req, res) => {
 // Create a competition
 exports.createCompetition = async (req, res) => {
   const competitionData = req.body;
+  const { title, description, startTime, endTime, duration, difficulty, status, maxParticipants, prizePool, organizedBy, thumbnailUrl, coverImageURL } = competitionData;
   
   try {
     const pool = await poolPromise;
     
     const result = await pool.request()
-      .input('Title', sql.NVarChar(200), competitionData.Title)
-      .input('Description', sql.NText, competitionData.Description)
-      .input('StartTime', sql.DateTime, new Date(competitionData.StartTime))
-      .input('EndTime', sql.DateTime, new Date(competitionData.EndTime))
-      .input('Duration', sql.Int, competitionData.Duration)
-      .input('Difficulty', sql.NVarChar(20), competitionData.Difficulty)
-      .input('Status', sql.NVarChar(20), competitionData.Status || 'draft')
-      .input('MaxParticipants', sql.Int, competitionData.MaxParticipants || 100)
-      .input('PrizePool', sql.Decimal(12, 2), competitionData.PrizePool || 0)
-      .input('OrganizedBy', sql.BigInt, competitionData.OrganizedBy || null)
-      .input('ThumbnailUrl', sql.NVarChar(500), competitionData.ThumbnailUrl || null)
-      .input('CoverImageURL', sql.NVarChar(500), competitionData.CoverImageURL || null)
+      .input('Title', sql.NVarChar(200), title)
+      .input('Description', sql.NText, description)
+      .input('StartTime', sql.DateTime, new Date(startTime))
+      .input('EndTime', sql.DateTime, new Date(endTime))
+      .input('Duration', sql.Int, duration)
+      .input('Difficulty', sql.NVarChar(20), difficulty)
+      .input('Status', sql.NVarChar(20), status || 'draft')
+      .input('MaxParticipants', sql.Int, maxParticipants || 100)
+      .input('PrizePool', sql.Decimal(12, 2), prizePool || 0)
+      .input('OrganizedBy', sql.BigInt, organizedBy || null)
+      .input('ThumbnailUrl', sql.NVarChar(500), thumbnailUrl || null)
+      .input('CoverImageURL', sql.NVarChar(500), coverImageURL || null)
       .query(`
         INSERT INTO Competitions (
           Title, Description, StartTime, EndTime, Duration, 
@@ -138,6 +139,7 @@ exports.createCompetition = async (req, res) => {
 exports.updateCompetition = async (req, res) => {
   const { id } = req.params;
   const competitionData = req.body;
+  const { title, description, startTime, endTime, duration, difficulty, status, maxParticipants, prizePool, organizedBy, thumbnailUrl, coverImageURL } = competitionData;
   
   try {
     const pool = await poolPromise;
@@ -159,18 +161,18 @@ exports.updateCompetition = async (req, res) => {
     
     await pool.request()
       .input('id', sql.BigInt, id)
-      .input('Title', sql.NVarChar(200), competitionData.Title)
-      .input('Description', sql.NText, competitionData.Description)
-      .input('StartTime', sql.DateTime, new Date(competitionData.StartTime))
-      .input('EndTime', sql.DateTime, new Date(competitionData.EndTime))
-      .input('Duration', sql.Int, competitionData.Duration)
-      .input('Difficulty', sql.NVarChar(20), competitionData.Difficulty)
-      .input('Status', sql.NVarChar(20), competitionData.Status)
-      .input('MaxParticipants', sql.Int, competitionData.MaxParticipants)
-      .input('PrizePool', sql.Decimal(12, 2), competitionData.PrizePool)
-      .input('OrganizedBy', sql.BigInt, competitionData.OrganizedBy)
-      .input('ThumbnailUrl', sql.NVarChar(500), competitionData.ThumbnailUrl)
-      .input('CoverImageURL', sql.NVarChar(500), competitionData.CoverImageURL)
+      .input('Title', sql.NVarChar(200), title)
+      .input('Description', sql.NText, description)
+      .input('StartTime', sql.DateTime, new Date(startTime))
+      .input('EndTime', sql.DateTime, new Date(endTime))
+      .input('Duration', sql.Int, duration)
+      .input('Difficulty', sql.NVarChar(20), difficulty)
+      .input('Status', sql.NVarChar(20), status)
+      .input('MaxParticipants', sql.Int, maxParticipants)
+      .input('PrizePool', sql.Decimal(12, 2), prizePool)
+      .input('OrganizedBy', sql.BigInt, organizedBy)
+      .input('ThumbnailUrl', sql.NVarChar(500), thumbnailUrl)
+      .input('CoverImageURL', sql.NVarChar(500), coverImageURL)
       .query(`
         UPDATE Competitions
         SET 

@@ -59,7 +59,9 @@ const CourseManagement = () => {
 
   useEffect(() => {
     fetchCourses();
-  }, [isAuthenticated]);
+    // Only fetch courses on initial mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEdit = (courseId) => {
     navigate(`/courses/edit/${courseId}`);

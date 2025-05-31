@@ -80,14 +80,14 @@ exports.createCourse = async (req, res) => {
     const result = await pool.request()
       .input('title', sql.NVarChar(255), title)
       .input('slug', sql.VarChar(255), slug || null)
-      .input('description', sql.NVarChar(sql.MAX), description)
+      .input('description', sql.NVarChar(sql.MAX), description || null)
       .input('shortDescription', sql.NVarChar(500), shortDescription || null)
-      .input('instructorId', sql.BigInt, instructorId)
-      .input('level', sql.VarChar(20), level || 'beginner')
-      .input('category', sql.VarChar(50), category)
+      .input('instructorId', sql.BigInt, instructorId || null)
+      .input('level', sql.VarChar(20), level || null)
+      .input('category', sql.VarChar(50), category || null)
       .input('subCategory', sql.VarChar(50), subCategory || null)
-      .input('courseType', sql.VarChar(20), courseType || 'regular')
-      .input('language', sql.VarChar(20), language || 'vi')
+      .input('courseType', sql.VarChar(20), courseType || null)
+      .input('language', sql.VarChar(20), language || null)
       .input('duration', sql.Int, duration || null)
       .input('capacity', sql.Int, capacity || null)
       .input('price', sql.Decimal(10,2), price || 0)
@@ -97,7 +97,7 @@ exports.createCourse = async (req, res) => {
       .input('requirements', sql.NVarChar(sql.MAX), requirements || null)
       .input('objectives', sql.NVarChar(sql.MAX), objectives || null)
       .input('syllabus', sql.NVarChar(sql.MAX), syllabus || null)
-      .input('status', sql.VarChar(20), status || 'draft')
+      .input('status', sql.VarChar(20), status || null)
       .input('isPublished', sql.Bit, isPublished || 0)
       .input('publishedAt', sql.DateTime, publishedAt ? new Date(publishedAt) : null)
       .query(`
@@ -149,6 +149,60 @@ exports.getCourseById = async (req, res) => {
   } catch (error) {
     console.error('Error in getCourseById:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Add new function to update course image
+exports.updateCourseImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { imageUrl } = req.body;
+    if (!id) {
+      return res.status(400).json({ message: 'Invalid course ID' });
+    }
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .input('imageUrl', sql.VarChar(255), imageUrl || null)
+      .query(`
+        UPDATE Courses
+        SET ImageUrl = @imageUrl,
+            UpdatedAt = GETDATE()
+        WHERE CourseID = @courseId AND DeletedAt IS NULL
+      `);
+
+    return res.status(200).json({ message: 'Image updated successfully', imageUrl });
+  } catch (error) {
+    console.error('Error in updateCourseImage:', error);
+    return res.status(500).json({ message: 'Server error while updating course image', error: error.message });
+  }
+};
+
+// Add new function to update course video
+exports.updateCourseVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { videoUrl } = req.body;
+    if (!id) {
+      return res.status(400).json({ message: 'Invalid course ID' });
+    }
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .input('videoUrl', sql.VarChar(255), videoUrl || null)
+      .query(`
+        UPDATE Courses
+        SET VideoUrl = @videoUrl,
+            UpdatedAt = GETDATE()
+        WHERE CourseID = @courseId AND DeletedAt IS NULL
+      `);
+
+    return res.status(200).json({ message: 'Video updated successfully', videoUrl });
+  } catch (error) {
+    console.error('Error in updateCourseVideo:', error);
+    return res.status(500).json({ message: 'Server error while updating course video', error: error.message });
   }
 };
 
@@ -260,15 +314,15 @@ exports.updateCourse = async (req, res) => {
     await pool.request()
       .input('courseId', sql.BigInt, id)
       .input('title', sql.NVarChar(255), courseTitle)
-      .input('slug', sql.VarChar(255), courseSlug)
-      .input('description', sql.NVarChar(sql.MAX), courseDescription)
+      .input('slug', sql.VarChar(255), courseSlug || null)
+      .input('description', sql.NVarChar(sql.MAX), courseDescription || null)
       .input('shortDescription', sql.NVarChar(500), courseShortDescription || null)
-      .input('instructorId', sql.BigInt, courseInstructorId)
-      .input('level', sql.VarChar(20), courseLevel)
-      .input('category', sql.VarChar(50), courseCategory)
+      .input('instructorId', sql.BigInt, courseInstructorId || null)
+      .input('level', sql.VarChar(20), courseLevel || null)
+      .input('category', sql.VarChar(50), courseCategory || null)
       .input('subCategory', sql.VarChar(50), courseSubCategory || null)
-      .input('courseType', sql.VarChar(20), courseTypeVal)
-      .input('language', sql.VarChar(20), courseLanguage)
+      .input('courseType', sql.VarChar(20), courseTypeVal || null)
+      .input('language', sql.VarChar(20), courseLanguage || null)
       .input('duration', sql.Int, courseDuration || null)
       .input('capacity', sql.Int, courseCapacity || null)
       .input('price', sql.Decimal(10,2), coursePrice || 0)
@@ -278,7 +332,7 @@ exports.updateCourse = async (req, res) => {
       .input('requirements', sql.NVarChar(sql.MAX), courseRequirements || null)
       .input('objectives', sql.NVarChar(sql.MAX), courseObjectives || null)
       .input('syllabus', sql.NVarChar(sql.MAX), courseSyllabus || null)
-      .input('status', sql.VarChar(20), courseStatus)
+      .input('status', sql.VarChar(20), courseStatus || null)
       .input('isPublished', sql.Bit, courseIsPublished)
       .input('publishedAt', sql.DateTime, coursePublishedAt)
       .input('updatedBy', sql.BigInt, req.user.UserID)
@@ -317,9 +371,10 @@ exports.updateCourse = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in updateCourse:', error);
+    // Return full error details in response for debugging
     return res.status(500).json({ 
-      message: 'Server error while updating course',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: error.message || 'Server error while updating course',
+      error: error.stack
     });
   }
 };
@@ -1400,28 +1455,7 @@ exports.publishCourse = async (req, res) => {
       return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
     }
     
-    // First validate the course
-    const validationResponse = await this.validateCourse(
-      { params: { id } },
-      { 
-        status: () => ({ 
-          json: data => data 
-        }) 
-      }
-    );
-    
-    // If validation returns error status, return error
-    if (validationResponse.message) {
-      return res.status(400).json(validationResponse);
-    }
-    
-    // Check if course is valid for publishing
-    if (!validationResponse.isValid) {
-      return res.status(400).json({ 
-        message: 'Khóa học chưa đủ điều kiện để xuất bản',
-        validationDetails: validationResponse.details
-      });
-    }
+    // Skip validation: allow direct publishing without content checks
     
     const pool = await poolPromise;
     

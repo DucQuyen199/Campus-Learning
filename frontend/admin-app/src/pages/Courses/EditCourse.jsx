@@ -238,6 +238,8 @@ const EditCourse = () => {
       setSaving(true);
       await api.put(`/courses/${courseId}`, values);
       message.success('Khoá học đã được cập nhật thành công');
+      // Clear previous validation to enable publishing after save
+      setValidationData(null);
     } catch (err) {
       console.error('Error updating course:', err);
       
@@ -334,24 +336,18 @@ const EditCourse = () => {
       message.warning('Vui lòng nhập URL hình ảnh');
       return;
     }
-
     try {
-      setUploading({ ...uploading, courseImage: true });
-      
-      // Update the course with the new imageUrl
-      await api.put(`/courses/${courseId}`, { 
-        ...courseData, 
-        imageUrl: imageUrl 
-      });
-      
-      setCourseData(prev => ({ ...prev, imageUrl: imageUrl }));
+      setUploading(prev => ({ ...prev, courseImage: true }));
+      // Call dedicated endpoint to update image
+      const response = await api.patch(`/courses/${courseId}/image`, { imageUrl });
+      setCourseData(prev => ({ ...prev, imageUrl: response.data.imageUrl || imageUrl }));
       message.success('Đã cập nhật hình ảnh khóa học thành công');
-      setImageUrl(''); // Clear the input field
+      setImageUrl('');
     } catch (error) {
-      console.error('Error updating course image:', error);
+      console.error('Error updating course image:', error.response?.data || error);
       message.error('Lỗi khi cập nhật hình ảnh');
     } finally {
-      setUploading({ ...uploading, courseImage: false });
+      setUploading(prev => ({ ...prev, courseImage: false }));
     }
   };
 
@@ -360,24 +356,18 @@ const EditCourse = () => {
       message.warning('Vui lòng nhập URL video');
       return;
     }
-
     try {
-      setUploading({ ...uploading, courseVideo: true });
-      
-      // Update the course with the new videoUrl
-      await api.put(`/courses/${courseId}`, { 
-        ...courseData, 
-        videoUrl: videoUrl 
-      });
-      
-      setCourseData(prev => ({ ...prev, videoUrl: videoUrl }));
+      setUploading(prev => ({ ...prev, courseVideo: true }));
+      // Call dedicated endpoint to update video
+      const response = await api.patch(`/courses/${courseId}/video`, { videoUrl });
+      setCourseData(prev => ({ ...prev, videoUrl: response.data.videoUrl || videoUrl }));
       message.success('Đã cập nhật video khóa học thành công');
-      setVideoUrl(''); // Clear the input field
+      setVideoUrl('');
     } catch (error) {
-      console.error('Error updating course video:', error);
+      console.error('Error updating course video:', error.response?.data || error);
       message.error('Lỗi khi cập nhật video');
     } finally {
-      setUploading({ ...uploading, courseVideo: false });
+      setUploading(prev => ({ ...prev, courseVideo: false }));
     }
   };
 
@@ -426,16 +416,6 @@ const EditCourse = () => {
   };
 
   const handlePublishCourse = async () => {
-    if (!validationData) {
-      await validateCourse();
-      return;
-    }
-    
-    if (!validationData.isValid) {
-      message.warning('Khoá học chưa sẵn sàng để xuất bản. Vui lòng bổ sung nội dung còn thiếu.');
-      return;
-    }
-    
     try {
       setLoading(true);
       await api.post(`/courses/${courseId}/publish`);
@@ -754,6 +734,37 @@ const EditCourse = () => {
     </Form>
   );
 
+  // Render the Modules tab content
+  const renderModulesTab = () => (
+    <>
+      <Button
+        type="dashed"
+        icon={<PlusOutlined />}
+        onClick={() => openModuleModal()}
+        style={{ marginBottom: 16 }}
+      >
+        Thêm mô-đun mới
+      </Button>
+      <List
+        dataSource={modules}
+        bordered
+        renderItem={module => (
+          <List.Item
+            actions={[
+              <Button key="edit" icon={<EditOutlined />} onClick={() => openModuleModal(module)}>Chỉnh sửa</Button>,
+              <Button key="delete" icon={<DeleteOutlined />} danger onClick={() => handleDeleteModule(module.ModuleID)}>Xoá</Button>
+            ]}
+          >
+            <List.Item.Meta
+              title={`${module.OrderIndex}. ${module.Title}`}
+              description={`Thời lượng: ${module.Duration} phút`}
+            />
+          </List.Item>
+        )}
+      />
+    </>
+  );
+
   return (
     <div className="edit-course-container" style={{ padding: '24px' }}>
       <Breadcrumb items={breadcrumbItems} style={{ marginBottom: '16px' }} />
@@ -829,7 +840,11 @@ const EditCourse = () => {
           onChange={setActiveTab}
           items={tabItems.map(item => ({
             ...item,
-            children: item.key === 'basic' ? renderBasicTab() : item.children
+            children: item.key === 'basic'
+              ? renderBasicTab()
+              : item.key === 'modules'
+              ? renderModulesTab()
+              : item.children
           }))}
         />
       </Card>

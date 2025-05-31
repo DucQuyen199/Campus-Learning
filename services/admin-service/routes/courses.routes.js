@@ -14,6 +14,10 @@ router.put('/:id', coursesController.updateCourse);
 router.delete('/:id', coursesController.deleteCourse);
 router.get('/:id/enrollments', coursesController.getEnrolledStudents);
 
+// Course validation and publishing routes
+router.get('/:id/validation', coursesController.validateCourse);
+router.post('/:id/publish', coursesController.publishCourse);
+
 // Course modules routes
 router.get('/:courseId/modules', coursesController.getCourseModules);
 router.post('/:courseId/modules', coursesController.createModule);

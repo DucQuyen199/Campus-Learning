@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Card, Table, Space, Button, Dropdown, Modal, 
   Tag, Typography, Input, message, Tooltip, Divider
@@ -21,6 +21,7 @@ const CoursesPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filteredCourses, setFilteredCourses] = useState([]);
+  const navigate = useNavigate();
   
   useEffect(() => {
     fetchCourses();
@@ -135,9 +136,9 @@ const CoursesPage = () => {
       ],
       onClick: ({ key }) => {
         if (key === 'view') {
-          // Navigate to view detail is handled by Link
+          navigate(`/courses/${course.CourseID}`);
         } else if (key === 'edit') {
-          // Navigate to edit is handled by Link
+          navigate(`/courses/edit/${course.CourseID}`);
         } else if (key === 'delete') {
           showDeleteConfirm(course.CourseID, course.Title);
         } else if (key === 'publish') {

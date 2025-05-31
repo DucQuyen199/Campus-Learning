@@ -1281,3 +1281,173 @@ async function createMockUsers() {
     throw error; // Propagate error up to be handled by caller
   }
 }
+
+// Add new function to validate course content
+exports.validateCourse = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate that ID is present
+    if (!id) {
+      return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
+    }
+    
+    const pool = await poolPromise;
+    
+    // Check if course exists
+    const courseCheck = await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .query(`
+        SELECT CourseID, Title, ImageUrl, VideoUrl, IsPublished, Status
+        FROM Courses
+        WHERE CourseID = @courseId AND DeletedAt IS NULL
+      `);
+      
+    if (courseCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
+    
+    const course = courseCheck.recordset[0];
+    
+    // Get modules for the course
+    const modulesResult = await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .query(`
+        SELECT ModuleID
+        FROM CourseModules
+        WHERE CourseID = @courseId
+      `);
+    
+    // Get lessons for validation
+    const lessonsResult = await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .query(`
+        SELECT l.LessonID, l.Title, l.Type, l.VideoUrl
+        FROM CourseLessons l
+        JOIN CourseModules m ON l.ModuleID = m.ModuleID
+        WHERE m.CourseID = @courseId AND l.Type = 'video'
+      `);
+    
+    // Check if coding exercises have test cases
+    const codingLessonsResult = await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .query(`
+        SELECT l.LessonID, l.Title, e.ExerciseID, e.TestCases
+        FROM CourseLessons l
+        JOIN CourseModules m ON l.ModuleID = m.ModuleID
+        LEFT JOIN CodingExercises e ON l.LessonID = e.LessonID
+        WHERE m.CourseID = @courseId AND l.Type = 'coding'
+      `);
+    
+    // Perform validation checks
+    const courseHasImage = !!course.ImageUrl;
+    const courseHasVideo = !!course.VideoUrl;
+    const hasSufficientModules = modulesResult.recordset.length > 0;
+    
+    // Check for lessons with missing content
+    const lessonsWithMissingContent = [];
+    
+    // Check video lessons
+    lessonsResult.recordset.forEach(lesson => {
+      if (!lesson.VideoUrl) {
+        lessonsWithMissingContent.push({
+          lessonId: lesson.LessonID,
+          title: lesson.Title,
+          issue: 'Missing video'
+        });
+      }
+    });
+    
+    // Check coding lessons
+    codingLessonsResult.recordset.forEach(lesson => {
+      if (!lesson.ExerciseID || !lesson.TestCases) {
+        lessonsWithMissingContent.push({
+          lessonId: lesson.LessonID,
+          title: lesson.Title,
+          issue: 'Coding lesson missing test cases'
+        });
+      }
+    });
+    
+    // Determine if course is valid for publishing
+    const isValid = courseHasImage && courseHasVideo && hasSufficientModules && lessonsWithMissingContent.length === 0;
+    
+    return res.status(200).json({
+      isValid,
+      details: {
+        courseHasImage,
+        courseHasVideo,
+        hasSufficientModules,
+        lessonsWithMissingContent
+      }
+    });
+  } catch (error) {
+    console.error('Error in validateCourse:', error);
+    return res.status(500).json({ 
+      message: 'Lỗi khi kiểm tra khóa học',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Add new function to publish a course
+exports.publishCourse = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate that ID is present
+    if (!id) {
+      return res.status(400).json({ message: 'ID khóa học không hợp lệ' });
+    }
+    
+    // First validate the course
+    const validationResponse = await this.validateCourse(
+      { params: { id } },
+      { 
+        status: () => ({ 
+          json: data => data 
+        }) 
+      }
+    );
+    
+    // If validation returns error status, return error
+    if (validationResponse.message) {
+      return res.status(400).json(validationResponse);
+    }
+    
+    // Check if course is valid for publishing
+    if (!validationResponse.isValid) {
+      return res.status(400).json({ 
+        message: 'Khóa học chưa đủ điều kiện để xuất bản',
+        validationDetails: validationResponse.details
+      });
+    }
+    
+    const pool = await poolPromise;
+    
+    // Update course status to published
+    await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .input('updatedBy', sql.BigInt, req.user ? req.user.UserID : null)
+      .query(`
+        UPDATE Courses
+        SET 
+          Status = 'published',
+          IsPublished = 1,
+          PublishedAt = GETDATE(),
+          UpdatedAt = GETDATE()
+        WHERE CourseID = @courseId AND DeletedAt IS NULL
+      `);
+    
+    return res.status(200).json({ 
+      message: 'Khóa học đã được xuất bản thành công',
+      courseId: id
+    });
+  } catch (error) {
+    console.error('Error in publishCourse:', error);
+    return res.status(500).json({ 
+      message: 'Lỗi khi xuất bản khóa học',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};

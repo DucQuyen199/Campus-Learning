@@ -53,33 +53,65 @@ exports.createCourse = async (req, res) => {
   try {
     const {
       title,
+      slug,
       description,
+      shortDescription,
       instructorId,
       level,
       category,
+      subCategory,
+      courseType,
+      language,
+      duration,
+      capacity,
       price,
+      discountPrice,
       imageUrl,
-      isPublished
+      videoUrl,
+      requirements,
+      objectives,
+      syllabus,
+      status,
+      isPublished,
+      publishedAt
     } = req.body;
 
     const pool = await poolPromise;
     const result = await pool.request()
       .input('title', sql.NVarChar(255), title)
+      .input('slug', sql.VarChar(255), slug || null)
       .input('description', sql.NVarChar(sql.MAX), description)
+      .input('shortDescription', sql.NVarChar(500), shortDescription || null)
       .input('instructorId', sql.BigInt, instructorId)
-      .input('level', sql.VarChar(50), level || 'Beginner')
+      .input('level', sql.VarChar(20), level || 'beginner')
       .input('category', sql.VarChar(50), category)
+      .input('subCategory', sql.VarChar(50), subCategory || null)
+      .input('courseType', sql.VarChar(20), courseType || 'regular')
+      .input('language', sql.VarChar(20), language || 'vi')
+      .input('duration', sql.Int, duration || null)
+      .input('capacity', sql.Int, capacity || null)
       .input('price', sql.Decimal(10,2), price || 0)
-      .input('imageUrl', sql.VarChar(255), imageUrl)
+      .input('discountPrice', sql.Decimal(10,2), discountPrice || null)
+      .input('imageUrl', sql.VarChar(255), imageUrl || null)
+      .input('videoUrl', sql.VarChar(255), videoUrl || null)
+      .input('requirements', sql.NVarChar(sql.MAX), requirements || null)
+      .input('objectives', sql.NVarChar(sql.MAX), objectives || null)
+      .input('syllabus', sql.NVarChar(sql.MAX), syllabus || null)
+      .input('status', sql.VarChar(20), status || 'draft')
       .input('isPublished', sql.Bit, isPublished || 0)
+      .input('publishedAt', sql.DateTime, publishedAt ? new Date(publishedAt) : null)
       .query(`
         INSERT INTO Courses (
-          Title, Description, InstructorID, Level,
-          Category, Price, ImageUrl, IsPublished
+          Title, Slug, Description, ShortDescription, InstructorID,
+          Level, Category, SubCategory, CourseType, Language,
+          Duration, Capacity, Price, DiscountPrice, ImageUrl, VideoUrl,
+          Requirements, Objectives, Syllabus, Status, IsPublished, PublishedAt
         )
         VALUES (
-          @title, @description, @instructorId, @level,
-          @category, @price, @imageUrl, @isPublished
+          @title, @slug, @description, @shortDescription, @instructorId,
+          @level, @category, @subCategory, @courseType, @language,
+          @duration, @capacity, @price, @discountPrice, @imageUrl, @videoUrl,
+          @requirements, @objectives, @syllabus, @status, @isPublished, @publishedAt
         );
         SELECT SCOPE_IDENTITY() as CourseID;
       `);
@@ -136,33 +168,75 @@ exports.updateCourse = async (req, res) => {
     
     const {
       title,
+      slug,
       description,
+      shortDescription,
       instructorId,
       level,
       category,
+      subCategory,
+      courseType,
+      language,
+      duration,
+      capacity,
       price,
+      discountPrice,
       imageUrl,
+      videoUrl,
+      requirements,
+      objectives,
+      syllabus,
+      status,
       isPublished,
+      publishedAt,
       // Support camelCase and PascalCase for API flexibility
       Title,
+      Slug,
       Description,
+      ShortDescription,
       InstructorID,
       Level,
       Category,
+      SubCategory,
+      CourseType,
+      Language,
+      Duration,
+      Capacity,
       Price,
+      DiscountPrice,
       ImageUrl,
-      IsPublished
+      VideoUrl,
+      Requirements,
+      Objectives,
+      Syllabus,
+      Status,
+      IsPublished,
+      PublishedAt
     } = req.body;
 
     // Use the provided value or fallback to alternative field name
     const courseTitle = title || Title;
+    const courseSlug = slug || Slug;
     const courseDescription = description || Description;
+    const courseShortDescription = shortDescription || ShortDescription;
     const courseInstructorId = instructorId || InstructorID;
     const courseLevel = level || Level;
     const courseCategory = category || Category;
+    const courseSubCategory = subCategory || SubCategory;
+    const courseTypeVal = courseType || CourseType;
+    const courseLanguage = language || Language;
+    const courseDuration = duration || Duration;
+    const courseCapacity = capacity || Capacity;
     const coursePrice = price || Price;
+    const courseDiscountPrice = discountPrice || DiscountPrice;
     const courseImageUrl = imageUrl || ImageUrl;
+    const courseVideoUrl = videoUrl || VideoUrl;
+    const courseRequirements = requirements || Requirements;
+    const courseObjectives = objectives || Objectives;
+    const courseSyllabus = syllabus || Syllabus;
+    const courseStatus = status || Status;
     const courseIsPublished = isPublished !== undefined ? isPublished : (IsPublished !== undefined ? IsPublished : false);
+    const coursePublishedAt = publishedAt ? new Date(publishedAt) : (PublishedAt ? new Date(PublishedAt) : null);
     
     if (!courseTitle) {
       return res.status(400).json({ message: 'Course title is required' });
@@ -186,25 +260,54 @@ exports.updateCourse = async (req, res) => {
     await pool.request()
       .input('courseId', sql.BigInt, id)
       .input('title', sql.NVarChar(255), courseTitle)
+      .input('slug', sql.VarChar(255), courseSlug)
       .input('description', sql.NVarChar(sql.MAX), courseDescription)
+      .input('shortDescription', sql.NVarChar(500), courseShortDescription || null)
       .input('instructorId', sql.BigInt, courseInstructorId)
-      .input('level', sql.VarChar(50), courseLevel)
+      .input('level', sql.VarChar(20), courseLevel)
       .input('category', sql.VarChar(50), courseCategory)
+      .input('subCategory', sql.VarChar(50), courseSubCategory || null)
+      .input('courseType', sql.VarChar(20), courseTypeVal)
+      .input('language', sql.VarChar(20), courseLanguage)
+      .input('duration', sql.Int, courseDuration || null)
+      .input('capacity', sql.Int, courseCapacity || null)
       .input('price', sql.Decimal(10,2), coursePrice || 0)
-      .input('imageUrl', sql.VarChar(255), courseImageUrl)
+      .input('discountPrice', sql.Decimal(10,2), courseDiscountPrice || null)
+      .input('imageUrl', sql.VarChar(255), courseImageUrl || null)
+      .input('videoUrl', sql.VarChar(255), courseVideoUrl || null)
+      .input('requirements', sql.NVarChar(sql.MAX), courseRequirements || null)
+      .input('objectives', sql.NVarChar(sql.MAX), courseObjectives || null)
+      .input('syllabus', sql.NVarChar(sql.MAX), courseSyllabus || null)
+      .input('status', sql.VarChar(20), courseStatus)
       .input('isPublished', sql.Bit, courseIsPublished)
+      .input('publishedAt', sql.DateTime, coursePublishedAt)
       .input('updatedBy', sql.BigInt, req.user.UserID)
       .query(`
         UPDATE Courses
-        SET Title = @title,
-            Description = @description,
-            InstructorID = @instructorId,
-            Level = @level,
-            Category = @category,
-            Price = @price,
-            ImageUrl = @imageUrl,
-            IsPublished = @isPublished,
-            UpdatedAt = GETDATE()
+        SET
+          Title = @title,
+          Slug = @slug,
+          Description = @description,
+          ShortDescription = @shortDescription,
+          InstructorID = @instructorId,
+          Level = @level,
+          Category = @category,
+          SubCategory = @subCategory,
+          CourseType = @courseType,
+          Language = @language,
+          Duration = @duration,
+          Capacity = @capacity,
+          Price = @price,
+          DiscountPrice = @discountPrice,
+          ImageUrl = @imageUrl,
+          VideoUrl = @videoUrl,
+          Requirements = @requirements,
+          Objectives = @objectives,
+          Syllabus = @syllabus,
+          Status = @status,
+          IsPublished = @isPublished,
+          PublishedAt = @publishedAt,
+          UpdatedAt = GETDATE()
         WHERE CourseID = @courseId AND DeletedAt IS NULL
       `);
 

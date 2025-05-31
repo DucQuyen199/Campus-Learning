@@ -18,6 +18,10 @@ router.get('/:id/enrollments', coursesController.getEnrolledStudents);
 router.get('/:id/validation', coursesController.validateCourse);
 router.post('/:id/publish', coursesController.publishCourse);
 
+// Image and video update routes
+router.patch('/:id/image', coursesController.updateCourseImage);
+router.patch('/:id/video', coursesController.updateCourseVideo);
+
 // Course modules routes
 router.get('/:courseId/modules', coursesController.getCourseModules);
 router.post('/:courseId/modules', coursesController.createModule);

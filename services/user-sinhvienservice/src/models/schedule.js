@@ -5,12 +5,6 @@ const ScheduleModel = {
   // Get class schedule
   async getClassSchedule(userId, semesterId = null) {
     try {
-      // Check if we're in mock mode
-      if (sqlConnection.mockMode) {
-        console.log('[MOCK DB] Returning mock class schedule data');
-        return generateMockClassSchedule(userId);
-      }
-      
       const poolConnection = await sqlConnection.connect();
       
       let query = `
@@ -48,16 +42,8 @@ const ScheduleModel = {
           if (classItem.Schedule) {
             scheduleDetails = JSON.parse(classItem.Schedule);
           } else {
-            // Create mock schedule data if not available
-            scheduleDetails = [
-              {
-                day: 'Monday',
-                startTime: '07:30',
-                endTime: '09:30',
-                room: 'A101',
-                weekType: 'all'
-              }
-            ];
+            // Create default empty schedule
+            scheduleDetails = [];
           }
         } catch (e) {
           console.warn('Failed to parse schedule JSON:', e);
@@ -72,23 +58,13 @@ const ScheduleModel = {
       return schedule;
     } catch (error) {
       console.error('Error in getClassSchedule model:', error);
-      return generateMockClassSchedule(userId);
+      throw new Error('Unable to retrieve class schedule from database');
     }
   },
 
   // Get exam schedule
   async getExamSchedule(userId, semesterId = null) {
     try {
-      // Check if we're in mock mode
-      if (sqlConnection.mockMode) {
-        console.log('[MOCK DB] Returning mock exam schedule data');
-        return generateMockExamSchedule(userId);
-      }
-      
-      // Skip trying to query the real database if columns don't exist
-      return generateMockExamSchedule(userId);
-      
-      /* The SQL below doesn't match the actual schema, commenting out
       const poolConnection = await sqlConnection.connect();
       
       // Updated query to match the database schema
@@ -124,23 +100,15 @@ const ScheduleModel = {
       const result = await request.query(query);
       
       return result.recordset;
-      */
     } catch (error) {
       console.error('Error in getExamSchedule model:', error);
-      // If there's an error with the database, return mock data
-      return generateMockExamSchedule(userId);
+      throw new Error('Unable to retrieve exam schedule from database');
     }
   },
   
   // Get day schedule (for a specific date)
   async getDaySchedule(userId, date) {
     try {
-      // Check if we're in mock mode
-      if (sqlConnection.mockMode) {
-        console.log('[MOCK DB] Returning mock day schedule data');
-        return generateMockDaySchedule(userId, date);
-      }
-      
       // Format date for SQL query (YYYY-MM-DD)
       const formattedDate = date.toISOString().split('T')[0];
       
@@ -175,183 +143,9 @@ const ScheduleModel = {
       };
     } catch (error) {
       console.error('Error in getDaySchedule model:', error);
-      return generateMockDaySchedule(userId, date);
+      throw new Error('Unable to retrieve day schedule from database');
     }
   }
 };
-
-// Generate mock class schedule when database fails
-function generateMockClassSchedule(userId) {
-  userId = parseInt(userId);
-  
-  return [
-    {
-      ClassID: 101,
-      ClassCode: 'CS101.01',
-      SubjectID: 1,
-      SubjectCode: 'COMP101',
-      SubjectName: 'Introduction to Computer Science',
-      Credits: 3,
-      SemesterID: 1,
-      SemesterName: 'Spring 2025',
-      AcademicYear: '2024-2025',
-      TeacherName: 'Prof. Nguyen Van A',
-      MaxStudents: 40,
-      CurrentStudents: 35,
-      StartDate: '2025-01-15',
-      EndDate: '2025-05-25',
-      Location: 'Room A201',
-      Status: 'Ongoing',
-      RegistrationStatus: 'Approved',
-      scheduleDetails: [
-        {
-          day: 'Monday',
-          startTime: '07:30',
-          endTime: '09:30',
-          room: 'A201',
-          weekType: 'all'
-        },
-        {
-          day: 'Thursday',
-          startTime: '13:30',
-          endTime: '15:30',
-          room: 'A201',
-          weekType: 'all'
-        }
-      ]
-    },
-    {
-      ClassID: 102,
-      ClassCode: 'MATH201.02',
-      SubjectID: 2,
-      SubjectCode: 'MATH201',
-      SubjectName: 'Calculus II',
-      Credits: 4,
-      SemesterID: 1,
-      SemesterName: 'Spring 2025',
-      AcademicYear: '2024-2025',
-      TeacherName: 'Prof. Tran Thi B',
-      MaxStudents: 35,
-      CurrentStudents: 30,
-      StartDate: '2025-01-15',
-      EndDate: '2025-05-25',
-      Location: 'Room B305',
-      Status: 'Ongoing',
-      RegistrationStatus: 'Approved',
-      scheduleDetails: [
-        {
-          day: 'Tuesday',
-          startTime: '09:30',
-          endTime: '11:30',
-          room: 'B305',
-          weekType: 'all'
-        },
-        {
-          day: 'Friday',
-          startTime: '09:30',
-          endTime: '11:30',
-          room: 'B305',
-          weekType: 'all'
-        }
-      ]
-    }
-  ];
-}
-
-// Generate mock exam schedule data when database fails
-function generateMockExamSchedule(userId) {
-  userId = parseInt(userId);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  
-  return [
-    {
-      ExamID: 1,
-      ClassID: 101,
-      ExamName: 'Midterm Exam',
-      ExamType: 'Midterm',
-      ExamDate: today.toISOString().split('T')[0],
-      StartTime: '08:00:00',
-      EndTime: '10:00:00',
-      Location: 'Room A201',
-      ExamStatus: 'Scheduled',
-      SubjectCode: 'COMP101',
-      SubjectName: '',
-      Credits: 3,
-      SemesterName: 'Spring 2025',
-      AcademicYear: '2024-2025',
-      SupervisorName: 'Prof. Nguyen Van A',
-      RegistrationStatus: 'Approved'
-    },
-    {
-      ExamID: 2,
-      ClassID: 102,
-      ExamName: 'Final Exam',
-      ExamType: 'Final',
-      ExamDate: tomorrow.toISOString().split('T')[0],
-      StartTime: '13:30:00',
-      EndTime: '15:30:00',
-      Location: 'Room B305',
-      ExamStatus: 'Scheduled',
-      SubjectCode: 'MATH201',
-      SubjectName: 'Calculus II',
-      Credits: 4,
-      SemesterName: 'Spring 2025',
-      AcademicYear: '2024-2025',
-      SupervisorName: 'Prof. Tran Thi B',
-      RegistrationStatus: 'Approved'
-    }
-  ];
-}
-
-// Generate mock day schedule data
-function generateMockDaySchedule(userId, date) {
-  userId = parseInt(userId);
-  const formattedDate = date.toISOString().split('T')[0];
-  const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-  
-  return {
-    classes: [
-      {
-        ClassID: 101,
-        ClassCode: 'CS101.01',
-        SubjectID: 1,
-        SubjectCode: 'COMP101',
-        SubjectName: 'Introduction to Computer Science',
-        Credits: 3,
-        SemesterName: 'Spring 2025',
-        AcademicYear: '2024-2025',
-        TeacherName: 'Prof. Nguyen Van A',
-        Location: 'Room A201',
-        scheduleDetails: [
-          {
-            day: dayOfWeek,
-            startTime: '07:30',
-            endTime: '09:30',
-            room: 'A201',
-            weekType: 'all'
-          }
-        ]
-      }
-    ],
-    exams: [
-      {
-        ExamID: 1,
-        ClassID: 101,
-        ExamName: 'Midterm Exam',
-        ExamType: 'Midterm',
-        ExamDate: formattedDate,
-        StartTime: '08:00:00',
-        EndTime: '10:00:00',
-        Location: 'Room A201',
-        ExamStatus: 'Scheduled',
-        SubjectCode: 'COMP101',
-        SubjectName: 'Introduction to Computer Science'
-      }
-    ],
-    date: formattedDate
-  };
-}
 
 module.exports = ScheduleModel; 

@@ -86,53 +86,6 @@ apiClient.interceptors.response.use(
   }
 );
 
-// Helper function to generate mock data for development
-function generateMockProfileData(url) {
-  const userId = url.match(/\/profile\/(\d+)/)?.[1] || 1;
-  
-  if (url.includes('/academic')) {
-    return {
-      ProgramID: 1,
-      ProgramCode: 'CNTT',
-      ProgramName: 'Công nghệ thông tin',
-      Department: 'Khoa Công nghệ thông tin',
-      Faculty: 'Khoa học máy tính',
-      TotalCredits: 145,
-      DegreeName: 'Kỹ sư',
-      AdvisorName: 'Nguyễn Văn A',
-      AdvisorEmail: 'advisor@example.com',
-      AdvisorPhone: '0123456789'
-    };
-  } else if (url.includes('/updates')) {
-    return [
-      {
-        UpdateID: 1,
-        UserID: userId,
-        FieldName: 'Phone',
-        OldValue: '0123456789',
-        NewValue: '0987654321',
-        UpdateTime: new Date().toISOString(),
-        Status: 'Approved'
-      }
-    ];
-  } else {
-    return {
-      UserID: userId,
-      Username: `student${userId}`,
-      Email: `student${userId}@example.com`,
-      FullName: `Sinh viên ${userId}`,
-      DateOfBirth: '2000-01-01',
-      Gender: 'Male',
-      PhoneNumber: '0987654321',
-      Address: 'Hà Nội, Việt Nam',
-      StudentID: `SV${userId.toString().padStart(6, '0')}`,
-      EnrollmentDate: '2020-09-01',
-      GraduationDate: null,
-      Status: 'Active'
-    };
-  }
-}
-
 // User services
 export const userService = {
   // Get user profile
@@ -299,40 +252,11 @@ export const academicService = {
       }
       
       // Try academic program endpoint as fallback
-      try {
-        const response = await apiClient.get(`/academic/program/${userId}`);
-        return response.data;
-      } catch (secondError) {
-        console.warn('Failed to fetch from academic endpoint, returning mock data');
-        // Return mock data if both endpoints fail
-        return [{
-          ProgramID: 1,
-          ProgramCode: 'CNTT',
-          ProgramName: 'Công nghệ thông tin',
-          Department: 'Khoa Công nghệ thông tin',
-          Faculty: 'Khoa học máy tính',
-          TotalCredits: 145,
-          DegreeName: 'Kỹ sư',
-          AdvisorName: 'Nguyễn Văn A',
-          AdvisorEmail: 'advisor@example.com',
-          AdvisorPhone: '0123456789'
-        }];
-      }
+      const response = await apiClient.get(`/academic/program/${userId}`);
+      return response.data;
     } catch (error) {
       console.error('Error fetching academic program:', error);
-      // Return mock data if all endpoints fail
-      return [{
-        ProgramID: 1,
-        ProgramCode: 'CNTT',
-        ProgramName: 'Công nghệ thông tin',
-        Department: 'Khoa Công nghệ thông tin',
-        Faculty: 'Khoa học máy tính',
-        TotalCredits: 145,
-        DegreeName: 'Kỹ sư',
-        AdvisorName: 'Nguyễn Văn A',
-        AdvisorEmail: 'advisor@example.com',
-        AdvisorPhone: '0123456789'
-      }];
+      throw error;
     }
   },
 
@@ -370,35 +294,11 @@ export const academicService = {
         }
       }
 
-      // If all endpoints fail, return mock data
-      console.warn('All endpoints failed, returning mock data');
-      return [{
-        UserID: parseInt(userId),
-        SemesterID: 1,
-        TotalCredits: 140,
-        EarnedCredits: 45,
-        SemesterGPA: 3.5,
-        CumulativeGPA: 3.5,
-        AcademicStanding: 'Good Standing',
-        RankInClass: 15,
-        SemesterName: 'Học kỳ 1',
-        AcademicYear: '2023-2024'
-      }];
+      // If all endpoints fail, throw an error
+      throw new Error('Could not fetch academic metrics from any endpoint');
     } catch (error) {
-      console.error('Error fetching academic metrics, returning mock data:', error);
-      // Return mock data if all endpoints fail
-      return [{
-        UserID: parseInt(userId),
-        SemesterID: 1,
-        TotalCredits: 140,
-        EarnedCredits: 45,
-        SemesterGPA: 3.5,
-        CumulativeGPA: 3.5,
-        AcademicStanding: 'Good Standing',
-        RankInClass: 15,
-        SemesterName: 'Học kỳ 1',
-        AcademicYear: '2023-2024'
-      }];
+      console.error('Error fetching academic metrics:', error);
+      throw error;
     }
   },
 

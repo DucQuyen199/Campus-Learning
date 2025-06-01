@@ -44,9 +44,8 @@ app.get('/api/version', (req, res) => {
   });
 });
 
-// Handle fallbacks for missing routes by making mock data
+// Replace the fallback handler with a simple 404 handler
 app.use(apiPrefix, (req, res, next) => {
-  app.locals.useFallbacks = app.locals.demoMode || false;
   next();
 });
 

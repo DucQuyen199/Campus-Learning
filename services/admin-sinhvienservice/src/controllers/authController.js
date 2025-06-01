@@ -40,8 +40,8 @@ const login = async (req, res) => {
 
     const user = result.recordset[0];
 
-    // Check if user is an admin
-    if (user.Role !== 'ADMIN') {
+    // Check if user is an admin - case insensitive check
+    if (user.Role.toUpperCase() !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền truy cập hệ thống quản trị.'

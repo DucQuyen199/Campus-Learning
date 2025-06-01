@@ -55,7 +55,7 @@ router.post('/login', async (req, res) => {
     }
     
     // Check if user has ADMIN role
-    if (user.Role !== 'ADMIN') {
+    if (user.Role.toUpperCase() !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền truy cập vào trang quản trị'
@@ -91,7 +91,7 @@ router.post('/login', async (req, res) => {
       { 
         id: user.UserID, 
         username: user.Username, 
-        role: user.Role,
+        role: user.Role.toUpperCase(),
         fullName: user.FullName
       },
       process.env.JWT_SECRET || 'campus-secret-key',
@@ -106,7 +106,7 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.UserID,
         username: user.Username,
-        role: user.Role,
+        role: user.Role.toUpperCase(),
         name: user.FullName,
         email: user.Email
       }
@@ -166,7 +166,7 @@ router.get('/validate-token', async (req, res) => {
     }
     
     // Verify user has ADMIN role
-    if (user.Role !== 'ADMIN') {
+    if (user.Role.toUpperCase() !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền truy cập vào trang quản trị'
@@ -179,7 +179,7 @@ router.get('/validate-token', async (req, res) => {
       user: {
         id: user.UserID,
         username: user.Username,
-        role: user.Role,
+        role: user.Role.toUpperCase(),
         name: user.FullName,
         email: user.Email
       }
@@ -261,7 +261,7 @@ router.post('/login-gmail', async (req, res) => {
     }
     
     // Check if user has ADMIN role
-    if (user.Role !== 'ADMIN') {
+    if (user.Role.toUpperCase() !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Bạn không có quyền truy cập vào trang quản trị'
@@ -273,7 +273,7 @@ router.post('/login-gmail', async (req, res) => {
       { 
         id: user.UserID, 
         username: user.Username, 
-        role: user.Role,
+        role: user.Role.toUpperCase(),
         fullName: user.FullName
       },
       process.env.JWT_SECRET || 'campus-secret-key',
@@ -288,7 +288,7 @@ router.post('/login-gmail', async (req, res) => {
       user: {
         id: user.UserID,
         username: user.Username,
-        role: user.Role,
+        role: user.Role.toUpperCase(),
         name: user.FullName,
         email: user.Email
       }

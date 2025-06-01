@@ -2,10 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Button, TextField, InputAdornment,
   Card, CardContent, Grid, IconButton, Chip, Snackbar, Alert,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Container, Tooltip,
+  CircularProgress, Avatar
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import { Add, Search, Edit, Delete, Visibility } from '@mui/icons-material';
+import { 
+  Add, 
+  Search, 
+  Edit, 
+  Delete, 
+  Visibility,
+  MenuBook as SubjectIcon,
+  BookOutlined
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { academicService } from '../../services/api';
 
@@ -110,177 +119,317 @@ const Subjects = () => {
   };
 
   const columns = [
-    { field: 'code', headerName: 'Mã môn', minWidth: 100, flex: 0.5 },
-    { field: 'name', headerName: 'Tên môn học', minWidth: 200, flex: 1.5 },
-    { field: 'credits', headerName: 'Số tín chỉ', minWidth: 100, flex: 0.4, type: 'number' },
-    { field: 'department', headerName: 'Khoa', minWidth: 120, flex: 0.8 },
-    { field: 'faculty', headerName: 'Ngành', minWidth: 150, flex: 0.8 },
+    // Subject code column
+    { 
+      field: 'code', 
+      headerName: 'Mã môn', 
+      minWidth: 120, 
+      flex: 0.6,
+      renderCell: (params) => (
+        <Box sx={{ fontWeight: 500 }}>
+          {params.value}
+        </Box>
+      )
+    },
+    
+    // Subject name column
+    { 
+      field: 'name', 
+      headerName: 'Tên môn học', 
+      minWidth: 250, 
+      flex: 1.8,
+      renderCell: (params) => (
+        <Box sx={{ 
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <Avatar 
+            sx={{ 
+              bgcolor: 'primary.light', 
+              width: 32, 
+              height: 32,
+              mr: 1.5,
+              fontSize: '1rem'
+            }}
+          >
+            {params.value.charAt(0)}
+          </Avatar>
+          <Box>
+            <Typography variant="body2" fontWeight={500}>
+              {params.value}
+            </Typography>
+            {params.row.faculty && params.row.faculty !== 'N/A' && (
+              <Typography variant="caption" color="text.secondary">
+                {params.row.faculty}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      )
+    },
+    
+    // Credits column
+    { 
+      field: 'credits', 
+      headerName: 'Tín chỉ', 
+      minWidth: 100, 
+      flex: 0.4, 
+      type: 'number',
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <BookOutlined fontSize="small" sx={{ mr: 0.5, color: 'primary.main' }}/>
+          <Typography variant="body2">
+            {params.value}
+          </Typography>
+        </Box>
+      )
+    },
+    
+    // Department column
+    { 
+      field: 'department', 
+      headerName: 'Khoa', 
+      minWidth: 150, 
+      flex: 1 
+    },
+    
+    // Required column
     { 
       field: 'isRequired', 
-      headerName: 'Bắt buộc', 
-      minWidth: 120,
-      flex: 0.5,
+      headerName: 'Loại môn', 
+      minWidth: 130,
+      flex: 0.7,
       renderCell: (params) => (
         <Chip 
           label={params.value ? 'Bắt buộc' : 'Tự chọn'} 
           color={params.value ? 'primary' : 'default'} 
-          size="small" 
+          size="small"
+          variant="outlined"
+          sx={{ fontWeight: 500, borderRadius: 1 }}
         />
       )
     },
+    
+    // Status column
     { 
       field: 'status', 
       headerName: 'Trạng thái', 
       minWidth: 120,
-      flex: 0.5,
+      flex: 0.6,
       renderCell: (params) => (
         <Chip 
           label={params.value} 
           color={params.value === 'Active' ? 'success' : 'default'} 
-          size="small" 
+          size="small"
+          variant="outlined"
+          sx={{ fontWeight: 500, borderRadius: 1 }}
         />
       )
     },
+    
+    // Actions column
     {
       field: 'actions',
       headerName: 'Thao tác',
-      minWidth: 150,
+      minWidth: 130,
       flex: 0.6,
       sortable: false,
       renderCell: (params) => (
         <Box>
-          <IconButton 
-            size="small" 
-            onClick={() => navigate(`/academic/subjects/${params.row.id}`)}
-            title="Xem chi tiết"
-          >
-            <Visibility fontSize="small" />
-          </IconButton>
-          <IconButton 
-            size="small" 
-            onClick={() => navigate(`/academic/subjects/edit/${params.row.id}`)}
-            title="Chỉnh sửa"
-          >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton 
-            size="small" 
-            color="error"
-            onClick={() => handleDeleteSubject(params.row.id)}
-            title="Xóa"
-          >
-            <Delete fontSize="small" />
-          </IconButton>
+          <Tooltip title="Xem chi tiết">
+            <IconButton 
+              size="small" 
+              onClick={() => navigate(`/academic/subjects/${params.row.id}`)}
+              sx={{ color: 'info.main' }}
+            >
+              <Visibility fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Chỉnh sửa">
+            <IconButton 
+              size="small" 
+              onClick={() => navigate(`/academic/subjects/edit/${params.row.id}`)}
+              sx={{ color: 'primary.main' }}
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Xóa">
+            <IconButton 
+              size="small" 
+              color="error"
+              onClick={() => handleDeleteSubject(params.row.id)}
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
       )
     }
   ];
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Snackbar 
-        open={openSnackbar} 
-        autoHideDuration={6000} 
-        onClose={() => setOpenSnackbar(false)}
-      >
-        <Alert 
-          onClose={() => setOpenSnackbar(false)} 
-          severity={error && error.includes('thành công') ? "success" : "error"} 
-          sx={{ width: '100%' }}
+    <Container maxWidth="xl">
+      <Box sx={{ py: 3 }}>
+        <Snackbar 
+          open={openSnackbar} 
+          autoHideDuration={6000} 
+          onClose={() => setOpenSnackbar(false)}
         >
-          {error}
-        </Alert>
-      </Snackbar>
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" component="h1">
-          Quản lý môn học
-        </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<Add />}
-          onClick={() => navigate('/academic/subjects/add')}
-        >
-          Thêm môn học
-        </Button>
-      </Box>
+          <Alert 
+            onClose={() => setOpenSnackbar(false)} 
+            severity={error && error.includes('thành công') ? "success" : "error"} 
+            sx={{ width: '100%' }}
+          >
+            {error}
+          </Alert>
+        </Snackbar>
+        
+        {/* Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3 
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <SubjectIcon sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+            <Box>
+              <Typography variant="h5" component="h1" fontWeight={600}>
+                Quản lý môn học
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Quản lý danh sách và thông tin môn học
+              </Typography>
+            </Box>
+          </Box>
+          <Button 
+            variant="contained" 
+            startIcon={<Add />}
+            onClick={() => navigate('/academic/subjects/add')}
+            sx={{ 
+              fontWeight: 500,
+              borderRadius: 2,
+              px: 2.5
+            }}
+          >
+            Thêm môn học
+          </Button>
+        </Box>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={5}>
-              <TextField
-                fullWidth
-                variant="outlined"
-                placeholder="Tìm kiếm theo mã, tên môn học..."
-                value={searchTerm}
-                onChange={handleSearch}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search />
-                    </InputAdornment>
-                  )
+        {/* Search Card */}
+        <Card sx={{ mb: 3, borderRadius: 2, overflow: 'hidden', boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
+          <CardContent sx={{ py: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  placeholder="Tìm kiếm theo mã, tên môn học..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search />
+                      </InputAdornment>
+                    )
+                  }}
+                  size="medium"
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="department-filter-label">Lọc theo Khoa</InputLabel>
+                  <Select
+                    labelId="department-filter-label"
+                    id="department-filter"
+                    value={departmentFilter}
+                    onChange={handleDepartmentFilterChange}
+                    label="Lọc theo Khoa"
+                  >
+                    <MenuItem value="">Tất cả các Khoa</MenuItem>
+                    {departments.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Box sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {filteredSubjects.length} môn học
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* Results Card */}
+        <Card sx={{ borderRadius: 2, overflow: 'hidden', boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+              <CircularProgress />
+            </Box>
+          ) : error && !error.includes('thành công') ? (
+            <Box sx={{ p: 3 }}>
+              <Alert severity="error">{error}</Alert>
+            </Box>
+          ) : (
+            <Box sx={{ height: 'calc(100vh - 280px)', width: '100%' }}>
+              <DataGrid
+                rows={filteredSubjects}
+                columns={columns}
+                initialState={{
+                  pagination: {
+                    paginationModel: { pageSize: 10 }
+                  },
+                  sorting: {
+                    sortModel: [{ field: 'code', sort: 'asc' }]
+                  }
+                }}
+                pageSizeOptions={[5, 10, 25, 50]}
+                loading={loading}
+                disableSelectionOnClick
+                autoHeight={false}
+                density="standard"
+                sx={{
+                  '& .MuiDataGrid-main': { width: '100%' },
+                  '& .MuiDataGrid-cell': { px: 2 },
+                  '& .MuiDataGrid-columnHeaders': { 
+                    bgcolor: 'background.paper', 
+                    borderBottom: 1, 
+                    borderColor: 'divider',
+                    py: 1.5
+                  },
+                  '& .MuiDataGrid-columnHeaderTitle': {
+                    fontWeight: 600
+                  },
+                  boxShadow: 0,
+                  border: 0,
+                  borderColor: 'divider',
+                  '& .MuiDataGrid-virtualScroller': {
+                    overflowY: 'auto'
+                  },
+                  '& .MuiDataGrid-row:hover': {
+                    bgcolor: 'action.hover'
+                  },
+                  '& .MuiDataGrid-cell:focus': {
+                    outline: 'none'
+                  },
+                  '& .MuiDataGrid-row': {
+                    borderBottom: '1px solid #f0f0f0'
+                  }
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth variant="outlined">
-                <InputLabel id="department-filter-label">Lọc theo Khoa</InputLabel>
-                <Select
-                  labelId="department-filter-label"
-                  id="department-filter"
-                  value={departmentFilter}
-                  onChange={handleDepartmentFilterChange}
-                  label="Lọc theo Khoa"
-                >
-                  <MenuItem value="">Tất cả các Khoa</MenuItem>
-                  {departments.map((dept) => (
-                    <MenuItem key={dept} value={dept}>
-                      {dept}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardContent sx={{ height: 'calc(100vh - 280px)' }}>
-          <DataGrid
-            rows={filteredSubjects}
-            columns={columns}
-            initialState={{
-              pagination: {
-                paginationModel: { pageSize: 10 }
-              },
-              sorting: {
-                sortModel: [{ field: 'code', sort: 'asc' }],
-              },
-            }}
-            pageSizeOptions={[5, 10, 25, 50]}
-            loading={loading}
-            disableSelectionOnClick
-            autoHeight={false}
-            density="standard"
-            sx={{
-              '& .MuiDataGrid-main': { width: '100%' },
-              '& .MuiDataGrid-cell': { px: 2 },
-              '& .MuiDataGrid-columnHeaders': { bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' },
-              boxShadow: 1,
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 1,
-              '& .MuiDataGrid-virtualScroller': {
-                overflowY: 'auto'
-              }
-            }}
-          />
-        </CardContent>
-      </Card>
-    </Box>
+            </Box>
+          )}
+        </Card>
+      </Box>
+    </Container>
   );
 };
 

@@ -35,6 +35,8 @@ CREATE TABLE [dbo].[Users] (
     UNIQUE NONCLUSTERED ([Username] ASC)
 );
 
+
+
 CREATE TABLE [dbo].[UserProfiles] (
     [ProfileID]               BIGINT         IDENTITY (1, 1) NOT NULL,
     [UserID]                  BIGINT         NULL,
@@ -610,24 +612,57 @@ CREATE TABLE Tuition (
 );
 go
 
--- Giao dịch thanh toán học phí
-CREATE TABLE TuitionPayments (
-    PaymentID BIGINT IDENTITY(1,1) PRIMARY KEY,
-    TuitionID BIGINT FOREIGN KEY REFERENCES Tuition(TuitionID),
-    UserID BIGINT FOREIGN KEY REFERENCES Users(UserID),
-    Amount DECIMAL(10,2),
-    PaymentMethod VARCHAR(50),
-    TransactionCode VARCHAR(100),
-    PaymentDate DATETIME,
-    Status VARCHAR(20) DEFAULT 'Pending',
-    BankReference VARCHAR(100),
-    Notes NVARCHAR(255),
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    UpdatedAt DATETIME DEFAULT GETDATE(),
-    CONSTRAINT CHK_Payment_Status_Tuition CHECK (Status IN ('Pending', 'Completed', 'Failed', 'Refunded', 'Cancelled')),
-    CONSTRAINT CHK_Payment_Method_Tuition CHECK (PaymentMethod IN ('Bank Transfer', 'Online Banking', 'Credit Card', 'Cash', 'Momo', 'ZaloPay', 'VNPay'))
-);
-go
+use campushubt;
+
+DROP TABLE IF EXISTS [dbo].[TuitionPayments];
+
+IF NOT EXISTS (
+    SELECT * FROM sys.objects
+    WHERE object_id = OBJECT_ID(N'[dbo].[TuitionPayments]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[TuitionPayments] (
+        PaymentID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        TuitionID BIGINT NOT NULL FOREIGN KEY REFERENCES Tuition(TuitionID),
+        UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+        Semester VARCHAR(20) NOT NULL,
+        AcademicYear VARCHAR(10) NOT NULL,
+        Amount DECIMAL(10,2) NOT NULL,
+        Status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+        PaymentMethod VARCHAR(50), 
+        PaymentDate DATETIME,
+        DueDate DATETIME NOT NULL,
+        CreatedAt DATETIME DEFAULT GETDATE(),
+        UpdatedAt DATETIME DEFAULT GETDATE(),
+        Notes NVARCHAR(500),
+        TransactionCode VARCHAR(100),
+        InvoiceNumber VARCHAR(50),
+        IsFullTuition BIT NOT NULL DEFAULT 1,
+        CONSTRAINT CHK_TuitionPayments_Status CHECK (Status IN ('PENDING', 'PAID', 'CANCELLED', 'REFUNDED')),
+        CONSTRAINT UQ_Tuition_User_Semester_Year UNIQUE (UserID, Semester, AcademicYear, IsFullTuition)
+    );
+END
+
+IF NOT EXISTS (
+    SELECT * FROM sys.objects 
+    WHERE object_id = OBJECT_ID(N'[dbo].[TuitionCourseDetails]') AND type = N'U'
+)
+BEGIN
+    CREATE TABLE [dbo].[TuitionCourseDetails] (
+        DetailID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        PaymentID BIGINT NOT NULL FOREIGN KEY REFERENCES TuitionPayments(PaymentID),
+        CourseID BIGINT NOT NULL FOREIGN KEY REFERENCES Courses(CourseID),
+        Amount DECIMAL(10,2) NOT NULL,
+        CreatedAt DATETIME DEFAULT GETDATE()
+    );
+END
+
+-- Thêm chỉ mục để tối ưu truy vấn học phí
+CREATE NONCLUSTERED INDEX IX_TuitionPayments_UserID_Status
+ON TuitionPayments(UserID, Status);
+
+CREATE NONCLUSTERED INDEX IX_TuitionPayments_Status_DueDate
+ON TuitionPayments(Status, DueDate);
 
 -- Khen thưởng, kỷ luật
 CREATE TABLE StudentAwards (

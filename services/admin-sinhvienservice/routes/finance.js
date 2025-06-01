@@ -3,6 +3,8 @@ const financeController = require('../src/controllers/financeController');
 const router = express.Router();
 const sql = require('mssql');
 const { getPool } = require('../src/config/db');
+const auth = require('../src/middleware/auth');
+const { validateTuitionPayment } = require('../src/middleware/validators');
 
 // Mock tuition data
 const tuition = [
@@ -628,6 +630,405 @@ router.get('/diagnostic', async (req, res) => {
       message: 'Lỗi khi chạy chuẩn đoán', 
       error: error.message 
     });
+  }
+});
+
+// Nhận danh sách học phí của tất cả sinh viên
+router.get('/tuition', auth, async (req, res) => {
+  try {
+    const pool = await getPool();
+    const { semester, academicYear, status } = req.query;
+    
+    let query = `
+      SELECT tp.*, u.FullName, u.Username, u.Email 
+      FROM TuitionPayments tp
+      JOIN Users u ON tp.UserID = u.UserID
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (semester) {
+      query += ' AND tp.Semester = @Semester';
+      params.push({ name: 'Semester', type: sql.VarChar, value: semester });
+    }
+    
+    if (academicYear) {
+      query += ' AND tp.AcademicYear = @AcademicYear';
+      params.push({ name: 'AcademicYear', type: sql.VarChar, value: academicYear });
+    }
+    
+    if (status) {
+      query += ' AND tp.Status = @Status';
+      params.push({ name: 'Status', type: sql.VarChar, value: status });
+    }
+    
+    query += ' ORDER BY tp.CreatedAt DESC';
+    
+    const request = pool.request();
+    
+    params.forEach(param => {
+      request.input(param.name, param.type, param.value);
+    });
+    
+    const result = await request.query(query);
+    
+    res.json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching tuition payments:', error);
+    res.status(500).json({ message: 'Lỗi khi lấy dữ liệu học phí', error: error.message });
+  }
+});
+
+// Nhận chi tiết học phí của một sinh viên
+router.get('/tuition/:userId', auth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { semester, academicYear } = req.query;
+    
+    const pool = await getPool();
+    let query = `
+      SELECT tp.*, u.FullName, u.Username, u.Email 
+      FROM TuitionPayments tp
+      JOIN Users u ON tp.UserID = u.UserID
+      WHERE tp.UserID = @UserID
+    `;
+    
+    const params = [
+      { name: 'UserID', type: sql.BigInt, value: userId }
+    ];
+    
+    if (semester) {
+      query += ' AND tp.Semester = @Semester';
+      params.push({ name: 'Semester', type: sql.VarChar, value: semester });
+    }
+    
+    if (academicYear) {
+      query += ' AND tp.AcademicYear = @AcademicYear';
+      params.push({ name: 'AcademicYear', type: sql.VarChar, value: academicYear });
+    }
+    
+    query += ' ORDER BY tp.CreatedAt DESC';
+    
+    const request = pool.request();
+    
+    params.forEach(param => {
+      request.input(param.name, param.type, param.value);
+    });
+    
+    const result = await request.query(query);
+    
+    // Lấy thêm chi tiết các khóa học trong học phí
+    const courseDetails = [];
+    for (const payment of result.recordset) {
+      if (payment.IsFullTuition === false) {
+        const detailsResult = await pool.request()
+          .input('PaymentID', sql.BigInt, payment.PaymentID)
+          .query(`
+            SELECT tcd.*, c.Title as CourseTitle, c.Slug as CourseSlug 
+            FROM TuitionCourseDetails tcd
+            JOIN Courses c ON tcd.CourseID = c.CourseID
+            WHERE tcd.PaymentID = @PaymentID
+          `);
+        
+        payment.CourseDetails = detailsResult.recordset;
+      }
+    }
+    
+    res.json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching student tuition details:', error);
+    res.status(500).json({ message: 'Lỗi khi lấy dữ liệu học phí sinh viên', error: error.message });
+  }
+});
+
+// Tạo mới yêu cầu thanh toán học phí
+router.post('/tuition', auth, validateTuitionPayment, async (req, res) => {
+  try {
+    const { 
+      userId, semester, academicYear, amount, dueDate, 
+      isFullTuition, notes, courseDetails 
+    } = req.body;
+    
+    const pool = await getPool();
+    
+    // Kiểm tra xem sinh viên đã có học phí cho học kỳ này chưa
+    const checkResult = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .input('Semester', sql.VarChar, semester)
+      .input('AcademicYear', sql.VarChar, academicYear)
+      .input('IsFullTuition', sql.Bit, isFullTuition)
+      .query(`
+        SELECT COUNT(*) AS count 
+        FROM TuitionPayments 
+        WHERE UserID = @UserID 
+        AND Semester = @Semester 
+        AND AcademicYear = @AcademicYear
+        AND IsFullTuition = @IsFullTuition
+        AND Status <> 'CANCELLED'
+      `);
+    
+    if (checkResult.recordset[0].count > 0) {
+      return res.status(400).json({ 
+        message: 'Sinh viên đã có học phí cho học kỳ này',
+        type: 'DUPLICATE_TUITION'
+      });
+    }
+    
+    // Bắt đầu transaction để đảm bảo tính nhất quán dữ liệu
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    
+    try {
+      // Thêm học phí
+      const tuitionResult = await new sql.Request(transaction)
+        .input('UserID', sql.BigInt, userId)
+        .input('Semester', sql.VarChar, semester)
+        .input('AcademicYear', sql.VarChar, academicYear)
+        .input('Amount', sql.Decimal(10, 2), amount)
+        .input('Status', sql.VarChar, 'PENDING')
+        .input('DueDate', sql.DateTime, new Date(dueDate))
+        .input('Notes', sql.NVarChar, notes || null)
+        .input('IsFullTuition', sql.Bit, isFullTuition)
+        .input('InvoiceNumber', sql.VarChar, `INV-${Date.now()}`)
+        .query(`
+          INSERT INTO TuitionPayments (
+            UserID, Semester, AcademicYear, Amount, Status,
+            DueDate, Notes, IsFullTuition, InvoiceNumber
+          )
+          OUTPUT INSERTED.*
+          VALUES (
+            @UserID, @Semester, @AcademicYear, @Amount, @Status,
+            @DueDate, @Notes, @IsFullTuition, @InvoiceNumber
+          )
+        `);
+      
+      const newTuition = tuitionResult.recordset[0];
+      
+      // Nếu là học phí khóa học lẻ, thêm chi tiết khóa học
+      if (!isFullTuition && courseDetails && courseDetails.length > 0) {
+        for (const course of courseDetails) {
+          await new sql.Request(transaction)
+            .input('PaymentID', sql.BigInt, newTuition.PaymentID)
+            .input('CourseID', sql.BigInt, course.courseId)
+            .input('Amount', sql.Decimal(10, 2), course.amount)
+            .query(`
+              INSERT INTO TuitionCourseDetails (PaymentID, CourseID, Amount)
+              VALUES (@PaymentID, @CourseID, @Amount)
+            `);
+        }
+      }
+      
+      await transaction.commit();
+      
+      res.status(201).json({ 
+        message: 'Đã tạo học phí thành công', 
+        tuition: newTuition 
+      });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Error creating tuition payment:', error);
+    res.status(500).json({ message: 'Lỗi khi tạo học phí', error: error.message });
+  }
+});
+
+// Cập nhật trạng thái học phí
+router.put('/tuition/:paymentId', auth, async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { status, paymentMethod, transactionCode, notes } = req.body;
+    
+    const pool = await getPool();
+    
+    // Bắt đầu transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    
+    try {
+      // Cập nhật thông tin học phí
+      const updateResult = await new sql.Request(transaction)
+        .input('PaymentID', sql.BigInt, paymentId)
+        .input('Status', sql.VarChar, status)
+        .input('PaymentMethod', sql.VarChar, paymentMethod || null)
+        .input('TransactionCode', sql.VarChar, transactionCode || null)
+        .input('Notes', sql.NVarChar, notes || null)
+        .input('PaymentDate', sql.DateTime, status === 'PAID' ? new Date() : null)
+        .input('UpdatedAt', sql.DateTime, new Date())
+        .query(`
+          UPDATE TuitionPayments
+          SET Status = @Status,
+              PaymentMethod = @PaymentMethod,
+              TransactionCode = @TransactionCode,
+              Notes = @Notes,
+              PaymentDate = @PaymentDate,
+              UpdatedAt = @UpdatedAt
+          OUTPUT INSERTED.*
+          WHERE PaymentID = @PaymentID
+        `);
+      
+      if (updateResult.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(404).json({ message: 'Không tìm thấy học phí' });
+      }
+      
+      const updatedTuition = updateResult.recordset[0];
+      
+      // Nếu trạng thái là "đã thanh toán", cập nhật trạng thái học phí của sinh viên
+      if (status === 'PAID') {
+        await new sql.Request(transaction)
+          .input('UserID', sql.BigInt, updatedTuition.UserID)
+          .input('TuitionStatus', sql.VarChar, 'PAID')
+          .query(`
+            UPDATE Users
+            SET TuitionStatus = @TuitionStatus
+            WHERE UserID = @UserID
+          `);
+      }
+      
+      await transaction.commit();
+      
+      res.json({ 
+        message: 'Cập nhật học phí thành công', 
+        tuition: updatedTuition 
+      });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Error updating tuition payment:', error);
+    res.status(500).json({ message: 'Lỗi khi cập nhật học phí', error: error.message });
+  }
+});
+
+// Kiểm tra quyền truy cập khóa học dựa trên tình trạng học phí
+router.get('/check-course-access/:userId/:courseId', async (req, res) => {
+  try {
+    const { userId, courseId } = req.params;
+    
+    const pool = await getPool();
+    
+    // Kiểm tra tình trạng học phí của sinh viên
+    const userResult = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query(`
+        SELECT TuitionStatus FROM Users WHERE UserID = @UserID
+      `);
+    
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy sinh viên' });
+    }
+    
+    const tuitionStatus = userResult.recordset[0].TuitionStatus;
+    
+    // Nếu sinh viên đã đóng học phí toàn phần, cho phép truy cập
+    if (tuitionStatus === 'PAID') {
+      return res.json({ 
+        hasAccess: true, 
+        message: 'Sinh viên đã đóng học phí toàn phần',
+        requiresPayment: false
+      });
+    }
+    
+    // Kiểm tra xem sinh viên đã đóng học phí cho khóa học cụ thể này chưa
+    const coursePaymentResult = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .input('CourseID', sql.BigInt, courseId)
+      .query(`
+        SELECT tp.* 
+        FROM TuitionPayments tp
+        JOIN TuitionCourseDetails tcd ON tp.PaymentID = tcd.PaymentID
+        WHERE tp.UserID = @UserID 
+        AND tcd.CourseID = @CourseID
+        AND tp.Status = 'PAID'
+        AND tp.IsFullTuition = 0
+      `);
+    
+    if (coursePaymentResult.recordset.length > 0) {
+      return res.json({ 
+        hasAccess: true, 
+        message: 'Sinh viên đã đóng học phí cho khóa học này',
+        requiresPayment: false
+      });
+    }
+    
+    // Lấy thông tin khóa học để kiểm tra giá
+    const courseResult = await pool.request()
+      .input('CourseID', sql.BigInt, courseId)
+      .query(`
+        SELECT Title, Price FROM Courses WHERE CourseID = @CourseID
+      `);
+    
+    if (courseResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy khóa học' });
+    }
+    
+    const course = courseResult.recordset[0];
+    
+    // Nếu khóa học miễn phí, cho phép truy cập
+    if (course.Price === 0) {
+      return res.json({ 
+        hasAccess: true, 
+        message: 'Khóa học này miễn phí',
+        requiresPayment: false
+      });
+    }
+    
+    // Nếu không thỏa mãn các điều kiện trên, yêu cầu thanh toán
+    res.json({ 
+      hasAccess: false, 
+      message: 'Cần thanh toán học phí để truy cập khóa học này',
+      requiresPayment: true,
+      course: course
+    });
+  } catch (error) {
+    console.error('Error checking course access:', error);
+    res.status(500).json({ message: 'Lỗi khi kiểm tra quyền truy cập khóa học', error: error.message });
+  }
+});
+
+// Thêm API endpoint để lấy thống kê học phí
+router.get('/tuition-stats', auth, async (req, res) => {
+  try {
+    const { academicYear } = req.query;
+    
+    const pool = await getPool();
+    
+    let query = `
+      SELECT 
+        COUNT(CASE WHEN Status = 'PENDING' THEN 1 END) AS pendingCount,
+        COUNT(CASE WHEN Status = 'PAID' THEN 1 END) AS paidCount,
+        SUM(CASE WHEN Status = 'PAID' THEN Amount ELSE 0 END) AS totalCollected,
+        SUM(Amount) AS totalAmount,
+        COUNT(DISTINCT UserID) AS studentCount,
+        COUNT(CASE WHEN IsFullTuition = 1 THEN 1 END) AS fullTuitionCount,
+        COUNT(CASE WHEN IsFullTuition = 0 THEN 1 END) AS courseTuitionCount
+      FROM TuitionPayments
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (academicYear) {
+      query += ' AND AcademicYear = @AcademicYear';
+      params.push({ name: 'AcademicYear', type: sql.VarChar, value: academicYear });
+    }
+    
+    const request = pool.request();
+    
+    params.forEach(param => {
+      request.input(param.name, param.type, param.value);
+    });
+    
+    const result = await request.query(query);
+    
+    res.json(result.recordset[0]);
+  } catch (error) {
+    console.error('Error fetching tuition statistics:', error);
+    res.status(500).json({ message: 'Lỗi khi lấy thống kê học phí', error: error.message });
   }
 });
 

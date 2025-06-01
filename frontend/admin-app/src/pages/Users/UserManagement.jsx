@@ -44,6 +44,7 @@ const UserManagement = () => {
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterRole, setFilterRole] = useState('all');
+  const [filterSchool, setFilterSchool] = useState('all');
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState('table');
   
@@ -52,9 +53,11 @@ const UserManagement = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [editUserModalVisible, setEditUserModalVisible] = useState(false);
   const [lockDuration, setLockDuration] = useState(24);
   const [lockReason, setLockReason] = useState('');
   const [newRole, setNewRole] = useState('');
+  const [editUserForm] = Form.useForm();
   
   // Load users on component mount
   useEffect(() => {
@@ -66,7 +69,7 @@ const UserManagement = () => {
     if (users.length > 0) {
       handleFiltering();
     }
-  }, [searchText, filterStatus, filterRole, activeTab, users]);
+  }, [searchText, filterStatus, filterRole, filterSchool, activeTab, users]);
   
   const fetchUsers = async () => {
     try {
@@ -182,6 +185,11 @@ const UserManagement = () => {
       filtered = filtered.filter(user => user.Role === filterRole);
     }
     
+    // Apply school filter
+    if (filterSchool !== 'all') {
+      filtered = filtered.filter(user => user.School === filterSchool);
+    }
+    
     setFilteredUsers(filtered);
   };
   
@@ -190,6 +198,7 @@ const UserManagement = () => {
     setSearchText('');
     setFilterStatus('all');
     setFilterRole('all');
+    setFilterSchool('all');
     setActiveTab('all');
   };
   
@@ -222,6 +231,54 @@ const UserManagement = () => {
   // Close role dialog
   const closeRoleDialog = () => {
     setRoleDialogOpen(false);
+  };
+  
+  // Edit user functionality
+  const openEditUserModal = (user) => {
+    setSelectedUser(user);
+    editUserForm.setFieldsValue({
+      fullName: user.FullName,
+      email: user.Email,
+      school: user.School,
+      bio: user.Bio
+    });
+    setEditUserModalVisible(true);
+  };
+  
+  const closeEditUserModal = () => {
+    setEditUserModalVisible(false);
+    editUserForm.resetFields();
+  };
+  
+  const handleUpdateUser = async () => {
+    try {
+      const values = await editUserForm.validateFields();
+      await usersAPI.updateUser(selectedUser.UserID, values);
+      
+      // Update local state for immediate UI feedback
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.UserID === selectedUser.UserID
+            ? { ...user, FullName: values.fullName, Email: values.email, School: values.school, Bio: values.bio }
+            : user
+        )
+      );
+      
+      message.success('Cập nhật thông tin người dùng thành công');
+      closeEditUserModal();
+      
+      // Also update the selected user for detail modal
+      setSelectedUser(prev => ({
+        ...prev,
+        FullName: values.fullName,
+        Email: values.email,
+        School: values.school,
+        Bio: values.bio
+      }));
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      message.error('Không thể cập nhật thông tin người dùng');
+    }
   };
   
   // Handle role change
@@ -315,7 +372,7 @@ const UserManagement = () => {
       // Format the CSV data with BOM for UTF-8
       // Adding BOM (Byte Order Mark) to ensure proper UTF-8 encoding
       let csvContent = '\uFEFF';
-      csvContent += 'ID,Username,Email,Full Name,Role,Status,Created Date,Last Login\n';
+      csvContent += 'ID,Username,Email,Full Name,School,Role,Status,Created Date,Last Login\n';
       
       // Add user data rows
       filteredUsers.forEach(user => {
@@ -324,6 +381,7 @@ const UserManagement = () => {
           user.Username || '',
           user.Email || '',
           user.FullName || '',
+          user.School || '',
           user.Role || '',
           user.AccountStatus || '',
           user.CreatedAt ? formatDate(user.CreatedAt) : '',
@@ -493,9 +551,25 @@ const UserManagement = () => {
             <div>
               <Text type="secondary">{user.Email || 'Không có email'}</Text>
             </div>
+            {user.School && (
+              <div>
+                <Text type="secondary"><IdcardOutlined /> {user.School}</Text>
+              </div>
+            )}
           </div>
         </Space>
       )
+    },
+    {
+      title: 'Trường học',
+      dataIndex: 'School',
+      key: 'school',
+      render: (school) => school || 'Không có',
+      sorter: (a, b) => {
+        if (!a.School) return 1;
+        if (!b.School) return -1;
+        return a.School.localeCompare(b.School);
+      },
     },
     {
       title: 'Vai trò',
@@ -675,6 +749,11 @@ const UserManagement = () => {
         <div style={{ marginTop: 4 }}>
           <Text type="secondary">{user.Email || 'Không có email'}</Text>
         </div>
+        {user.School && (
+          <div style={{ marginTop: 4 }}>
+            <Text type="secondary"><IdcardOutlined /> {user.School}</Text>
+          </div>
+        )}
       </div>
       <Divider style={{ margin: '8px 0' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -691,6 +770,17 @@ const UserManagement = () => {
       </div>
     </Card>
   );
+  
+  // Get unique schools for filter
+  const getUniqueSchools = () => {
+    const schools = users
+      .map(user => user.School)
+      .filter(school => school) // Remove null/undefined values
+      .filter((school, index, self) => self.indexOf(school) === index) // Get unique values
+      .sort();
+    
+    return schools;
+  };
   
   return (
     <MainCard 
@@ -799,7 +889,7 @@ const UserManagement = () => {
         className="hover-shadow"
       >
         <Row gutter={16} align="middle">
-          <Col xs={24} sm={24} md={8} lg={8} style={{ marginBottom: { xs: 16, md: 0 } }}>
+          <Col xs={24} sm={24} md={8} lg={7} style={{ marginBottom: { xs: 16, md: 0 } }}>
             <Input
               placeholder="Tìm kiếm người dùng..."
               prefix={<SearchOutlined />}
@@ -808,7 +898,7 @@ const UserManagement = () => {
               allowClear
             />
           </Col>
-          <Col xs={12} sm={12} md={4} lg={4}>
+          <Col xs={12} sm={8} md={4} lg={3}>
             <Select
               style={{ width: '100%' }}
               placeholder="Trạng thái"
@@ -821,7 +911,7 @@ const UserManagement = () => {
               <Option value="INACTIVE">Không hoạt động</Option>
             </Select>
           </Col>
-          <Col xs={12} sm={12} md={4} lg={4}>
+          <Col xs={12} sm={8} md={4} lg={3}>
             <Select
               style={{ width: '100%' }}
               placeholder="Vai trò"
@@ -834,7 +924,22 @@ const UserManagement = () => {
               <Option value="STUDENT">Học sinh</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={24} md={8} lg={8} style={{ textAlign: 'right', marginTop: { xs: 16, md: 0 } }}>
+          <Col xs={24} sm={8} md={4} lg={4}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Trường học"
+              value={filterSchool}
+              onChange={(value) => setFilterSchool(value)}
+              showSearch
+              optionFilterProp="children"
+            >
+              <Option value="all">Tất cả trường</Option>
+              {getUniqueSchools().map(school => (
+                <Option key={school} value={school}>{school}</Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={24} md={4} lg={7} style={{ textAlign: 'right', marginTop: { xs: 16, md: 0 } }}>
             <Space>
               <Button
                 icon={<ReloadOutlined />}
@@ -1001,6 +1106,12 @@ const UserManagement = () => {
                     <Text strong>{selectedUser.FullName || 'Không có'}</Text>
                   </div>
                 </div>
+                <div style={{ marginBottom: 8 }}>
+                  <Text type="secondary">Trường học:</Text>
+                  <div>
+                    <Text strong>{selectedUser.School || 'Không có'}</Text>
+                  </div>
+                </div>
               </Col>
               
               <Col span={12}>
@@ -1032,7 +1143,7 @@ const UserManagement = () => {
                     icon={<EditOutlined />}
                         onClick={() => {
                       setDetailModalVisible(false);
-                      // Implement edit user functionality
+                      openEditUserModal(selectedUser);
                         }}
                       >
                     Chỉnh sửa thông tin
@@ -1132,6 +1243,52 @@ const UserManagement = () => {
         )}
       </Modal>
       
+      {/* Edit User Modal */}
+      <Modal
+        title="Chỉnh sửa thông tin người dùng"
+        open={editUserModalVisible}
+        onCancel={closeEditUserModal}
+        onOk={handleUpdateUser}
+        okText="Lưu thay đổi"
+      >
+        {selectedUser && (
+          <Form form={editUserForm} layout="vertical">
+            <Form.Item 
+              label="Họ và tên" 
+              name="fullName"
+              rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+            >
+              <Input placeholder="Nhập họ và tên" />
+            </Form.Item>
+            
+            <Form.Item 
+              label="Email" 
+              name="email"
+              rules={[
+                { required: true, message: 'Vui lòng nhập email' },
+                { type: 'email', message: 'Email không hợp lệ' }
+              ]}
+            >
+              <Input placeholder="Nhập email" />
+            </Form.Item>
+            
+            <Form.Item 
+              label="Trường học" 
+              name="school"
+            >
+              <Input placeholder="Nhập tên trường học" />
+            </Form.Item>
+            
+            <Form.Item 
+              label="Giới thiệu" 
+              name="bio"
+            >
+              <Input.TextArea rows={4} placeholder="Nhập thông tin giới thiệu" />
+            </Form.Item>
+          </Form>
+        )}
+      </Modal>
+      
       <style jsx global>{`
         .hover-shadow {
           transition: all 0.3s;
@@ -1144,4 +1301,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement; 
+export default UserManagement;

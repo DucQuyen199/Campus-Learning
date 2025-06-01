@@ -172,7 +172,17 @@ export const usersAPI = {
   }),
   getUser: (id) => API.get(`/users/${id}`),
   createUser: (userData) => API.post('/users', userData),
-  updateUser: (id, userData) => API.put(`/users/${id}`, userData),
+  updateUser: (id, userData) => {
+    // Ensure school field is included in the update
+    const { fullName, email, school, bio, ...rest } = userData;
+    return API.put(`/users/${id}`, {
+      fullName, 
+      email, 
+      school,
+      bio,
+      ...rest
+    });
+  },
   deleteUser: (id) => API.delete(`/users/${id}`),
   getRoles: () => API.get('/users/roles/all'),
   createRole: (roleData) => API.post('/users/roles', roleData),

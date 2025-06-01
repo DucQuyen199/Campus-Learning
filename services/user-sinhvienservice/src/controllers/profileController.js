@@ -121,15 +121,73 @@ exports.updateProfile = async (req, res) => {
       });
     }
     
-    const profileData = {
-      phoneNumber: req.body.phoneNumber,
-      address: req.body.address,
-      city: req.body.city,
-      country: req.body.country,
-      bio: req.body.bio
-    };
+    // Determine which type of information is being updated based on request data
+    let updateType = 'profile'; // Default type
+    const updateData = {};
     
-    const result = await profileModel.updateProfile(userId, profileData);
+    // Process basic information fields
+    if (req.body.FullName !== undefined || req.body.DateOfBirth !== undefined || 
+        req.body.Gender !== undefined || req.body.BirthPlace !== undefined || 
+        req.body.HomeTown !== undefined || req.body.Ethnicity !== undefined || 
+        req.body.Religion !== undefined) {
+      updateType = 'basicInfo';
+      updateData.FullName = req.body.FullName;
+      updateData.DateOfBirth = req.body.DateOfBirth;
+      updateData.Gender = req.body.Gender;
+      updateData.BirthPlace = req.body.BirthPlace;
+      updateData.HomeTown = req.body.HomeTown;
+      updateData.Ethnicity = req.body.Ethnicity;
+      updateData.Religion = req.body.Religion;
+    }
+    
+    // Process document information fields
+    else if (req.body.IdentityCardNumber !== undefined || req.body.IdentityCardIssueDate !== undefined || 
+             req.body.IdentityCardIssuePlace !== undefined || req.body.HealthInsuranceNumber !== undefined ||
+             req.body.BankAccountNumber !== undefined || req.body.BankName !== undefined) {
+      updateType = 'documents';
+      updateData.IdentityCardNumber = req.body.IdentityCardNumber;
+      updateData.IdentityCardIssueDate = req.body.IdentityCardIssueDate;
+      updateData.IdentityCardIssuePlace = req.body.IdentityCardIssuePlace;
+      updateData.HealthInsuranceNumber = req.body.HealthInsuranceNumber;
+      updateData.BankAccountNumber = req.body.BankAccountNumber;
+      updateData.BankName = req.body.BankName;
+    }
+    
+    // Process contact information fields
+    else if (req.body.PhoneNumber !== undefined || req.body.Email !== undefined ||
+             req.body.Address !== undefined || req.body.City !== undefined || 
+             req.body.Country !== undefined) {
+      updateType = 'contactInfo';
+      updateData.PhoneNumber = req.body.PhoneNumber;
+      updateData.Email = req.body.Email;
+      updateData.Address = req.body.Address;
+      updateData.City = req.body.City;
+      updateData.Country = req.body.Country;
+    }
+    
+    // Process family information fields
+    else if (req.body.ParentName !== undefined || req.body.ParentPhone !== undefined ||
+             req.body.ParentEmail !== undefined || req.body.EmergencyContact !== undefined ||
+             req.body.EmergencyPhone !== undefined) {
+      updateType = 'familyInfo';
+      updateData.ParentName = req.body.ParentName;
+      updateData.ParentPhone = req.body.ParentPhone;
+      updateData.ParentEmail = req.body.ParentEmail;
+      updateData.EmergencyContact = req.body.EmergencyContact;
+      updateData.EmergencyPhone = req.body.EmergencyPhone;
+    }
+    
+    // Handle general profile updates (for backward compatibility)
+    else {
+      updateData.PhoneNumber = req.body.phoneNumber;
+      updateData.Address = req.body.address;
+      updateData.City = req.body.city;
+      updateData.Country = req.body.country;
+      updateData.Bio = req.body.bio;
+    }
+    
+    // Update profile with specified data
+    const result = await profileModel.updateProfile(userId, updateData, updateType);
     
     return res.json({
       success: true,
@@ -140,7 +198,8 @@ exports.updateProfile = async (req, res) => {
     console.error('Error in updateProfile controller:', error);
     return res.status(500).json({ 
       success: false, 
-      message: 'Server error while updating profile' 
+      message: 'Server error while updating profile',
+      error: error.message 
     });
   }
 };

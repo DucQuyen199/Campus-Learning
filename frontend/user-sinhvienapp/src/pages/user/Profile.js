@@ -31,7 +31,9 @@ import {
   TableBody,
   TableCell,
   TableRow,
-  TableHead
+  TableHead,
+  IconButton,
+  MenuItem
 } from '@mui/material';
 import {
   Email,
@@ -101,6 +103,12 @@ const Profile = () => {
   const [updateHistory, setUpdateHistory] = useState([]);
   const [editMode, setEditMode] = useState(false);
   const [editedProfile, setEditedProfile] = useState({});
+  const [editSections, setEditSections] = useState({
+    basicInfo: false,
+    documents: false,
+    contactInfo: false,
+    familyInfo: false,
+  });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -164,6 +172,141 @@ const Profile = () => {
       });
     }
     setEditMode(!editMode);
+  };
+  
+  // Handle edit section toggle
+  const handleEditSection = (section) => {
+    if (!editSections[section]) {
+      // Enter edit mode for this section
+      const newEditedProfile = { ...editedProfile };
+      
+      // Populate fields based on section
+      switch(section) {
+        case 'basicInfo':
+          newEditedProfile.fullName = profileData?.FullName || '';
+          newEditedProfile.dateOfBirth = profileData?.DateOfBirth || '';
+          newEditedProfile.gender = profileData?.Gender || '';
+          newEditedProfile.birthPlace = profileData?.BirthPlace || '';
+          newEditedProfile.homeTown = profileData?.HomeTown || '';
+          newEditedProfile.ethnicity = profileData?.Ethnicity || '';
+          newEditedProfile.religion = profileData?.Religion || '';
+          break;
+        case 'documents':
+          newEditedProfile.identityCardNumber = profileData?.IdentityCardNumber || '';
+          newEditedProfile.identityCardIssueDate = profileData?.IdentityCardIssueDate || '';
+          newEditedProfile.identityCardIssuePlace = profileData?.IdentityCardIssuePlace || '';
+          newEditedProfile.healthInsuranceNumber = profileData?.HealthInsuranceNumber || '';
+          newEditedProfile.bankAccountNumber = profileData?.BankAccountNumber || '';
+          newEditedProfile.bankName = profileData?.BankName || '';
+          break;
+        case 'contactInfo':
+          newEditedProfile.phoneNumber = profileData?.PhoneNumber || '';
+          newEditedProfile.email = profileData?.Email || '';
+          newEditedProfile.address = profileData?.Address || '';
+          newEditedProfile.city = profileData?.City || '';
+          newEditedProfile.country = profileData?.Country || '';
+          break;
+        case 'familyInfo':
+          newEditedProfile.parentName = profileData?.ParentName || '';
+          newEditedProfile.parentPhone = profileData?.ParentPhone || '';
+          newEditedProfile.parentEmail = profileData?.ParentEmail || '';
+          newEditedProfile.emergencyContact = profileData?.EmergencyContact || '';
+          newEditedProfile.emergencyPhone = profileData?.EmergencyPhone || '';
+          break;
+        default:
+          break;
+      }
+      
+      setEditedProfile(newEditedProfile);
+    } else {
+      // Save changes if leaving edit mode
+      if (editSections[section]) {
+        handleUpdateSection(section);
+      }
+    }
+    
+    setEditSections({
+      ...editSections,
+      [section]: !editSections[section]
+    });
+  };
+  
+  // Handle update section
+  const handleUpdateSection = async (section) => {
+    try {
+      setLoading(true);
+      
+      // Create update data based on section
+      const updateData = {};
+      
+      switch(section) {
+        case 'basicInfo':
+          updateData.FullName = editedProfile.fullName;
+          updateData.DateOfBirth = editedProfile.dateOfBirth;
+          updateData.Gender = editedProfile.gender;
+          updateData.BirthPlace = editedProfile.birthPlace;
+          updateData.HomeTown = editedProfile.homeTown;
+          updateData.Ethnicity = editedProfile.ethnicity;
+          updateData.Religion = editedProfile.religion;
+          break;
+        case 'documents':
+          updateData.IdentityCardNumber = editedProfile.identityCardNumber;
+          updateData.IdentityCardIssueDate = editedProfile.identityCardIssueDate;
+          updateData.IdentityCardIssuePlace = editedProfile.identityCardIssuePlace;
+          updateData.HealthInsuranceNumber = editedProfile.healthInsuranceNumber;
+          updateData.BankAccountNumber = editedProfile.bankAccountNumber;
+          updateData.BankName = editedProfile.bankName;
+          break;
+        case 'contactInfo':
+          updateData.PhoneNumber = editedProfile.phoneNumber;
+          updateData.Email = editedProfile.email;
+          updateData.Address = editedProfile.address;
+          updateData.City = editedProfile.city;
+          updateData.Country = editedProfile.country;
+          break;
+        case 'familyInfo':
+          updateData.ParentName = editedProfile.parentName;
+          updateData.ParentPhone = editedProfile.parentPhone;
+          updateData.ParentEmail = editedProfile.parentEmail;
+          updateData.EmergencyContact = editedProfile.emergencyContact;
+          updateData.EmergencyPhone = editedProfile.emergencyPhone;
+          break;
+        default:
+          break;
+      }
+      
+      await userService.updateProfile(currentUser.UserID, updateData);
+      
+      // Update local state with new values
+      setProfileData({
+        ...profileData,
+        ...updateData
+      });
+      
+      setSnackbar({
+        open: true,
+        message: 'Thông tin đã được cập nhật thành công',
+        severity: 'success'
+      });
+      
+      // Refresh profile data
+      fetchProfileData();
+      
+    } catch (err) {
+      console.error(`Error updating ${section}:`, err);
+      setSnackbar({
+        open: true,
+        message: 'Không thể cập nhật thông tin. Vui lòng thử lại sau.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+      // Reset edit mode for this section
+      setEditSections({
+        ...editSections,
+        [section]: false
+      });
+    }
   };
   
   // Handle profile update
@@ -658,9 +801,19 @@ const Profile = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Paper sx={styles.paper} elevation={0} variant="outlined">
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Person sx={{ mr: 1, color: 'primary.main' }} />
-                  Thông tin cơ bản
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Person sx={{ mr: 1, color: 'primary.main' }} />
+                    Thông tin cơ bản
+                  </Box>
+                  <IconButton 
+                    size="small" 
+                    color={editSections.basicInfo ? "success" : "primary"}
+                    onClick={() => handleEditSection('basicInfo')}
+                    sx={{ ml: 2 }}
+                  >
+                    {editSections.basicInfo ? <Save /> : <Edit />}
+                  </IconButton>
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
@@ -669,40 +822,137 @@ const Profile = () => {
                     <TableBody>
                       <TableRow>
                         <TableCell component="th" scope="row" width="40%">Họ và tên</TableCell>
-                        <TableCell align="right">{profileData?.FullName}</TableCell>
+                        <TableCell align="right">
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="fullName"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.fullName || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, fullName: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.FullName
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Ngày sinh</TableCell>
                         <TableCell align="right">
-                          {profileData?.DateOfBirth ? 
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="dateOfBirth"
+                              size="small"
+                              fullWidth
+                              type="date"
+                              value={editedProfile.dateOfBirth ? editedProfile.dateOfBirth.split('T')[0] : ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, dateOfBirth: e.target.value})}
+                              variant="outlined"
+                              InputLabelProps={{
+                                shrink: true,
+                              }}
+                            />
+                          ) : (
+                            profileData?.DateOfBirth ? 
                             new Date(profileData.DateOfBirth).toLocaleDateString('vi-VN', {
                               year: 'numeric', 
                               month: '2-digit', 
                               day: '2-digit'
                             }) : 
                             'Chưa cập nhật'
-                          }
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Giới tính</TableCell>
-                        <TableCell align="right">{profileData?.Gender || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="gender"
+                              select
+                              size="small"
+                              fullWidth
+                              value={editedProfile.gender || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, gender: e.target.value})}
+                              variant="outlined"
+                            >
+                              <MenuItem value="Nam">Nam</MenuItem>
+                              <MenuItem value="Nữ">Nữ</MenuItem>
+                              <MenuItem value="Khác">Khác</MenuItem>
+                            </TextField>
+                          ) : (
+                            profileData?.Gender || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Nơi sinh</TableCell>
-                        <TableCell align="right">{profileData?.BirthPlace || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="birthPlace"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.birthPlace || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, birthPlace: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.BirthPlace || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Quê quán</TableCell>
-                        <TableCell align="right">{profileData?.HomeTown || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="homeTown"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.homeTown || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, homeTown: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.HomeTown || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Dân tộc</TableCell>
-                        <TableCell align="right">{profileData?.Ethnicity || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="ethnicity"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.ethnicity || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, ethnicity: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.Ethnicity || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Tôn giáo</TableCell>
-                        <TableCell align="right">{profileData?.Religion || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.basicInfo ? (
+                            <TextField
+                              name="religion"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.religion || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, religion: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.Religion || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -712,9 +962,19 @@ const Profile = () => {
             
             <Grid item xs={12} md={6}>
               <Paper sx={styles.paper} elevation={0} variant="outlined">
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                  <CreditCard sx={{ mr: 1, color: 'primary.main' }} />
-                  Giấy tờ
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <CreditCard sx={{ mr: 1, color: 'primary.main' }} />
+                    Giấy tờ
+                  </Box>
+                  <IconButton 
+                    size="small" 
+                    color={editSections.documents ? "success" : "primary"}
+                    onClick={() => handleEditSection('documents')}
+                    sx={{ ml: 2 }}
+                  >
+                    {editSections.documents ? <Save /> : <Edit />}
+                  </IconButton>
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
@@ -723,29 +983,109 @@ const Profile = () => {
                     <TableBody>
                       <TableRow>
                         <TableCell component="th" scope="row" width="40%">CMND/CCCD</TableCell>
-                        <TableCell align="right">{profileData?.IdentityCardNumber || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.documents ? (
+                            <TextField
+                              name="identityCardNumber"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.identityCardNumber || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, identityCardNumber: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.IdentityCardNumber || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Ngày cấp</TableCell>
                         <TableCell align="right">
-                          {profileData?.IdentityCardIssueDate ? new Date(profileData.IdentityCardIssueDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                          {editSections.documents ? (
+                            <TextField
+                              name="identityCardIssueDate"
+                              type="date"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.identityCardIssueDate ? editedProfile.identityCardIssueDate.split('T')[0] : ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, identityCardIssueDate: e.target.value})}
+                              variant="outlined"
+                              InputLabelProps={{
+                                shrink: true,
+                              }}
+                            />
+                          ) : (
+                            profileData?.IdentityCardIssueDate ? new Date(profileData.IdentityCardIssueDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'
+                          )}
                         </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Nơi cấp</TableCell>
-                        <TableCell align="right">{profileData?.IdentityCardIssuePlace || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.documents ? (
+                            <TextField
+                              name="identityCardIssuePlace"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.identityCardIssuePlace || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, identityCardIssuePlace: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.IdentityCardIssuePlace || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Số BHYT</TableCell>
-                        <TableCell align="right">{profileData?.HealthInsuranceNumber || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.documents ? (
+                            <TextField
+                              name="healthInsuranceNumber"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.healthInsuranceNumber || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, healthInsuranceNumber: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.HealthInsuranceNumber || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Tài khoản ngân hàng</TableCell>
-                        <TableCell align="right">{profileData?.BankAccountNumber || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.documents ? (
+                            <TextField
+                              name="bankAccountNumber"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.bankAccountNumber || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, bankAccountNumber: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.BankAccountNumber || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Ngân hàng</TableCell>
-                        <TableCell align="right">{profileData?.BankName || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.documents ? (
+                            <TextField
+                              name="bankName"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.bankName || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, bankName: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.BankName || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -875,9 +1215,19 @@ const Profile = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Paper sx={styles.paper} elevation={0} variant="outlined">
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Phone sx={{ mr: 1, color: 'primary.main' }} />
-                  Thông tin liên hệ cá nhân
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Phone sx={{ mr: 1, color: 'primary.main' }} />
+                    Thông tin liên hệ cá nhân
+                  </Box>
+                  <IconButton 
+                    size="small" 
+                    color={editSections.contactInfo ? "success" : "primary"}
+                    onClick={() => handleEditSection('contactInfo')}
+                    sx={{ ml: 2 }}
+                  >
+                    {editSections.contactInfo ? <Save /> : <Edit />}
+                  </IconButton>
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
@@ -886,19 +1236,79 @@ const Profile = () => {
                     <TableBody>
                       <TableRow>
                         <TableCell component="th" scope="row" width="40%">Điện thoại</TableCell>
-                        <TableCell align="right">{profileData?.PhoneNumber || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.contactInfo ? (
+                            <TextField
+                              name="phoneNumber"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.phoneNumber || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, phoneNumber: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.PhoneNumber || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Email</TableCell>
-                        <TableCell align="right">{profileData?.Email}</TableCell>
+                        <TableCell align="right">
+                          {editSections.contactInfo ? (
+                            <TextField
+                              name="email"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.email || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, email: e.target.value})}
+                              variant="outlined"
+                              disabled
+                            />
+                          ) : (
+                            profileData?.Email
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Địa chỉ hiện tại</TableCell>
                         <TableCell align="right">
-                          {profileData?.Address 
-                            ? `${profileData.Address}, ${profileData.City || ''}, ${profileData.Country || ''}`
-                            : 'Chưa cập nhật'
-                          }
+                          {editSections.contactInfo ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <TextField
+                                name="address"
+                                label="Địa chỉ"
+                                size="small"
+                                fullWidth
+                                value={editedProfile.address || ''}
+                                onChange={(e) => setEditedProfile({...editedProfile, address: e.target.value})}
+                                variant="outlined"
+                              />
+                              <Box sx={{ display: 'flex', gap: 1 }}>
+                                <TextField
+                                  name="city"
+                                  label="Thành phố"
+                                  size="small"
+                                  fullWidth
+                                  value={editedProfile.city || ''}
+                                  onChange={(e) => setEditedProfile({...editedProfile, city: e.target.value})}
+                                  variant="outlined"
+                                />
+                                <TextField
+                                  name="country"
+                                  label="Quốc gia"
+                                  size="small"
+                                  fullWidth
+                                  value={editedProfile.country || ''}
+                                  onChange={(e) => setEditedProfile({...editedProfile, country: e.target.value})}
+                                  variant="outlined"
+                                />
+                              </Box>
+                            </Box>
+                          ) : (
+                            profileData?.Address 
+                              ? `${profileData.Address}, ${profileData.City || ''}, ${profileData.Country || ''}`
+                              : 'Chưa cập nhật'
+                          )}
                         </TableCell>
                       </TableRow>
                     </TableBody>
@@ -909,9 +1319,19 @@ const Profile = () => {
             
             <Grid item xs={12} md={6}>
               <Paper sx={styles.paper} elevation={0} variant="outlined">
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Home sx={{ mr: 1, color: 'primary.main' }} />
-                  Thông tin gia đình
+                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Home sx={{ mr: 1, color: 'primary.main' }} />
+                    Thông tin gia đình
+                  </Box>
+                  <IconButton 
+                    size="small" 
+                    color={editSections.familyInfo ? "success" : "primary"}
+                    onClick={() => handleEditSection('familyInfo')}
+                    sx={{ ml: 2 }}
+                  >
+                    {editSections.familyInfo ? <Save /> : <Edit />}
+                  </IconButton>
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
@@ -920,23 +1340,88 @@ const Profile = () => {
                     <TableBody>
                       <TableRow>
                         <TableCell component="th" scope="row" width="40%">Tên phụ huynh</TableCell>
-                        <TableCell align="right">{profileData?.ParentName || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.familyInfo ? (
+                            <TextField
+                              name="parentName"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.parentName || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, parentName: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.ParentName || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Điện thoại phụ huynh</TableCell>
-                        <TableCell align="right">{profileData?.ParentPhone || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.familyInfo ? (
+                            <TextField
+                              name="parentPhone"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.parentPhone || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, parentPhone: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.ParentPhone || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Email phụ huynh</TableCell>
-                        <TableCell align="right">{profileData?.ParentEmail || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.familyInfo ? (
+                            <TextField
+                              name="parentEmail"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.parentEmail || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, parentEmail: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.ParentEmail || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Người liên hệ khẩn cấp</TableCell>
-                        <TableCell align="right">{profileData?.EmergencyContact || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.familyInfo ? (
+                            <TextField
+                              name="emergencyContact"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.emergencyContact || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, emergencyContact: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.EmergencyContact || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">SĐT liên hệ khẩn cấp</TableCell>
-                        <TableCell align="right">{profileData?.EmergencyPhone || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">
+                          {editSections.familyInfo ? (
+                            <TextField
+                              name="emergencyPhone"
+                              size="small"
+                              fullWidth
+                              value={editedProfile.emergencyPhone || ''}
+                              onChange={(e) => setEditedProfile({...editedProfile, emergencyPhone: e.target.value})}
+                              variant="outlined"
+                            />
+                          ) : (
+                            profileData?.EmergencyPhone || 'Chưa cập nhật'
+                          )}
+                        </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>

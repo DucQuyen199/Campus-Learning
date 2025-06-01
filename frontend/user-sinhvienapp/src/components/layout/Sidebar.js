@@ -49,6 +49,7 @@ import {
   ChevronRight
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { userService } from '../../services/api';
 
 const Sidebar = ({ 
   drawerWidth = 240, 
@@ -60,6 +61,7 @@ const Sidebar = ({
 }) => {
   const theme = useTheme();
   const { currentUser } = useAuth();
+  const [profileData, setProfileData] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -97,6 +99,15 @@ const Sidebar = ({
       setOpenMenus(prev => ({ ...prev, results: true }));
     }
   }, [location.pathname]);
+  
+  // Fetch fresh profile from backend
+  useEffect(() => {
+    if (currentUser?.UserID) {
+      userService.getProfile(currentUser.UserID)
+        .then(data => setProfileData(data))
+        .catch(err => console.error('Error loading profile for sidebar:', err));
+    }
+  }, [currentUser]);
   
   // Toggle collapse menu
   const handleMenuToggle = (menu) => {
@@ -443,8 +454,8 @@ const Sidebar = ({
         )}
         
         <Avatar
-          src={currentUser?.Avatar}
-          alt={currentUser?.FullName || 'User'}
+          src={profileData?.Avatar || currentUser?.Avatar}
+          alt={profileData?.FullName || currentUser?.FullName || 'User'}
           sx={{
             width: 80,
             height: 80,
@@ -462,7 +473,7 @@ const Sidebar = ({
             mt: 1
           }}
         >
-          {currentUser?.FullName || 'Chưa cập nhật'}
+          {profileData?.FullName || currentUser?.FullName || 'Chưa cập nhật'}
         </Typography>
         
         <Typography 
@@ -470,7 +481,7 @@ const Sidebar = ({
           color="text.secondary"
           sx={{ mb: 1 }}
         >
-          {currentUser?.UserID ? `ID: ${currentUser.UserID}` : 'ID: -'}
+          {currentUser?.UserID ? `MSSV: ${currentUser.UserID}` : 'MSSV: -'}
         </Typography>
       </Box>
       

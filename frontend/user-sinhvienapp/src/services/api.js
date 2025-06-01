@@ -77,18 +77,6 @@ apiClient.interceptors.response.use(
     } else if (error.request) {
       // The request was made but no response was received
       console.log('No response received:', error.request);
-      
-      // Use mock data for development if server is unreachable
-      if (process.env.NODE_ENV === 'development') {
-        if (error.config.url.includes('/profile/')) {
-          return Promise.resolve({
-            data: {
-              success: true,
-              data: generateMockProfileData(error.config.url)
-            }
-          });
-        }
-      }
     } else {
       // Something happened in setting up the request that triggered an Error
       console.log('Error setting up request:', error.message);

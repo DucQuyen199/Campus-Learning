@@ -56,6 +56,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/api';
+import { useNavigate } from 'react-router-dom';
 
 // Tab Panel component
 function TabPanel(props) {
@@ -86,7 +87,8 @@ function a11yProps(index) {
 }
 
 const Profile = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -238,77 +240,139 @@ const Profile = () => {
       
       try {
         // Fetch student profile
-        const profile = await userService.getProfile(currentUser.UserID);
-        console.log('Profile data received:', profile);
+        const profileResponse = await userService.getProfile(currentUser.UserID);
+        console.log('Profile data received:', profileResponse);
         
-        // Make sure all required fields are present
+        if (!profileResponse || !profileResponse.UserID) {
+          throw new Error('Không thể tải thông tin sinh viên');
+        }
+        
+        // Create a properly structured profile object with all necessary fields
         const processedProfile = {
-          ...profile,
-          // Handle possible null fields
-          UserID: profile.UserID || currentUser.UserID,
-          Username: profile.Username || currentUser.Username || '',
-          Email: profile.Email || currentUser.Email || '',
-          FullName: profile.FullName || currentUser.FullName || '',
-          PhoneNumber: profile.PhoneNumber || '',
-          Address: profile.Address || '',
-          City: profile.City || '',
-          Country: profile.Country || '',
-          Avatar: profile.Avatar || currentUser.Avatar || '',
-          Role: profile.Role || currentUser.Role || 'STUDENT',
-          Status: profile.Status || currentUser.Status || 'ONLINE',
-          Bio: profile.Bio || '',
+          // User basic info
+          UserID: profileResponse.UserID || currentUser.UserID,
+          Username: profileResponse.Username || currentUser.Username || '',
+          Email: profileResponse.Email || currentUser.Email || '',
+          FullName: profileResponse.FullName || currentUser.FullName || '',
+          DateOfBirth: profileResponse.DateOfBirth || null,
+          School: profileResponse.School || '',
+          Role: profileResponse.Role || currentUser.Role || 'STUDENT',
+          Status: profileResponse.Status || currentUser.Status || 'ONLINE',
+          AccountStatus: profileResponse.AccountStatus || 'ACTIVE',
+          PhoneNumber: profileResponse.PhoneNumber || '',
+          Address: profileResponse.Address || '',
+          City: profileResponse.City || '',
+          Country: profileResponse.Country || '',
+          LastLoginAt: profileResponse.LastLoginAt || null,
+          Avatar: profileResponse.Avatar || currentUser.Avatar || '',
+          Bio: profileResponse.Bio || '',
           
-          // Student specific fields with fallbacks
-          StudentCode: profile.StudentCode || '',
-          Gender: profile.Gender || '',
-          DateOfBirth: profile.DateOfBirth || null,
-          BirthPlace: profile.BirthPlace || '',
-          HomeTown: profile.HomeTown || '',
-          Ethnicity: profile.Ethnicity || '',
-          Religion: profile.Religion || '',
-          Class: profile.Class || '',
-          CurrentSemester: profile.CurrentSemester || 1,
-          AcademicStatus: profile.AcademicStatus || 'Regular',
-          
-          // Documents and IDs
-          IdentityCardNumber: profile.IdentityCardNumber || '',
-          IdentityCardIssueDate: profile.IdentityCardIssueDate || null,
-          IdentityCardIssuePlace: profile.IdentityCardIssuePlace || '',
-          HealthInsuranceNumber: profile.HealthInsuranceNumber || '',
-          BankAccountNumber: profile.BankAccountNumber || '',
-          BankName: profile.BankName || '',
-          
-          // Enrollment data
-          EnrollmentDate: profile.EnrollmentDate || null,
-          GraduationDate: profile.GraduationDate || null,
+          // Student specific fields from StudentDetails
+          StudentCode: profileResponse.StudentCode || '',
+          IdentityCardNumber: profileResponse.IdentityCardNumber || '',
+          IdentityCardIssueDate: profileResponse.IdentityCardIssueDate || null,
+          IdentityCardIssuePlace: profileResponse.IdentityCardIssuePlace || '',
+          Gender: profileResponse.Gender || '',
+          MaritalStatus: profileResponse.MaritalStatus || '',
+          BirthPlace: profileResponse.BirthPlace || '',
+          Ethnicity: profileResponse.Ethnicity || '',
+          Religion: profileResponse.Religion || '',
+          HomeTown: profileResponse.HomeTown || '',
           
           // Family and emergency contacts
-          ParentName: profile.ParentName || '',
-          ParentPhone: profile.ParentPhone || '',
-          ParentEmail: profile.ParentEmail || '',
-          EmergencyContact: profile.EmergencyContact || '',
-          EmergencyPhone: profile.EmergencyPhone || '',
+          ParentName: profileResponse.ParentName || '',
+          ParentPhone: profileResponse.ParentPhone || '',
+          ParentEmail: profileResponse.ParentEmail || '',
+          EmergencyContact: profileResponse.EmergencyContact || '',
+          EmergencyPhone: profileResponse.EmergencyPhone || '',
           
-          // Program and academic information
-          ProgramName: profile.ProgramName || '',
-          Department: profile.Department || '',
-          Faculty: profile.Faculty || '',
-          ProgramType: profile.ProgramType || '',
-          AdvisorName: profile.AdvisorName || '',
-          AdvisorEmail: profile.AdvisorEmail || '',
-          AdvisorPhone: profile.AdvisorPhone || ''
+          // Health and documents
+          HealthInsuranceNumber: profileResponse.HealthInsuranceNumber || '',
+          BloodType: profileResponse.BloodType || '',
+          BankAccountNumber: profileResponse.BankAccountNumber || '',
+          BankName: profileResponse.BankName || '',
+          
+          // Academic details
+          EnrollmentDate: profileResponse.EnrollmentDate || null,
+          GraduationDate: profileResponse.GraduationDate || null,
+          Class: profileResponse.Class || '',
+          CurrentSemester: profileResponse.CurrentSemester || 1,
+          AcademicStatus: profileResponse.AcademicStatus || 'Regular',
+          
+          // Program information
+          ProgramName: profileResponse.ProgramName || '',
+          Department: profileResponse.Department || '',
+          Faculty: profileResponse.Faculty || '',
+          TotalCredits: profileResponse.TotalCredits || 0,
+          ProgramDuration: profileResponse.ProgramDuration || 0,
+          DegreeName: profileResponse.DegreeName || '',
+          ProgramType: profileResponse.ProgramType || '',
+          EntryYear: profileResponse.EntryYear || null,
+          ExpectedGraduationYear: profileResponse.ExpectedGraduationYear || null,
+          ProgramStatus: profileResponse.ProgramStatus || 'Active',
+          
+          // Advisor information
+          AdvisorName: profileResponse.AdvisorName || '',
+          AdvisorEmail: profileResponse.AdvisorEmail || '',
+          AdvisorPhone: profileResponse.AdvisorPhone || '',
+          
+          // Additional info from UserProfiles
+          Education: profileResponse.Education || '',
+          WorkExperience: profileResponse.WorkExperience || '',
+          Skills: profileResponse.Skills || '',
+          Interests: profileResponse.Interests || '',
+          Achievements: profileResponse.Achievements || '',
+          PreferredLanguage: profileResponse.PreferredLanguage || 'vi',
         };
         
         setProfileData(processedProfile);
+
+        // If program info exists in profile, use it directly
+        if (processedProfile.ProgramName) {
+          setAcademicData({
+            ProgramName: processedProfile.ProgramName,
+            Department: processedProfile.Department,
+            Faculty: processedProfile.Faculty,
+            TotalCredits: processedProfile.TotalCredits,
+            ProgramDuration: processedProfile.ProgramDuration,
+            DegreeName: processedProfile.DegreeName,
+            ProgramType: processedProfile.ProgramType,
+            AdvisorName: processedProfile.AdvisorName,
+            AdvisorEmail: processedProfile.AdvisorEmail,
+            AdvisorPhone: processedProfile.AdvisorPhone
+          });
+        } else {
+          // If no program info in profile, try to fetch it separately
+          try {
+            const programResponse = await userService.getAcademicInfo(currentUser.UserID);
+            if (programResponse && Array.isArray(programResponse) && programResponse.length > 0) {
+              setAcademicData(programResponse[0]);
+            }
+          } catch (academicError) {
+            console.error('Error fetching academic information:', academicError);
+          }
+        }
+        
+        try {
+          // Fetch profile update history
+          const updatesResponse = await userService.getProfileUpdates(currentUser.UserID);
+          console.log('Update history received:', updatesResponse);
+          setUpdateHistory(Array.isArray(updatesResponse) ? updatesResponse : []);
+        } catch (updatesError) {
+          console.error('Error fetching profile updates:', updatesError);
+          setUpdateHistory([]);
+        }
+        
       } catch (profileError) {
         console.error('Error fetching profile details:', profileError);
         setSnackbar({
           open: true,
-          message: 'Không thể tải thông tin hồ sơ sinh viên',
+          message: 'Không thể tải thông tin hồ sơ sinh viên. ' + 
+                   (profileError.message || 'Vui lòng thử lại sau.'),
           severity: 'error'
         });
         
-        // Set basic profile from currentUser for fallback
+        // Set basic profile from currentUser as fallback
         setProfileData({
           UserID: currentUser.UserID,
           Username: currentUser.Username || '',
@@ -319,54 +383,23 @@ const Profile = () => {
           PhoneNumber: currentUser.PhoneNumber || '',
         });
       }
-      
-      try {
-        // Fetch academic program information - if not already in profile
-        if (!profileData || !profileData.ProgramName) {
-          const program = await userService.getAcademicInfo(currentUser.UserID);
-          console.log('Academic info received:', program);
-          if (Array.isArray(program) && program.length > 0) {
-            setAcademicData(program[0]);
-          }
-        } else {
-          console.log('Academic information already in profile data');
-          // Extract academic data from profile
-          setAcademicData({
-            ProgramName: profileData.ProgramName,
-            Department: profileData.Department,
-            Faculty: profileData.Faculty,
-            AdvisorName: profileData.AdvisorName,
-            AdvisorEmail: profileData.AdvisorEmail,
-            AdvisorPhone: profileData.AdvisorPhone
-          });
-        }
-      } catch (academicError) {
-        console.error('Error fetching academic information:', academicError);
-      }
-      
-      try {
-        // Fetch profile update history
-        const updates = await userService.getProfileUpdates(currentUser.UserID);
-        console.log('Update history received:', updates);
-        setUpdateHistory(Array.isArray(updates) ? updates : []);
-      } catch (updatesError) {
-        console.error('Error fetching profile updates:', updatesError);
-        setUpdateHistory([]);
-      }
     } catch (err) {
       console.error('Error in fetchProfileData:', err);
-      setError('Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.');
+      setError('Không thể tải thông tin hồ sơ. ' + 
+               (err.message || 'Vui lòng thử lại sau.'));
     } finally {
       setLoading(false);
     }
   };
   
-  // Fetch data on component mount
+  // Redirect to login if not authenticated, otherwise fetch profile
   useEffect(() => {
-    if (currentUser) {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/login');
+    } else if (isAuthenticated && currentUser) {
       fetchProfileData();
     }
-  }, [currentUser]);
+  }, [authLoading, isAuthenticated, currentUser, navigate]);
   
   // Loading state
   if (loading && !profileData) {
@@ -640,7 +673,14 @@ const Profile = () => {
                       <TableRow>
                         <TableCell component="th" scope="row">Ngày sinh</TableCell>
                         <TableCell align="right">
-                          {profileData?.DateOfBirth ? new Date(profileData.DateOfBirth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                          {profileData?.DateOfBirth ? 
+                            new Date(profileData.DateOfBirth).toLocaleDateString('vi-VN', {
+                              year: 'numeric', 
+                              month: '2-digit', 
+                              day: '2-digit'
+                            }) : 
+                            'Chưa cập nhật'
+                          }
                         </TableCell>
                       </TableRow>
                       <TableRow>

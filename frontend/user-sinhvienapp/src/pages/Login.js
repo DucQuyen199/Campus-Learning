@@ -397,7 +397,7 @@ const Login = () => {
                   Đại học Kinh doanh và Công nghệ Hà Nội
           </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Hệ thống Quản lý Sinh viên
+                HUBT Connect
           </Typography>
               </Box>
           
@@ -568,23 +568,6 @@ const Login = () => {
                 display: 'flex',
                 flexDirection: 'column'
               }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                  <Box 
-                    component="img"
-                    src={HUBT_LOGO}
-                    alt="HUBT Logo"
-                    sx={{ 
-                      height: 60, 
-                      mr: 2,
-                      backgroundColor: 'white',
-                      padding: 1,
-                      borderRadius: 1
-                    }}
-                  />
-                  <Typography variant="h4" fontWeight="bold">
-                    HUBT
-                  </Typography>
-                </Box>
                 
                 <Box sx={{ mb: 6 }}>
                   <Typography variant="h3" fontWeight="bold" gutterBottom>

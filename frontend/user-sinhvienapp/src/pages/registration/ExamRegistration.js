@@ -18,74 +18,37 @@ import {
   Select,
   MenuItem,
   Chip,
-  TextField,
+  CircularProgress,
+  Backdrop,
+  Snackbar,
   useTheme
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
-
-// Sample data - would come from API in a real application
-const sampleExams = [
-  {
-    id: 1,
-    courseCode: 'CS101',
-    courseName: 'Introduction to Computer Science',
-    credits: 3,
-    currentGrade: 'C+',
-    maxGrade: 'A',
-    examDate: '12/15/2023',
-    examTime: '09:00 - 11:00',
-    examRoom: 'A301',
-    status: 'Available',
-    fee: 200000
-  },
-  {
-    id: 2,
-    courseCode: 'MATH201',
-    courseName: 'Calculus II',
-    credits: 4,
-    currentGrade: 'B-',
-    maxGrade: 'A',
-    examDate: '12/18/2023',
-    examTime: '13:00 - 15:00',
-    examRoom: 'B205',
-    status: 'Available',
-    fee: 200000
-  },
-  {
-    id: 3,
-    courseCode: 'PHY102',
-    courseName: 'Physics for Engineers',
-    credits: 4,
-    currentGrade: 'B',
-    maxGrade: 'A',
-    examDate: '12/20/2023',
-    examTime: '09:00 - 11:00',
-    examRoom: 'C105',
-    status: 'Available',
-    fee: 200000
-  },
-  {
-    id: 4,
-    courseCode: 'ENG203',
-    courseName: 'Technical Writing',
-    credits: 3,
-    currentGrade: 'B+',
-    maxGrade: 'A',
-    examDate: '12/22/2023',
-    examTime: '13:00 - 15:00',
-    examRoom: 'D110',
-    status: 'Registration Closed',
-    fee: 200000
-  }
-];
+import { useNavigate } from 'react-router-dom';
+import { examRegistrationService } from '../../services/api';
 
 const ExamRegistration = () => {
   const theme = useTheme();
-  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const { currentUser, isAuthenticated } = useAuth();
+  
   const [selectedExams, setSelectedExams] = useState([]);
   const [availableExams, setAvailableExams] = useState([]);
-  const [semester, setSemester] = useState('');
-  const [registrationStatus, setRegistrationStatus] = useState(null);
+  const [semesterId, setSemesterId] = useState('');
+  const [semesters, setSemesters] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
+  const [feeInfo, setFeeInfo] = useState({
+    feePerExam: 200000,
+    currency: 'VND',
+    notes: []
+  });
   const [totalFee, setTotalFee] = useState(0);
 
   // Styles using theme directly instead of makeStyles
@@ -121,19 +84,85 @@ const ExamRegistration = () => {
     }
   };
 
+  // Check authentication and redirect if needed
   useEffect(() => {
-    // In a real application, this would fetch data from an API
-    setAvailableExams(sampleExams);
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Fetch active semesters
+  useEffect(() => {
+    const fetchSemesters = async () => {
+      try {
+        setPageLoading(true);
+        const data = await examRegistrationService.getActiveSemesters();
+        
+        if (!data || data.length === 0) {
+          setError('Không có học kỳ nào đang mở đăng ký. Vui lòng kiểm tra lại sau.');
+          setSemesters([]);
+          return;
+        }
+        
+        setSemesters(data);
+        
+        // Set first semester as default if available
+        if (data && data.length > 0) {
+          setSemesterId(data[0].SemesterID);
+        }
+      } catch (err) {
+        console.error('Error fetching semesters:', err);
+        setError('Không thể tải danh sách học kỳ. Vui lòng thử lại sau.');
+        setSemesters([]);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+    
+    const fetchFeeInfo = async () => {
+      try {
+        const data = await examRegistrationService.getExamFeeInfo();
+        if (data) {
+          setFeeInfo(data);
+        }
+      } catch (err) {
+        console.error('Error fetching fee info:', err);
+        // Keep using default fee info
+      }
+    };
+    
+    fetchSemesters();
+    fetchFeeInfo();
   }, []);
 
+  // Fetch available exams when semester changes
   useEffect(() => {
-    // Calculate total fee
-    const fee = selectedExams.reduce((total, examId) => {
-      const exam = availableExams.find(e => e.id === examId);
-      return total + (exam ? exam.fee : 0);
-    }, 0);
+    const fetchExams = async () => {
+      if (!semesterId || !currentUser?.UserID) return;
+      
+      try {
+        setPageLoading(true);
+        const data = await examRegistrationService.getAvailableExams(currentUser.UserID, semesterId);
+        setAvailableExams(data);
+        // Clear selected exams when semester changes
+        setSelectedExams([]);
+      } catch (err) {
+        console.error('Error fetching exams:', err);
+        setError('Không thể tải danh sách môn thi cải thiện. Vui lòng thử lại sau.');
+        setAvailableExams([]);
+      } finally {
+        setPageLoading(false);
+      }
+    };
+    
+    fetchExams();
+  }, [semesterId, currentUser]);
+
+  // Calculate total fee
+  useEffect(() => {
+    const fee = selectedExams.length * (feeInfo?.feePerExam || 200000);
     setTotalFee(fee);
-  }, [selectedExams, availableExams]);
+  }, [selectedExams, feeInfo]);
 
   const handleExamSelect = (examId) => {
     if (selectedExams.includes(examId)) {
@@ -144,27 +173,73 @@ const ExamRegistration = () => {
   };
 
   const handleSemesterChange = (event) => {
-    setSemester(event.target.value);
+    setSemesterId(event.target.value);
   };
 
-  const handleRegistration = () => {
-    // This would send registration data to an API
-    if (selectedExams.length > 0) {
-      setRegistrationStatus({
-        type: 'success',
-        message: 'Đăng ký thi cải thiện thành công cho các môn học đã chọn.'
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleRegistration = async () => {
+    if (selectedExams.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'Vui lòng chọn ít nhất một môn thi cải thiện trước khi đăng ký.',
+        severity: 'error'
       });
-    } else {
-      setRegistrationStatus({
-        type: 'error',
-        message: 'Vui lòng chọn ít nhất một môn thi cải thiện trước khi đăng ký.'
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      
+      const response = await examRegistrationService.registerForExams(
+        currentUser.UserID,
+        selectedExams,
+        semesterId
+      );
+      
+      setSnackbar({
+        open: true,
+        message: 'Đăng ký thi cải thiện thành công cho các môn học đã chọn.',
+        severity: 'success'
       });
+      
+      // Clear selected exams and refresh available exams
+      setSelectedExams([]);
+      
+      // Refresh available exams
+      const updatedExams = await examRegistrationService.getAvailableExams(currentUser.UserID, semesterId);
+      setAvailableExams(updatedExams);
+      
+    } catch (err) {
+      console.error('Error registering for exams:', err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Không thể đăng ký thi cải thiện. Vui lòng thử lại sau.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
+
+  // Loading state
+  if (pageLoading) {
+    return (
+      <div style={styles.root}>
+        <Paper sx={styles.paper}>
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+            <CircularProgress />
+          </Box>
+        </Paper>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.root}>
@@ -179,13 +254,13 @@ const ExamRegistration = () => {
           <Divider sx={{ mt: 2 }} />
         </Box>
 
-        {registrationStatus && (
+        {error && (
           <Alert 
-            severity={registrationStatus.type} 
+            severity="error" 
             sx={{ mb: 3 }}
-            onClose={() => setRegistrationStatus(null)}
+            onClose={() => setError(null)}
           >
-            {registrationStatus.message}
+            {error}
           </Alert>
         )}
 
@@ -194,10 +269,16 @@ const ExamRegistration = () => {
             <strong>Thông tin quan trọng:</strong>
           </Typography>
           <Typography variant="body2" component="ul">
-            <li>Chi phí đăng ký mỗi môn thi cải thiện: 200,000 VNĐ/môn</li>
-            <li>Điểm thi cải thiện sẽ thay thế điểm hiện tại nếu cao hơn</li>
-            <li>Lịch thi cải thiện sẽ được sắp xếp sau khi kết thúc đợt đăng ký</li>
-            <li>Thời hạn đăng ký: từ 01/12/2023 đến 10/12/2023</li>
+            <li>Chi phí đăng ký mỗi môn thi cải thiện: {formatCurrency(feeInfo?.feePerExam || 200000)}</li>
+            {feeInfo.notes && feeInfo.notes.map((note, index) => (
+              <li key={index}>{note}</li>
+            ))}
+            {feeInfo.paymentDeadline && (
+              <li>Thời hạn thanh toán: {feeInfo.paymentDeadline} ngày sau khi đăng ký</li>
+            )}
+            {feeInfo.refundPolicy && (
+              <li>Chính sách hoàn tiền: {feeInfo.refundPolicy}</li>
+            )}
           </Typography>
         </Box>
 
@@ -209,13 +290,21 @@ const ExamRegistration = () => {
             <FormControl sx={styles.formControl}>
               <InputLabel>Học kỳ</InputLabel>
               <Select
-                value={semester}
+                value={semesterId}
                 onChange={handleSemesterChange}
                 label="Học kỳ"
               >
-                <MenuItem value="HK1-23-24">Học kỳ 1 - 2023/2024</MenuItem>
-                <MenuItem value="HK2-23-24">Học kỳ 2 - 2023/2024</MenuItem>
-                <MenuItem value="HK3-23-24">Học kỳ 3 - 2023/2024</MenuItem>
+                {semesters.length > 0 ? (
+                  semesters.map(semester => (
+                    <MenuItem key={semester.SemesterID} value={semester.SemesterID}>
+                      {semester.SemesterName} - {semester.AcademicYear}
+                    </MenuItem>
+                  ))
+                ) : (
+                  <MenuItem disabled value="">
+                    Không có học kỳ nào đang mở đăng ký
+                  </MenuItem>
+                )}
               </Select>
             </FormControl>
           </Grid>
@@ -243,36 +332,52 @@ const ExamRegistration = () => {
                 <TableBody>
                   {availableExams.map((exam) => (
                     <TableRow 
-                      key={exam.id}
+                      key={exam.ExamID}
                       hover
-                      onClick={() => exam.status === 'Available' && handleExamSelect(exam.id)}
-                      selected={selectedExams.includes(exam.id)}
-                      disabled={exam.status !== 'Available'}
+                      onClick={() => exam.RegistrationStatus === 'Available' && handleExamSelect(exam.ExamID)}
+                      selected={selectedExams.includes(exam.ExamID)}
+                      disabled={exam.RegistrationStatus !== 'Available'}
                       sx={{
-                        cursor: exam.status === 'Available' ? 'pointer' : 'default',
-                        opacity: exam.status !== 'Available' ? 0.7 : 1
+                        cursor: exam.RegistrationStatus === 'Available' ? 'pointer' : 'default',
+                        opacity: exam.RegistrationStatus !== 'Available' ? 0.7 : 1
                       }}
                     >
                       <TableCell padding="checkbox">
                         <input 
                           type="checkbox" 
-                          checked={selectedExams.includes(exam.id)}
-                          disabled={exam.status !== 'Available'}
+                          checked={selectedExams.includes(exam.ExamID)}
+                          disabled={exam.RegistrationStatus !== 'Available'}
                           onChange={() => {}}
                         />
                       </TableCell>
-                      <TableCell>{exam.courseCode}</TableCell>
-                      <TableCell>{exam.courseName}</TableCell>
-                      <TableCell align="center">{exam.credits}</TableCell>
-                      <TableCell align="center">{exam.currentGrade}</TableCell>
-                      <TableCell align="center">{exam.examDate}</TableCell>
-                      <TableCell align="center">{exam.examTime}</TableCell>
-                      <TableCell align="center">{exam.examRoom}</TableCell>
-                      <TableCell align="center">{formatCurrency(exam.fee)}</TableCell>
+                      <TableCell>{exam.SubjectCode}</TableCell>
+                      <TableCell>{exam.SubjectName}</TableCell>
+                      <TableCell align="center">{exam.Credits}</TableCell>
+                      <TableCell align="center">{exam.CurrentGrade}</TableCell>
+                      <TableCell align="center">
+                        {exam.ExamDate ? new Date(exam.ExamDate).toLocaleDateString('vi-VN') : 'N/A'}
+                      </TableCell>
+                      <TableCell align="center">
+                        {exam.StartTime && exam.EndTime ? 
+                          `${exam.StartTime.substring(0, 5)} - ${exam.EndTime.substring(0, 5)}` : 
+                          'N/A'
+                        }
+                      </TableCell>
+                      <TableCell align="center">{exam.ExamRoom || 'N/A'}</TableCell>
+                      <TableCell align="center">{formatCurrency(exam.Fee)}</TableCell>
                       <TableCell>
                         <Chip 
-                          label={exam.status === 'Available' ? 'Có thể đăng ký' : 'Đã hết hạn'} 
-                          color={exam.status === 'Available' ? 'success' : 'default'}
+                          label={
+                            exam.RegistrationStatus === 'Available' ? 'Có thể đăng ký' :
+                            exam.RegistrationStatus === 'Already Registered' ? 'Đã đăng ký' :
+                            exam.RegistrationStatus === 'Not Available' ? 'Không thể đăng ký' :
+                            'Không đủ điều kiện'
+                          } 
+                          color={
+                            exam.RegistrationStatus === 'Available' ? 'success' :
+                            exam.RegistrationStatus === 'Already Registered' ? 'primary' :
+                            'default'
+                          }
                           size="small"
                           sx={styles.chip}
                         />
@@ -283,7 +388,7 @@ const ExamRegistration = () => {
                     <TableRow>
                       <TableCell colSpan={10} align="center">
                         <Typography variant="body1">
-                          Không có môn học nào có thể đăng ký thi cải thiện.
+                          {error ? 'Đã có lỗi xảy ra.' : 'Không có môn học nào có thể đăng ký thi cải thiện.'}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -302,14 +407,38 @@ const ExamRegistration = () => {
                 variant="contained"
                 color="primary"
                 onClick={handleRegistration}
-                disabled={selectedExams.length === 0}
+                disabled={selectedExams.length === 0 || loading}
               >
-                Đăng ký thi
+                {loading ? 'Đang xử lý...' : 'Đăng ký thi'}
               </Button>
             </Box>
           </Grid>
         </Grid>
       </Paper>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          variant="filled"
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+      
+      {/* Loading backdrop */}
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={loading}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </div>
   );
 };

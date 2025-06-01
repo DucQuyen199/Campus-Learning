@@ -240,7 +240,7 @@ app.post('/api/auth/login', async (req, res) => {
         UserID: userId,
         Username: fullName,
         FullName: fullName,
-        Email: isGmailLogin ? email : (email || username + '@example.com'),
+        Email: isGmailLogin ? email : (email || username ),
         PhoneNumber: '0123456789',
         Role: userRole,
         Status: 'ONLINE',
@@ -339,6 +339,7 @@ function setupRoutes(demoMode = false) {
   const evaluationRoutes = require('./routes/evaluation');
   const feedbackRoutes = require('./routes/feedback');
   const servicesRoutes = require('./routes/services');
+  const examRegistrationRoutes = require('./src/routes/examRegistrationRoutes');
 
   // Fix lỗi pool.connect trong các routes
   const poolConnectFix = `
@@ -387,6 +388,7 @@ function setupRoutes(demoMode = false) {
   app.use('/api/evaluation', evaluationRoutes);
   app.use('/api/feedback', feedbackRoutes);
   app.use('/api/services', servicesRoutes);
+  app.use('/api/exam-registration', examRegistrationRoutes);
   
   // Only use auth routes if NOT in demo mode, otherwise they've been overridden
   if (!demoMode) {

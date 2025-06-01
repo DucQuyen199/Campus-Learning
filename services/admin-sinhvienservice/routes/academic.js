@@ -483,7 +483,7 @@ router.delete('/subjects/:id', async (req, res) => {
     
     if (result.rowsAffected[0] === 0) {
     return res.status(404).json({ success: false, message: 'Subject not found' });
-  }
+    }
     
     res.json({ success: true, message: 'Subject deleted successfully' });
   } catch (error) {
@@ -1597,6 +1597,278 @@ router.get('/dashboard/stats', async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: 'Error fetching dashboard statistics', 
+      error: error.message 
+    });
+  }
+});
+
+// Course Enrollments - Đăng ký khóa học với kiểm tra học phí
+router.post('/course-enrollments', async (req, res) => {
+  try {
+    const { userId, courseId } = req.body;
+    
+    if (!userId || !courseId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Vui lòng cung cấp đầy đủ thông tin UserId và CourseId' 
+      });
+    }
+    
+    const pool = await getPool();
+    
+    // Kiểm tra người dùng
+    const userResult = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query('SELECT UserID, TuitionStatus FROM Users WHERE UserID = @UserID');
+    
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+    }
+    
+    // Kiểm tra khóa học
+    const courseResult = await pool.request()
+      .input('CourseID', sql.BigInt, courseId)
+      .query('SELECT CourseID, Title, Price FROM Courses WHERE CourseID = @CourseID');
+    
+    if (courseResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy khóa học' });
+    }
+    
+    const course = courseResult.recordset[0];
+    const user = userResult.recordset[0];
+    
+    // Kiểm tra đã đăng ký chưa
+    const enrollmentCheck = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .input('CourseID', sql.BigInt, courseId)
+      .query(`
+        SELECT EnrollmentID FROM CourseEnrollments 
+        WHERE UserID = @UserID AND CourseID = @CourseID AND Status <> 'dropped'
+      `);
+    
+    if (enrollmentCheck.recordset.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Người dùng đã đăng ký khóa học này' 
+      });
+    }
+    
+    // Kiểm tra tình trạng học phí
+    if (user.TuitionStatus === 'PAID') {
+      // Nếu đã đóng học phí toàn phần, cho phép đăng ký
+      const insertResult = await pool.request()
+        .input('UserID', sql.BigInt, userId)
+        .input('CourseID', sql.BigInt, courseId)
+        .query(`
+          INSERT INTO CourseEnrollments (UserID, CourseID, Status, EnrolledAt)
+          OUTPUT INSERTED.*
+          VALUES (@UserID, @CourseID, 'active', GETDATE())
+        `);
+      
+      // Cập nhật số lượng đăng ký khóa học
+      await pool.request()
+        .input('CourseID', sql.BigInt, courseId)
+        .query(`
+          UPDATE Courses 
+          SET EnrolledCount = EnrolledCount + 1 
+          WHERE CourseID = @CourseID
+        `);
+      
+      return res.status(201).json({ 
+        success: true, 
+        message: 'Đăng ký khóa học thành công', 
+        enrollment: insertResult.recordset[0],
+        paymentRequired: false
+      });
+    } else if (course.Price <= 0) {
+      // Nếu khóa học miễn phí, cho phép đăng ký
+      const insertResult = await pool.request()
+        .input('UserID', sql.BigInt, userId)
+        .input('CourseID', sql.BigInt, courseId)
+        .query(`
+          INSERT INTO CourseEnrollments (UserID, CourseID, Status, EnrolledAt)
+          OUTPUT INSERTED.*
+          VALUES (@UserID, @CourseID, 'active', GETDATE())
+        `);
+      
+      // Cập nhật số lượng đăng ký khóa học
+      await pool.request()
+        .input('CourseID', sql.BigInt, courseId)
+        .query(`
+          UPDATE Courses 
+          SET EnrolledCount = EnrolledCount + 1 
+          WHERE CourseID = @CourseID
+        `);
+      
+      return res.status(201).json({ 
+        success: true, 
+        message: 'Đăng ký khóa học miễn phí thành công', 
+        enrollment: insertResult.recordset[0],
+        paymentRequired: false
+      });
+    } else {
+      // Kiểm tra học phí khóa học riêng lẻ
+      const coursePaymentCheck = await pool.request()
+        .input('UserID', sql.BigInt, userId)
+        .input('CourseID', sql.BigInt, courseId)
+        .query(`
+          SELECT tp.* 
+          FROM TuitionPayments tp
+          JOIN TuitionCourseDetails tcd ON tp.PaymentID = tcd.PaymentID
+          WHERE tp.UserID = @UserID 
+          AND tcd.CourseID = @CourseID
+          AND tp.Status = 'PAID'
+          AND tp.IsFullTuition = 0
+        `);
+      
+      if (coursePaymentCheck.recordset.length > 0) {
+        // Nếu đã thanh toán học phí cho khóa học này, cho phép đăng ký
+        const insertResult = await pool.request()
+          .input('UserID', sql.BigInt, userId)
+          .input('CourseID', sql.BigInt, courseId)
+          .query(`
+            INSERT INTO CourseEnrollments (UserID, CourseID, Status, EnrolledAt)
+            OUTPUT INSERTED.*
+            VALUES (@UserID, @CourseID, 'active', GETDATE())
+          `);
+        
+        // Cập nhật số lượng đăng ký khóa học
+        await pool.request()
+          .input('CourseID', sql.BigInt, courseId)
+          .query(`
+            UPDATE Courses 
+            SET EnrolledCount = EnrolledCount + 1 
+            WHERE CourseID = @CourseID
+          `);
+        
+        return res.status(201).json({ 
+          success: true, 
+          message: 'Đăng ký khóa học thành công', 
+          enrollment: insertResult.recordset[0],
+          paymentRequired: false
+        });
+      } else {
+        // Cần thanh toán học phí trước khi đăng ký
+        return res.status(402).json({ 
+          success: false, 
+          message: 'Cần thanh toán học phí trước khi đăng ký khóa học này', 
+          paymentRequired: true,
+          course: {
+            courseId: course.CourseID,
+            title: course.Title,
+            price: course.Price
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error enrolling in course:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi đăng ký khóa học', 
+      error: error.message 
+    });
+  }
+});
+
+// Lấy danh sách đăng ký khóa học của người dùng
+router.get('/users/:userId/enrollments', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const pool = await getPool();
+    const result = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query(`
+        SELECT 
+          ce.EnrollmentID, ce.CourseID, ce.UserID, ce.Progress,
+          ce.EnrolledAt, ce.CompletedAt, ce.Status,
+          c.Title as CourseTitle, c.Description as CourseDescription,
+          c.ImageUrl, c.Level, c.Duration
+        FROM CourseEnrollments ce
+        JOIN Courses c ON ce.CourseID = c.CourseID
+        WHERE ce.UserID = @UserID
+        ORDER BY ce.EnrolledAt DESC
+      `);
+    
+    res.json({ 
+      success: true, 
+      enrollments: result.recordset 
+    });
+  } catch (error) {
+    console.error('Error fetching user enrollments:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi lấy danh sách đăng ký khóa học', 
+      error: error.message 
+    });
+  }
+});
+
+// Hủy đăng ký khóa học
+router.put('/course-enrollments/:enrollmentId/drop', async (req, res) => {
+  try {
+    const { enrollmentId } = req.params;
+    const { reason } = req.body;
+    
+    const pool = await getPool();
+    
+    // Lấy thông tin đăng ký
+    const enrollmentResult = await pool.request()
+      .input('EnrollmentID', sql.BigInt, enrollmentId)
+      .query(`
+        SELECT 
+          ce.EnrollmentID, ce.CourseID, ce.UserID, ce.Status,
+          c.Title as CourseTitle
+        FROM CourseEnrollments ce
+        JOIN Courses c ON ce.CourseID = c.CourseID
+        WHERE ce.EnrollmentID = @EnrollmentID
+      `);
+    
+    if (enrollmentResult.recordset.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Không tìm thấy đăng ký khóa học' 
+      });
+    }
+    
+    const enrollment = enrollmentResult.recordset[0];
+    
+    if (enrollment.Status === 'dropped') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Đăng ký khóa học này đã được hủy trước đó' 
+      });
+    }
+    
+    // Cập nhật trạng thái đăng ký
+    await pool.request()
+      .input('EnrollmentID', sql.BigInt, enrollmentId)
+      .query(`
+        UPDATE CourseEnrollments
+        SET Status = 'dropped'
+        WHERE EnrollmentID = @EnrollmentID
+      `);
+    
+    // Giảm số lượng đăng ký của khóa học
+    await pool.request()
+      .input('CourseID', sql.BigInt, enrollment.CourseID)
+      .query(`
+        UPDATE Courses 
+        SET EnrolledCount = EnrolledCount - 1 
+        WHERE CourseID = @CourseID AND EnrolledCount > 0
+      `);
+    
+    res.json({ 
+      success: true, 
+      message: 'Đã hủy đăng ký khóa học thành công',
+      enrollmentId: enrollmentId
+    });
+  } catch (error) {
+    console.error('Error dropping course enrollment:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi hủy đăng ký khóa học', 
       error: error.message 
     });
   }

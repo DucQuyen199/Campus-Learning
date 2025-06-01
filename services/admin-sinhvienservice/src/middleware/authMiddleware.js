@@ -26,7 +26,7 @@ const authenticateAdmin = async (req, res, next) => {
       .query(`
         SELECT UserID, Username, Email, FullName, Role, Status
         FROM Users
-        WHERE UserID = @userId AND Role = 'ADMIN' AND AccountStatus = 'ACTIVE'
+        WHERE UserID = @userId AND UPPER(Role) = 'ADMIN' AND AccountStatus = 'ACTIVE'
       `);
     
     // If user not found or not an admin

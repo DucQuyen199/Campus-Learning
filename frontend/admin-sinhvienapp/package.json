@@ -9,7 +9,7 @@
     "@mui/material": "^5.14.11",
     "@mui/x-data-grid": "^6.16.0",
     "@mui/x-date-pickers": "^6.16.0",
-    "@reduxjs/toolkit": "^2.8.1",
+    "@reduxjs/toolkit": "^2.8.2",
     "axios": "^1.5.1",
     "chart.js": "^4.4.0",
     "date-fns": "^2.30.0",

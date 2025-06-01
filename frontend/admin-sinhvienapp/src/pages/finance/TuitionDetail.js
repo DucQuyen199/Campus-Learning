@@ -27,6 +27,7 @@ import {
   Paper,
   IconButton,
   Tooltip,
+  Container,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -187,384 +188,401 @@ const TuitionDetail = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="xl">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{ my: 3 }}>
-        <Alert severity="error">{error}</Alert>
-        <Button
-          sx={{ mt: 2 }}
-          variant="outlined"
-          startIcon={<ArrowBack />}
-          onClick={handleGoBack}
-        >
-          Quay lại danh sách
-        </Button>
-      </Box>
+      <Container maxWidth="xl">
+        <Box sx={{ my: 3 }}>
+          <Alert severity="error">{error}</Alert>
+          <Button
+            sx={{ mt: 2 }}
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            onClick={handleGoBack}
+          >
+            Quay lại danh sách
+          </Button>
+        </Box>
+      </Container>
     );
   }
 
   if (!tuition) {
     return (
-      <Box sx={{ my: 3 }}>
-        <Alert severity="warning">Không tìm thấy thông tin học phí</Alert>
-        <Button
-          sx={{ mt: 2 }}
-          variant="outlined"
-          startIcon={<ArrowBack />}
-          onClick={handleGoBack}
-        >
-          Quay lại danh sách
-        </Button>
-      </Box>
+      <Container maxWidth="xl">
+        <Box sx={{ my: 3 }}>
+          <Alert severity="warning">Không tìm thấy thông tin học phí</Alert>
+          <Button
+            sx={{ mt: 2 }}
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            onClick={handleGoBack}
+          >
+            Quay lại danh sách
+          </Button>
+        </Box>
+      </Container>
     );
   }
 
   return (
-    <Box sx={{ mb: 4 }}>
-      {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link component={RouterLink} to="/dashboard" underline="hover" color="inherit">
-          Dashboard
-        </Link>
-        <Link component={RouterLink} to="/finance/tuition" underline="hover" color="inherit">
-          Quản lý học phí
-        </Link>
-        <Typography color="text.primary">Chi tiết học phí</Typography>
-      </Breadcrumbs>
+    <Container maxWidth="xl">
+      <Box sx={{ py: 3 }}>
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link component={RouterLink} to="/dashboard" underline="hover" color="inherit">
+            Dashboard
+          </Link>
+          <Link component={RouterLink} to="/finance/tuition" underline="hover" color="inherit">
+            Quản lý học phí
+          </Link>
+          <Typography color="text.primary">Chi tiết học phí</Typography>
+        </Breadcrumbs>
 
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
-            Chi tiết học phí
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            ID: {tuition.id} | Trạng thái: {getStatusChip(tuition.status)}
-          </Typography>
-        </Box>
-        <Box>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBack />}
-            onClick={handleGoBack}
-            sx={{ mr: 1 }}
-          >
-            Quay lại
-          </Button>
-          {(tuition.status === 'unpaid' || tuition.status === 'partial' || tuition.status === 'overdue') && (
+        {/* Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3 
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <AttachMoney sx={{ fontSize: 32, color: 'primary.main', mr: 2 }} />
+            <Box>
+              <Typography variant="h5" component="h1" fontWeight={600}>
+                Chi tiết học phí
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                ID: {tuition.id} | Trạng thái: {getStatusChip(tuition.status)}
+              </Typography>
+            </Box>
+          </Box>
+          <Box>
             <Button
-              variant="contained"
-              color="primary"
-              startIcon={<Payment />}
-              onClick={handleProcessPayment}
+              variant="outlined"
+              startIcon={<ArrowBack />}
+              onClick={handleGoBack}
+              sx={{ mr: 1, borderRadius: 2 }}
             >
-              Xử lý thanh toán
+              Quay lại
             </Button>
-          )}
-        </Box>
-      </Box>
-
-      {/* Main Content */}
-      <Grid container spacing={3}>
-        {/* Student Info */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                <Person sx={{ mr: 1 }} /> Thông tin sinh viên
-              </Typography>
-              <Divider sx={{ my: 2 }} />
-              
-              <List disablePadding>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Mã sinh viên" 
-                    secondary={tuition.studentCode}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Họ tên" 
-                    secondary={tuition.studentName}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Lớp" 
-                    secondary={tuition.className || '--'}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Khoa/Ngành" 
-                    secondary={tuition.facultyName || '--'}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
-                  />
-                </ListItem>
-              </List>
-              
+            {(tuition.status === 'unpaid' || tuition.status === 'partial' || tuition.status === 'overdue') && (
               <Button
-                variant="outlined"
-                fullWidth
-                sx={{ mt: 2 }}
-                onClick={() => navigate(`/students/${tuition.studentId}`)}
+                variant="contained"
+                color="primary"
+                startIcon={<Payment />}
+                onClick={handleProcessPayment}
+                sx={{ borderRadius: 2, fontWeight: 500, px: 2.5 }}
               >
-                Xem hồ sơ sinh viên
+                Xử lý thanh toán
               </Button>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {/* Tuition Info */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                <School sx={{ mr: 1 }} /> Thông tin học phí
-              </Typography>
-              <Divider sx={{ my: 2 }} />
-              
-              <List disablePadding>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Học kỳ" 
-                    secondary={tuition.semesterName}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Tổng số tín chỉ" 
-                    secondary={tuition.totalCredits || '--'}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Học phí/tín chỉ" 
-                    secondary={formatCurrency(tuition.amountPerCredit) || '--'}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Hạn thanh toán" 
-                    secondary={formatDate(tuition.dueDate) || '--'}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {/* Payment Summary */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-                <AttachMoney sx={{ mr: 1 }} /> Tổng kết thanh toán
-              </Typography>
-              <Divider sx={{ my: 2 }} />
-              
-              <List disablePadding>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Tổng học phí" 
-                    secondary={formatCurrency(tuition.totalAmount)}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Học bổng/Miễn giảm" 
-                    secondary={formatCurrency(tuition.scholarshipAmount || 0)}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'info.main' }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Số tiền phải đóng" 
-                    secondary={formatCurrency(tuition.finalAmount)}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Đã thanh toán" 
-                    secondary={formatCurrency(tuition.paidAmount || 0)}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ variant: 'body1', color: 'success.main', fontWeight: 500 }}
-                  />
-                </ListItem>
-                <ListItem sx={{ py: 1, px: 0 }}>
-                  <ListItemText 
-                    primary="Còn lại" 
-                    secondary={formatCurrency(tuition.remainingAmount || 0)}
-                    primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    secondaryTypographyProps={{ 
-                      variant: 'body1', 
-                      color: tuition.remainingAmount > 0 ? 'error.main' : 'success.main',
-                      fontWeight: 'bold',
-                      fontSize: '1.1rem'
-                    }}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {/* Payment History */}
-        <Grid item xs={12}>
-          <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-            <CardHeader 
-              title="Lịch sử thanh toán" 
-              titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
-              avatar={<Receipt />}
-            />
-            <Divider />
-            <CardContent>
-              {/* Auto-generated data notice */}
-              {autoGeneratedData && payments.length > 0 && (
-                <Alert severity="info" sx={{ mb: 3 }}>
-                  <Typography variant="body2">
-                    {autoGeneratedMessage || 'Lịch sử thanh toán được tạo tự động do API không có sẵn.'}
-                  </Typography>
-                </Alert>
-              )}
-              
-              {paymentsLoading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-                  <CircularProgress />
-                </Box>
-              ) : payments.length === 0 ? (
-                <Box sx={{ py: 3, textAlign: 'center' }}>
-                  {tuition.paidAmount > 0 ? (
-                    <Box>
-                      <Typography variant="body1" color="text.secondary" gutterBottom>
-                        Chi tiết lịch sử thanh toán không có sẵn
-                      </Typography>
-                      <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Tổng số tiền đã thanh toán: <strong>{formatCurrency(tuition.paidAmount)}</strong>
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ) : (
-                    <Typography variant="body1" color="text.secondary">
-                      Chưa có lịch sử thanh toán
-                    </Typography>
-                  )}
-                </Box>
-              ) : (
-                <TableContainer component={Paper} variant="outlined">
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Mã giao dịch</TableCell>
-                        <TableCell>Ngày thanh toán</TableCell>
-                        <TableCell>Số tiền</TableCell>
-                        <TableCell>Phương thức</TableCell>
-                        <TableCell>Người xử lý</TableCell>
-                        <TableCell>Trạng thái</TableCell>
-                        <TableCell align="center">Thao tác</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {payments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>{payment.transactionCode || '--'}</TableCell>
-                          <TableCell>{formatDateTime(payment.paymentDate)}</TableCell>
-                          <TableCell>{formatCurrency(payment.amount)}</TableCell>
-                          <TableCell>{payment.paymentMethod}</TableCell>
-                          <TableCell>{payment.processedBy || payment.createdBy || '--'}</TableCell>
-                          <TableCell>{getPaymentStatusChip(payment.status)}</TableCell>
-                          <TableCell align="center">
-                            {payment.status === 'completed' && !payment.id.toString().includes('mock') && (
-                              <Tooltip title="Tải biên lai">
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  onClick={() => handleDownloadReceipt(payment.id)}
-                                >
-                                  <FileDownload fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {payment.notes && (
-                              <Tooltip title={payment.notes}>
-                                <IconButton
-                                  size="small"
-                                  color="info"
-                                >
-                                  <Info fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-              
-              {(tuition.status === 'unpaid' || tuition.status === 'partial' || tuition.status === 'overdue') && (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<Payment />}
-                  onClick={handleProcessPayment}
-                  sx={{ mt: 3 }}
-                >
-                  Xử lý thanh toán
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {/* Notes */}
-        {tuition.notes && (
-          <Grid item xs={12}>
-            <Card sx={{ borderRadius: 3, boxShadow: '0 4px 20px 0 rgba(0,0,0,0.05)' }}>
-              <CardHeader 
-                title="Ghi chú" 
-                titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
-                avatar={<Info />}
-              />
-              <Divider />
+            )}
+          </Box>
+        </Box>
+
+        {/* Main Content */}
+        <Grid container spacing={3}>
+          {/* Student Info */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
               <CardContent>
-                <Typography variant="body1">
-                  {tuition.notes}
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  <Person sx={{ mr: 1 }} /> Thông tin sinh viên
                 </Typography>
+                <Divider sx={{ my: 2 }} />
+                
+                <List disablePadding>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Mã sinh viên" 
+                      secondary={tuition.studentCode}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Họ tên" 
+                      secondary={tuition.studentName}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Lớp" 
+                      secondary={tuition.className || '--'}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Khoa/Ngành" 
+                      secondary={tuition.facultyName || '--'}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                    />
+                  </ListItem>
+                </List>
+                
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  sx={{ mt: 2, borderRadius: 2 }}
+                  onClick={() => navigate(`/students/${tuition.studentId}`)}
+                >
+                  Xem hồ sơ sinh viên
+                </Button>
               </CardContent>
             </Card>
           </Grid>
-        )}
-      </Grid>
-    </Box>
+          
+          {/* Tuition Info */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  <School sx={{ mr: 1 }} /> Thông tin học phí
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                
+                <List disablePadding>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Học kỳ" 
+                      secondary={tuition.semesterName}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Tổng số tín chỉ" 
+                      secondary={tuition.totalCredits || '--'}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Học phí/tín chỉ" 
+                      secondary={formatCurrency(tuition.amountPerCredit) || '--'}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Hạn thanh toán" 
+                      secondary={formatDate(tuition.dueDate) || '--'}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary' }}
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          {/* Payment Summary */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ height: '100%', borderRadius: 2, boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                  <AttachMoney sx={{ mr: 1 }} /> Tổng kết thanh toán
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                
+                <List disablePadding>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Tổng học phí" 
+                      secondary={formatCurrency(tuition.totalAmount)}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Học bổng/Miễn giảm" 
+                      secondary={formatCurrency(tuition.scholarshipAmount || 0)}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'info.main' }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Số tiền phải đóng" 
+                      secondary={formatCurrency(tuition.finalAmount)}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'text.primary', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Đã thanh toán" 
+                      secondary={formatCurrency(tuition.paidAmount || 0)}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ variant: 'body1', color: 'success.main', fontWeight: 500 }}
+                    />
+                  </ListItem>
+                  <ListItem sx={{ py: 1, px: 0 }}>
+                    <ListItemText 
+                      primary="Còn lại" 
+                      secondary={formatCurrency(tuition.remainingAmount || 0)}
+                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                      secondaryTypographyProps={{ 
+                        variant: 'body1', 
+                        color: tuition.remainingAmount > 0 ? 'error.main' : 'success.main',
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem'
+                      }}
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          {/* Payment History */}
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
+              <CardHeader 
+                title="Lịch sử thanh toán" 
+                titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
+                avatar={<Receipt />}
+              />
+              <Divider />
+              <CardContent>
+                {/* Auto-generated data notice */}
+                {autoGeneratedData && payments.length > 0 && (
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    <Typography variant="body2">
+                      {autoGeneratedMessage || 'Lịch sử thanh toán được tạo tự động do API không có sẵn.'}
+                    </Typography>
+                  </Alert>
+                )}
+                
+                {paymentsLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : payments.length === 0 ? (
+                  <Box sx={{ py: 3, textAlign: 'center' }}>
+                    {tuition.paidAmount > 0 ? (
+                      <Box>
+                        <Typography variant="body1" color="text.secondary" gutterBottom>
+                          Chi tiết lịch sử thanh toán không có sẵn
+                        </Typography>
+                        <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            Tổng số tiền đã thanh toán: <strong>{formatCurrency(tuition.paidAmount)}</strong>
+                          </Typography>
+                        </Box>
+                      </Box>
+                    ) : (
+                      <Typography variant="body1" color="text.secondary">
+                        Chưa có lịch sử thanh toán
+                      </Typography>
+                    )}
+                  </Box>
+                ) : (
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Mã giao dịch</TableCell>
+                          <TableCell>Ngày thanh toán</TableCell>
+                          <TableCell>Số tiền</TableCell>
+                          <TableCell>Phương thức</TableCell>
+                          <TableCell>Người xử lý</TableCell>
+                          <TableCell>Trạng thái</TableCell>
+                          <TableCell align="center">Thao tác</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {payments.map((payment) => (
+                          <TableRow key={payment.id}>
+                            <TableCell>{payment.transactionCode || '--'}</TableCell>
+                            <TableCell>{formatDateTime(payment.paymentDate)}</TableCell>
+                            <TableCell>{formatCurrency(payment.amount)}</TableCell>
+                            <TableCell>{payment.paymentMethod}</TableCell>
+                            <TableCell>{payment.processedBy || payment.createdBy || '--'}</TableCell>
+                            <TableCell>{getPaymentStatusChip(payment.status)}</TableCell>
+                            <TableCell align="center">
+                              {payment.status === 'completed' && !payment.id.toString().includes('mock') && (
+                                <Tooltip title="Tải biên lai">
+                                  <IconButton
+                                    size="small"
+                                    color="primary"
+                                    onClick={() => handleDownloadReceipt(payment.id)}
+                                  >
+                                    <FileDownload fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                              {payment.notes && (
+                                <Tooltip title={payment.notes}>
+                                  <IconButton
+                                    size="small"
+                                    color="info"
+                                  >
+                                    <Info fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+                
+                {(tuition.status === 'unpaid' || tuition.status === 'partial' || tuition.status === 'overdue') && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Payment />}
+                    onClick={handleProcessPayment}
+                    sx={{ mt: 3, borderRadius: 2, fontWeight: 500, px: 2.5 }}
+                  >
+                    Xử lý thanh toán
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          {/* Notes */}
+          {tuition.notes && (
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 2, boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)' }}>
+                <CardHeader 
+                  title="Ghi chú" 
+                  titleTypographyProps={{ variant: 'h6', fontWeight: 600 }}
+                  avatar={<Info />}
+                />
+                <Divider />
+                <CardContent>
+                  <Typography variant="body1">
+                    {tuition.notes}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+        </Grid>
+      </Box>
+    </Container>
   );
 };
 

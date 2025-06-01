@@ -51,8 +51,8 @@ const authMiddleware = async (req, res, next) => {
       });
     }
     
-    // Check if user is an admin - case sensitive check
-    if (user.Role !== 'ADMIN') {
+    // Check if user is an admin - case insensitive check
+    if (user.Role.toUpperCase() !== 'ADMIN') {
       return res.status(403).json({
         success: false,
         message: 'Không có quyền truy cập'

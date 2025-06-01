@@ -268,7 +268,8 @@ const Profile = () => {
           Bio: profileResponse.Bio || '',
           
           // Student specific fields from StudentDetails
-          StudentCode: profileResponse.StudentCode || '',
+          StudentCode: profileResponse.StudentCode || profileResponse.StudentID || '',
+          StudentID: profileResponse.StudentID || '',
           IdentityCardNumber: profileResponse.IdentityCardNumber || '',
           IdentityCardIssueDate: profileResponse.IdentityCardIssueDate || null,
           IdentityCardIssuePlace: profileResponse.IdentityCardIssuePlace || '',
@@ -457,7 +458,7 @@ const Profile = () => {
                 {profileData?.FullName}
               </Typography>
               <Chip 
-                label={`MSSV: ${profileData?.StudentCode || 'N/A'}`} 
+                label={`MSSV: ${profileData?.UserID || 'N/A'}`} 
                 color="primary"
                 sx={{ mb: 2 }}
               />
@@ -787,7 +788,7 @@ const Profile = () => {
                     <TableBody>
                       <TableRow>
                         <TableCell component="th" scope="row" width="40%">Mã sinh viên</TableCell>
-                        <TableCell align="right">{profileData?.StudentCode || 'Chưa cập nhật'}</TableCell>
+                        <TableCell align="right">{profileData?.UserID || 'Chưa cập nhật'}</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell component="th" scope="row">Lớp</TableCell>

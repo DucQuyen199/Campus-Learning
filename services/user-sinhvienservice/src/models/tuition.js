@@ -7,12 +7,6 @@ const TuitionModel = {
     try {
       const poolConnection = await sqlConnection.connect();
       
-      // Check if we're in mock mode
-      if (sqlConnection.mockMode) {
-        console.log('[MOCK DB] Returning mock tuition data');
-        return this.getMockCurrentTuition(userId);
-      }
-      
       // First get the current semester
       const currentSemesterResult = await poolConnection.request()
         .query(`
@@ -43,75 +37,35 @@ const TuitionModel = {
       }
       
       if (!currentSemesterId) {
-        console.log('No semester found, returning mock tuition data');
-        return this.getMockCurrentTuition(userId);
+        throw new Error('No semester found in the database');
       }
       
-      // Now get the tuition for this semester
-      const result = await poolConnection.request()
+      // Now get tuition for this user and semester
+      const tuitionResult = await poolConnection.request()
         .input('userId', sqlConnection.sql.BigInt, userId)
         .input('semesterId', sqlConnection.sql.BigInt, currentSemesterId)
         .query(`
-          SELECT t.*, sem.SemesterName, sem.AcademicYear
+          SELECT t.*, s.SemesterName, s.AcademicYear
           FROM Tuition t
-          JOIN Semesters sem ON t.SemesterID = sem.SemesterID
+          JOIN Semesters s ON t.SemesterID = s.SemesterID
           WHERE t.UserID = @userId AND t.SemesterID = @semesterId
         `);
       
-      if (result.recordset.length === 0) {
-        // If no tuition record, create one with current semester info
-        return {
-          TuitionID: 1,
-          UserID: userId,
-          SemesterID: currentSemesterId,
-          TotalCredits: 15,
-          AmountPerCredit: 850000,
-          TotalAmount: 12750000,
-          ScholarshipAmount: 0,
-          FinalAmount: 12750000,
-          DueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-          Status: 'Unpaid',
-          SemesterName: semesterInfo?.SemesterName || 'Học kỳ hiện tại',
-          AcademicYear: semesterInfo?.AcademicYear || '2023-2024'
-        };
+      if (tuitionResult.recordset.length === 0) {
+        throw new Error('No tuition data found for this semester');
       }
       
-      return result.recordset[0];
+      return tuitionResult.recordset[0];
     } catch (error) {
       console.error('Error in getCurrentTuition model:', error);
-      // Return mock data instead of throwing an error
-      return this.getMockCurrentTuition(userId);
+      throw new Error('Unable to retrieve current tuition from database');
     }
-  },
-
-  // Helper method to generate mock current tuition data
-  getMockCurrentTuition(userId) {
-    return {
-      TuitionID: 1,
-      UserID: parseInt(userId),
-      SemesterID: 3,
-      TotalCredits: 15,
-      AmountPerCredit: 850000,
-      TotalAmount: 12750000,
-      ScholarshipAmount: 0,
-      FinalAmount: 12750000,
-      DueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-      Status: 'Unpaid',
-      SemesterName: 'Học kỳ 1',
-      AcademicYear: '2023-2024'
-    };
   },
 
   // Get tuition history
   async getTuitionHistory(userId) {
     try {
       const poolConnection = await sqlConnection.connect();
-      
-      // Check if we're in mock mode
-      if (sqlConnection.mockMode) {
-        console.log('[MOCK DB] Returning mock tuition history');
-        return this.getMockTuitionHistory(userId);
-      }
       
       const result = await poolConnection.request()
         .input('userId', sqlConnection.sql.BigInt, userId)
@@ -125,67 +79,14 @@ const TuitionModel = {
         `);
       
       if (result.recordset.length === 0) {
-        // Return mock data
-        return this.getMockTuitionHistory(userId);
+        throw new Error('No tuition history found');
       }
       
       return result.recordset;
     } catch (error) {
       console.error('Error in getTuitionHistory model:', error);
-      // Return mock data instead of throwing an error
-      return this.getMockTuitionHistory(userId);
+      throw new Error('Unable to retrieve tuition history from database');
     }
-  },
-  
-  // Helper method to generate mock tuition history
-  getMockTuitionHistory(userId) {
-    return [
-      {
-        TuitionID: 1,
-        UserID: parseInt(userId),
-        SemesterID: 1,
-        TotalCredits: 15,
-        AmountPerCredit: 850000,
-        TotalAmount: 12750000,
-        ScholarshipAmount: 0,
-        FinalAmount: 12750000,
-        PaidAmount: 12750000,
-        DueDate: new Date(new Date().setMonth(new Date().getMonth() - 6)),
-        Status: 'Paid',
-        SemesterName: 'Học kỳ 1',
-        AcademicYear: '2022-2023'
-      },
-      {
-        TuitionID: 2,
-        UserID: parseInt(userId),
-        SemesterID: 2,
-        TotalCredits: 18,
-        AmountPerCredit: 850000,
-        TotalAmount: 15300000,
-        ScholarshipAmount: 1000000,
-        FinalAmount: 14300000,
-        PaidAmount: 14300000,
-        DueDate: new Date(new Date().setMonth(new Date().getMonth() - 3)),
-        Status: 'Paid',
-        SemesterName: 'Học kỳ 2',
-        AcademicYear: '2022-2023'
-      },
-      {
-        TuitionID: 3,
-        UserID: parseInt(userId),
-        SemesterID: 3,
-        TotalCredits: 15,
-        AmountPerCredit: 850000,
-        TotalAmount: 12750000,
-        ScholarshipAmount: 0,
-        FinalAmount: 12750000,
-        PaidAmount: 0,
-        DueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-        Status: 'Unpaid',
-        SemesterName: 'Học kỳ 1',
-        AcademicYear: '2023-2024'
-      }
-    ];
   }
 };
 

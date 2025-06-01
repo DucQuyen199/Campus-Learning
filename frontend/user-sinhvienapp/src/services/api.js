@@ -398,10 +398,87 @@ export const tuitionService = {
   }
 };
 
+// Exam Registration services
+export const examRegistrationService = {
+  // Get available exams for improvement
+  getAvailableExams: async (userId, semesterId = null) => {
+    try {
+      let url = `/exam-registration/${userId}`;
+      if (semesterId) {
+        url += `?semesterId=${semesterId}`;
+      }
+      const response = await apiClient.get(url);
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching available exams:', error);
+      throw error;
+    }
+  },
+
+  // Get registration history
+  getRegistrationHistory: async (userId) => {
+    try {
+      const response = await apiClient.get(`/exam-registration/${userId}/history`);
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching registration history:', error);
+      throw error;
+    }
+  },
+
+  // Get active semesters
+  getActiveSemesters: async () => {
+    try {
+      const response = await apiClient.get('/exam-registration/semesters');
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching active semesters:', error);
+      throw error;
+    }
+  },
+
+  // Register for exams
+  registerForExams: async (userId, examIds, semesterId) => {
+    try {
+      const response = await apiClient.post(`/exam-registration/${userId}/register`, {
+        examIds,
+        semesterId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error registering for exams:', error);
+      throw error;
+    }
+  },
+
+  // Get fee information
+  getExamFeeInfo: async () => {
+    try {
+      const response = await apiClient.get('/exam-registration/fee-info');
+      return response.data?.data || {};
+    } catch (error) {
+      console.error('Error fetching exam fee info:', error);
+      throw error;
+    }
+  },
+
+  // Cancel registration
+  cancelRegistration: async (userId, registrationId) => {
+    try {
+      const response = await apiClient.delete(`/exam-registration/${userId}/${registrationId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error cancelling registration:', error);
+      throw error;
+    }
+  }
+};
+
 export default {
   profileService,
   academicService,
   scheduleService,
   tuitionService,
-  userService
+  userService,
+  examRegistrationService
 }; 

@@ -13,6 +13,7 @@ const scheduleRoutes = require('./routes/scheduleRoutes');
 const tuitionRoutes = require('./routes/tuitionRoutes');
 const authRoutes = require('./routes/authRoutes');
 const notificationsRoutes = require('./routes/notificationsRoutes');
+const examRegistrationRoutes = require('./routes/examRegistrationRoutes');
 
 // Initialize Express app
 const app = express();
@@ -56,6 +57,7 @@ app.use(`${apiPrefix}/schedule`, scheduleRoutes);
 app.use(`${apiPrefix}/tuition`, tuitionRoutes);
 app.use(`${apiPrefix}/auth`, authRoutes);
 app.use(`${apiPrefix}/notifications`, notificationsRoutes);
+app.use(`${apiPrefix}/exam-registration`, examRegistrationRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

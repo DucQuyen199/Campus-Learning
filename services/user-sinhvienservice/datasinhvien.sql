@@ -835,5 +835,4 @@ CREATE TABLE ProfileUpdates (
     ApprovedAt DATETIME,
     Reason NVARCHAR(255),
     CONSTRAINT CHK_ProfileUpdate_Status CHECK (Status IN ('Pending', 'Approved', 'Rejected'))
-);
-go
+);go

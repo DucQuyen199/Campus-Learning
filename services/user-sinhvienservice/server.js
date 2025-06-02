@@ -340,6 +340,7 @@ function setupRoutes(demoMode = false) {
   const feedbackRoutes = require('./routes/feedback');
   const servicesRoutes = require('./routes/services');
   const examRegistrationRoutes = require('./src/routes/examRegistrationRoutes');
+  const courseRegistrationRoutes = require('./src/routes/courseRegistrationRoutes');
 
   // Fix lỗi pool.connect trong các routes
   const poolConnectFix = `
@@ -389,6 +390,7 @@ function setupRoutes(demoMode = false) {
   app.use('/api/feedback', feedbackRoutes);
   app.use('/api/services', servicesRoutes);
   app.use('/api/exam-registration', examRegistrationRoutes);
+  app.use('/api/course-registration', courseRegistrationRoutes);
   
   // Only use auth routes if NOT in demo mode, otherwise they've been overridden
   if (!demoMode) {

@@ -1,3 +1,6 @@
+USE campushubt;
+GO
+
 CREATE TABLE [dbo].[Users] (
     [UserID]        BIGINT         IDENTITY (1, 1) NOT NULL,
     [Username]      VARCHAR (50)   NOT NULL,
@@ -514,6 +517,10 @@ CREATE TABLE Exams (
     CONSTRAINT CHK_Exam_Status CHECK (Status IN ('Scheduled', 'Ongoing', 'Completed', 'Cancelled')),
     CONSTRAINT CHK_Exam_Type CHECK (ExamType IN ('Midterm', 'Final', 'Improvement', 'Retake'))
 );
+
+ALTER TABLE Exams
+ADD ExamDate DATE;
+
 go
 
 -- Đăng ký thi cải thiện điểm
@@ -803,6 +810,7 @@ CREATE TABLE AcademicMetrics (
     CONSTRAINT CHK_Academic_Standing CHECK (AcademicStanding IN ('Good Standing', 'Warning', 'Probation', 'Suspended', 'Dismissed'))
 );
 go
+use campushubt;
 -- Đăng ký học ngành 2
 CREATE TABLE SecondMajorRegistrations (
     RegistrationID BIGINT IDENTITY(1,1) PRIMARY KEY,

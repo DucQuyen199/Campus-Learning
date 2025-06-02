@@ -21,10 +21,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  useTheme
+  useTheme,
+  FormControlLabel,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  CircularProgress
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
-import { Send } from '@mui/icons-material';
+import { Send, Close } from '@mui/icons-material';
+import axios from 'axios';
 
 // Sample feedback categories
 const feedbackCategories = [
@@ -71,9 +80,19 @@ const Feedback = () => {
   const { currentUser } = useAuth();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
+  const [department, setDepartment] = useState('');
   const [content, setContent] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
   const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [feedbackCategories, setFeedbackCategories] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [detailDialog, setDetailDialog] = useState({
+    open: false,
+    feedback: null
+  });
 
   // Styles using theme directly instead of makeStyles
   const styles = {
@@ -101,9 +120,50 @@ const Feedback = () => {
     }
   };
 
+  // Fetch feedback categories and departments
   useEffect(() => {
-    // In a real application, this would fetch data from an API
-    setHistory(feedbackHistory);
+    const fetchMetadata = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/feedback/metadata`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.data.success) {
+          setFeedbackCategories(response.data.types);
+          setDepartments(response.data.departments);
+        }
+      } catch (error) {
+        console.error('Error fetching feedback metadata:', error);
+      }
+    };
+    
+    fetchMetadata();
+  }, []);
+
+  // Fetch feedback history
+  useEffect(() => {
+    const fetchFeedbackHistory = async () => {
+      setHistoryLoading(true);
+      try {
+        const response = await axios.get(`${API_BASE_URL}/feedback/history`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.data.success) {
+          setHistory(response.data.feedback || []);
+        }
+      } catch (error) {
+        console.error('Error fetching feedback history:', error);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    
+    fetchFeedbackHistory();
   }, []);
 
   const handleTitleChange = (event) => {
@@ -113,14 +173,22 @@ const Feedback = () => {
   const handleCategoryChange = (event) => {
     setCategory(event.target.value);
   };
+  
+  const handleDepartmentChange = (event) => {
+    setDepartment(event.target.value);
+  };
 
   const handleContentChange = (event) => {
     setContent(event.target.value);
   };
+  
+  const handleAnonymousChange = (event) => {
+    setIsAnonymous(event.target.checked);
+  };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate form
-    if (!title || !category || !content) {
+    if (!title || !category || !content || !department) {
       setSubmitStatus({
         type: 'error',
         message: 'Vui lòng điền đầy đủ thông tin.'
@@ -128,43 +196,104 @@ const Feedback = () => {
       return;
     }
 
-    // In a real application, this would send data to an API
-    // Add new feedback to history
-    const newFeedback = {
-      id: history.length + 1,
-      title,
-      category: feedbackCategories.find(c => c.id === category)?.name || '',
-      content,
-      date: new Date().toLocaleDateString('vi-VN'),
-      status: 'Pending',
-      response: null
-    };
+    setLoading(true);
 
-    setHistory([newFeedback, ...history]);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/feedback`, {
+        title,
+        content,
+        type: category,
+        department,
+        isAnonymous
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
 
-    // Reset form
-    setTitle('');
-    setCategory('');
-    setContent('');
+      if (response.data.success) {
+        // Reset form
+        setTitle('');
+        setCategory('');
+        setContent('');
+        setDepartment('');
+        setIsAnonymous(false);
 
-    // Show success message
-    setSubmitStatus({
-      type: 'success',
-      message: 'Góp ý của bạn đã được gửi thành công!'
-    });
+        // Show success message
+        setSubmitStatus({
+          type: 'success',
+          message: response.data.message || 'Góp ý của bạn đã được gửi thành công!'
+        });
 
-    // Clear status after a delay
-    setTimeout(() => {
-      setSubmitStatus(null);
-    }, 3000);
+        // Refresh feedback history
+        fetchUpdatedHistory();
+      } else {
+        setSubmitStatus({
+          type: 'error',
+          message: response.data.message || 'Có lỗi xảy ra khi gửi ý kiến.'
+        });
+      }
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      setSubmitStatus({
+        type: 'error',
+        message: error.response?.data?.message || 'Có lỗi xảy ra khi gửi ý kiến.'
+      });
+    } finally {
+      setLoading(false);
+      
+      // Clear status after a delay
+      setTimeout(() => {
+        setSubmitStatus(null);
+      }, 5000);
+    }
+  };
+  
+  const fetchUpdatedHistory = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/feedback/history`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.data.success) {
+        setHistory(response.data.feedback || []);
+      }
+    } catch (error) {
+      console.error('Error refreshing feedback history:', error);
+    }
   };
 
   const getStatusChip = (status) => {
-    if (status === 'Answered') {
-      return <Chip label="Đã trả lời" color="success" size="small" />;
-    } else {
-      return <Chip label="Đang xử lý" color="warning" size="small" />;
+    switch(status) {
+      case 'Submitted':
+        return <Chip label="Đã gửi" color="primary" size="small" />;
+      case 'Processing':
+        return <Chip label="Đang xử lý" color="warning" size="small" />;
+      case 'Responded':
+        return <Chip label="Đã trả lời" color="success" size="small" />;
+      case 'Resolved':
+        return <Chip label="Đã giải quyết" color="success" size="small" />;
+      case 'Rejected':
+        return <Chip label="Từ chối" color="error" size="small" />;
+      default:
+        return <Chip label="Đang xử lý" color="warning" size="small" />;
     }
+  };
+  
+  const handleViewDetails = (feedback) => {
+    setDetailDialog({
+      open: true,
+      feedback
+    });
+  };
+  
+  const handleCloseDetails = () => {
+    setDetailDialog({
+      open: false,
+      feedback: null
+    });
   };
 
   return (
@@ -198,20 +327,38 @@ const Feedback = () => {
               onChange={handleTitleChange}
               fullWidth
               required
+              disabled={loading}
             />
           </Grid>
-          <Grid item xs={12}>
-            <FormControl fullWidth sx={styles.formControl}>
-              <InputLabel>Danh mục</InputLabel>
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth sx={styles.formControl} required>
+              <InputLabel>Loại góp ý</InputLabel>
               <Select
                 value={category}
                 onChange={handleCategoryChange}
-                label="Danh mục"
-                required
+                label="Loại góp ý"
+                disabled={loading}
               >
                 {feedbackCategories.map((cat) => (
                   <MenuItem key={cat.id} value={cat.id}>
                     {cat.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <FormControl fullWidth sx={styles.formControl} required>
+              <InputLabel>Phòng ban</InputLabel>
+              <Select
+                value={department}
+                onChange={handleDepartmentChange}
+                label="Phòng ban"
+                disabled={loading}
+              >
+                {departments.map((dept, index) => (
+                  <MenuItem key={index} value={dept.name}>
+                    {dept.name}
                   </MenuItem>
                 ))}
               </Select>
@@ -226,7 +373,20 @@ const Feedback = () => {
               rows={6}
               fullWidth
               required
+              disabled={loading}
               placeholder="Mô tả chi tiết ý kiến, phản ánh hoặc đề xuất của bạn..."
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Checkbox 
+                  checked={isAnonymous} 
+                  onChange={handleAnonymousChange}
+                  disabled={loading}
+                />
+              }
+              label="Gửi ẩn danh (không hiển thị thông tin cá nhân của bạn)"
             />
           </Grid>
         </Grid>
@@ -235,10 +395,11 @@ const Feedback = () => {
           <Button
             variant="contained"
             color="primary"
-            startIcon={<Send />}
+            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Send />}
             onClick={handleSubmit}
+            disabled={loading}
           >
-            Gửi ý kiến
+            {loading ? 'Đang gửi...' : 'Gửi ý kiến'}
           </Button>
         </Box>
       </Paper>
@@ -248,13 +409,18 @@ const Feedback = () => {
           Lịch sử phản hồi
         </Typography>
 
-        {history.length > 0 ? (
+        {historyLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : history.length > 0 ? (
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
                 <TableRow>
                   <TableCell>Tiêu đề</TableCell>
-                  <TableCell>Danh mục</TableCell>
+                  <TableCell>Loại</TableCell>
+                  <TableCell>Phòng ban</TableCell>
                   <TableCell>Ngày gửi</TableCell>
                   <TableCell>Trạng thái</TableCell>
                   <TableCell>Chi tiết</TableCell>
@@ -262,26 +428,24 @@ const Feedback = () => {
               </TableHead>
               <TableBody>
                 {history.map((feedback) => (
-                  <React.Fragment key={feedback.id}>
-                    <TableRow>
-                      <TableCell>{feedback.title}</TableCell>
-                      <TableCell>{feedback.category}</TableCell>
-                      <TableCell>{feedback.date}</TableCell>
-                      <TableCell>{getStatusChip(feedback.status)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => {
-                            // In a real app, this would open a modal with details
-                            alert(`Content: ${feedback.content}\nResponse: ${feedback.response || 'No response yet'}`);
-                          }}
-                        >
-                          Xem
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  </React.Fragment>
+                  <TableRow key={feedback.id}>
+                    <TableCell>{feedback.title}</TableCell>
+                    <TableCell>
+                      {feedbackCategories.find(cat => cat.id === feedback.category)?.name || feedback.category}
+                    </TableCell>
+                    <TableCell>{feedback.department}</TableCell>
+                    <TableCell>{feedback.date}</TableCell>
+                    <TableCell>{getStatusChip(feedback.status)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => handleViewDetails(feedback)}
+                      >
+                        Xem
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
@@ -296,6 +460,73 @@ const Feedback = () => {
           </Card>
         )}
       </Box>
+      
+      {/* Feedback Detail Dialog */}
+      <Dialog 
+        open={detailDialog.open} 
+        onClose={handleCloseDetails}
+        fullWidth
+        maxWidth="md"
+      >
+        {detailDialog.feedback && (
+          <>
+            <DialogTitle>
+              Chi tiết góp ý
+              <IconButton
+                aria-label="close"
+                onClick={handleCloseDetails}
+                sx={{ position: 'absolute', right: 8, top: 8 }}
+              >
+                <Close />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="h6">{detailDialog.feedback.title}</Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Gửi vào: {detailDialog.feedback.date}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">Loại góp ý:</Typography>
+                  <Typography variant="body2">
+                    {feedbackCategories.find(cat => cat.id === detailDialog.feedback.category)?.name || detailDialog.feedback.category}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2">Phòng ban:</Typography>
+                  <Typography variant="body2">{detailDialog.feedback.department}</Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">Trạng thái:</Typography>
+                  <Box sx={{ mt: 1 }}>
+                    {getStatusChip(detailDialog.feedback.status)}
+                  </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2">Nội dung:</Typography>
+                  <Paper variant="outlined" sx={{ p: 2, mt: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="body2">{detailDialog.feedback.content}</Typography>
+                  </Paper>
+                </Grid>
+                
+                {detailDialog.feedback.response && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2">Phản hồi:</Typography>
+                    <Paper variant="outlined" sx={{ p: 2, mt: 1, backgroundColor: '#e8f5e9' }}>
+                      <Typography variant="body2">{detailDialog.feedback.response}</Typography>
+                    </Paper>
+                  </Grid>
+                )}
+              </Grid>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseDetails}>Đóng</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </div>
   );
 };

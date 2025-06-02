@@ -40,7 +40,7 @@ LOG_LEVEL=debug
 SQL_USER=sa
 SQL_PASSWORD=YourStrongPassword123
 SQL_SERVER=localhost
-SQL_DATABASE=SinhVienDB
+SQL_DATABASE=campushubt
 
 # Enable demo mode to use mock data instead of real database
 DEMO_MODE=true

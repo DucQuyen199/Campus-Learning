@@ -20,74 +20,29 @@ import {
   Chip,
   Card,
   CardContent,
-  useTheme
+  useTheme,
+  CircularProgress,
+  Snackbar
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { BookmarkRemove, Print, Download } from '@mui/icons-material';
-
-// Sample data - would come from API in a real application
-const sampleRegisteredCourses = [
-  {
-    id: 1,
-    courseCode: 'CS101',
-    courseName: 'Introduction to Computer Science',
-    section: '01',
-    credits: 3,
-    dayOfWeek: 'Monday, Wednesday',
-    timeSlot: '09:00 - 10:30',
-    classroom: 'A301',
-    instructor: 'Dr. John Smith',
-    status: 'Confirmed',
-    canCancel: true
-  },
-  {
-    id: 2,
-    courseCode: 'MATH201',
-    courseName: 'Calculus II',
-    section: '02',
-    credits: 4,
-    dayOfWeek: 'Tuesday, Thursday',
-    timeSlot: '10:30 - 12:00',
-    classroom: 'B205',
-    instructor: 'Dr. Jane Doe',
-    status: 'Confirmed',
-    canCancel: true
-  },
-  {
-    id: 3,
-    courseCode: 'PHY102',
-    courseName: 'Physics for Engineers',
-    section: '03',
-    credits: 4,
-    dayOfWeek: 'Monday, Wednesday, Friday',
-    timeSlot: '13:00 - 14:00',
-    classroom: 'C105',
-    instructor: 'Dr. Robert Johnson',
-    status: 'Confirmed',
-    canCancel: true
-  },
-  {
-    id: 4,
-    courseCode: 'ENG203',
-    courseName: 'Technical Writing',
-    section: '01',
-    credits: 3,
-    dayOfWeek: 'Friday',
-    timeSlot: '15:00 - 18:00',
-    classroom: 'D110',
-    instructor: 'Prof. Sarah Williams',
-    status: 'Waitlisted',
-    canCancel: true
-  }
-];
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/constants';
 
 const RegisteredCourses = () => {
   const theme = useTheme();
   const { currentUser } = useAuth();
   const [registeredCourses, setRegisteredCourses] = useState([]);
-  const [semester, setSemester] = useState('HK1-23-24');
+  const [semester, setSemester] = useState('');
+  const [semesters, setSemesters] = useState([]);
   const [actionStatus, setActionStatus] = useState(null);
   const [totalCredits, setTotalCredits] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [semestersLoading, setSemestersLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertSeverity, setAlertSeverity] = useState('success');
 
   // Styles using theme directly instead of makeStyles
   const styles = {
@@ -128,50 +83,149 @@ const RegisteredCourses = () => {
       '&:hover': {
         backgroundColor: theme.palette.error.dark
       }
+    },
+    loadingContainer: {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: theme.spacing(5)
     }
   };
 
+  // Fetch semesters
   useEffect(() => {
-    // In a real application, this would fetch data from an API
-    setRegisteredCourses(sampleRegisteredCourses);
-    
-    // Calculate total credits
-    const credits = sampleRegisteredCourses.reduce((total, course) => {
-      return total + course.credits;
-    }, 0);
-    setTotalCredits(credits);
+    const fetchSemesters = async () => {
+      setSemestersLoading(true);
+      try {
+        const response = await axios.get(`${API_BASE_URL}/course-registration/semesters`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.data.success) {
+          setSemesters(response.data.semesters);
+          
+          // Get current semester
+          const currentResponse = await axios.get(`${API_BASE_URL}/course-registration/semesters/current`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (currentResponse.data.success && currentResponse.data.semester) {
+            setSemester(currentResponse.data.semester.id.toString());
+          } else if (response.data.semesters.length > 0) {
+            // Default to first semester if no current semester
+            setSemester(response.data.semesters[0].id.toString());
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching semesters:', error);
+        setError('Không thể tải danh sách học kỳ.');
+        showAlert('Không thể tải danh sách học kỳ.', 'error');
+      } finally {
+        setSemestersLoading(false);
+      }
+    };
+
+    fetchSemesters();
   }, []);
+
+  // Fetch registered courses when semester changes
+  useEffect(() => {
+    if (semester) {
+      fetchRegisteredCourses(semester);
+    }
+  }, [semester]);
+
+  const fetchRegisteredCourses = async (semesterId) => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/course-registration/${semesterId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.data.success) {
+        setRegisteredCourses(response.data.courses || []);
+        
+        // Calculate total credits
+        const credits = (response.data.courses || []).reduce((total, course) => {
+          return total + course.credits;
+        }, 0);
+        
+        setTotalCredits(credits);
+      }
+    } catch (error) {
+      console.error('Error fetching registered courses:', error);
+      setError('Không thể tải danh sách môn học đã đăng ký.');
+      showAlert('Không thể tải danh sách môn học đã đăng ký.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSemesterChange = (event) => {
     setSemester(event.target.value);
-    // This would typically fetch data for the selected semester from an API
   };
 
-  const handleCancelRegistration = (courseId) => {
-    // This would send a request to cancel the registration
-    setActionStatus({
-      type: 'success',
-      message: 'Hủy đăng ký môn học thành công.'
-    });
-    
-    // Update the UI by removing the course
-    setRegisteredCourses(registeredCourses.filter(course => course.id !== courseId));
-    
-    // Recalculate total credits
-    const updatedCredits = registeredCourses
-      .filter(course => course.id !== courseId)
-      .reduce((total, course) => total + course.credits, 0);
-    setTotalCredits(updatedCredits);
+  const handleCancelRegistration = async (courseId) => {
+    try {
+      const response = await axios.delete(`${API_BASE_URL}/course-registration/${courseId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.data.success) {
+        // Update the UI by removing the course
+        setRegisteredCourses(registeredCourses.filter(course => course.id !== courseId));
+        
+        // Recalculate total credits
+        const updatedCredits = registeredCourses
+          .filter(course => course.id !== courseId)
+          .reduce((total, course) => total + course.credits, 0);
+        
+        setTotalCredits(updatedCredits);
+        
+        showAlert('Hủy đăng ký môn học thành công.', 'success');
+      } else {
+        showAlert(response.data.error || 'Không thể hủy đăng ký môn học.', 'error');
+      }
+    } catch (error) {
+      console.error('Error cancelling registration:', error);
+      showAlert(error.response?.data?.error || 'Không thể hủy đăng ký môn học.', 'error');
+    }
   };
 
   const handlePrintSchedule = () => {
     // This would open a print dialog with the schedule
-    alert('Printing schedule...');
+    window.print();
   };
 
   const handleDownloadSchedule = () => {
     // This would download the schedule as a PDF or other format
-    alert('Downloading schedule...');
+    alert('Tính năng tải xuống lịch học sẽ sớm được phát triển.');
+  };
+  
+  const showAlert = (message, severity) => {
+    setAlertMessage(message);
+    setAlertSeverity(severity);
+    setAlertOpen(true);
+  };
+  
+  const handleCloseAlert = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setAlertOpen(false);
+  };
+
+  const getSemesterNameById = (id) => {
+    const found = semesters.find(s => s.id.toString() === id.toString());
+    return found ? `${found.name} - ${found.academicYear}` : 'Không có thông tin';
   };
 
   return (
@@ -186,6 +240,17 @@ const RegisteredCourses = () => {
           </Typography>
           <Divider sx={{ mt: 2 }} />
         </Box>
+        
+        <Snackbar
+          open={alertOpen}
+          autoHideDuration={6000}
+          onClose={handleCloseAlert}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert onClose={handleCloseAlert} severity={alertSeverity} sx={{ width: '100%' }}>
+            {alertMessage}
+          </Alert>
+        </Snackbar>
 
         {actionStatus && (
           <Alert 
@@ -199,16 +264,24 @@ const RegisteredCourses = () => {
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <FormControl sx={styles.formControl}>
+            <FormControl sx={styles.formControl} disabled={semestersLoading}>
               <InputLabel>Học kỳ</InputLabel>
               <Select
                 value={semester}
                 onChange={handleSemesterChange}
                 label="Học kỳ"
               >
-                <MenuItem value="HK1-23-24">Học kỳ 1 - 2023/2024</MenuItem>
-                <MenuItem value="HK2-23-24">Học kỳ 2 - 2023/2024</MenuItem>
-                <MenuItem value="HK3-23-24">Học kỳ 3 - 2023/2024</MenuItem>
+                {semestersLoading ? (
+                  <MenuItem value="">
+                    <CircularProgress size={24} /> Đang tải...
+                  </MenuItem>
+                ) : (
+                  semesters.map(sem => (
+                    <MenuItem key={sem.id} value={sem.id}>
+                      {sem.name} - {sem.academicYear}
+                    </MenuItem>
+                  ))
+                )}
               </Select>
             </FormControl>
           </Grid>
@@ -232,9 +305,7 @@ const RegisteredCourses = () => {
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <Typography variant="body1">
-                      <strong>Học kỳ:</strong> {semester === 'HK1-23-24' ? 'Học kỳ 1 - 2023/2024' : 
-                                              semester === 'HK2-23-24' ? 'Học kỳ 2 - 2023/2024' : 
-                                              'Học kỳ 3 - 2023/2024'}
+                      <strong>Học kỳ:</strong> {getSemesterNameById(semester)}
                     </Typography>
                   </Grid>
                 </Grid>
@@ -260,69 +331,80 @@ const RegisteredCourses = () => {
           </Grid>
         </Grid>
 
-        <TableContainer component={Paper} sx={styles.tableContainer}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Mã môn học</TableCell>
-                <TableCell>Tên môn học</TableCell>
-                <TableCell>Nhóm</TableCell>
-                <TableCell align="center">Tín chỉ</TableCell>
-                <TableCell>Lịch học</TableCell>
-                <TableCell>Phòng</TableCell>
-                <TableCell>Giảng viên</TableCell>
-                <TableCell>Trạng thái</TableCell>
-                <TableCell align="center">Hành động</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {registeredCourses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell>{course.courseCode}</TableCell>
-                  <TableCell>{course.courseName}</TableCell>
-                  <TableCell>{course.section}</TableCell>
-                  <TableCell align="center">{course.credits}</TableCell>
-                  <TableCell>
-                    <div>{course.dayOfWeek}</div>
-                    <div>{course.timeSlot}</div>
-                  </TableCell>
-                  <TableCell>{course.classroom}</TableCell>
-                  <TableCell>{course.instructor}</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={course.status === 'Confirmed' ? 'Đã xác nhận' : 'Chờ xác nhận'} 
-                      color={course.status === 'Confirmed' ? 'success' : 'warning'}
-                      size="small"
-                      sx={styles.chip}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    {course.canCancel && (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        color="error"
-                        startIcon={<BookmarkRemove />}
-                        onClick={() => handleCancelRegistration(course.id)}
-                      >
-                        Hủy
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {registeredCourses.length === 0 && (
+        {loading ? (
+          <Box sx={styles.loadingContainer}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <TableContainer component={Paper} sx={styles.tableContainer}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    <Typography variant="body1">
-                      Không có môn học nào được đăng ký trong học kỳ này.
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Mã môn học</TableCell>
+                  <TableCell>Tên môn học</TableCell>
+                  <TableCell>Nhóm</TableCell>
+                  <TableCell align="center">Tín chỉ</TableCell>
+                  <TableCell>Lịch học</TableCell>
+                  <TableCell>Phòng</TableCell>
+                  <TableCell>Giảng viên</TableCell>
+                  <TableCell>Trạng thái</TableCell>
+                  <TableCell align="center">Hành động</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {registeredCourses.length > 0 ? registeredCourses.map((course) => (
+                  <TableRow key={course.id}>
+                    <TableCell>{course.courseCode}</TableCell>
+                    <TableCell>{course.courseName}</TableCell>
+                    <TableCell>{course.section}</TableCell>
+                    <TableCell align="center">{course.credits}</TableCell>
+                    <TableCell>
+                      <div>{course.dayOfWeek}</div>
+                      <div>{course.timeSlot}</div>
+                    </TableCell>
+                    <TableCell>{course.classroom}</TableCell>
+                    <TableCell>{course.instructor}</TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={course.status} 
+                        color={course.rawStatus === 'Approved' ? 'success' : 
+                               course.rawStatus === 'Pending' ? 'warning' : 
+                               'default'}
+                        size="small"
+                        sx={styles.chip}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      {course.canCancel ? (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          color="error"
+                          startIcon={<BookmarkRemove />}
+                          onClick={() => handleCancelRegistration(course.id)}
+                        >
+                          Hủy
+                        </Button>
+                      ) : (
+                        <Typography variant="caption" color="textSecondary">
+                          Không thể hủy
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      <Typography variant="body1">
+                        Không có môn học nào được đăng ký trong học kỳ này.
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
     </div>
   );

@@ -19,47 +19,22 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  useTheme
+  useTheme,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { Print, GetApp } from '@mui/icons-material';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/constants';
 
-// Sample tuition data
-const tuitionData = [
-  {
-    id: 1,
-    semester: 'HK1-2023-2024',
-    tuitionFee: 10000000,
-    otherFees: 2500000,
-    totalAmount: 12500000,
-    paidAmount: 6250000,
-    remainingAmount: 6250000,
-    dueDate: '30/09/2023',
-    status: 'Thanh toán một phần'
-  },
-  {
-    id: 2,
-    semester: 'HK2-2022-2023',
-    tuitionFee: 10000000,
-    otherFees: 2500000,
-    totalAmount: 12500000,
-    paidAmount: 12500000,
-    remainingAmount: 0,
-    dueDate: '28/02/2023',
-    status: 'Đã thanh toán'
-  },
-  {
-    id: 3,
-    semester: 'HK1-2022-2023',
-    tuitionFee: 10000000,
-    otherFees: 2500000,
-    totalAmount: 12500000,
-    paidAmount: 12500000,
-    remainingAmount: 0,
-    dueDate: '30/09/2022',
-    status: 'Đã thanh toán'
-  }
-];
+// Timeout for axios requests
+const axiosWithTimeout = (timeout = 15000) => {
+  const instance = axios.create({
+    timeout: timeout
+  });
+  return instance;
+};
 
 const TuitionFees = () => {
   const theme = useTheme();
@@ -69,6 +44,8 @@ const TuitionFees = () => {
   const [currentTuition, setCurrentTuition] = useState(null);
   const [totalPaid, setTotalPaid] = useState(0);
   const [totalRemaining, setTotalRemaining] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Styles using theme directly instead of makeStyles
   const styles = {
@@ -99,39 +76,73 @@ const TuitionFees = () => {
       justifyContent: 'flex-end',
       gap: theme.spacing(2)
     },
-    chipPaid: {
-      backgroundColor: theme.palette.success.main,
-      color: theme.palette.success.contrastText
-    },
-    chipPending: {
-      backgroundColor: theme.palette.warning.main,
-      color: theme.palette.warning.contrastText
-    },
-    chipOverdue: {
-      backgroundColor: theme.palette.error.main,
-      color: theme.palette.error.contrastText
+    loadingContainer: {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'column',
+      height: '200px'
+    }
+  };
+
+  const fetchTuitionData = async () => {
+    if (!currentUser || !currentUser.id) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const api = axiosWithTimeout();
+      
+      // Get tuition history for current user
+      const response = await api.get(`${API_BASE_URL}/tuition/history/${currentUser.id}`);
+      
+      if (response.data.success) {
+        const tuitionData = response.data.data;
+        
+        // Sort by semester (newest first)
+        tuitionData.sort((a, b) => {
+          // Assuming SemesterID is incremental with newer semesters having higher IDs
+          return b.SemesterID - a.SemesterID;
+        });
+        
+        setTuitionHistory(tuitionData);
+        
+        // Select current semester (most recent) by default
+        if (tuitionData.length > 0) {
+          setCurrentTuition(tuitionData[0]);
+          setSelectedSemester(tuitionData[0].SemesterID.toString());
+        }
+        
+        // Calculate totals
+        const paid = tuitionData.reduce((sum, item) => sum + (item.PaidAmount || 0), 0);
+        const remaining = tuitionData.reduce((sum, item) => sum + (item.RemainingAmount || 0), 0);
+        
+        setTotalPaid(paid);
+        setTotalRemaining(remaining);
+      } else {
+        throw new Error(response.data.message || 'Could not retrieve tuition data');
+      }
+    } catch (err) {
+      console.error('Error fetching tuition data:', err);
+      setError(err.response?.data?.message || err.message || 'Đã xảy ra lỗi khi tải dữ liệu học phí.');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // In a real application, this would fetch data from an API
-    setTuitionHistory(tuitionData);
-    setCurrentTuition(tuitionData[0]);
-    
-    // Calculate totals
-    const paid = tuitionData.reduce((sum, item) => sum + item.paidAmount, 0);
-    const remaining = tuitionData.reduce((sum, item) => sum + item.remainingAmount, 0);
-    
-    setTotalPaid(paid);
-    setTotalRemaining(remaining);
-  }, []);
+    if (currentUser && currentUser.id) {
+      fetchTuitionData();
+    }
+  }, [currentUser]);
 
   const handleSemesterChange = (event) => {
     const selected = event.target.value;
     setSelectedSemester(selected);
     
     if (selected) {
-      const selectedTuition = tuitionHistory.find(item => item.semester === selected);
+      const selectedTuition = tuitionHistory.find(item => item.SemesterID.toString() === selected);
       setCurrentTuition(selectedTuition);
     } else {
       setCurrentTuition(tuitionHistory[0]);
@@ -139,25 +150,139 @@ const TuitionFees = () => {
   };
 
   const handlePrint = () => {
-    // This would print the tuition details in a real application
     window.print();
   };
 
   const handleDownload = () => {
-    // This would download a PDF of tuition details in a real application
-    alert('Downloading tuition details as PDF...');
+    // Generate PDF receipt content
+    const receiptContent = generateReceiptContent(currentTuition);
+    
+    // Create a blob from the receipt content
+    const blob = new Blob([receiptContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    
+    // Create a temporary download link and trigger it
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = `tuition-receipt-${currentTuition.SemesterCode}.txt`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    
+    // Clean up
+    document.body.removeChild(downloadLink);
+    window.URL.revokeObjectURL(url);
+  };
+  
+  const generateReceiptContent = (tuition) => {
+    // Format the receipt content
+    return `
+=======================================================
+              THÔNG TIN HỌC PHÍ
+=======================================================
+
+Mã số sinh viên: ${currentUser.Username}
+Họ và tên: ${currentUser.FullName}
+Học kỳ: ${tuition.SemesterName} ${tuition.AcademicYear}
+Ngày in: ${new Date().toLocaleDateString('vi-VN')}
+
+-------------------------------------------------------
+Chi tiết học phí:
+-------------------------------------------------------
+Học phí cơ bản: ${formatCurrency(tuition.TuitionFee)}
+Các khoản phí khác: ${formatCurrency(tuition.OtherFees || 0)}
+Tổng cộng: ${formatCurrency(tuition.TotalAmount)}
+
+Đã thanh toán: ${formatCurrency(tuition.PaidAmount)}
+Số tiền còn lại: ${formatCurrency(tuition.RemainingAmount)}
+
+Hạn thanh toán: ${formatDate(tuition.DueDate)}
+Trạng thái: ${getTuitionStatusText(tuition)}
+
+=======================================================
+Đây là thông tin học phí chính thức từ nhà trường.
+Liên hệ phòng Tài chính - Kế toán nếu có thắc mắc.
+=======================================================
+    `;
   };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date)) return dateString;
+    return date.toLocaleDateString('vi-VN');
+  };
+  
+  const getTuitionStatusText = (tuition) => {
+    if (!tuition) return '';
+    if (tuition.Status === 'Paid') return 'Đã thanh toán';
+    if (tuition.Status === 'Partial') return 'Thanh toán một phần';
+    if (tuition.Status === 'Unpaid') return 'Chưa thanh toán';
+    if (tuition.Status === 'Overdue') return 'Quá hạn';
+    if (tuition.Status === 'Waived') return 'Được miễn giảm';
+    return tuition.Status;
+  };
 
   const getStatusChipColor = (status) => {
-    if (status === 'Đã thanh toán') return 'success';
-    if (status === 'Thanh toán một phần') return 'warning';
-    if (status === 'Chưa thanh toán') return 'error';
+    if (status === 'Paid') return 'success';
+    if (status === 'Partial') return 'warning';
+    if (status === 'Unpaid') return 'default';
+    if (status === 'Overdue') return 'error';
+    if (status === 'Waived') return 'info';
     return 'default';
   };
+
+  // If there's a loading error, show error message with retry button
+  if (error) {
+    return (
+      <div style={styles.root}>
+        <Paper sx={styles.paper}>
+          <Box sx={styles.titleSection}>
+            <Typography variant="h4" gutterBottom>
+              Xem học phí
+            </Typography>
+          </Box>
+          <Box sx={styles.loadingContainer}>
+            <Alert severity="error" sx={{ width: '100%', maxWidth: '500px' }}>
+              {error}
+            </Alert>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={fetchTuitionData} 
+              sx={{ marginTop: theme.spacing(2) }}
+            >
+              Thử lại
+            </Button>
+          </Box>
+        </Paper>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div style={styles.root}>
+        <Paper sx={styles.paper}>
+          <Box sx={styles.titleSection}>
+            <Typography variant="h4" gutterBottom>
+              Xem học phí
+            </Typography>
+          </Box>
+          <Box sx={styles.loadingContainer}>
+            <CircularProgress />
+            <Typography variant="body1" sx={{ marginTop: theme.spacing(2) }}>
+              Đang tải dữ liệu học phí...
+            </Typography>
+          </Box>
+        </Paper>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.root}>
@@ -204,12 +329,9 @@ const TuitionFees = () => {
             onChange={handleSemesterChange}
             label="Chọn học kỳ"
           >
-            <MenuItem value="">
-              <em>Học kỳ hiện tại</em>
-            </MenuItem>
             {tuitionHistory.map((item) => (
-              <MenuItem key={item.id} value={item.semester}>
-                {item.semester}
+              <MenuItem key={item.SemesterID} value={item.SemesterID.toString()}>
+                {item.SemesterName} {item.AcademicYear}
               </MenuItem>
             ))}
           </Select>
@@ -221,15 +343,15 @@ const TuitionFees = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body1">
-                    <strong>Học kỳ:</strong> {currentTuition.semester}
+                    <strong>Học kỳ:</strong> {currentTuition.SemesterName} {currentTuition.AcademicYear}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body1">
                     <strong>Trạng thái:</strong> 
                     <Chip 
-                      label={currentTuition.status}
-                      color={getStatusChipColor(currentTuition.status)}
+                      label={getTuitionStatusText(currentTuition)}
+                      color={getStatusChipColor(currentTuition.Status)}
                       size="small"
                       sx={{ ml: 1 }}
                     />
@@ -237,7 +359,7 @@ const TuitionFees = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body1">
-                    <strong>Hạn thanh toán:</strong> {currentTuition.dueDate}
+                    <strong>Hạn thanh toán:</strong> {formatDate(currentTuition.DueDate)}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -256,23 +378,23 @@ const TuitionFees = () => {
                   <TableBody>
                     <TableRow>
                       <TableCell>Học phí cơ bản</TableCell>
-                      <TableCell align="right">{formatCurrency(currentTuition.tuitionFee)}</TableCell>
+                      <TableCell align="right">{formatCurrency(currentTuition.TuitionFee)}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Các khoản phí khác</TableCell>
-                      <TableCell align="right">{formatCurrency(currentTuition.otherFees)}</TableCell>
+                      <TableCell align="right">{formatCurrency(currentTuition.OtherFees || 0)}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell><strong>Tổng cộng</strong></TableCell>
-                      <TableCell align="right"><strong>{formatCurrency(currentTuition.totalAmount)}</strong></TableCell>
+                      <TableCell align="right"><strong>{formatCurrency(currentTuition.TotalAmount)}</strong></TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell>Đã thanh toán</TableCell>
-                      <TableCell align="right">{formatCurrency(currentTuition.paidAmount)}</TableCell>
+                      <TableCell align="right">{formatCurrency(currentTuition.PaidAmount)}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell><strong>Số tiền còn lại</strong></TableCell>
-                      <TableCell align="right"><strong>{formatCurrency(currentTuition.remainingAmount)}</strong></TableCell>
+                      <TableCell align="right"><strong>{formatCurrency(currentTuition.RemainingAmount)}</strong></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -292,6 +414,14 @@ const TuitionFees = () => {
                   onClick={handleDownload}
                 >
                   Tải PDF
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  href={`/tuition/payment/${currentTuition.TuitionID}`}
+                  disabled={currentTuition.RemainingAmount <= 0}
+                >
+                  Thanh toán học phí
                 </Button>
               </Box>
             </CardContent>

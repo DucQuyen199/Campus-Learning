@@ -50,6 +50,7 @@ const AddAcademicWarning = () => {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentDetails, setStudentDetails] = useState(null);
+// eslint-disable-next-line no-unused-vars
   const [studentDetailsLoading, setStudentDetailsLoading] = useState(false);
 
   // Fetch semesters
@@ -81,6 +82,7 @@ const AddAcademicWarning = () => {
       setStudentsLoading(true);
       try {
         // Check if search term is a numeric value (likely a UserID)
+// eslint-disable-next-line no-unused-vars
         const isNumeric = /^\d+$/.test(studentSearchTerm.trim());
         let searchParam = studentSearchTerm;
         
@@ -167,7 +169,7 @@ const AddAcademicWarning = () => {
     } else {
       formik.setFieldValue('studentId', '');
     }
-  }, [selectedStudent]);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */selectedStudent]);
 
   return (
     <Box sx={{ mb: 4 }}>

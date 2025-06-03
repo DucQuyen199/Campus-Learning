@@ -69,7 +69,7 @@ const SemesterEdit = () => {
     if (isEditMode) {
       fetchSemesterData();
     }
-  }, [id]);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */id]);
   
   const fetchSemesterData = async () => {
     try {

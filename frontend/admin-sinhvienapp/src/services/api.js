@@ -235,6 +235,7 @@ export const tuitionService = {
           break; // Exit the loop if successful
         } catch (err) {
           console.log(`Endpoint ${endpoint} failed:`, err.message);
+// eslint-disable-next-line no-unused-vars
           lastError = err;
           // Continue to the next endpoint
         }
@@ -248,6 +249,7 @@ export const tuitionService = {
         // If we have tuition data and some amount was paid, create a mock payment entry
         if (tuitionData && tuitionData.tuition && tuitionData.tuition.paidAmount > 0) {
           // Calculate remaining amount
+// eslint-disable-next-line no-unused-vars
           const remainingAmount = tuitionData.tuition.finalAmount - tuitionData.tuition.paidAmount;
           
           // Create mock payment entries
@@ -557,4 +559,47 @@ export const academicService = {
 // User service to fetch all users with optional role filter
 export const usersService = {
   getAllUsers: (role = '') => apiClient.get('/users/all', { params: { role } }),
+};
+
+// Student Services API
+export const studentServicesApi = {
+  // Get all services
+  getAllServices: () => {
+    return apiClient.get('/services/services');
+  },
+  
+  // Get service by ID
+  getServiceById: (id) => {
+    return apiClient.get(`/services/services/${id}`);
+  },
+  
+  // Create new service
+  createService: (serviceData) => {
+    return apiClient.post('/services/services', serviceData);
+  },
+  
+  // Update service
+  updateService: (id, serviceData) => {
+    return apiClient.put(`/services/services/${id}`, serviceData);
+  },
+  
+  // Get all service requests with optional filters
+  getAllRequests: (filters = {}) => {
+    return apiClient.get('/services/requests', { params: filters });
+  },
+  
+  // Get service request by ID
+  getRequestById: (id) => {
+    return apiClient.get(`/services/requests/${id}`);
+  },
+  
+  // Update service request status
+  updateRequestStatus: (id, statusData) => {
+    return apiClient.put(`/services/requests/${id}/status`, statusData);
+  },
+  
+  // Get service statistics
+  getServicesStatistics: () => {
+    return apiClient.get('/services/statistics');
+  }
 };

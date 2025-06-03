@@ -45,6 +45,13 @@ import ProcessPayment from './pages/finance/ProcessPayment';
 import TuitionStatistics from './pages/finance/TuitionStatistics';
 import GenerateTuition from './pages/finance/GenerateTuition';
 
+// Service Management Pages
+import ServicesDashboard from './pages/services/ServicesDashboard';
+import ServicesList from './pages/services/ServicesList';
+import ServiceForm from './pages/services/ServiceForm';
+import ServiceRequests from './pages/services/ServiceRequests';
+import RequestDetail from './pages/services/RequestDetail';
+
 // Loading component
 const LoadingScreen = () => (
   <Box
@@ -136,6 +143,14 @@ function App() {
         <Route path="/finance/tuition/:id/payment" element={<ProcessPayment />} />
         <Route path="/finance/tuition/statistics" element={<TuitionStatistics />} />
         <Route path="/finance/tuition/generate" element={<GenerateTuition />} />
+        
+        {/* Services Management */}
+        <Route path="/services" element={<ServicesList />} />
+        <Route path="/services/dashboard" element={<ServicesDashboard />} />
+        <Route path="/services/add" element={<ServiceForm />} />
+        <Route path="/services/edit/:id" element={<ServiceForm />} />
+        <Route path="/services/requests" element={<ServiceRequests />} />
+        <Route path="/services/requests/:id" element={<RequestDetail />} />
         
         {/* User Profile & Settings */}
         <Route path="/profile" element={<Profile />} />

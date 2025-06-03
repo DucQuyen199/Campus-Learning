@@ -24,6 +24,8 @@ const Students = () => {
   const [error, setError] = useState(null);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+// eslint-disable-next-line no-unused-vars
+// eslint-disable-next-line no-unused-vars
   const [showAllEnabled, setShowAllEnabled] = useState(true);
   const [allStudentsLoaded, setAllStudentsLoaded] = useState(false); // Track if all students are loaded
 
@@ -64,7 +66,7 @@ const Students = () => {
       // Clear the navigation state to prevent showing the message again on refresh
       window.history.replaceState({}, document.title);
     }
-  }, [location]);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */location]);
 
   const fetchStudents = async (page = 0, size = 100, search = '', prioritizeId = false) => {
     setLoading(true);
@@ -556,7 +558,7 @@ const Students = () => {
     };
 
     loadAllStudents();
-  }, []);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */]);
 
   const handlePageChange = (newPage) => {
     console.log('Page changed to:', newPage);

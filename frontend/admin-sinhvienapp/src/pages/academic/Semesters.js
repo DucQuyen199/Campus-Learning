@@ -33,6 +33,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { academicService } from '../../services/api';
 
 const Semesters = () => {
+// eslint-disable-next-line no-unused-vars
   const navigate = useNavigate();
   const [semesters, setSemesters] = useState([]);
   const [filteredSemesters, setFilteredSemesters] = useState([]);

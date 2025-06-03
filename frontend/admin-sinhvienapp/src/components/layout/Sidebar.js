@@ -40,6 +40,12 @@ import {
   ChevronLeft,
   Menu as MenuIcon,
   Notifications,
+  MenuBook,
+  AutoStories,
+  Support,
+  Assignment,
+  List as ListIcon,
+  BarChart,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -61,12 +67,16 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile, insideUnifie
     if (location.pathname.includes('/finance')) {
       setFinanceOpen(true);
     }
+    if (location.pathname.includes('/services')) {
+      setServicesOpen(true);
+    }
   }, [location.pathname]);
   
   // Menu item states
   const [studentsOpen, setStudentsOpen] = useState(false);
   const [academicOpen, setAcademicOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
+  const [servicesOpen, setServicesOpen] = useState(false);
   
   // Toggle menu items
   const handleStudentsClick = () => {
@@ -79,6 +89,10 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile, insideUnifie
 
   const handleFinanceClick = () => {
     setFinanceOpen(!financeOpen);
+  };
+  
+  const handleServicesClick = () => {
+    setServicesOpen(!servicesOpen);
   };
   
   // Navigation handler
@@ -105,6 +119,10 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile, insideUnifie
 
   const isInFinanceGroup = () => {
     return location.pathname.includes('/finance');
+  };
+
+  const isInServicesGroup = () => {
+    return location.pathname.includes('/services');
   };
 
   // Sidebar item renderer
@@ -193,139 +211,67 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile, insideUnifie
       bgcolor: theme.palette.background.paper,
       boxShadow: '0 0 15px rgba(0, 0, 0, 0.05)',
     }}>
-      {/* Header with Logo - không còn nút toggle */}
-      <Box
-        sx={{
-          p: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center', // Căn giữa logo
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          color: theme.palette.primary.main,
-        }}
-      >
-        <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}>
-          <School sx={{ mr: 1, fontSize: '2rem' }} />
-          HUBT Admin
-        </Typography>
+      {/* Main Navigation Menu (scrollable) */}
+      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+        <List sx={{ p: 2 }}>
+          {renderMenuItem('Tổng quan', <Dashboard />, '/dashboard')}
+          
+          {/* Student Management */}
+          {renderMenuItem('Quản lý sinh viên', <People />, '/students', isInStudentsGroup, handleStudentsClick, studentsOpen)}
+          <Collapse in={studentsOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {renderSubMenuItem('Danh sách sinh viên', <Person />, '/students')}
+              {renderSubMenuItem('Thêm sinh viên mới', <AddBox />, '/students/add')}
+            </List>
+          </Collapse>
+          
+          {/* Academic Management */}
+          {renderMenuItem('Quản lý học vụ', <School />, '/academic', isInAcademicGroup, handleAcademicClick, academicOpen)}
+          <Collapse in={academicOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {renderSubMenuItem('Chương trình đào tạo', <MenuBook />, '/academic/programs')}
+              {renderSubMenuItem('Học phần / Môn học', <AutoStories />, '/academic/subjects')}
+              {renderSubMenuItem('Học kỳ', <CalendarMonth />, '/academic/semesters')}
+              {renderSubMenuItem('Kết quả học tập', <Assessment />, '/academic/results')}
+              {renderSubMenuItem('Cảnh báo học vụ', <Warning />, '/academic/warnings')}
+            </List>
+          </Collapse>
+          
+          {/* Finance Management */}
+          {renderMenuItem('Quản lý học phí', <AccountBalance />, '/finance', isInFinanceGroup, handleFinanceClick, financeOpen)}
+          <Collapse in={financeOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {renderSubMenuItem('Danh sách học phí', <Receipt />, '/finance/tuition')}
+              {renderSubMenuItem('Tạo học phí', <AddBox />, '/finance/tuition/generate')}
+              {renderSubMenuItem('Thống kê học phí', <BarChart />, '/finance/tuition/statistics')}
+            </List>
+          </Collapse>
+          
+          {/* Services Management */}
+          {renderMenuItem('Dịch vụ sinh viên', <Support />, '/services', isInServicesGroup, handleServicesClick, servicesOpen)}
+          <Collapse in={servicesOpen} timeout="auto" unmountOnExit>
+            <List component="div" disablePadding>
+              {renderSubMenuItem('Thống kê dịch vụ', <Dashboard />, '/services/dashboard')}
+              {renderSubMenuItem('Yêu cầu dịch vụ', <Assignment />, '/services/requests')}
+              {renderSubMenuItem('Danh sách dịch vụ', <ListIcon />, '/services')}
+              {renderSubMenuItem('Thêm dịch vụ mới', <AddBox />, '/services/add')}
+            </List>
+          </Collapse>
+
+          {/* Settings */}
+          {renderMenuItem('Cài đặt', <Settings />, '/settings')}
+        </List>
       </Box>
       
-      {/* User Info */}
-      <Box
-        sx={{
-          p: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          bgcolor: alpha(theme.palette.primary.main, 0.03),
-        }}
-      >
-        <Badge
-          overlap="circular"
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          variant="dot"
-          color="success"
-        >
-          <Avatar
-            alt={user?.name || 'Admin'}
-            src={user?.avatar}
-            sx={{ 
-              width: 64, 
-              height: 64, 
-              mb: 1,
-              border: `3px solid ${theme.palette.background.paper}`,
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            }}
-          />
+      {/* User Info fixed at bottom */}
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderTop: `1px solid ${theme.palette.divider}`, bgcolor: alpha(theme.palette.primary.main, 0.03) }}>
+        <Badge overlap="circular" anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} variant="dot" color="success">
+          <Avatar alt={user?.name || 'Admin'} src={user?.avatar} sx={{ width: 48, height: 48, border: `2px solid ${theme.palette.background.paper}` }} />
         </Badge>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 1 }}>
-          {user?.name || 'Admin User'}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {user?.role || 'Quản trị viên'}
-        </Typography>
-      </Box>
-      
-      {/* Navigation */}
-      <List sx={{ 
-        flexGrow: 1, 
-        px: 2, 
-        py: 1.5, 
-        overflowY: 'auto',
-        '&::-webkit-scrollbar': {
-          width: '4px',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          backgroundColor: alpha(theme.palette.primary.main, 0.2),
-          borderRadius: '10px',
-        },
-      }} component="nav">
-        {/* Dashboard */}
-        {renderMenuItem('Dashboard', <Dashboard />, '/dashboard', () => isActive('/dashboard') || isActive('/'))}
-        
-        <Divider sx={{ my: 1.5, opacity: 0.6 }} />
-        
-        {/* Main Sections */}
-        <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5, display: 'block' }}>
-          QUẢN LÝ CHÍNH
-        </Typography>
-        
-        {/* Students */}
-        {renderMenuItem('Quản lý sinh viên', <People />, '/students', isInStudentsGroup, handleStudentsClick, studentsOpen)}
-        
-        <Collapse in={studentsOpen || isInStudentsGroup()} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            {renderSubMenuItem('Danh sách sinh viên', <People />, '/students')}
-            {renderSubMenuItem('Thêm sinh viên', <AddBox />, '/students/add')}
-          </List>
-        </Collapse>
-        
-        {/* Academic */}
-        {renderMenuItem('Quản lý học tập', <School />, '/academic', isInAcademicGroup, handleAcademicClick, academicOpen)}
-        
-        <Collapse in={academicOpen || isInAcademicGroup()} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            {renderSubMenuItem('Chương trình đào tạo', <School />, '/academic/programs')}
-            {renderSubMenuItem('Môn học', <Book />, '/academic/subjects')}
-            {renderSubMenuItem('Học kỳ', <CalendarMonth />, '/academic/semesters')}
-            {renderSubMenuItem('Kết quả học tập', <Assessment />, '/academic/results')}
-            {renderSubMenuItem('Cảnh báo học tập', <Warning />, '/academic/warnings')}
-          </List>
-        </Collapse>
-        
-        {/* Finance */}
-        {renderMenuItem('Quản lý tài chính', <AccountBalance />, '/finance', isInFinanceGroup, handleFinanceClick, financeOpen)}
-        
-        <Collapse in={financeOpen || isInFinanceGroup()} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            {renderSubMenuItem('Học phí', <Receipt />, '/finance/tuition')}
-            {renderSubMenuItem('Thống kê học phí', <Assessment />, '/finance/tuition/statistics')}
-            {renderSubMenuItem('Tạo hoá đơn học phí', <CreditCard />, '/finance/tuition/generate')}
-          </List>
-        </Collapse>
-        
-        <Divider sx={{ my: 1.5, opacity: 0.6 }} />
-        
-        {/* User Settings */}
-        <Typography variant="caption" color="text.secondary" sx={{ px: 1, py: 0.5, display: 'block' }}>
-          CÀI ĐẶT TÀI KHOẢN
-        </Typography>
-        
-        {/* Profile & Settings */}
-        {renderMenuItem('Hồ sơ cá nhân', <Person />, '/profile')}
-        {renderMenuItem('Cài đặt hệ thống', <Settings />, '/settings')}
-      </List>
-      
-      {/* Version */}
-      <Box sx={{ 
-        p: 2, 
-        borderTop: `1px solid ${theme.palette.divider}`,
-        backgroundColor: alpha(theme.palette.primary.main, 0.03),
-      }}>
-        <Typography variant="caption" color="text.secondary" component="div" sx={{ textAlign: 'center' }}>
-          HUBT Admin Portal v1.1.0
-        </Typography>
+        <Box sx={{ ml: 2 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{user?.name || 'Admin User'}</Typography>
+          <Typography variant="body2" color="text.secondary">{user?.role || 'Quản trị viên'}</Typography>
+        </Box>
       </Box>
     </Box>
   );

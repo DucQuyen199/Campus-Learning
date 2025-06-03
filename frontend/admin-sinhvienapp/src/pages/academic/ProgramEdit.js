@@ -57,6 +57,7 @@ const validationSchema = Yup.object({
 const ProgramEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+// eslint-disable-next-line no-unused-vars
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({

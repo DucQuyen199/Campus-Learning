@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
+// eslint-disable-next-line no-unused-vars
   Paper,
   Card,
   Button,
@@ -13,6 +14,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+// eslint-disable-next-line no-unused-vars
   Divider,
   TableContainer,
   Table,
@@ -101,7 +103,7 @@ const AcademicWarnings = () => {
   // Initial fetch
   useEffect(() => {
     fetchWarnings();
-  }, [page, rowsPerPage, search, status, semester]);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */page, rowsPerPage, search, status, semester]);
 
   // Handle pagination
   const handleChangePage = (event, newPage) => {

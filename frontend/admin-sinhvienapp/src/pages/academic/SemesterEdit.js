@@ -75,7 +75,22 @@ const SemesterEdit = () => {
     try {
       setLoading(true);
       
-      const response = await academicService.getSemesterById(id);
+      // Try to fetch the semester data and handle potential errors
+      let response;
+      try {
+        response = await academicService.getSemesterById(id);
+      } catch (error) {
+        console.error('API call error:', error);
+        setSnackbar({
+          open: true,
+          message: 'Không thể tải dữ liệu học kỳ. Học kỳ có thể không tồn tại.',
+          severity: 'error'
+        });
+        setTimeout(() => {
+          navigate('/academic/semesters');
+        }, 1500);
+        return;
+      }
       
       if (response && response.success) {
         const semesterData = response.data;
@@ -94,7 +109,14 @@ const SemesterEdit = () => {
           isCurrent: semesterData.IsCurrent === true || semesterData.IsCurrent === 1
         });
       } else {
-        throw new Error(response?.message || 'Không thể tải dữ liệu học kỳ');
+        setSnackbar({
+          open: true,
+          message: response?.message || 'Không thể tải dữ liệu học kỳ',
+          severity: 'error'
+        });
+        setTimeout(() => {
+          navigate('/academic/semesters');
+        }, 1500);
       }
     } catch (error) {
       console.error('Error fetching semester data:', error);
@@ -103,6 +125,9 @@ const SemesterEdit = () => {
         message: error.message || 'Không thể tải dữ liệu học kỳ. Vui lòng thử lại sau.',
         severity: 'error'
       });
+      setTimeout(() => {
+        navigate('/academic/semesters');
+      }, 1500);
     } finally {
       setLoading(false);
     }

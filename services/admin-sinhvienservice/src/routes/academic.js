@@ -854,6 +854,131 @@ router.get('/semesters', async (req, res) => {
   }
 });
 
+// Get a specific semester by ID
+router.get('/semesters/:id', async (req, res) => {
+  try {
+    const semesterId = parseInt(req.params.id, 10);
+    if (isNaN(semesterId)) {
+      return res.status(400).json({ success: false, message: 'ID học kỳ không hợp lệ.' });
+    }
+    const query = `
+      SELECT 
+        SemesterID, SemesterCode, SemesterName, AcademicYear,
+        StartDate, EndDate, RegistrationStartDate, RegistrationEndDate,
+        Status, IsCurrent,
+        (SELECT COUNT(*) FROM CourseClasses cc WHERE cc.SemesterID = s.SemesterID) AS SubjectCount,
+        (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
+         INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+         WHERE cc.SemesterID = s.SemesterID) AS StudentCount,
+        (SELECT COUNT(DISTINCT cr.UserID) FROM CourseRegistrations cr 
+         INNER JOIN CourseClasses cc ON cr.ClassID = cc.ClassID 
+         INNER JOIN AcademicResults ar ON ar.ClassID = cc.ClassID AND ar.UserID = cr.UserID
+         WHERE cc.SemesterID = s.SemesterID AND ar.IsCompleted = 1) AS CompletedStudentCount
+      FROM Semesters s
+      WHERE SemesterID = @id
+    `;
+    const result = await executeQuery(query, { id: { type: sql.BigInt, value: semesterId } });
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy học kỳ.' });
+    }
+    return res.status(200).json({ success: true, data: result.recordset[0] });
+  } catch (error) {
+    console.error('Error fetching semester:', error);
+    return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi lấy thông tin học kỳ.' });
+  }
+});
+
+// Get subjects for a specific semester
+router.get('/semesters/:id/subjects', async (req, res) => {
+  try {
+    const semesterId = parseInt(req.params.id, 10);
+    if (isNaN(semesterId)) {
+      return res.status(400).json({ success: false, message: 'ID học kỳ không hợp lệ.' });
+    }
+    const query = `
+      SELECT 
+        s.SubjectID, s.SubjectCode, s.SubjectName, s.Credits,
+        s.Department, s.Faculty, cc.ClassID,
+        COUNT(DISTINCT cr.UserID) AS EnrolledStudents
+      FROM Subjects s
+      INNER JOIN CourseClasses cc ON s.SubjectID = cc.SubjectID
+      LEFT JOIN CourseRegistrations cr ON cc.ClassID = cr.ClassID AND cr.Status = 'Approved'
+      WHERE cc.SemesterID = @id
+      GROUP BY s.SubjectID, s.SubjectCode, s.SubjectName, s.Credits, s.Department, s.Faculty, cc.ClassID
+      ORDER BY s.SubjectCode
+    `;
+    const result = await executeQuery(query, { id: { type: sql.BigInt, value: semesterId } });
+    return res.status(200).json({ success: true, data: result.recordset });
+  } catch (error) {
+    console.error('Error fetching semester subjects:', error);
+    return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi lấy danh sách môn học của học kỳ.' });
+  }
+});
+
+// Update an existing semester
+router.put('/semesters/:id', async (req, res) => {
+  try {
+    const semesterId = parseInt(req.params.id, 10);
+    if (isNaN(semesterId)) {
+      return res.status(400).json({ success: false, message: 'ID học kỳ không hợp lệ.' });
+    }
+    const {
+      semesterCode,
+      semesterName,
+      academicYear,
+      startDate,
+      endDate,
+      registrationStartDate,
+      registrationEndDate,
+      status,
+      isCurrent
+    } = req.body;
+
+    // Check if semester exists
+    const checkResult = await executeQuery(
+      'SELECT SemesterID FROM Semesters WHERE SemesterID = @id',
+      { id: { type: sql.BigInt, value: semesterId } }
+    );
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy học kỳ.' });
+    }
+
+    // Update semester
+    const updateQuery = `
+      UPDATE Semesters
+      SET
+        SemesterCode = ISNULL(@semesterCode, SemesterCode),
+        SemesterName = ISNULL(@semesterName, SemesterName),
+        AcademicYear = ISNULL(@academicYear, AcademicYear),
+        StartDate = ISNULL(@startDate, StartDate),
+        EndDate = ISNULL(@endDate, EndDate),
+        RegistrationStartDate = ISNULL(@registrationStartDate, RegistrationStartDate),
+        RegistrationEndDate = ISNULL(@registrationEndDate, RegistrationEndDate),
+        Status = ISNULL(@status, Status),
+        IsCurrent = ISNULL(@isCurrent, IsCurrent)
+      WHERE SemesterID = @id;
+    `;
+
+    await executeQuery(updateQuery, {
+      id: { type: sql.BigInt, value: semesterId },
+      semesterCode: { type: sql.VarChar, value: semesterCode || null },
+      semesterName: { type: sql.NVarChar, value: semesterName || null },
+      academicYear: { type: sql.VarChar, value: academicYear || null },
+      startDate: { type: sql.Date, value: startDate || null },
+      endDate: { type: sql.Date, value: endDate || null },
+      registrationStartDate: { type: sql.Date, value: registrationStartDate || null },
+      registrationEndDate: { type: sql.Date, value: registrationEndDate || null },
+      status: { type: sql.VarChar, value: status || null },
+      isCurrent: { type: sql.Bit, value: isCurrent !== undefined ? isCurrent : null }
+    });
+
+    return res.status(200).json({ success: true, message: 'Cập nhật học kỳ thành công.' });
+  } catch (error) {
+    console.error('Error updating semester:', error);
+    return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi cập nhật học kỳ.' });
+  }
+});
+
 /**
  * Get dashboard stats for academic data
  * GET /api/academic/dashboard/stats

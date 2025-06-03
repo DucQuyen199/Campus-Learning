@@ -523,8 +523,18 @@ router.get('/semesters', async (req, res) => {
 router.get('/semesters/:id', async (req, res) => {
   try {
     const poolConnection = await getPool();
+    
+    // Validate ID parameter
+    const semesterId = parseInt(req.params.id, 10);
+    if (isNaN(semesterId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid semester ID format' 
+      });
+    }
+    
     const result = await poolConnection.request()
-      .input('id', sql.BigInt, req.params.id)
+      .input('id', sql.BigInt, semesterId)
       .query(`
         SELECT 
           SemesterID, SemesterCode, SemesterName,
@@ -547,13 +557,23 @@ router.get('/semesters/:id', async (req, res) => {
       `);
     
     if (result.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: 'Semester not found' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Semester not found' 
+      });
     }
     
-    res.json({ success: true, data: result.recordset[0] });
+    res.json({ 
+      success: true, 
+      data: result.recordset[0] 
+    });
   } catch (error) {
     console.error('Error fetching semester:', error);
-    res.status(500).json({ success: false, message: 'Error fetching semester', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching semester', 
+      error: error.message 
+    });
   }
 });
 

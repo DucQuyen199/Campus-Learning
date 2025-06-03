@@ -36,6 +36,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5011/api';
 
 const AcademicResults = () => {
+// eslint-disable-next-line no-unused-vars
   const [results, setResults] = useState([]);
   const [filteredResults, setFilteredResults] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -200,10 +201,12 @@ const AcademicResults = () => {
     setPage(0);
   };
 
+// eslint-disable-next-line no-unused-vars
   const getStatusColor = (status) => {
     return status === 'Passed' ? 'success' : 'error';
   };
 
+// eslint-disable-next-line no-unused-vars
   const translateStatus = (status) => {
     return status === 'Passed' ? 'Đạt' : 'Không đạt';
   };

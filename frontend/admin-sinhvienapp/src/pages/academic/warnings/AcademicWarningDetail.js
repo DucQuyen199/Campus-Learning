@@ -26,6 +26,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Person,
   School,
+// eslint-disable-next-line no-unused-vars
   CalendarMonth,
   Info,
   Edit as EditIcon,

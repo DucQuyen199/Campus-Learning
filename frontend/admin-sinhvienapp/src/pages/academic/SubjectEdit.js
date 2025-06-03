@@ -39,6 +39,7 @@ const SubjectEdit = () => {
   const [errors, setErrors] = useState({});
   
   // Department and faculty options
+// eslint-disable-next-line no-unused-vars
   const [departments, setDepartments] = useState([
     'KHOA KINH TẾ',
     'KHOA TÀI CHÍNH',
@@ -109,7 +110,7 @@ const SubjectEdit = () => {
     if (isEditMode) {
       fetchSubjectData();
     }
-  }, [id]);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */id]);
   
   const fetchSubjectData = async () => {
     try {

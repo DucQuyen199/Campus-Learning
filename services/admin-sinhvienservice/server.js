@@ -12,6 +12,7 @@ const studentsRoutes = require('./src/routes/students');
 const usersRoutes = require('./src/routes/users'); // Import users routes from src/routes
 const academicRoutes = require('./src/routes/academic'); // Update to use src/routes
 const financeRoutes = require('./routes/finance');
+const servicesRoutes = require('./routes/services'); // Import new services routes
 
 // Initialize express app
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/students', studentsRoutes);
 app.use('/api/users', usersRoutes); // Enable users routes
 app.use('/api/academic', academicRoutes);
 app.use('/api/finance', financeRoutes);
+app.use('/api/services', servicesRoutes); // Enable services routes
 
 // Root route
 app.get('/', (req, res) => {

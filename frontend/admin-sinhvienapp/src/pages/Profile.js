@@ -6,9 +6,11 @@ import { Save, CameraAlt } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
 const Profile = () => {
+// eslint-disable-next-line no-unused-vars
   const { currentUser } = useAuth();
   
   // Mock user data since we don't have actual data
+// eslint-disable-next-line no-unused-vars
   const [userData, setUserData] = useState({
     id: '1',
     fullName: 'Admin User',

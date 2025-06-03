@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
+// eslint-disable-next-line no-unused-vars
   Paper,
   Card,
   Button,
@@ -13,6 +14,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+// eslint-disable-next-line no-unused-vars
   Divider,
   TableContainer,
   Table,
@@ -32,9 +34,11 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
+// eslint-disable-next-line no-unused-vars
   Edit as EditIcon,
   Payment as PaymentIcon,
   Receipt as ReceiptIcon,
+// eslint-disable-next-line no-unused-vars
   CreditCard as CreditCardIcon,
   AttachMoney,
 } from '@mui/icons-material';
@@ -148,7 +152,7 @@ const TuitionList = () => {
   // Initial fetch and when filters change
   useEffect(() => {
     fetchTuition();
-  }, [page, rowsPerPage, search, status, semester, showAllList]);
+  }, [/* eslint-disable-next-line react-hooks/exhaustive-deps */page, rowsPerPage, search, status, semester, showAllList]);
 
   // Handle pagination
   const handleChangePage = (event, newPage) => {

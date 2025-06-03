@@ -24,7 +24,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -45,6 +47,11 @@ const ServicesList = () => {
   const [selectedService, setSelectedService] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredServices, setFilteredServices] = useState([]);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
   // Fetch services
   const fetchServices = async () => {
@@ -89,10 +96,24 @@ const ServicesList = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    // Note: Delete functionality would be implemented here
-    // For now, just close dialog and refresh
-    setDeleteDialogOpen(false);
-    fetchServices();
+    try {
+      await studentServicesApi.deleteService(selectedService.ServiceID);
+      setSnackbar({
+        open: true,
+        message: 'Xóa dịch vụ thành công',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      setSnackbar({
+        open: true,
+        message: 'Không thể xóa dịch vụ',
+        severity: 'error'
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      fetchServices();
+    }
   };
 
   const handleDeleteCancel = () => {
@@ -255,6 +276,18 @@ const ServicesList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for delete notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </PageContainer>
   );
 };

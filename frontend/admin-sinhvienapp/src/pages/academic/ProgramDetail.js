@@ -347,7 +347,7 @@ const ProgramDetail = () => {
         <Button 
           variant="contained" 
           startIcon={<Edit />}
-          onClick={() => navigate(`/academic/programs/edit/${program.id}`)}
+          onClick={() => navigate(`/academic/programs/edit/${id}`)}
         >
           Chỉnh sửa
         </Button>
@@ -360,13 +360,13 @@ const ProgramDetail = () => {
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <School sx={{ fontSize: 80, mr: 2, color: 'primary.main' }} />
                 <Box>
-                  <Typography variant="h4">{program.name}</Typography>
+                  <Typography variant="h4">{program.ProgramName}</Typography>
                   <Typography variant="subtitle1" color="text.secondary">
-                    Mã: {program.code}
+                    Mã: {program.ProgramCode}
                   </Typography>
                   <Chip 
-                    label={program.status} 
-                    color={program.status === 'Active' ? 'success' : 'default'} 
+                    label={program.IsActive ? 'Active' : 'Inactive'} 
+                    color={program.IsActive ? 'success' : 'default'} 
                     size="small" 
                     sx={{ mt: 1 }}
                   />
@@ -378,7 +378,7 @@ const ProgramDetail = () => {
                 <ListItem>
                   <ListItemText 
                     primary="Khoa phụ trách" 
-                    secondary={program.department} 
+                    secondary={program.Department} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
@@ -386,7 +386,7 @@ const ProgramDetail = () => {
                 <ListItem>
                   <ListItemText 
                     primary="Thời gian đào tạo" 
-                    secondary={`${program.duration || 4} năm`} 
+                    secondary={`${program.ProgramDuration || 0} năm`} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
@@ -394,7 +394,7 @@ const ProgramDetail = () => {
                 <ListItem>
                   <ListItemText 
                     primary="Bằng cấp" 
-                    secondary={program.degree} 
+                    secondary={program.DegreeName} 
                     primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
                     secondaryTypographyProps={{ variant: 'body1' }}
                   />
@@ -421,7 +421,7 @@ const ProgramDetail = () => {
                 Mô tả chương trình
               </Typography>
               <Typography paragraph>
-                {program.description || 'Chưa có mô tả chi tiết cho chương trình này.'}
+                {program.Description || 'Chưa có mô tả chi tiết cho chương trình này.'}
               </Typography>
             </Grid>
 
@@ -434,11 +434,11 @@ const ProgramDetail = () => {
                   <List>
                     <ListItem>
                       <BusinessCenter sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Tổng số tín chỉ" secondary={program.totalCredits || 'N/A'} />
+                      <ListItemText primary="Tổng số tín chỉ" secondary={program.TotalCredits || 'N/A'} />
                     </ListItem>
                     <ListItem>
                       <School sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText primary="Số sinh viên đang theo học" secondary={program.students || 0} />
+                      <ListItemText primary="Số sinh viên đang theo học" secondary={program.StudentCount || 0} />
                     </ListItem>
                   </List>
                 </CardContent>

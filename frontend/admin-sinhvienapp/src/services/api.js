@@ -583,6 +583,11 @@ export const studentServicesApi = {
     return apiClient.put(`/services/services/${id}`, serviceData);
   },
   
+  // Delete service
+  deleteService: (id) => {
+    return apiClient.delete(`/services/services/${id}`);
+  },
+  
   // Get all service requests with optional filters
   getAllRequests: (filters = {}) => {
     return apiClient.get('/services/requests', { params: filters });

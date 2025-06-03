@@ -337,4 +337,32 @@ router.get('/statistics', auth, async (req, res) => {
   }
 });
 
+// Delete a service
+router.delete('/services/:id', auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Deleting service with ID:', id);
+
+    // Check if service exists
+    const checkResult = await dbConfig.executeQuery(
+      'SELECT * FROM StudentServices WHERE ServiceID = @id',
+      { id: { type: sql.BigInt, value: id } }
+    );
+    if (!checkResult.recordset || checkResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Service not found' });
+    }
+
+    // Delete the service
+    await dbConfig.executeQuery(
+      'DELETE FROM StudentServices WHERE ServiceID = @id',
+      { id: { type: sql.BigInt, value: id } }
+    );
+
+    res.json({ message: 'Service deleted successfully', serviceId: id });
+  } catch (error) {
+    console.error('Error deleting service:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router; 

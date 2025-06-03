@@ -81,27 +81,35 @@ const ProgramEdit = () => {
   });
 
   useEffect(() => {
+    // Parse and validate the ID parameter
+    const programId = parseInt(id, 10);
+    if (isNaN(programId)) {
+      // Invalid ID, redirect to the programs list
+      navigate('/academic/programs', { replace: true });
+      return;
+    }
+
     const fetchProgramDetails = async () => {
       try {
         setLoading(true);
-        const response = await academicService.getProgramById(id);
-        
+        const response = await academicService.getProgramById(programId);
+
         if (response.success) {
           const programData = response.data;
           setProgram(programData);
-          
+
           // Set initial form values based on the fetched data
           setInitialValues({
-            code: programData.code || '',
-            name: programData.name || '',
-            department: programData.department || '',
-            faculty: programData.faculty || '',
-            description: programData.description || '',
-            duration: programData.duration || 4,
-            totalCredits: programData.totalCredits || 150,
-            degree: programData.degree || '',
-            type: programData.type || 'Standard',
-            status: programData.status || 'Active'
+            code: programData.ProgramCode || '',
+            name: programData.ProgramName || '',
+            department: programData.Department || '',
+            faculty: programData.Faculty || '',
+            description: programData.Description || '',
+            duration: programData.ProgramDuration || 4,
+            totalCredits: programData.TotalCredits || 150,
+            degree: programData.DegreeName || '',
+            type: programData.ProgramType || 'Standard',
+            status: programData.IsActive ? 'Active' : 'Inactive'
           });
         } else {
           throw new Error(response.message || 'Failed to fetch program details');
@@ -118,28 +126,26 @@ const ProgramEdit = () => {
       }
     };
 
-    if (id) {
-      fetchProgramDetails();
-    }
-  }, [id]);
+    fetchProgramDetails();
+  }, [id, navigate]);
 
   const handleSubmit = async (values, { setSubmitting }) => {
     try {
-      const programData = {
-        code: values.code,
-        name: values.name,
+      const payload = {
+        programCode: values.code,
+        programName: values.name,
         department: values.department,
         faculty: values.faculty,
         description: values.description,
-        duration: values.duration,
         totalCredits: values.totalCredits,
-        degree: values.degree,
-        type: values.type,
-        status: values.status
+        programDuration: values.duration,
+        degreeName: values.degree,
+        programType: values.type,
+        isActive: values.status === 'Active'
       };
       
       // Call API to update program
-      const response = await academicService.updateProgram(id, programData);
+      const response = await academicService.updateProgram(id, payload);
       
       if (response.success) {
         setSnackbar({

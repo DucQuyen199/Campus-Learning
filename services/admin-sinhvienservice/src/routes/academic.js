@@ -41,7 +41,9 @@ router.get('/programs/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    if (!id) {
+    // Validate ID is a number
+    const programId = parseInt(id, 10);
+    if (isNaN(programId)) {
       return res.status(400).json({
         success: false,
         message: 'ID chương trình không hợp lệ.'
@@ -59,7 +61,7 @@ router.get('/programs/:id', async (req, res) => {
     `;
     
     const result = await executeQuery(query, {
-      id: { type: sql.BigInt, value: id }
+      id: { type: sql.BigInt, value: programId }
     });
     
     if (result.recordset.length === 0) {

@@ -516,12 +516,34 @@ export const academicService = {
   },
   getSemesterById: async (id) => {
     try {
-      const response = await apiClient.get(`/academic/semesters/${id}`);
+      // Convert id to number if it's a string
+      const semesterId = typeof id === 'string' ? parseInt(id, 10) : id;
+      
+      const response = await apiClient.get(`/academic/semesters/${semesterId}`);
       console.log('Raw API response from semester by ID:', response);
+      
+      if (!response || response.status === 404) {
+        throw new Error('Semester not found');
+      }
+      
       return response; // Return the entire response object with success property
     } catch (error) {
       console.error(`Error fetching semester ${id}:`, error);
-      return { success: false, message: error.response?.data?.message || error.message };
+      throw new Error('Endpoint not found');
+    }
+  },
+  getSemesterSubjects: async (id) => {
+    try {
+      // Convert id to number if it's a string
+      const semesterId = typeof id === 'string' ? parseInt(id, 10) : id;
+      
+      const response = await apiClient.get(`/academic/semesters/${semesterId}/subjects`);
+      console.log('Semester subjects response:', response);
+      
+      return response; // Return the entire response object
+    } catch (error) {
+      console.error(`Error fetching subjects for semester ${id}:`, error);
+      return { success: false, data: [], message: error.response?.data?.message || error.message };
     }
   },
   createSemester: (semesterData) => {

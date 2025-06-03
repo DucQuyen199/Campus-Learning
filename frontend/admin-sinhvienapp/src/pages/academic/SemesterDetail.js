@@ -42,8 +42,16 @@ const SemesterDetail = () => {
       setLoading(true);
       setError(null);
       
-      // Fetch semester details
-      const response = await academicService.getSemesterById(id);
+      // Fetch semester details with proper error handling
+      let response;
+      try {
+        response = await academicService.getSemesterById(id);
+      } catch (error) {
+        console.error('API call error:', error);
+        setError('Không thể tải thông tin học kỳ. Học kỳ có thể không tồn tại.');
+        setLoading(false);
+        return;
+      }
       
       if (response && response.success) {
         const semesterData = response.data;
@@ -65,15 +73,15 @@ const SemesterDetail = () => {
             total: semesterData.StudentCount || 0,
             registered: semesterData.RegisteredStudentCount || 0,
             completed: semesterData.CompletedStudentCount || 0
-    }
-  };
+          }
+        };
 
         setSemester(formattedSemester);
         
         // Fetch subjects for this semester
         fetchSemesterSubjects(id);
       } else {
-        throw new Error(response?.message || 'Không thể tải thông tin học kỳ');
+        setError(response?.message || 'Không thể tải thông tin học kỳ');
       }
     } catch (err) {
       console.error('Error fetching semester details:', err);

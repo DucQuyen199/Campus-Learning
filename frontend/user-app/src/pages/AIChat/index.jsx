@@ -29,6 +29,37 @@ const AIChat = () => {
   const [isTemporaryChat, setIsTemporaryChat] = useState(true);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  
+  // Suggested questions by category
+  const suggestedQuestions = [
+    {
+      category: "Lập Trình",
+      questions: [
+        "Giải thích về nguyên tắc SOLID trong lập trình hướng đối tượng?",
+        "So sánh giữa JavaScript và TypeScript?", 
+        "Cách tối ưu hiệu suất cho ứng dụng React?",
+        "Phân biệt giữa REST API và GraphQL?"
+      ]
+    },
+    {
+      category: "Công Nghệ",
+      questions: [
+        "Machine Learning là gì và ứng dụng thực tế?",
+        "Blockchain hoạt động như thế nào?", 
+        "Cách bảo mật website từ các cuộc tấn công XSS?",
+        "Docker và Kubernetes khác nhau như thế nào?"
+      ]
+    },
+    {
+      category: "Mạng & Hệ Thống",
+      questions: [
+        "Cách khắc phục lỗi mất kết nối Internet?",
+        "Cài đặt mạng VPN riêng như thế nào?", 
+        "So sánh giữa IPv4 và IPv6?",
+        "Cấu hình tường lửa cơ bản cho server?"
+      ]
+    },
+  ];
 
   // Load conversations from localStorage on component mount
   useEffect(() => {
@@ -86,11 +117,9 @@ const AIChat = () => {
 
   // Update localStorage when conversations change
   useEffect(() => {
-    if (conversations.length > 0) {
-      localStorage.setItem('chatConversations', JSON.stringify(conversations));
-    } else {
-      localStorage.removeItem('chatConversations');
-    }
+    // Always save conversations to localStorage, even if empty array
+    // This ensures we maintain an empty array rather than null/undefined
+    localStorage.setItem('chatConversations', JSON.stringify(conversations));
   }, [conversations]);
 
   // Update active conversation in localStorage
@@ -98,7 +127,9 @@ const AIChat = () => {
     if (activeConversationId) {
       localStorage.setItem('activeConversationId', activeConversationId);
     } else {
-      localStorage.removeItem('activeConversationId');
+      // Don't remove activeConversationId from localStorage when it becomes null
+      // Just set it to an empty string to indicate no active conversation
+      localStorage.setItem('activeConversationId', '');
     }
   }, [activeConversationId]);
 
@@ -154,7 +185,9 @@ const AIChat = () => {
       updatedAt: new Date().toISOString()
     };
     
-    setConversations(prev => [newConversation, ...prev]);
+    // Add to conversations and save to localStorage
+    const updatedConversations = [newConversation, ...conversations];
+    setConversations(updatedConversations);
     setActiveConversationId(newConversation.id);
     setIsTemporaryChat(false);
     
@@ -172,9 +205,10 @@ const AIChat = () => {
   };
 
   // Delete a conversation
-  const deleteConversation = (id, e) => {
-    e.stopPropagation();
-    setConversations(prev => prev.filter(conv => conv.id !== id));
+  const deleteConversation = (id) => {
+    // Update conversations state - localStorage will update via useEffect
+    const updatedConversations = conversations.filter(conv => conv.id !== id);
+    setConversations(updatedConversations);
     
     // If we deleted the active conversation, create a new one
     if (id === activeConversationId) {
@@ -182,12 +216,14 @@ const AIChat = () => {
     }
   };
 
-  // Clear all conversations
+  // Clear chat history - only place where localStorage for conversations should be cleared
   const clearAllHistory = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa tất cả lịch sử trò chuyện? Hành động này không thể hoàn tác.')) {
       setConversations([]);
-      localStorage.removeItem('chatConversations');
-      localStorage.removeItem('activeConversationId');
+      // We'll still save an empty array to localStorage via the useEffect
+      // Don't use removeItem as it could cause inconsistency
+      localStorage.setItem('chatConversations', JSON.stringify([]));
+      localStorage.setItem('activeConversationId', '');
       createNewChat();
     }
   };
@@ -207,6 +243,14 @@ const AIChat = () => {
       setActiveConversationId(id);
       setIsTemporaryChat(false);
     }
+  };
+
+  // Handle suggested question click
+  const handleSuggestedQuestion = (question) => {
+    setInput(question);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
   };
 
   // Cuộn xuống tin nhắn mới nhất
@@ -251,7 +295,7 @@ const AIChat = () => {
       // Update the conversation in localStorage
       if (!isTemporaryChat) {
         setConversations(prevConversations => {
-          return prevConversations.map(conv => {
+          const updatedConversations = prevConversations.map(conv => {
             if (conv.id === activeConversationId) {
               return {
                 ...conv,
@@ -262,6 +306,11 @@ const AIChat = () => {
             }
             return conv;
           });
+          
+          // Ensure we persist to localStorage immediately for any page navigation
+          localStorage.setItem('chatConversations', JSON.stringify(updatedConversations));
+          
+          return updatedConversations;
         });
       }
     } catch (err) {
@@ -291,38 +340,16 @@ const AIChat = () => {
     }
   };
 
-  const handleNewChat = () => {
-    // If current chat has user messages, ask to save it
-    if (isTemporaryChat && messages.some(m => m.role === 'user')) {
-      saveTemporaryChat();
-    }
-    handleReset();
-  };
-
-  // Handle suggestion action click
-  const handleSuggestionClick = (suggestion) => {
-    setInput(suggestion.label);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-  };
-
   const isEmptyChat = messages.length === 1 && 
                      messages[0].role === 'assistant' && 
                      messages[0].content === 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusT. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.';
 
-  // Recent conversations list from the state
-  const recentConversations = conversations.slice(0, 10).map(conv => ({
-    id: conv.id,
-    title: conv.title
-  }));
-
   // Suggestion actions
   const suggestedActions = [
-    { icon: "🎨", label: "Create image" },
-    { icon: "📋", label: "Make a plan" },
-    { icon: "📄", label: "Summarize text" },
-    { icon: "💡", label: "Brainstorm" }
+    { icon: "🎨", label: "Tạo hình ảnh" },
+    { icon: "📋", label: "Lập kế hoạch" },
+    { icon: "📄", label: "Tóm tắt văn bản" },
+    { icon: "💡", label: "Brainstorm ý tưởng" }
   ];
 
   // Update the active conversation with new messages - now only used for switching conversations
@@ -333,94 +360,11 @@ const AIChat = () => {
   }, [messages, activeConversationId, isTemporaryChat, initializing, loading]);
 
   return (
-    <div className="flex h-[calc(100vh-80px)] bg-white text-gray-900 overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-[260px] h-full bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-        <div className="flex flex-col h-full overflow-hidden">
-          {/* New chat button - fixed */}
-          <div className="flex-shrink-0">
-            <button 
-              onClick={handleNewChat}
-              className="flex items-center gap-2 m-2 p-2 rounded-md hover:bg-gray-100 transition-colors text-sm font-medium border border-gray-200"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>New chat</span>
-            </button>
-            
-            {/* Navigation items - fixed */}
-            <div className="px-2 py-1 space-y-0.5">
-              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-gray-700 rounded-md hover:bg-gray-100">
-                <MagnifyingGlassIcon className="h-4 w-4" />
-                <span>Search chats</span>
-              </button>
-              
-              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-gray-700 rounded-md hover:bg-gray-100">
-                <LibraryIcon className="h-4 w-4" />
-                <span>Library</span>
-              </button>
-              
-              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-gray-700 rounded-md hover:bg-gray-100">
-                <SparklesIcon className="h-4 w-4" />
-                <span>Sora</span>
-              </button>
-              
-              <button className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-gray-700 rounded-md hover:bg-gray-100">
-                <CodeBracketIcon className="h-4 w-4" />
-                <span>GPTs</span>
-              </button>
-            </div>
-          </div>
-          
-          {/* Conversation history - scrollable */}
-          <div className="flex-1 overflow-y-auto mt-1 border-t border-gray-100 pt-1 min-h-0">
-            <div className="px-2 py-1">
-              <div className="flex justify-between items-center px-3 mb-1">
-                <div className="text-xs font-medium text-gray-500">Recent Chats</div>
-                {conversations.length > 0 && (
-                  <button 
-                    onClick={clearAllHistory}
-                    className="text-xs text-red-500 hover:text-red-600"
-                  >
-                    Clear All
-                  </button>
-                )}
-              </div>
-              
-              {conversations.length === 0 ? (
-                <div className="text-xs text-gray-400 px-3 py-2 italic">
-                  No saved conversations yet
-                </div>
-              ) : (
-                <div className="space-y-0.5">
-                  {recentConversations.map((convo) => (
-                    <button 
-                      key={convo.id} 
-                      className={`flex items-center justify-between w-full px-3 py-1.5 text-sm rounded-md hover:bg-gray-100 group ${activeConversationId === convo.id && !isTemporaryChat ? 'bg-gray-100' : ''}`}
-                      onClick={() => switchConversation(convo.id)}
-                    >
-                      <div className="flex items-center truncate">
-                        <ChatBubbleLeftIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                        <span className="truncate">{convo.title}</span>
-                      </div>
-                      <button 
-                        className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-200 rounded" 
-                        onClick={(e) => deleteConversation(convo.id, e)}
-                      >
-                        <TrashIcon className="h-3 w-3 text-gray-500" />
-                      </button>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="h-[calc(100vh-80px)] bg-white text-gray-900 overflow-hidden flex">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative bg-gray-50 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full relative bg-gray-50 overflow-hidden">
         {error && (
-          <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-10 bg-red-50 border-l-4 border-red-400 p-3 rounded-lg shadow-sm text-sm animate-fadeIn max-w-md">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-red-50 border-l-4 border-red-400 p-3 rounded-lg shadow-sm text-sm animate-fadeIn max-w-md">
             <p className="text-red-700">{error}</p>
           </div>
         )}
@@ -496,15 +440,12 @@ const AIChat = () => {
                   <button 
                     key={idx} 
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs hover:bg-gray-50 transition-colors"
-                    onClick={() => handleSuggestionClick(action)}
+                    onClick={() => setInput(action.label)}
                   >
                     <span>{action.icon}</span>
                     <span>{action.label}</span>
                   </button>
                 ))}
-                <button className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs hover:bg-gray-50 transition-colors">
-                  More
-                </button>
               </div>
               
               {/* Input form */}
@@ -515,7 +456,7 @@ const AIChat = () => {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask anything"
+                    placeholder="Hỏi bất cứ điều gì về IT..."
                     className="w-full py-3 px-4 pr-20 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:border-gray-300 focus:ring-0 text-sm bg-white"
                     disabled={loading || initializing}
                   />
@@ -539,6 +480,68 @@ const AIChat = () => {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Suggested Questions Panel */}
+      <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
+        <div className="p-4">
+          <div className="flex items-center mb-3">
+            <LightBulbIcon className="h-5 w-5 text-yellow-500 mr-2" />
+            <h3 className="text-sm font-medium">Câu hỏi gợi ý</h3>
+          </div>
+
+          {suggestedQuestions.map((category, idx) => (
+            <div key={idx} className="mb-4">
+              <h4 className="text-xs font-medium text-gray-500 mb-2">{category.category}</h4>
+              <div className="space-y-2">
+                {category.questions.map((question, qIdx) => (
+                  <button
+                    key={qIdx}
+                    onClick={() => handleSuggestedQuestion(question)}
+                    className="w-full text-left p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-md transition"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          
+          {conversations.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-medium text-gray-500">Lịch sử cuộc hội thoại</h3>
+                <button 
+                  onClick={clearAllHistory}
+                  className="text-xs text-red-500 hover:text-red-600"
+                >
+                  Xóa tất cả
+                </button>
+              </div>
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {conversations.slice(0, 5).map((conv) => (
+                  <div 
+                    key={conv.id} 
+                    className="flex items-center justify-between text-xs p-2 hover:bg-gray-50 rounded"
+                  >
+                    <button 
+                      className="truncate text-left"
+                      onClick={() => switchConversation(conv.id)}
+                    >
+                      {conv.title}
+                    </button>
+                    <button 
+                      onClick={() => deleteConversation(conv.id)}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <TrashIcon className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

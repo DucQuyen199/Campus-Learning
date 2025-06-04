@@ -126,6 +126,37 @@ const Posts = () => {
     }
   }, [searchQuery, posts]);
 
+  // Calculate post score for sorting algorithm
+  const calculatePostScore = (post) => {
+    // Get current date and post date in milliseconds for age calculation
+    const now = new Date().getTime();
+    const postDate = new Date(post.CreatedAt).getTime();
+    const postAgeInDays = (now - postDate) / (1000 * 60 * 60 * 24);
+    
+    // Base weight factors - can be adjusted for different importance
+    const likeWeight = 1;
+    const commentWeight = 1.5;
+    const bookmarkWeight = 2;
+    const shareWeight = 1.2;
+    
+    // Time decay factor (older posts get lower scores)
+    // Logarithmic decay to keep older but highly engaged posts relevant
+    const timeDecayFactor = 1 / (Math.log(postAgeInDays + 2));
+    
+    // Engagement score combines different interactions with their weights
+    const engagementScore = 
+      (post.LikesCount || 0) * likeWeight +
+      (post.CommentsCount || 0) * commentWeight +
+      (post.BookmarksCount || 0) * bookmarkWeight +
+      (post.SharesCount || 0) * shareWeight;
+    
+    // Add a small random factor (±10% variation) for diversity
+    const randomFactor = 0.9 + Math.random() * 0.2;
+    
+    // Final score combining engagement, time decay and randomness
+    return engagementScore * timeDecayFactor * randomFactor;
+  };
+
   const fetchPosts = async () => {
     try {
       console.log('Fetching posts from API server...');
@@ -163,10 +194,24 @@ const Posts = () => {
       
       // Sắp xếp bài viết theo filter đang chọn
       let sortedPosts = [...postsWithFullMediaPaths];
+      
       if (activeFilter === 'trending') {
-        sortedPosts.sort((a, b) => b.LikesCount - a.LikesCount);
-      } else {
-        sortedPosts.sort((a, b) => new Date(b.CreatedAt) - new Date(a.CreatedAt));
+        // Enhanced trending algorithm that considers likes, comments, bookmarks, and recency
+        sortedPosts.forEach(post => post._score = calculatePostScore(post));
+        sortedPosts.sort((a, b) => b._score - a._score);
+      } else if (activeFilter === 'latest') {
+        // Sort by date but add a small random factor for posts from the same day
+        sortedPosts.sort((a, b) => {
+          const dateA = new Date(a.CreatedAt).setHours(0, 0, 0, 0);
+          const dateB = new Date(b.CreatedAt).setHours(0, 0, 0, 0);
+          
+          if (dateA === dateB) {
+            // For posts from the same day, use engagement score with randomization
+            return calculatePostScore(b) - calculatePostScore(a);
+          }
+          // Different days - newest first
+          return new Date(b.CreatedAt) - new Date(a.CreatedAt);
+        });
       }
       
       setPosts(sortedPosts);
@@ -757,9 +802,7 @@ const Posts = () => {
                 )}
                 
                 {/* Post details */}
-                <div className="p-4">
-                  <h2 className="text-lg font-bold">{selectedVideo.Title || "Untitled Post"}</h2>
-                  
+                <div className="p-4">                  
                   <div className="flex justify-between items-center mt-4">
                     <div className="flex items-center space-x-3">
                       <UserAvatar
@@ -1004,9 +1047,6 @@ const Posts = () => {
                     </div>
                     
                     <div className="w-2/3">
-                      <h3 className="font-medium text-sm line-clamp-2 mb-1">
-                        {post.Title || post.Content?.substring(0, 50) || "Untitled Post"}
-                      </h3>
                       <p className="text-xs text-gray-500">{post.FullName || "Unknown User"}</p>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
                         <span>{post.LikesCount || 0} lượt thích</span>

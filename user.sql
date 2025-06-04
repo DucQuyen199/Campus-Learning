@@ -20,6 +20,8 @@ CREATE TABLE Users (
     City NVARCHAR(100), -- Thành phố
     Country NVARCHAR(100), -- Quốc gia
     LastLoginIP VARCHAR(45), -- IP đăng nhập gần nhất
+    PasskeyCredentials NVARCHAR(MAX), -- Thông tin xác thực sinh trắc học (Passkey)
+    HasPasskey BIT DEFAULT 0, -- Đánh dấu người dùng đã thiết lập passkey chưa
     CreatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm tạo tài khoản
     UpdatedAt DATETIME DEFAULT GETDATE(), -- Thời điểm cập nhật gần nhất
     LastLoginAt DATETIME, -- Thời điểm đăng nhập gần nhất
@@ -29,6 +31,10 @@ CREATE TABLE Users (
     CONSTRAINT CHK_Account_Status CHECK (AccountStatus IN ('ACTIVE', 'LOCKED', 'SUSPENDED', 'DELETED')) -- Kiểm tra trạng thái tài khoản hợp lệ
 );
 GO
+
+ALTER TABLE Users
+ADD PasskeyCredentials NVARCHAR(MAX), -- Thông tin xác thực sinh trắc học (Passkey)
+    HasPasskey BIT DEFAULT 0;         -- Đánh dấu người dùng đã thiết lập passkey chưa
 
 -- Bảng UserProfiles: Lưu thông tin bổ sung của người dùng như học vấn, kinh nghiệm làm việc
 CREATE TABLE UserProfiles (

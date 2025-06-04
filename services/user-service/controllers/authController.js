@@ -135,7 +135,7 @@ exports.login = async (req, res) => {
     const result = await transaction.request()
       .input('email', sql.VarChar, email)
       .query(`
-        SELECT UserID, Username, Email, Password, FullName, Role, Status, AccountStatus
+        SELECT UserID, Username, Email, Password, FullName, Role, Status, AccountStatus, HasPasskey
         FROM Users
         WHERE Email = @email
         AND DeletedAt IS NULL
@@ -196,6 +196,8 @@ exports.login = async (req, res) => {
       { expiresIn: '30d' }
     );
 
+    const hasPasskey = user.HasPasskey;
+
     res.json({
       message: 'Đăng nhập thành công',
       token,
@@ -205,8 +207,10 @@ exports.login = async (req, res) => {
         username: user.Username,
         email: user.Email,
         fullName: user.FullName,
-        role: user.Role
-      }
+        role: user.Role,
+        hasPasskey
+      },
+      requirePasskeySetup: hasPasskey ? false : true
     });
   } catch (error) {
     await transaction.rollback();

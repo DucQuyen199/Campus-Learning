@@ -164,22 +164,22 @@ const CreatePost = ({ onPostCreated }) => {
           username: user.username,
         })
       } else {
-        fetch("/api/users/me", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        })
-        .then(res => res.json())
-        .then(data => {
-          setCurrentUser({
+      fetch("/api/users/me", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        setCurrentUser({
             name: data.FullName || data.username,
             avatar: data.ProfileImage || "https://i.pravatar.cc/300",
-            username: data.username,
-          })
+          username: data.username,
         })
-        .catch(err => {
-          console.error("Error fetching user:", err)
-        })
+      })
+      .catch(err => {
+        console.error("Error fetching user:", err)
+      })
       }
     }
   }, [])
@@ -400,8 +400,8 @@ const CreatePost = ({ onPostCreated }) => {
             <div>
               <div className="font-medium">{currentUser.name}</div>
               <div className="flex items-center text-xs text-gray-500">
-                <button
-                  type="button"
+            <button
+              type="button"
                   onClick={() => setShowVisibilityOptions(!showVisibilityOptions)}
                   className="flex items-center space-x-1 py-1 px-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
                 >
@@ -438,7 +438,7 @@ const CreatePost = ({ onPostCreated }) => {
                               <div className="text-xs text-gray-500">{option.description}</div>
                             </div>
                           </div>
-                        </button>
+            </button>
                       )
                     })}
                   </div>
@@ -462,11 +462,11 @@ const CreatePost = ({ onPostCreated }) => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
-              </div>
-              
+        </div>
+        
               {/* Content */}
               <div className="mb-6">
-                <textarea
+                  <textarea
                   id="content"
                   className="w-full p-3 border-0 focus:ring-0 focus:outline-none min-h-[300px] text-gray-700 placeholder-gray-400 resize-none"
                   placeholder="Chia sẻ ý tưởng, câu hỏi, hoặc kiến thức về IT của bạn...
@@ -476,12 +476,12 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
 - **In đậm** hoặc *in nghiêng*
 - Code blocks ```
 - Và nhiều tính năng khác"
-                  value={content}
-                  onChange={(e) => {
-                    setContent(e.target.value)
-                    if (contentError) setContentError("")
-                  }}
-                />
+                    value={content}
+                    onChange={(e) => {
+                      setContent(e.target.value)
+                      if (contentError) setContentError("")
+                    }}
+                  />
                 {contentError && (
                   <div className="mt-2 text-red-500 text-sm">{contentError}</div>
                 )}
@@ -595,7 +595,7 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
                   >
                     <PhotoIcon className="h-6 w-6" />
                   </button>
-                  
+
                   <button
                     type="button"
                     onClick={getCurrentLocation}
@@ -605,9 +605,9 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
                   >
                     {isLoadingLocation ? (
                       <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
                     ) : (
                       <MapPinIcon className="h-6 w-6" />
                     )}
@@ -642,28 +642,28 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
               </div>
             </form>
           </div>
-          
+
           {/* Right side - Preview */}
           <div className="lg:w-2/5 bg-gray-50 p-4 md:p-8">
             <div className="sticky top-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium">Xem trước</h3>
                 <div className="text-xs text-gray-500">Bài viết của bạn sẽ hiển thị như sau</div>
-              </div>
-              
+            </div>
+
               <div className="bg-white rounded-lg border p-4">
                 {title && <h2 className="text-xl font-bold mb-4">{title}</h2>}
                 
                 <div className="prose prose-sm max-w-none mb-4">
-                  {content ? (
+                {content ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {content}
                     </ReactMarkdown>
                   ) : (
                     <p className="text-gray-400 italic">Chưa có nội dung</p>
-                  )}
-                </div>
-                
+                )}
+              </div>
+
                 {media.length > 0 && media.length <= 2 && (
                   <div className="mb-4">
                     {media.map((file, index) => (
@@ -677,64 +677,64 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
                         ) : (
                           <div className="flex items-center justify-center h-40 bg-gray-100 rounded-lg">
                             <VideoCameraIcon className="h-12 w-12 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
                     ))}
                   </div>
                 )}
                 
                 {media.length > 2 && (
                   <div className="grid grid-cols-2 gap-2 mb-4">
-                    {media.slice(0, 4).map((file, index) => (
+                      {media.slice(0, 4).map((file, index) => (
                       <div key={index} className={`relative rounded-lg overflow-hidden ${index === 3 && media.length > 4 ? "relative" : ""}`}>
-                        {file.type.startsWith("image/") ? (
-                          <img
+                          {file.type.startsWith("image/") ? (
+                            <img
                             src={URL.createObjectURL(file)}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-32 bg-gray-100">
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-32 object-cover"
+                            />
+                          ) : (
+                            <div className="flex items-center justify-center h-32 bg-gray-100">
                             <VideoCameraIcon className="h-8 w-8 text-gray-400" />
-                          </div>
-                        )}
-                        
-                        {index === 3 && media.length > 4 && (
-                          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-                            <div className="text-white font-bold text-xl">+{media.length - 4}</div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                            </div>
+                          )}
+
+                          {index === 3 && media.length > 4 && (
+                            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                              <div className="text-white font-bold text-xl">+{media.length - 4}</div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 
                 {location && (
                   <div className="flex items-center text-sm text-blue-600 mb-4">
                     <MapPinIcon className="h-4 w-4 mr-1" />
                     <span>{location.displayName}</span>
-                  </div>
-                )}
-                
+                </div>
+              )}
+
                 {/* Action preview */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <div className="flex items-center gap-2">
                     <button className="p-1 rounded-full hover:bg-gray-50">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                      </svg>
-                    </button>
+                  </svg>
+                </button>
                     <button className="p-1 rounded-full hover:bg-gray-50">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                    </button>
+                  </svg>
+                </button>
                     <button className="p-1 rounded-full hover:bg-gray-50">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                      </svg>
-                    </button>
+                  </svg>
+                </button>
                   </div>
                 </div>
               </div>

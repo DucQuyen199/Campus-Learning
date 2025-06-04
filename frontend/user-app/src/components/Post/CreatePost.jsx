@@ -17,16 +17,19 @@ import {
 
 const CreatePost = ({ onPostCreated }) => {
   const [content, setContent] = useState("")
+  const [title, setTitle] = useState("")
   const [media, setMedia] = useState([])
   const [loading, setLoading] = useState(false)
   const [visibility, setVisibility] = useState("public")
   const [showVisibilityOptions, setShowVisibilityOptions] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [contentError, setContentError] = useState("")
+  const [mediaError, setMediaError] = useState("")
   const [location, setLocation] = useState(null)
   const [isLoadingLocation, setIsLoadingLocation] = useState(false)
   const [locationError, setLocationError] = useState("")
   const fileInputRef = useRef(null)
+  const [showDraftSaved, setShowDraftSaved] = useState(false)
 
   // IT topics for validation
   const itTopics = [
@@ -152,22 +155,62 @@ const CreatePost = ({ onPostCreated }) => {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (token) {
-      fetch("/api/users/me", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      })
-      .then(res => res.json())
-      .then(data => {
+      // Get user from localStorage if available
+      const user = JSON.parse(localStorage.getItem("user") || "{}")
+      if (user?.UserID) {
         setCurrentUser({
-          name: data.name,
-          avatar: data.avatar || "https://i.pravatar.cc/300",
-          username: data.username,
+          name: user.FullName || user.username,
+          avatar: user.ProfileImage || "https://i.pravatar.cc/300",
+          username: user.username,
         })
-      })
-      .catch(err => {
-        console.error("Error fetching user:", err)
-      })
+      } else {
+        fetch("/api/users/me", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        })
+        .then(res => res.json())
+        .then(data => {
+          setCurrentUser({
+            name: data.FullName || data.username,
+            avatar: data.ProfileImage || "https://i.pravatar.cc/300",
+            username: data.username,
+          })
+        })
+        .catch(err => {
+          console.error("Error fetching user:", err)
+        })
+      }
+    }
+  }, [])
+
+  // Save draft functionality
+  const saveDraft = () => {
+    const draft = {
+      title,
+      content,
+      location: location ? JSON.stringify(location) : null,
+      savedAt: new Date().toISOString(),
+    }
+    localStorage.setItem('postDraft', JSON.stringify(draft))
+    setShowDraftSaved(true)
+    setTimeout(() => setShowDraftSaved(false), 3000)
+  }
+
+  // Load draft if exists
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('postDraft')
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft)
+        setTitle(draft.title || '')
+        setContent(draft.content || '')
+        if (draft.location) {
+          setLocation(JSON.parse(draft.location))
+        }
+      } catch (error) {
+        console.error('Error loading draft:', error)
+      }
     }
   }, [])
 
@@ -243,20 +286,30 @@ const CreatePost = ({ onPostCreated }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!content.trim() && media.length === 0) return
+    
+    // Reset error messages
+    setContentError("")
+    setMediaError("")
+    
+    // Validate media presence
+    if (media.length === 0) {
+      setMediaError("Bài viết phải có ít nhất một ảnh hoặc video")
+      return
+    }
     
     // Kiểm tra xem nội dung có liên quan đến IT không
-    if (!validateITContent(content)) {
+    if (content.trim() && !validateITContent(content)) {
       setContentError("Bài viết phải liên quan đến công nghệ thông tin (IT)")
       return
     }
     
-    setContentError("")
     setLoading(true)
     try {
       const formData = new FormData()
       formData.append("content", content)
       formData.append("visibility", visibility)
+      if (title) formData.append("title", title)
+      
       media.forEach((file) => {
         formData.append("media", file)
       })
@@ -278,9 +331,13 @@ const CreatePost = ({ onPostCreated }) => {
         throw new Error("Không thể tạo bài viết")
       }
 
+      // Clear form and local storage draft
       setContent("")
+      setTitle("")
       setMedia([])
       setLocation(null)
+      localStorage.removeItem('postDraft')
+      
       if (onPostCreated) {
         onPostCreated()
       }
@@ -296,11 +353,17 @@ const CreatePost = ({ onPostCreated }) => {
     const files = Array.from(e.target.files)
     if (files.length > 0) {
       setMedia([...media, ...files])
+      setMediaError("") // Clear media error when files are added
     }
   }
 
   const removeMedia = (index) => {
-    setMedia(media.filter((_, i) => i !== index))
+    const updatedMedia = media.filter((_, i) => i !== index)
+    setMedia(updatedMedia)
+    // If all media are removed, show the error again
+    if (updatedMedia.length === 0) {
+      setMediaError("Bài viết phải có ít nhất một ảnh hoặc video")
+    }
   }
 
   const visibilityOptions = [
@@ -309,81 +372,203 @@ const CreatePost = ({ onPostCreated }) => {
     { id: "private", label: "Riêng tư", description: "Chỉ bạn có thể xem", icon: LockClosedIcon },
   ]
 
-  // Get formatted date for preview
-  const getFormattedDate = () => {
-    const now = new Date()
-    return now.toLocaleString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  }
-
   return (
-    <div className="flex flex-col w-full">
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 hover:shadow-xl transition-shadow duration-300">
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 to-white">
-          <h2 className="font-semibold text-xl text-gray-800">Tạo bài viết mới</h2>
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              className="p-1.5 text-gray-500 hover:text-emerald-600 rounded-full hover:bg-emerald-50 transition-all duration-200"
-              title="Hỗ trợ Markdown"
-            >
-              <InformationCircleIcon className="w-5 h-5" />
-            </button>
-            <div className="text-sm text-emerald-600 font-medium px-3 py-1 bg-emerald-50 rounded-full">
-              Chỉ dành cho nội dung về IT
-            </div>
+    <div className="flex flex-col w-full max-w-full">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="p-4 md:px-8 border-b flex justify-between items-center">
+          <div>
+            <h2 className="font-bold text-xl">Tạo bài viết mới</h2>
+            <div className="text-sm text-gray-500">Chia sẻ ý tưởng, câu hỏi, hoặc kiến thức về IT của bạn</div>
           </div>
+          <button 
+            onClick={saveDraft}
+            className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+          >
+            Lưu bản nháp
+          </button>
         </div>
-        
-        <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
-          {/* Create Post Form */}
-          <div className="lg:w-3/5 p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-sm text-gray-600">Nội dung bài viết</div>
-                  <div className="text-xs text-gray-500">Hỗ trợ định dạng Markdown</div>
-                </div>
-                <div className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-100 transition-all duration-200 hover:border-gray-300">
-                  <textarea
-                    className="w-full resize-none bg-transparent border-none focus:outline-none p-0 min-h-[300px] text-gray-700 placeholder-gray-400 font-mono text-sm"
-                    placeholder="# Tiêu đề bài viết
 
-Chia sẻ ý tưởng, câu hỏi, hoặc bài viết về IT của bạn...
-
-Bạn có thể sử dụng **Markdown** để định dạng văn bản:
-- Danh sách
-- Code blocks ```
-- Và nhiều tính năng khác"
-                    value={content}
-                    onChange={(e) => {
-                      setContent(e.target.value)
-                      if (contentError) setContentError("")
-                    }}
-                  />
-                </div>
-                {contentError && (
-                  <div className="mt-2 text-red-500 text-sm flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {contentError}
+        {/* User info */}
+        {currentUser && (
+          <div className="flex items-center p-4 md:px-8 border-b">
+            <img 
+              src={currentUser.avatar}
+              alt={currentUser.name}
+              className="w-10 h-10 rounded-full mr-3"
+            />
+            <div>
+              <div className="font-medium">{currentUser.name}</div>
+              <div className="flex items-center text-xs text-gray-500">
+                <button
+                  type="button"
+                  onClick={() => setShowVisibilityOptions(!showVisibilityOptions)}
+                  className="flex items-center space-x-1 py-1 px-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                >
+                  {(() => {
+                    const Icon = visibilityOptions.find((opt) => opt.id === visibility)?.icon
+                    return <Icon className="w-3 h-3 mr-1" />
+                  })()}
+                  <span>{visibilityOptions.find((opt) => opt.id === visibility)?.label}</span>
+                  <svg className="w-3 h-3 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                
+                {showVisibilityOptions && (
+                  <div className="absolute mt-2 top-full left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 w-64">
+                    {visibilityOptions.map((option) => {
+                      const Icon = option.icon
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={`w-full text-left p-2 rounded-md hover:bg-gray-50 transition-colors ${
+                            visibility === option.id ? "bg-blue-50 text-blue-600" : "text-gray-700"
+                          }`}
+                          onClick={() => {
+                            setVisibility(option.id)
+                            setShowVisibilityOptions(false)
+                          }}
+                        >
+                          <div className="flex items-center">
+                            <Icon className="w-4 h-4 mr-2" />
+                            <div>
+                              <div className="font-medium text-sm">{option.label}</div>
+                              <div className="text-xs text-gray-500">{option.description}</div>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col lg:flex-row w-full">
+          {/* Left side - Form */}
+          <div className="lg:w-3/5 p-4 md:p-8 lg:border-r lg:border-gray-200">
+            <form onSubmit={handleSubmit}>
+              {/* Title */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  id="title"
+                  placeholder="Tiêu đề bài viết"
+                  className="w-full p-3 text-lg font-medium border-0 focus:ring-0 focus:outline-none"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              
+              {/* Content */}
+              <div className="mb-6">
+                <textarea
+                  id="content"
+                  className="w-full p-3 border-0 focus:ring-0 focus:outline-none min-h-[300px] text-gray-700 placeholder-gray-400 resize-none"
+                  placeholder="Chia sẻ ý tưởng, câu hỏi, hoặc kiến thức về IT của bạn...
+
+Bạn có thể sử dụng Markdown để định dạng văn bản:
+- Danh sách
+- **In đậm** hoặc *in nghiêng*
+- Code blocks ```
+- Và nhiều tính năng khác"
+                  value={content}
+                  onChange={(e) => {
+                    setContent(e.target.value)
+                    if (contentError) setContentError("")
+                  }}
+                />
+                {contentError && (
+                  <div className="mt-2 text-red-500 text-sm">{contentError}</div>
+                )}
+              </div>
+
+              {/* Media section - Add a required indicator */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-sm font-medium flex items-center">
+                    <span>Hình ảnh/Video</span>
+                    <span className="text-red-500 ml-1">*</span>
+                    <span className="text-xs text-gray-500 ml-2">(Bắt buộc)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current.click()}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Thêm file
+                  </button>
+                </div>
+                
+                {media.length === 0 ? (
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors ${mediaError ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                    onClick={() => fileInputRef.current.click()}
+                  >
+                    <div className={`rounded-full p-3 mb-2 ${mediaError ? 'bg-red-100' : 'bg-gray-100'}`}>
+                      <PhotoIcon className={`h-8 w-8 ${mediaError ? 'text-red-500' : 'text-gray-500'}`} />
+                    </div>
+                    <div className="font-medium">Thêm ảnh hoặc video</div>
+                    <div className="text-sm text-gray-500 mt-1">Nhấn để chọn hoặc kéo thả file</div>
+                    {mediaError && (
+                      <div className="text-red-500 text-sm mt-2">{mediaError}</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border-t border-b py-4">
+                    <div className="text-sm font-medium mb-2">Media đính kèm ({media.length})</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {media.map((file, index) => (
+                        <div key={index} className="relative group">
+                          <div className="h-32 bg-gray-100 rounded-lg overflow-hidden">
+                            {file.type.startsWith("image/") ? (
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : file.type.startsWith("video/") ? (
+                              <div className="flex items-center justify-center h-full">
+                                <VideoCameraIcon className="h-10 w-10 text-gray-500" />
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center h-full">
+                                <PaperClipIcon className="h-10 w-10 text-gray-500" />
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeMedia(index)}
+                            className="absolute top-1 right-1 bg-black bg-opacity-60 rounded-full p-1 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  hidden
+                  accept="image/*,video/*"
+                  multiple
+                  onChange={handleMediaChange}
+                />
               </div>
 
               {/* Location display if selected */}
               {location && (
-                <div className="flex items-center bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm">
+                <div className="mb-4 flex items-center bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm">
                   <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0" />
                   <div className="flex-1 truncate">
-                    <span className="font-medium">Vị trí: </span>
-                    <span className="truncate">{location.displayName}</span>
+                    <span className="font-medium">{location.displayName}</span>
                   </div>
                   <button 
                     type="button"
@@ -395,203 +580,58 @@ Bạn có thể sử dụng **Markdown** để định dạng văn bản:
                 </div>
               )}
 
-              {media.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-700 flex items-center">
-                    <PaperClipIcon className="h-4 w-4 mr-1" />
-                    Tệp đính kèm ({media.length})
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {media.map((file, index) => (
-                      <div
-                        key={index}
-                        className="relative rounded-lg bg-gray-50 border border-gray-200 overflow-hidden group hover:border-emerald-300 transition-all duration-200"
-                      >
-                        {file.type.startsWith("image/") ? (
-                          <>
-                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-0">
-                              <svg
-                                className="animate-spin h-8 w-8 text-gray-400"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                            </div>
-                            <img
-                              src={URL.createObjectURL(file) || "/placeholder.svg"}
-                              alt="Preview"
-                              className="w-full h-28 object-cover relative z-10"
-                              onLoad={(e) => {
-                                const parent = e.target.parentNode
-                                const spinner = parent.querySelector("div.absolute")
-                                if (spinner) spinner.remove()
-                              }}
-                            />
-                          </>
-                        ) : file.type.startsWith("video/") ? (
-                          <div className="flex items-center justify-center h-28 bg-gray-800">
-                            <VideoCameraIcon className="h-10 w-10 text-white opacity-70" />
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-28 bg-gray-100">
-                            <PaperClipIcon className="h-10 w-10 text-gray-400" />
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeMedia(index)}
-                          className="absolute top-1 right-1 bg-black bg-opacity-60 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-opacity-80"
-                          aria-label="Remove media"
-                        >
-                          <XMarkIcon className="h-3.5 w-3.5" />
-                        </button>
-                        <div className="p-1.5 text-xs truncate text-gray-600">{file.name}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {locationError && (
+                <div className="mb-4 text-red-500 text-sm">{locationError}</div>
               )}
 
-              <div className="flex flex-wrap gap-3">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowVisibilityOptions(!showVisibilityOptions)}
-                    className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm"
-                  >
-                    {(() => {
-                      const Icon = visibilityOptions.find((opt) => opt.id === visibility)?.icon
-                      return <Icon className="w-4 h-4 text-emerald-600" />
-                    })()}
-                    <span>{visibilityOptions.find((opt) => opt.id === visibility)?.label}</span>
-                    <svg className="w-4 h-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-
-                  {showVisibilityOptions && (
-                    <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-10 w-72 transform transition-all duration-200">
-                      {visibilityOptions.map((option) => {
-                        const Icon = option.icon
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            className={`w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors duration-200 ${
-                              visibility === option.id ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200" : "text-gray-700"
-                            }`}
-                            onClick={() => {
-                              setVisibility(option.id)
-                              setShowVisibilityOptions(false)
-                            }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-full ${visibility === option.id ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-                                <Icon className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <div className="font-medium">{option.label}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">{option.description}</div>
-                              </div>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-gray-100">
-                <div className="flex flex-wrap gap-2">
+              {/* Action buttons */}
+              <div className="flex flex-wrap items-center border-t pt-4">
+                <div className="flex items-center space-x-2 mr-auto">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current.click()}
-                    className="flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm"
+                    className="flex items-center p-2 rounded-full hover:bg-gray-100 text-gray-700"
+                    title="Thêm ảnh/video"
                   >
-                    <PhotoIcon className="h-5 w-5 text-emerald-500" />
-                    <span>Thêm ảnh</span>
+                    <PhotoIcon className="h-6 w-6" />
                   </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    hidden
-                    accept="image/*,video/*"
-                    multiple
-                    onChange={handleMediaChange}
-                  />
-
+                  
                   <button
                     type="button"
                     onClick={getCurrentLocation}
-                    className={`flex items-center space-x-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 rounded-xl text-sm text-gray-700 transition-all duration-200 shadow-sm ${isLoadingLocation ? 'opacity-75 cursor-wait' : ''}`}
+                    className="flex items-center p-2 rounded-full hover:bg-gray-100 text-gray-700"
+                    title="Thêm vị trí"
                     disabled={isLoadingLocation || location !== null}
                   >
                     {isLoadingLocation ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Đang lấy vị trí...</span>
-                      </>
+                      <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
                     ) : (
-                      <>
-                        <MapPinIcon className="h-5 w-5 text-blue-500" />
-                        <span>Thêm vị trí hiện tại</span>
-                      </>
+                      <MapPinIcon className="h-6 w-6" />
                     )}
                   </button>
+                  
+                  <div className="text-xs text-blue-600 bg-blue-50 rounded-full px-3 py-1">
+                    Hỗ trợ định dạng Markdown
+                  </div>
                 </div>
-
-                {locationError && (
-                  <div className="text-red-500 text-sm mt-1">{locationError}</div>
-                )}
 
                 <button
                   type="submit"
-                  disabled={loading || (!content.trim() && media.length === 0 && !location)}
-                  className={`px-8 py-2.5 rounded-xl font-medium transition-all duration-300 ${
-                    loading || (!content.trim() && media.length === 0 && !location)
-                      ? "bg-gray-100 cursor-not-allowed text-gray-400"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                  disabled={loading || media.length === 0}
+                  className={`px-8 py-2 rounded-full font-medium transition-all duration-300 ${
+                    loading || media.length === 0
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
                   {loading ? (
-                    <div className="flex items-center space-x-2">
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                    <div className="flex items-center">
+                      <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       <span>Đang đăng...</span>
                     </div>
@@ -602,202 +642,113 @@ Bạn có thể sử dụng **Markdown** để định dạng văn bản:
               </div>
             </form>
           </div>
-
-          {/* Preview Panel */}
-          <div className="lg:w-2/5">
-            <div className="p-4 border-b border-gray-100 bg-gradient-to-l from-emerald-50 to-white flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                </svg>
-                Xem trước bài viết
-              </h3>
-              <div className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full shadow-sm">Hiển thị khi đăng</div>
-            </div>
-
-            <div className="p-6 sticky top-4">
-              {/* User info */}
-              {currentUser && (
-                <div className="flex items-center mb-4">
-                  <div className="relative">
-                    <img
-                      src={currentUser.avatar}
-                      alt={currentUser.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md"
-                    />
-                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-400 border-2 border-white rounded-full"></div>
-                  </div>
-                  <div className="ml-3">
-                    <div className="font-medium text-gray-800">{currentUser.name}</div>
-                    <div className="flex items-center text-xs text-gray-500 space-x-2">
-                      <span>{getFormattedDate()}</span>
-                      <span>•</span>
-                      <span className="flex items-center bg-gray-100 px-2 py-0.5 rounded-full">
-                        {(() => {
-                          const Icon = visibilityOptions.find((opt) => opt.id === visibility)?.icon
-                          return <Icon className="w-3 h-3 mr-1" />
-                        })()}
-                        {visibilityOptions.find((opt) => opt.id === visibility)?.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Location display in preview */}
-              {location && (
-                <div className="mb-4 flex items-center text-sm text-blue-700">
-                  <MapPinIcon className="h-4 w-4 mr-1.5" />
-                  <span className="truncate">{location.displayName}</span>
-                </div>
-              )}
-
-              {/* Content */}
-              <div className="bg-gray-50 rounded-xl p-4 mb-4 max-h-[500px] overflow-auto">
-                {content ? (
-                  <div className="prose max-w-none text-gray-700">
+          
+          {/* Right side - Preview */}
+          <div className="lg:w-2/5 bg-gray-50 p-4 md:p-8">
+            <div className="sticky top-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-medium">Xem trước</h3>
+                <div className="text-xs text-gray-500">Bài viết của bạn sẽ hiển thị như sau</div>
+              </div>
+              
+              <div className="bg-white rounded-lg border p-4">
+                {title && <h2 className="text-xl font-bold mb-4">{title}</h2>}
+                
+                <div className="prose prose-sm max-w-none mb-4">
+                  {content ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {content}
                     </ReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="py-8 text-center text-gray-400 italic">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    <p>Chưa có nội dung bài viết</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Media preview */}
-              {media.length > 0 && (
-                <div className="rounded-lg overflow-hidden mb-3">
-                  {media.length === 1 ? (
-                    // Single media display
-                    <div className="w-full">
-                      {media[0].type.startsWith("image/") ? (
-                        <img
-                          src={URL.createObjectURL(media[0]) || "/placeholder.svg"}
-                          alt="Media preview"
-                          className="w-full rounded-lg max-h-[300px] object-contain bg-gray-50"
-                        />
-                      ) : media[0].type.startsWith("video/") ? (
-                        <div className="flex items-center justify-center h-48 bg-gray-800 rounded-lg">
-                          <VideoCameraIcon className="h-12 w-12 text-white opacity-70" />
-                          <div className="absolute text-white text-sm mt-20">Video: {media[0].name}</div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-32 bg-gray-100 rounded-lg">
-                          <PaperClipIcon className="h-10 w-10 text-gray-400" />
-                          <div className="absolute text-gray-600 text-sm mt-16">{media[0].name}</div>
-                        </div>
-                      )}
-                    </div>
                   ) : (
-                    // Multiple media grid
-                    <div className="grid grid-cols-2 gap-2">
-                      {media.slice(0, 4).map((file, index) => (
-                        <div
-                          key={index}
-                          className={`relative rounded-lg overflow-hidden ${index === 3 && media.length > 4 ? "relative" : ""}`}
-                        >
-                          {file.type.startsWith("image/") ? (
-                            <img
-                              src={URL.createObjectURL(file) || "/placeholder.svg"}
-                              alt={`Preview ${index + 1}`}
-                              className="w-full h-32 object-cover"
-                            />
-                          ) : file.type.startsWith("video/") ? (
-                            <div className="flex items-center justify-center h-32 bg-gray-800">
-                              <VideoCameraIcon className="h-8 w-8 text-white opacity-70" />
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-32 bg-gray-100">
-                              <PaperClipIcon className="h-8 w-8 text-gray-400" />
-                            </div>
-                          )}
-
-                          {index === 3 && media.length > 4 && (
-                            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-                              <div className="text-white font-bold text-xl">+{media.length - 4}</div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-gray-400 italic">Chưa có nội dung</p>
                   )}
                 </div>
-              )}
-
-              {/* Post actions */}
-              <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-4">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl transition-colors duration-200"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-emerald-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                    />
-                  </svg>
-                  <span className="font-medium">Thích</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl transition-colors duration-200"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-blue-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                    />
-                  </svg>
-                  <span className="font-medium">Bình luận</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl transition-colors duration-200"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-purple-500"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                    />
-                  </svg>
-                  <span className="font-medium">Chia sẻ</span>
-                </button>
+                
+                {media.length > 0 && media.length <= 2 && (
+                  <div className="mb-4">
+                    {media.map((file, index) => (
+                      <div key={index} className="mb-2">
+                        {file.type.startsWith("image/") ? (
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Preview ${index + 1}`}
+                            className="max-h-[300px] object-contain rounded-lg mx-auto"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-40 bg-gray-100 rounded-lg">
+                            <VideoCameraIcon className="h-12 w-12 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {media.length > 2 && (
+                  <div className="grid grid-cols-2 gap-2 mb-4">
+                    {media.slice(0, 4).map((file, index) => (
+                      <div key={index} className={`relative rounded-lg overflow-hidden ${index === 3 && media.length > 4 ? "relative" : ""}`}>
+                        {file.type.startsWith("image/") ? (
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-32 bg-gray-100">
+                            <VideoCameraIcon className="h-8 w-8 text-gray-400" />
+                          </div>
+                        )}
+                        
+                        {index === 3 && media.length > 4 && (
+                          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                            <div className="text-white font-bold text-xl">+{media.length - 4}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {location && (
+                  <div className="flex items-center text-sm text-blue-600 mb-4">
+                    <MapPinIcon className="h-4 w-4 mr-1" />
+                    <span>{location.displayName}</span>
+                  </div>
+                )}
+                
+                {/* Action preview */}
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <button className="p-1 rounded-full hover:bg-gray-50">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                      </svg>
+                    </button>
+                    <button className="p-1 rounded-full hover:bg-gray-50">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </button>
+                    <button className="p-1 rounded-full hover:bg-gray-50">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Draft saved notification */}
+      {showDraftSaved && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50">
+          Đã lưu bản nháp!
+        </div>
+      )}
     </div>
   )
 }

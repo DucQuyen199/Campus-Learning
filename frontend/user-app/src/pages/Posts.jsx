@@ -1,11 +1,71 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import CreatePost from '../components/Post/CreatePost';
 import PostList from '../components/Post/PostList';
 import StoryList from '../components/Story/StoryList';
 import SharePostModal from '../components/Post/SharePostModal';
 import { FunnelIcon, ClockIcon, FireIcon, SparklesIcon, PencilIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { HandThumbUpIcon, ChatBubbleLeftIcon, ShareIcon, BookmarkIcon } from '@heroicons/react/24/outline';
+import { HandThumbUpIcon as ThumbUpSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
 import courseApi from '../api/courseApi';
+
+// Custom styles for Markdown elements
+const markdownStyles = {
+  table: 'min-w-full border border-gray-300 border-collapse my-4',
+  thead: 'bg-gray-50',
+  th: 'border border-gray-300 px-4 py-2 font-semibold text-left',
+  td: 'border border-gray-300 px-4 py-2',
+  ul: 'list-disc pl-6 space-y-1 my-4',
+  ol: 'list-decimal pl-6 space-y-1 my-4',
+  li: 'pl-1',
+};
+
+// Components mapping for ReactMarkdown
+const markdownComponents = {
+  table: ({node, ...props}) => <table className={markdownStyles.table} {...props} />,
+  thead: ({node, ...props}) => <thead className={markdownStyles.thead} {...props} />,
+  th: ({node, ...props}) => <th className={markdownStyles.th} {...props} />,
+  td: ({node, ...props}) => <td className={markdownStyles.td} {...props} />,
+  ul: ({node, ...props}) => <ul className={markdownStyles.ul} {...props} />,
+  ol: ({node, ...props}) => <ol className={markdownStyles.ol} {...props} />,
+  li: ({node, ...props}) => <li className={markdownStyles.li} {...props} />,
+};
+
+// Simple Avatar component to replace the imported one
+const UserAvatar = ({ src, name, alt, size = "small" }) => {
+  const sizes = {
+    small: "w-8 h-8",
+    medium: "w-10 h-10",
+    large: "w-12 h-12"
+  };
+  
+  return (
+    <div className={`${sizes[size]} rounded-full overflow-hidden bg-gray-200 flex items-center justify-center`}>
+      {src ? (
+        <img 
+          src={src} 
+          alt={alt || name || "User"} 
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = null;
+            e.target.classList.add("hidden");
+            e.target.parentNode.classList.add("flex", "items-center", "justify-center", "bg-gray-300");
+            if (name) {
+              e.target.parentNode.textContent = name.charAt(0).toUpperCase();
+            }
+          }}
+        />
+      ) : name ? (
+        <span className="text-gray-700 font-medium">{name.charAt(0).toUpperCase()}</span>
+      ) : (
+        <span className="text-gray-700 font-medium">U</span>
+      )}
+    </div>
+  );
+};
 
 const Posts = () => {
   const [posts, setPosts] = useState([]);
@@ -21,6 +81,12 @@ const Posts = () => {
   const [featuredCourses, setFeaturedCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [selectedPostForShare, setSelectedPostForShare] = useState(null);
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [commentError, setCommentError] = useState(null);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -113,6 +179,11 @@ const Posts = () => {
         if (!postExists) {
           fetchSinglePost(selectedPost);
         }
+      }
+
+      // Set the first post as selected for main view if none is selected
+      if (!selectedVideo && sortedPosts.length > 0) {
+        setSelectedVideo(sortedPosts[0]);
       }
     } catch (error) {
       console.error('Fetch posts error:', error);
@@ -289,6 +360,202 @@ const Posts = () => {
     }));
   };
 
+  const handleVideoSelect = (post) => {
+    setSelectedVideo(post);
+    // Update the URL to include the selected post ID
+    navigate(`/posts?postId=${post.PostID}`);
+  };
+
+  // New function to handle bookmarking
+  const handleBookmark = async (postId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}/bookmark`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to bookmark post');
+      }
+      
+      // Update bookmarked status in state
+      setPosts(prevPosts => prevPosts.map(post => {
+        if (post.PostID === postId) {
+          return {
+            ...post,
+            IsBookmarked: !post.IsBookmarked
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error bookmarking post:', error);
+    }
+  };
+
+  // Function to fetch comments for the selected post
+  const fetchComments = async (postId) => {
+    if (!postId) return;
+    
+    setIsLoadingComments(true);
+    setCommentError(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${postId}/comments`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Could not load comments');
+      }
+      
+      const data = await response.json();
+      setComments(data.comments || []);
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      setCommentError('Failed to load comments');
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  // Load comments when selected video changes
+  useEffect(() => {
+    if (selectedVideo) {
+      fetchComments(selectedVideo.PostID);
+    }
+  }, [selectedVideo]);
+
+  // Handle comment submission
+  const handleSubmitComment = async (e) => {
+    e.preventDefault();
+    
+    if (!newComment.trim() || !selectedVideo) return;
+    
+    setSubmittingComment(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/${selectedVideo.PostID}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: newComment })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+      
+      const data = await response.json();
+      setComments([data.comment, ...comments]);
+      setNewComment('');
+      
+      // Update comment count
+      handleComment(selectedVideo.PostID);
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      setCommentError('Failed to post your comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  // Handle comment like
+  const handleLikeComment = async (commentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/comments/${commentId}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to like comment');
+      }
+      
+      // Update comment in state
+      setComments(comments.map(comment => 
+        comment.CommentID === commentId 
+          ? { 
+              ...comment, 
+              LikesCount: comment.IsLiked ? comment.LikesCount - 1 : comment.LikesCount + 1,
+              IsLiked: !comment.IsLiked 
+            } 
+          : comment
+      ));
+    } catch (error) {
+      console.error('Error liking comment:', error);
+    }
+  };
+
+  // Handle comment deletion
+  const handleDeleteComment = async (commentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/posts/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete comment');
+      }
+      
+      // Remove comment from state
+      setComments(comments.filter(comment => comment.CommentID !== commentId));
+      
+      // Update comment count in the post
+      if (selectedVideo) {
+        handleComment(selectedVideo.PostID, -1);
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+    }
+  };
+
+  // Format date helper function
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return 'Vừa xong';
+    }
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} phút trước`;
+    }
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return `${diffInHours} giờ trước`;
+    }
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) {
+      return `${diffInDays} ngày trước`;
+    }
+    
+    return date.toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Success Banner */}
@@ -416,205 +683,339 @@ const Posts = () => {
       )}
       
       <div className="w-full mx-auto py-6 px-4">
-        {/* Page Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-xl mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Bài viết cộng đồng</h1>
-              <p className="opacity-90">Chia sẻ ý tưởng và nhận phản hồi từ cộng đồng sinh viên</p>
+        {/* Filter tabs */}
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {filters.map(filter => {
+                const Icon = filter.icon;
+                return (
+                  <button
+                    key={filter.id}
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={`flex items-center space-x-1 px-4 py-2 rounded-lg ${
+                      activeFilter === filter.id
+                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{filter.name}</span>
+                  </button>
+                );
+              })}
             </div>
-            <button 
-              onClick={() => setShowCreateForm(true)}
-              className="mt-4 md:mt-0 px-6 py-3 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
-            >
-              Viết bài mới
-            </button>
+            <div className="relative max-w-xs">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Tìm kiếm bài viết..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </div>
         
-        {/* Two-column layout */}
+        {/* Main YouTube-like layout */}
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Left column - Posts */}
-          <div className="lg:w-3/4">
-            {/* Search and Filters */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-              <div className="flex items-center gap-4">
-                {/* Search Bar */}
-                <div className="relative flex-1 max-w-2xl">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+          {/* Left side - Main video/post display */}
+          <div className="lg:w-2/3">
+            {loading ? (
+              <div className="bg-white rounded-xl shadow-sm p-8 flex justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+              </div>
+            ) : selectedVideo ? (
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+                {/* Video/Media display */}
+                {selectedVideo.media && selectedVideo.media.length > 0 && (
+                  <div className="w-full bg-black flex items-center justify-center">
+                    {selectedVideo.media[0].MediaType === 'video' ? (
+                      <video 
+                        className="w-full max-h-[500px] object-contain"
+                        src={selectedVideo.media[0].MediaUrl.startsWith('http') 
+                          ? selectedVideo.media[0].MediaUrl 
+                          : `/uploads/${selectedVideo.media[0].MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`
+                        }
+                        controls
+                        autoPlay
+                      />
+                    ) : (
+                      <img 
+                        className="w-full max-h-[500px] object-contain"
+                        src={selectedVideo.media[0].MediaUrl.startsWith('http') 
+                          ? selectedVideo.media[0].MediaUrl 
+                          : `/uploads/${selectedVideo.media[0].MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`
+                        }
+                        alt={selectedVideo.Title || "Post media"}
+                      />
+                    )}
                   </div>
-                  <input
-                    type="text"
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Tìm kiếm bài viết..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+                )}
+                
+                {/* Post details */}
+                <div className="p-4">
+                  <h2 className="text-lg font-bold">{selectedVideo.Title || "Untitled Post"}</h2>
+                  
+                  <div className="flex justify-between items-center mt-4">
+                    <div className="flex items-center space-x-3">
+                      <UserAvatar
+                        src={selectedVideo.UserImage || "https://placehold.co/100x100?text=User"} 
+                        alt={selectedVideo.FullName || "User"}
+                      />
+                      <div>
+                        <p className="font-medium">{selectedVideo.FullName || "Unknown User"}</p>
+                        <p className="text-sm text-gray-500">{selectedVideo.CreatedAt && formatDate(selectedVideo.CreatedAt)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => handleLike(selectedVideo.PostID)}
+                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-full ${
+                          selectedVideo.IsLiked ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        title={selectedVideo.IsLiked ? "Bỏ thích" : "Thích"}
+                      >
+                        {selectedVideo.IsLiked ? (
+                          <ThumbUpSolid className="h-5 w-5" />
+                        ) : (
+                          <HandThumbUpIcon className="h-5 w-5" />
+                        )}
+                        <span>{selectedVideo.LikesCount || 0}</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleShare(selectedVideo.PostID)}
+                        className="flex items-center space-x-1 px-3 py-1.5 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        title="Chia sẻ"
+                      >
+                        <ShareIcon className="h-5 w-5" />
+                        <span>Chia sẻ</span>
+                      </button>
+                      
+                      <button
+                        onClick={() => handleBookmark(selectedVideo.PostID)}
+                        className={`flex items-center justify-center p-2 rounded-full ${
+                          selectedVideo.IsBookmarked ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        title={selectedVideo.IsBookmarked ? "Bỏ lưu bài viết" : "Lưu bài viết"}
+                      >
+                        {selectedVideo.IsBookmarked ? (
+                          <BookmarkSolid className="h-5 w-5" />
+                        ) : (
+                          <BookmarkIcon className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Filters */}
-                <div className="flex items-center space-x-2 flex-shrink-0">
-                  {filters.map(filter => {
-                    const Icon = filter.icon;
-                    return (
+                <div className="border-t border-gray-100 p-4">
+                  <div className="prose prose-sm max-w-none overflow-x-auto">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {selectedVideo.Content || ''}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+                
+                {/* Comments section */}
+                <div className="border-t border-gray-100 p-4">
+                  <h3 className="font-medium mb-4">{selectedVideo.CommentsCount || 0} bình luận</h3>
+                  
+                  {/* Comment Form */}
+                  <form onSubmit={handleSubmitComment} className="flex items-center space-x-2 mb-6">
+                    <UserAvatar
+                      src={JSON.parse(localStorage.getItem('user') || '{}').ProfileImage}
+                      name={JSON.parse(localStorage.getItem('user') || '{}').FullName}
+                      alt="Your profile"
+                      size="small"
+                    />
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        className="w-full py-2 px-3 border border-gray-300 rounded-full bg-gray-100 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Viết bình luận..."
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        disabled={submittingComment}
+                      />
                       <button
-                        key={filter.id}
-                        onClick={() => setActiveFilter(filter.id)}
-                        className={`flex items-center space-x-1 px-4 py-2 rounded-lg ${
-                          activeFilter === filter.id
-                            ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                            : 'text-gray-700 hover:bg-gray-100'
-                        }`}
+                        type="submit"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-500 disabled:text-gray-400"
+                        disabled={submittingComment || !newComment.trim()}
                       >
-                        <Icon className="w-4 h-4" />
-                        <span>{filter.name}</span>
+                        {submittingComment ? (
+                          <div className="w-6 h-6 border-2 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                          </svg>
+                        )}
                       </button>
-                    );
-                  })}
+                    </div>
+                  </form>
+                  
+                  {/* Comments List */}
+                  {isLoadingComments ? (
+                    <div className="flex justify-center py-4">
+                      <div className="w-8 h-8 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                  ) : commentError ? (
+                    <div className="text-center py-4 text-red-500 text-sm">{commentError}</div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500 text-sm">Chưa có bình luận nào. Hãy là người đầu tiên bình luận!</div>
+                  ) : (
+                    <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                      {comments.map((comment) => (
+                        <div key={comment.CommentID} className="flex space-x-2">
+                          <UserAvatar
+                            src={comment.UserImage}
+                            name={comment.FullName}
+                            alt={comment.FullName}
+                            size="small"
+                          />
+                          <div className="flex-1">
+                            <div className="bg-gray-100 rounded-lg px-3 py-2">
+                              <div className="font-medium text-sm">{comment.FullName}</div>
+                              <div className="text-sm prose prose-sm max-w-none overflow-x-auto">
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  components={markdownComponents}
+                                >
+                                  {comment.Content}
+                                </ReactMarkdown>
+                              </div>
+                            </div>
+                            <div className="flex items-center mt-1 text-xs text-gray-500 space-x-3">
+                              <span>{formatDate(comment.CreatedAt)}</span>
+                              <button 
+                                className={`font-medium ${comment.IsLiked ? 'text-blue-500' : ''}`}
+                                onClick={() => handleLikeComment(comment.CommentID)}
+                              >
+                                Thích ({comment.LikesCount || 0})
+                              </button>
+                              {comment.UserID === JSON.parse(localStorage.getItem('user') || '{}').UserID && (
+                                <button 
+                                  className="font-medium text-red-500"
+                                  onClick={() => handleDeleteComment(comment.CommentID)}
+                                >
+                                  Xóa
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-            
-            {/* Main Content - Posts */}
-            <div className="w-full">
-              {loading ? (
-                <div className="text-center py-20 bg-white rounded-xl shadow-sm">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Đang tải bài viết...</p>
-                </div>
-              ) : (
-                <>
-                  {selectedPost && (
-                    <div className="bg-blue-50 p-3 mb-4 rounded-lg flex justify-between items-center">
-                      <span className="text-blue-700">Đang xem bài viết được chọn</span>
-                      <button 
-                        onClick={clearSelection}
-                        className="px-3 py-1 bg-white text-blue-600 rounded border border-blue-300 hover:bg-blue-100 transition-colors"
-                      >
-                        Xem tất cả bài viết
-                      </button>
-                    </div>
-                  )}
-                  
-                  {searchQuery && filteredPosts.length === 0 && (
-                    <div className="text-center py-10 bg-white rounded-xl shadow-sm">
-                      <p className="text-gray-600">Không tìm thấy bài viết phù hợp với từ khóa "{searchQuery}"</p>
-                    </div>
-                  )}
-                  
-                  <PostList
-                    initialPosts={selectedPost ? 
-                      filteredPosts.filter(post => post.PostID.toString() === selectedPost.toString()) : 
-                      filteredPosts}
-                    onLike={handleLike}
-                    onComment={handleComment}
-                    onShare={handleShare}
-                    highlightedCommentId={selectedComment}
-                  />
-                </>
-              )}
-            </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
+                <p className="text-gray-500">Không có bài viết nào được chọn</p>
+              </div>
+            )}
           </div>
           
-          {/* Right column - Stories */}
-          <div className="lg:w-1/4 sticky top-24 self-start space-y-6">
-            {/* Stories Section */}
+          {/* Right side - Related/playlist videos */}
+          <div className="lg:w-1/3">
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-4 border-b border-gray-100">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-800">Stories</h2>
-                  <button className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors">
-                    Xem tất cả
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-4 max-h-[400px] overflow-y-auto custom-scrollbar">
-                <div className="relative">
-                  {/* Timeline */}
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-                  
-                  <div className="space-y-4 pl-8">
-                    <StoryList 
-                      orientation="vertical" 
-                      showTimeline={true}
-                      onStoryClick={handleStoryClick}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <button className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                  </svg>
-                  Tạo Story mới
-                </button>
-              </div>
-            </div>
-
-            {/* Featured Courses Section */}
-            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-800">Khóa học nổi bật</h2>
-              </div>
-              
-              <div className="p-4 max-h-[400px] overflow-y-auto custom-scrollbar space-y-4">
-                {coursesLoading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : featuredCourses.length > 0 ? (
-                  featuredCourses.map((course) => (
-                    <div 
-                      key={course.CourseID || course.id} 
-                      className="group cursor-pointer"
-                      onClick={() => handleCourseClick(course.CourseID || course.id)}
+                  <h2 className="text-lg font-medium">Bài viết gợi ý</h2>
+                  <div className="flex gap-2">
+                    <button 
+                      className={`px-3 py-1 rounded ${activeFilter === 'latest' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                      onClick={() => setActiveFilter('latest')}
                     >
-                      <div className="relative overflow-hidden rounded-lg">
-                        <img 
-                          src={course.ImageUrl || course.thumbnail || "https://placehold.co/600x400?text=Course+Image"} 
-                          alt={course.Title || course.title} 
-                          className="w-full h-40 object-cover transition-transform duration-300 group-hover:scale-105"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = "https://placehold.co/600x400?text=Course+Image";
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                        <div className="absolute bottom-0 left-0 right-0 p-4">
-                          <span className="text-white font-semibold">{course.Title || course.title}</span>
-                          <div className="flex items-center justify-between mt-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-yellow-400 text-sm">{course.Rating || '4.7'}</span>
-                              <span className="text-white/80 text-sm">({course.RatingCount || '0'} đánh giá)</span>
+                      Mới nhất
+                    </button>
+                    <button 
+                      className={`px-3 py-1 rounded ${activeFilter === 'trending' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                      onClick={() => setActiveFilter('trending')}
+                    >
+                      Phổ biến
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="overflow-y-auto max-h-[600px]">
+                {filteredPosts.map(post => (
+                  <div 
+                    key={post.PostID} 
+                    className={`p-3 flex gap-3 cursor-pointer hover:bg-gray-50 ${selectedVideo?.PostID === post.PostID ? 'bg-blue-50' : ''}`}
+                    onClick={() => handleVideoSelect(post)}
+                  >
+                    <div className="w-1/3">
+                      {post.media && post.media.length > 0 ? (
+                        <div className="relative pb-[56.25%] h-0">
+                          {post.media[0].MediaType === 'video' ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black">
+                              <img 
+                                src={post.media[0].MediaUrl.startsWith('http') 
+                                  ? post.media[0].MediaUrl 
+                                  : `/uploads/${post.media[0].MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`
+                                }
+                                alt="Thumbnail"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.onerror = null;
+                                  e.target.src = "https://placehold.co/100x100?text=Video";
+                                }}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-8 h-8 bg-black bg-opacity-60 rounded-full flex items-center justify-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              </div>
                             </div>
-                            {formatPrice(course.Price) === 0 ? (
-                              <span className="bg-green-600 text-white text-xs font-bold px-2 py-1 rounded">Miễn phí</span>
-                            ) : (
-                              <span className="text-white text-sm font-medium">{formatPrice(course.Price).toLocaleString()} VND</span>
-                            )}
+                          ) : (
+                            <img 
+                              src={post.media[0].MediaUrl.startsWith('http') 
+                                ? post.media[0].MediaUrl 
+                                : `/uploads/${post.media[0].MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`
+                              }
+                              alt="Post media"
+                              className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = "https://placehold.co/100x100?text=Image";
+                              }}
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-gray-200 rounded-lg w-full pb-[56.25%] relative">
+                          <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                            Không có ảnh
                           </div>
                         </div>
+                      )}
+                    </div>
+                    
+                    <div className="w-2/3">
+                      <h3 className="font-medium text-sm line-clamp-2 mb-1">
+                        {post.Title || post.Content?.substring(0, 50) || "Untitled Post"}
+                      </h3>
+                      <p className="text-xs text-gray-500">{post.FullName || "Unknown User"}</p>
+                      <div className="flex items-center text-xs text-gray-500 mt-1">
+                        <span>{post.LikesCount || 0} lượt thích</span>
+                        <span className="mx-1">•</span>
+                        <span>{new Date(post.CreatedAt).toLocaleDateString()}</span>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-gray-500">
-                    Không tìm thấy khóa học nào.
                   </div>
-                )}
-              </div>
-
-              <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <button 
-                  onClick={() => navigate('/courses')}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Xem tất cả khóa học
-                </button>
+                ))}
               </div>
             </div>
           </div>

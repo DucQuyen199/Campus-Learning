@@ -44,6 +44,7 @@ const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
 const friendshipRoutes = require('./routes/friendshipRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const competitionRoutes = require('./routes/competitionRoutes');
+const passkeyRoutes = require('./routes/passkeyRoutes');
 const app = express();
 
 // Initialize in-memory caches
@@ -149,6 +150,7 @@ app.use('/api', codeExecutionRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api', competitionRoutes);
+app.use('/api/passkeys', passkeyRoutes);
 
 // Direct route handler for /calls/active to fix 404 error
 app.get('/calls/active', (req, res) => {

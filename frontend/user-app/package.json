@@ -21,6 +21,7 @@
     "@mui/material": "^7.0.1",
     "@paypal/react-paypal-js": "^8.8.2",
     "@reduxjs/toolkit": "^2.6.1",
+    "@simplewebauthn/browser": "^13.1.0",
     "@tanstack/react-query": "^5.72.2",
     "@wasmer/wasi": "^0.12.0",
     "@wasmer/wasmfs": "^0.12.0",

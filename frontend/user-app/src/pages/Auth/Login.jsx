@@ -1,16 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
   EnvelopeIcon, 
   LockClosedIcon,
   EyeIcon,
-  EyeSlashIcon
+  EyeSlashIcon,
+  FingerPrintIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+
+// Check if passkey is supported by the browser
+const isPasskeySupported = () => {
+  return window.PublicKeyCredential !== undefined;
+};
 
 const Login = () => {
   const location = useLocation();
@@ -24,9 +32,30 @@ const Login = () => {
     remember: false
   });
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [error, setError] = useState('');
   const [redirectMessage, setRedirectMessage] = useState('');
   const [authChecked, setAuthChecked] = useState(false);
+  const [isPasskeyAvailable, setIsPasskeyAvailable] = useState(false);
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+  const [biometricAttempts, setBiometricAttempts] = useState(0);
+  const [biometricState, setBiometricState] = useState('waiting'); // 'waiting', 'scanning', 'processing'
+  const maxBiometricAttempts = 3;
+  const biometricTimeoutRef = useRef(null);
+
+  // Check if browser supports passkeys
+  useEffect(() => {
+    setIsPasskeyAvailable(isPasskeySupported());
+  }, []);
+
+  // Clear timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (biometricTimeoutRef.current) {
+        clearTimeout(biometricTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Check if there's a message in location state and handle redirect only once
   useEffect(() => {
@@ -76,6 +105,209 @@ const Login = () => {
     // Navigate with replace to prevent going back to login page
     navigate('/', { replace: true });
   }, [dispatch, navigate]);
+
+  const loginWithPasskey = async () => {
+    // Check if max attempts reached
+    if (biometricAttempts >= maxBiometricAttempts) {
+      toast.error('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
+      return;
+    }
+
+    setError('');
+    setShowBiometricPrompt(true);
+    setBiometricState('waiting');
+    
+    // Don't set loading state immediately, as we want to wait for user to interact with the biometric prompt
+    // Only after they start interacting with the OS prompt will we show loading state
+    
+    try {
+      let options;
+      let isConditionalMediationAvailable = false;
+
+      // Check if conditional mediation is available (modern browsers support this)
+      if (window.PublicKeyCredential && 
+          window.PublicKeyCredential.isConditionalMediationAvailable && 
+          typeof window.PublicKeyCredential.isConditionalMediationAvailable === 'function') {
+        isConditionalMediationAvailable = await window.PublicKeyCredential.isConditionalMediationAvailable();
+      }
+
+      if (!formData.email) {
+        // If no email provided, try to use conditional mediation (auto-fill)
+        if (!isConditionalMediationAvailable) {
+          setError('Vui lòng nhập email để đăng nhập bằng passkey');
+          setShowBiometricPrompt(false);
+          return;
+        }
+
+        // Use conditional mediation to auto-discover credentials
+        options = {
+          mediation: 'conditional',
+          publicKey: {
+            challenge: Uint8Array.from(
+              'auto-discover-challenge', 
+              c => c.charCodeAt(0)
+            ),
+            rpId: window.location.hostname,
+            userVerification: 'preferred',
+          }
+        };
+
+        // Start loading now, as the OS biometric prompt is about to appear
+        setPasskeyLoading(true);
+        setBiometricState('scanning');
+        
+        // Request authentication from browser using auto-discovery
+        // This is a blocking call - it will wait for the user to provide biometric input
+        const credential = await navigator.credentials.get(options);
+        
+        // Update state to show we're now processing the authentication
+        setBiometricState('processing');
+        
+        if (!credential) {
+          throw new Error('Không tìm thấy passkey');
+        }
+
+        // Extract user info from credential
+        const userHandle = credential.response.userHandle 
+          ? new TextDecoder().decode(credential.response.userHandle)
+          : null;
+        
+        if (!userHandle) {
+          throw new Error('Không thể xác định người dùng');
+        }
+
+        const userInfo = JSON.parse(userHandle);
+        setFormData({...formData, email: userInfo.email});
+        
+        // Now proceed with normal authentication using the discovered credential
+        const optionsResponse = await axios.post('/api/passkeys/auth/options', {
+          email: userInfo.email
+        });
+
+        options = optionsResponse.data.options;
+      } else {
+        // Normal flow with provided email
+        const optionsResponse = await axios.post('/api/passkeys/auth/options', {
+          email: formData.email
+        });
+
+        if (!optionsResponse.data.success) {
+          throw new Error(optionsResponse.data.message || 'Không thể tạo yêu cầu xác thực');
+        }
+
+        options = optionsResponse.data.options;
+        
+        // Start loading now, as the OS biometric prompt is about to appear
+        setPasskeyLoading(true);
+        setBiometricState('scanning');
+      }
+
+      // Step 2: Create credentials with WebAuthn API
+      options.challenge = Uint8Array.from(
+        atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), 
+        c => c.charCodeAt(0)
+      );
+
+      if (options.allowCredentials) {
+        options.allowCredentials = options.allowCredentials.map(credential => {
+          return {
+            ...credential,
+            id: Uint8Array.from(
+              atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')), 
+              c => c.charCodeAt(0)
+            )
+          };
+        });
+      }
+
+      // Request authentication from browser - this will trigger the OS biometric prompt
+      // This is a blocking call - it will wait for the user to provide biometric input
+      const credential = await navigator.credentials.get({
+        publicKey: options
+      });
+
+      // If we got here, the user has successfully provided their fingerprint/biometric
+      console.log('Biometric authentication successful - processing server verification');
+      setBiometricState('processing');
+
+      // Step 3: Prepare credential for server verification
+      const authResponse = {
+        id: credential.id,
+        rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId)))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, ''),
+        response: {
+          clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, ''),
+          authenticatorData: btoa(String.fromCharCode(...new Uint8Array(credential.response.authenticatorData)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, ''),
+          signature: btoa(String.fromCharCode(...new Uint8Array(credential.response.signature)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, ''),
+          userHandle: credential.response.userHandle
+            ? btoa(String.fromCharCode(...new Uint8Array(credential.response.userHandle)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, '')
+            : null
+        },
+        type: credential.type
+      };
+
+      // Step 4: Send response to server for verification
+      const verifyResponse = await axios.post('/api/passkeys/auth/verify', {
+        email: formData.email,
+        response: authResponse
+      });
+
+      if (!verifyResponse.data.success) {
+        throw new Error(verifyResponse.data.message || 'Xác thực không thành công');
+      }
+
+      // Authentication successful - reset attempts
+      setBiometricAttempts(0);
+
+      // Handle successful login
+      const { user, tokens } = verifyResponse.data;
+      
+      // Store tokens
+      localStorage.setItem('accessToken', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
+      
+      // Handle successful login
+      handleLoginSuccess(user);
+      
+      toast.success('Đăng nhập bằng sinh trắc học thành công!');
+    } catch (error) {
+      console.error('Passkey authentication error:', error);
+      
+      // Increment failed attempts
+      const newAttempts = biometricAttempts + 1;
+      setBiometricAttempts(newAttempts);
+      
+      // Check if max attempts reached
+      if (newAttempts >= maxBiometricAttempts) {
+        setError('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
+        toast.error('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
+      } else {
+        setError(`Xác thực sinh trắc học thất bại (lần thử ${newAttempts}/${maxBiometricAttempts}). ${error.message || ''}`);
+      }
+    } finally {
+      setPasskeyLoading(false);
+      setBiometricState('waiting');
+      
+      // Add a small delay before hiding the prompt to ensure OS prompt is shown first
+      biometricTimeoutRef.current = setTimeout(() => {
+        setShowBiometricPrompt(false);
+      }, 500);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -231,25 +463,60 @@ const Login = () => {
               </div>
 
               <div className="space-y-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white ${
-                    loading 
-                      ? 'bg-blue-400 cursor-not-allowed' 
-                      : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                  } transition-colors`}
-                >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Đang đăng nhập...
-                    </>
-                  ) : 'Đăng nhập'}
-                </button>
+                <div className="flex items-center">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={`flex-grow flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white ${
+                      loading 
+                        ? 'bg-blue-400 cursor-not-allowed' 
+                        : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                    } transition-colors`}
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Đang đăng nhập...
+                      </>
+                    ) : 'Đăng nhập'}
+                  </button>
+                  
+                  {isPasskeyAvailable && biometricAttempts < maxBiometricAttempts && (
+                    <button
+                      type="button"
+                      onClick={loginWithPasskey}
+                      disabled={passkeyLoading}
+                      className={`ml-2 p-3 border border-gray-300 rounded-lg shadow-sm ${
+                        passkeyLoading 
+                          ? 'bg-gray-100 cursor-not-allowed' 
+                          : 'bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                      } transition-colors`}
+                      title="Đăng nhập bằng sinh trắc học"
+                    >
+                      {passkeyLoading ? (
+                        <svg className="animate-spin h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <FingerPrintIcon className="h-5 w-5 text-blue-600" />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {isPasskeyAvailable && biometricAttempts < maxBiometricAttempts ? (
+                  <div className="text-center text-xs text-gray-500">
+                    <span>Bấm vào biểu tượng vân tay để đăng nhập bằng sinh trắc học</span>
+                  </div>
+                ) : biometricAttempts >= maxBiometricAttempts && (
+                  <div className="text-center text-xs text-red-500">
+                    <span>Quá nhiều lần thử. Vui lòng sử dụng mật khẩu.</span>
+                  </div>
+                )}
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
@@ -785,9 +1052,71 @@ const Login = () => {
         className="bg-gray-900 text-white py-8"
       >
         <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-400">© 2024 CAMPUST. Tất cả quyền được bảo lưu.</p>
+          <p className="text-gray-400">© 2025 CAMPUST. Tất cả quyền được bảo lưu.</p>
         </div>
       </motion.footer>
+
+      {/* Biometric authentication modal */}
+      <AnimatePresence>
+        {showBiometricPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Xác thực sinh trắc học</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowBiometricPrompt(false);
+                    setPasskeyLoading(false);
+                  }}
+                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="bg-blue-100 p-4 rounded-full mb-4">
+                  <FingerPrintIcon className={`h-12 w-12 ${biometricState === 'scanning' ? 'text-blue-700 animate-pulse' : 'text-blue-600'}`} />
+                </div>
+                <p className="text-center text-gray-700 mb-2">
+                  {biometricState === 'waiting' && 'Vui lòng xác thực danh tính của bạn'}
+                  {biometricState === 'scanning' && 'Đang quét vân tay...'}
+                  {biometricState === 'processing' && 'Xác thực thành công, đang xử lý...'}
+                </p>
+                <p className="text-center text-sm text-gray-500">
+                  {biometricState === 'waiting' && 'Sử dụng vân tay, khuôn mặt hoặc phương thức sinh trắc học đã đăng ký'}
+                  {biometricState === 'scanning' && 'Vui lòng đặt ngón tay lên cảm biến vân tay'}
+                  {biometricState === 'processing' && 'Đang đăng nhập vào hệ thống...'}
+                </p>
+                {biometricAttempts > 0 && (
+                  <p className="mt-3 text-sm text-red-600">
+                    Lần thử thứ {biometricAttempts + 1}/{maxBiometricAttempts}
+                  </p>
+                )}
+              </div>
+              <div className="mt-2">
+                <div className="flex justify-center">
+                  <div className={`flex space-x-1 ${biometricState === 'processing' ? 'animate-bounce' : 'animate-pulse'}`}>
+                    <div className={`h-2 w-2 rounded-full ${biometricState === 'processing' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    <div className={`h-2 w-2 rounded-full ${biometricState === 'processing' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    <div className={`h-2 w-2 rounded-full ${biometricState === 'processing' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

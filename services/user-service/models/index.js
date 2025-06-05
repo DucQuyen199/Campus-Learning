@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Import user models
-const User = require('./User');
+const User = require('./user');
 const UserAchievement = require('./UserAchievement');
 const Achievement = require('./Achievement');
 const Chat = require('./Chat');

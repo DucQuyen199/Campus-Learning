@@ -134,6 +134,7 @@ app.use('/uploads/stories', express.static(path.join(__dirname, 'uploads/stories
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/users', authenticateToken, userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/chat', chatRoutes);
@@ -153,7 +154,7 @@ app.use('/api', competitionRoutes);
 app.use('/api/passkeys', passkeyRoutes);
 
 // Direct route handler for /calls/active to fix 404 error
-app.get('/calls/active', (req, res) => {
+app.get('/calls/active', authenticateToken, (req, res) => {
   // Redirect to the proper endpoint
   const callController = require('./controllers/callController');
   return callController.getActiveCalls(req, res);

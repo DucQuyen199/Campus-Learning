@@ -30,14 +30,25 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random&color=fff&size=${pixelSizes[size]}&rounded=true`;
   };
   
+  // Get a valid image source or fallback to UI Avatars
+  const getImageSource = () => {
+    // If src is provided directly, use it
+    if (src && typeof src === 'string' && src.trim() !== '') {
+      return src;
+    }
+    
+    // Otherwise, generate UI Avatars URL
+    return getUiAvatarUrl();
+  };
+  
   // Use UI Avatars as fallback
   const handleImageError = (e) => {
     e.target.onerror = null;
     e.target.src = getUiAvatarUrl();
   };
   
-  // If no source is provided, use UI Avatars right away
-  const imageSrc = src || getUiAvatarUrl();
+  // Get the image source using our helper
+  const imageSrc = getImageSource();
   
   return (
     <div 
@@ -46,7 +57,7 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
     >
       <img 
         src={imageSrc} 
-        alt={alt || 'User avatar'} 
+        alt={alt || name || 'User avatar'} 
         className="w-full h-full object-cover object-center"
         onError={handleImageError}
         loading="lazy"

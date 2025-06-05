@@ -582,7 +582,7 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
 
               {locationError && (
                 <div className="mb-4 text-red-500 text-sm">{locationError}</div>
-              )}
+                        )}
 
               {/* Action buttons */}
               <div className="flex flex-wrap items-center border-t pt-4">
@@ -659,7 +659,7 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {content}
                     </ReactMarkdown>
-                  ) : (
+                ) : (
                     <p className="text-gray-400 italic">Chưa có nội dung</p>
                 )}
               </div>
@@ -669,12 +669,12 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
                     {media.map((file, index) => (
                       <div key={index} className="mb-2">
                         {file.type.startsWith("image/") ? (
-                          <img
+                        <img
                             src={URL.createObjectURL(file)}
                             alt={`Preview ${index + 1}`}
                             className="max-h-[300px] object-contain rounded-lg mx-auto"
                           />
-                        ) : (
+                      ) : (
                           <div className="flex items-center justify-center h-40 bg-gray-100 rounded-lg">
                             <VideoCameraIcon className="h-12 w-12 text-gray-400" />
                         </div>

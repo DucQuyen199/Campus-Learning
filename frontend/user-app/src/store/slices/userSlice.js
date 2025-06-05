@@ -15,6 +15,19 @@ export const getUserSettings = createAsyncThunk(
   }
 );
 
+// Get user profile with extended data
+export const getUserProfile = createAsyncThunk(
+  'user/getProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await userServices.getUserProfile();
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
+
 // Update user settings
 export const updateUserSettings = createAsyncThunk(
   'user/updateSettings',
@@ -85,6 +98,7 @@ const userSlice = createSlice({
   initialState: {
     settings: null,
     profileInfo: null,
+    extendedProfile: null,
     loading: false,
     error: null,
     success: false,
@@ -115,6 +129,32 @@ const userSlice = createSlice({
         state.error = action.payload?.message || 'Không thể lấy cài đặt người dùng';
       })
       
+      // Get user profile
+      .addCase(getUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getUserProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.extendedProfile = action.payload.profile;
+        
+        // Ensure basic profile info is available even if using different endpoints
+        if (!state.profileInfo && action.payload.profile) {
+          state.profileInfo = {
+            fullName: action.payload.profile.FullName,
+            email: action.payload.profile.Email,
+            username: action.payload.profile.Username,
+            image: action.payload.profile.Image,
+          };
+        }
+        
+        state.success = true;
+      })
+      .addCase(getUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload?.message || 'Không thể lấy thông tin hồ sơ người dùng';
+      })
+      
       // Update settings
       .addCase(updateUserSettings.pending, (state) => {
         state.loading = true;
@@ -140,13 +180,23 @@ const userSlice = createSlice({
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.profileInfo = {
-          ...state.profileInfo,
-          fullName: action.payload.FullName,
-          username: action.payload.Username
-        };
+        
+        // Update both basic and extended profile data
+        if (action.payload.profile) {
+          state.extendedProfile = action.payload.profile;
+          
+          if (state.profileInfo) {
+            state.profileInfo = {
+              ...state.profileInfo,
+              fullName: action.payload.profile.FullName,
+              username: action.payload.profile.Username,
+              image: action.payload.profile.Image,
+            };
+          }
+        }
+        
         state.success = true;
-        state.message = 'Hồ sơ đã được cập nhật thành công';
+        state.message = action.payload.message || 'Hồ sơ đã được cập nhật thành công';
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.loading = false;

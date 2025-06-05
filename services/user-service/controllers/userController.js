@@ -410,3 +410,215 @@ exports.suggestFriends = async (req, res) => {
     });
   }
 };
+
+// Hàm cập nhật thông tin hồ sơ cá nhân của người dùng
+exports.updateUserProfile = async (req, res) => {
+  try {
+    await pool.connect();
+    
+    // Lấy userId từ token đã được xác thực trong middleware
+    const { userId } = req.user;
+    const profileData = req.body;
+
+    // Bắt đầu transaction để đảm bảo tất cả hoặc không có thay đổi nào được lưu
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      // Cập nhật thông tin cơ bản trong bảng Users (chỉ khi có trường được cung cấp)
+      const shouldUpdateUser = ['fullName','school','bio','image'].some(key => Object.prototype.hasOwnProperty.call(profileData, key));
+      if (shouldUpdateUser) {
+        const userRequest = new sql.Request(transaction);
+        userRequest
+          .input('UserID', sql.BigInt, userId)
+          .input('FullName', sql.NVarChar(100), profileData.fullName)
+          .input('School', sql.NVarChar(255), profileData.school || null)
+          .input('Bio', sql.NVarChar(500), profileData.bio || null)
+          .input('Image', sql.VarChar(255), profileData.image || null);
+
+        await userRequest.query(`
+          UPDATE Users
+          SET 
+            FullName = @FullName,
+            School = @School,
+            Bio = @Bio,
+            Image = ISNULL(@Image, Image), -- Chỉ cập nhật ảnh khi có giá trị mới
+            UpdatedAt = GETDATE()
+          WHERE UserID = @UserID;
+        `);
+      }
+
+      // Kiểm tra xem đã có UserProfile chưa
+      const checkRequest = new sql.Request(transaction);
+      checkRequest.input('UserID', sql.BigInt, userId);
+      const profileCheck = await checkRequest.query(`
+        SELECT ProfileID FROM UserProfiles WHERE UserID = @UserID
+      `);
+
+      // Cập nhật hoặc tạo mới UserProfile
+      const profileRequest = new sql.Request(transaction);
+      profileRequest
+        .input('UserID', sql.BigInt, userId)
+        .input('Education', sql.NVarChar(sql.MAX), JSON.stringify(profileData.education || []))
+        .input('WorkExperience', sql.NVarChar(sql.MAX), JSON.stringify(profileData.workExperience || []))
+        .input('Skills', sql.NVarChar(sql.MAX), JSON.stringify(profileData.skills || []))
+        .input('Interests', sql.NVarChar(sql.MAX), JSON.stringify(profileData.interests || []))
+        .input('SocialLinks', sql.NVarChar(sql.MAX), JSON.stringify(profileData.socialLinks || {}))
+        .input('Achievements', sql.NVarChar(sql.MAX), JSON.stringify(profileData.achievements || []))
+        .input('PreferredLanguage', sql.VarChar(10), profileData.preferredLanguage || 'vi')
+        .input('TimeZone', sql.VarChar(50), profileData.timeZone || 'Asia/Ho_Chi_Minh');
+
+      if (profileCheck.recordset && profileCheck.recordset.length > 0) {
+        // Update existing profile
+        await profileRequest.query(`
+          UPDATE UserProfiles
+          SET 
+            Education = @Education,
+            WorkExperience = @WorkExperience,
+            Skills = @Skills,
+            Interests = @Interests,
+            SocialLinks = @SocialLinks,
+            Achievements = @Achievements,
+            PreferredLanguage = @PreferredLanguage,
+            TimeZone = @TimeZone,
+            UpdatedAt = GETDATE()
+          WHERE UserID = @UserID;
+        `);
+      } else {
+        // Create new profile
+        await profileRequest.query(`
+          INSERT INTO UserProfiles (
+            UserID, Education, WorkExperience, Skills, 
+            Interests, SocialLinks, Achievements, 
+            PreferredLanguage, TimeZone
+          ) VALUES (
+            @UserID, @Education, @WorkExperience, @Skills, 
+            @Interests, @SocialLinks, @Achievements, 
+            @PreferredLanguage, @TimeZone
+          );
+        `);
+      }
+
+      // Lấy thông tin đã cập nhật
+      const finalRequest = new sql.Request(transaction);
+      finalRequest.input('UserID', sql.BigInt, userId);
+      const result = await finalRequest.query(`
+        SELECT 
+          u.UserID, u.Username, u.Email, u.FullName, u.School,
+          u.Bio, u.Image, u.Status, u.AccountStatus, 
+          up.Education, up.WorkExperience, up.Skills, 
+          up.Interests, up.SocialLinks, up.Achievements, 
+          up.PreferredLanguage, up.TimeZone
+        FROM Users u
+        LEFT JOIN UserProfiles up ON u.UserID = up.UserID
+        WHERE u.UserID = @UserID;
+      `);
+
+      // Commit transaction
+      await transaction.commit();
+
+      if (!result.recordset || result.recordset.length === 0) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+      }
+
+      // Format data before sending response
+      const userData = result.recordset[0];
+      
+      // Parse JSON fields
+      try {
+        if (userData.Education) userData.Education = JSON.parse(userData.Education);
+        if (userData.WorkExperience) userData.WorkExperience = JSON.parse(userData.WorkExperience);
+        if (userData.Skills) userData.Skills = JSON.parse(userData.Skills);
+        if (userData.Interests) userData.Interests = JSON.parse(userData.Interests);
+        if (userData.SocialLinks) userData.SocialLinks = JSON.parse(userData.SocialLinks);
+        if (userData.Achievements) userData.Achievements = JSON.parse(userData.Achievements);
+      } catch (parseError) {
+        console.error('Lỗi khi parse JSON:', parseError);
+      }
+
+      res.json({
+        message: 'Cập nhật hồ sơ thành công',
+        profile: userData,
+        success: true
+      });
+
+    } catch (transactionError) {
+      // Nếu có lỗi, rollback toàn bộ thay đổi
+      await transaction.rollback();
+      throw transactionError;
+    }
+
+  } catch (error) {
+    console.error('Lỗi khi cập nhật hồ sơ người dùng:', error);
+    res.status(500).json({ 
+      message: 'Lỗi khi cập nhật thông tin hồ sơ',
+      error: error.message,
+      success: false
+    });
+  }
+};
+
+// Hàm lấy thông tin hồ sơ đầy đủ của người dùng
+exports.getUserProfile = async (req, res) => {
+  try {
+    await pool.connect();
+    
+    // Lấy userId từ token hoặc từ tham số
+    const userId = req.params.userId || req.user.userId;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'ID người dùng không hợp lệ' });
+    }
+    
+    const request = pool.request();
+    request.input('UserID', sql.BigInt, userId);
+    
+    const result = await request.query(`
+      SELECT 
+        u.UserID, u.Username, u.Email, u.FullName, u.School,
+        u.Bio, u.Image, u.Status, u.AccountStatus, u.CreatedAt,
+        up.Education, up.WorkExperience, up.Skills, 
+        up.Interests, up.SocialLinks, up.Achievements, 
+        up.PreferredLanguage, up.TimeZone
+      FROM Users u
+      LEFT JOIN UserProfiles up ON u.UserID = up.UserID
+      WHERE u.UserID = @UserID AND u.DeletedAt IS NULL;
+    `);
+    
+    if (!result.recordset || result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin hồ sơ người dùng' });
+    }
+    
+    const userData = result.recordset[0];
+    
+    // Parse JSON fields
+    try {
+      if (userData.Education) userData.Education = JSON.parse(userData.Education);
+      if (userData.WorkExperience) userData.WorkExperience = JSON.parse(userData.WorkExperience);
+      if (userData.Skills) userData.Skills = JSON.parse(userData.Skills);
+      if (userData.Interests) userData.Interests = JSON.parse(userData.Interests);
+      if (userData.SocialLinks) userData.SocialLinks = JSON.parse(userData.SocialLinks);
+      if (userData.Achievements) userData.Achievements = JSON.parse(userData.Achievements);
+    } catch (parseError) {
+      console.error('Lỗi khi parse JSON:', parseError);
+    }
+    
+    // Format dates
+    if (userData.CreatedAt) {
+      userData.CreatedAt = userData.CreatedAt.toISOString();
+    }
+    
+    res.json({
+      profile: userData,
+      success: true
+    });
+    
+  } catch (error) {
+    console.error('Lỗi khi lấy thông tin hồ sơ người dùng:', error);
+    res.status(500).json({ 
+      message: 'Lỗi khi lấy thông tin hồ sơ',
+      error: error.message,
+      success: false
+    });
+  }
+};

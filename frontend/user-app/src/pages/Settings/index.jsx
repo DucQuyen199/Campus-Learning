@@ -19,6 +19,9 @@ import {
 } from '@/store/slices/userSlice';
 import { logout } from '@/store/slices/authSlice';
 
+// Import Profile component
+import Profile from './Profile';
+
 // Import Payment Settings component
 import PaymentSettings from './payment';
 import LoginSession from './Loginsession';
@@ -217,7 +220,6 @@ const Settings = () => {
     { id: 'appearance', label: 'Giao diện', icon: EyeIcon },
     { id: 'accessibility', label: 'Trợ năng', icon: UserIcon },
     { id: 'notifications', label: 'Thông báo', icon: BellIcon },
-    { id: 'payment', label: 'Thanh toán và giấy phép', icon: CreditCardIcon },
   ];
 
   return (
@@ -446,138 +448,11 @@ const Settings = () => {
                   {/* Other tabs remain the same */}
                   {/* General/Public Profile Tab */}
                   {activeTab === 'general' && (
-                    <div>
-                  <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
-                    Hồ sơ cá nhân
-                      </h2>
-                      
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Name */}
-                    <div className="space-y-2">
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Tên
-                          </label>
-                      <input
-                        type="text"
-                        id="name"
-                        name="name"
-                        value={profileInfo.fullName || ''}
-                        onChange={(e) => handleSettingChange('profile', 'fullName', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <p className="text-xs text-gray-500">
-                        Tên của bạn có thể xuất hiện khi bạn đóng góp hoặc được đề cập. Bạn có thể xóa nó bất cứ lúc nào.
-                      </p>
-                            </div>
-                            
-                    {/* Email dropdown */}
-                    <div className="space-y-2">
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                        Email công khai
-                      </label>
-                      <div className="relative">
-                        <select
-                          id="email"
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Chọn email đã xác thực để hiển thị</option>
-                          <option value={profileInfo.email}>{profileInfo.email}</option>
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                          </svg>
-                              </div>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Bạn đã đặt địa chỉ email ở chế độ riêng tư. Để chuyển đổi quyền riêng tư email, hãy vào <span className="text-blue-500">cài đặt email</span> và bỏ chọn "Giữ địa chỉ email riêng tư."
-                      </p>
-                            </div>
-                            
-                    {/* Bio */}
-                    <div className="space-y-2">
-                      <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
-                        Tiểu sử
-                      </label>
-                      <textarea
-                        id="bio"
-                        name="bio"
-                        rows="4"
-                        placeholder="Hãy cho chúng tôi biết một chút về bạn"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      ></textarea>
-                      <p className="text-xs text-gray-500">
-                        Bạn có thể @đề cập đến người dùng và tổ chức khác để liên kết đến họ.
-                      </p>
-                        </div>
-                        
-                    {/* Pronouns */}
-                    <div className="space-y-2">
-                      <label htmlFor="pronouns" className="block text-sm font-medium text-gray-700">
-                        Đại từ nhân xưng
-                          </label>
-                      <div className="relative">
-                              <select
-                          id="pronouns"
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                          <option value="">Không chỉ định</option>
-                          <option value="he/him">anh/của anh</option>
-                          <option value="she/her">chị/của chị</option>
-                          <option value="they/them">họ/của họ</option>
-                              </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                          <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-
-                    {/* URL */}
-                    <div className="space-y-2">
-                      <label htmlFor="url" className="block text-sm font-medium text-gray-700">
-                        URL
-                      </label>
-                      <input
-                        type="url"
-                        id="url"
-                        name="url"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                        </div>
-                        
-                    {/* ORCID iD */}
-                    <div className="space-y-2">
-                      <label htmlFor="orcid" className="block text-sm font-medium text-gray-700">
-                        ORCID iD
-                          </label>
-                      <input
-                        type="text"
-                        id="orcid"
-                        name="orcid"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <p className="text-xs text-gray-500">
-                        ORCID cung cấp một định danh liên tục - ORCID iD - giúp phân biệt bạn với các nhà nghiên cứu khác. Tìm hiểu thêm tại <a href="https://orcid.org" className="text-blue-500">ORCID.org</a>.
-                      </p>
-                        </div>
-                        
-                        <div className="pt-6">
-                          <button
-                            type="submit"
-                            disabled={loading}
-                        className="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                      >
-                        {loading ? "Đang lưu..." : "Cập nhật hồ sơ"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
+                    <Profile />
                   )}
                   
-              {/* Security Tab */}
-              {activeTab === 'security' && (
+                  {/* Security Tab */}
+                  {activeTab === 'security' && (
                     <div>
                   <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
                     Mật khẩu và xác thực

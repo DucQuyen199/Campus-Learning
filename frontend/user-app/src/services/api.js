@@ -72,18 +72,32 @@ const authServices = {
 
 // =================== USER SERVICES ===================
 const userServices = {
-  getProfile: (userId) => api.get(`/users/${userId}/profile`),
-  updateProfile: (profileData) => api.put('/users/profile', profileData),
-  getProfileSettings: () => api.get('/users/settings'),
-  updateProfileSettings: (settings) => api.put('/users/settings', settings),
-  getUserRanking: (userId) => api.get(`/users/${userId}/ranking`),
-  getAllUsers: (params) => api.get('/users', { params }),
-  getUserAchievements: (userId) => api.get(`/users/${userId}/achievements`),
-  uploadProfileImage: (formData) => api.post('/users/profile/image', formData, {
+  getProfile: (userId) => api.get(userId ? `/api/users/${userId}/profile` : '/api/users/profile'),
+  getUserProfile: () => api.get('/api/users/profile'), // Get full profile with extended data
+  updateProfile: (profileData) => api.put('/api/users/profile', profileData),
+  getProfileSettings: () => api.get('/api/settings'),
+  updateProfileSettings: (settings) => api.put('/api/settings', settings),
+  getUserRanking: (userId) => api.get(`/api/users/${userId}/ranking`),
+  getAllUsers: (params) => api.get('/api/users', { params }),
+  getUserAchievements: (userId) => api.get(`/api/users/${userId}/achievements`),
+  uploadProfileImage: (formData) => api.post('/api/users/profile/image', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
   }),
+  // New methods for extended profile operations
+  updateEducation: (education) => api.put('/api/users/profile', { education }),
+  updateWorkExperience: (workExperience) => api.put('/api/users/profile', { workExperience }),
+  updateSkills: (skills) => api.put('/api/users/profile', { skills }),
+  updateInterests: (interests) => api.put('/api/users/profile', { interests }),
+  updateSocialLinks: (socialLinks) => api.put('/api/users/profile', { socialLinks }),
+  updateAchievements: (achievements) => api.put('/api/users/profile', { achievements }),
+  // Email settings
+  getEmails: () => api.get('/api/users/emails'),
+  addEmail: (email) => api.post('/api/users/emails', { email }),
+  setPrimaryEmail: (emailId) => api.put(`/api/users/emails/${emailId}/primary`),
+  deleteEmail: (emailId) => api.delete(`/api/users/emails/${emailId}`),
+  resendVerificationEmail: (emailId) => api.post(`/api/users/emails/${emailId}/resend-verification`),
 };
 
 // =================== COURSE SERVICES ===================

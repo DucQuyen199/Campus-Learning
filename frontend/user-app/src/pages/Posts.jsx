@@ -10,6 +10,7 @@ import { HandThumbUpIcon, ChatBubbleLeftIcon, ShareIcon, BookmarkIcon } from '@h
 import { HandThumbUpIcon as ThumbUpSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/react/24/solid';
 import { useNavigate, useLocation } from 'react-router-dom';
 import courseApi from '../api/courseApi';
+import { Avatar } from '../components/index';
 
 // Custom styles for Markdown elements
 const markdownStyles = {
@@ -33,40 +34,6 @@ const markdownComponents = {
   li: ({node, ...props}) => <li className={markdownStyles.li} {...props} />,
 };
 
-// Simple Avatar component to replace the imported one
-const UserAvatar = ({ src, name, alt, size = "small" }) => {
-  const sizes = {
-    small: "w-8 h-8",
-    medium: "w-10 h-10",
-    large: "w-12 h-12"
-  };
-  
-  return (
-    <div className={`${sizes[size]} rounded-full overflow-hidden bg-gray-200 flex items-center justify-center`}>
-      {src ? (
-        <img 
-          src={src} 
-          alt={alt || name || "User"} 
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.target.onerror = null;
-            e.target.src = null;
-            e.target.classList.add("hidden");
-            e.target.parentNode.classList.add("flex", "items-center", "justify-center", "bg-gray-300");
-            if (name) {
-              e.target.parentNode.textContent = name.charAt(0).toUpperCase();
-            }
-          }}
-        />
-      ) : name ? (
-        <span className="text-gray-700 font-medium">{name.charAt(0).toUpperCase()}</span>
-      ) : (
-        <span className="text-gray-700 font-medium">U</span>
-      )}
-    </div>
-  );
-};
-
 const Posts = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +54,15 @@ const Posts = () => {
   const [commentError, setCommentError] = useState(null);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  
+  // Report dialog state
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportContent, setReportContent] = useState('');
+  const [reportCategory, setReportCategory] = useState('CONTENT');
+  const [reportTargetId, setReportTargetId] = useState(null);
+  const [submittingReport, setSubmittingReport] = useState(false);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -320,8 +296,6 @@ const Posts = () => {
     setSelectedComment(null);
     navigate('/posts');
   };
-
-  const [showSuccess, setShowSuccess] = useState(false);
 
   const filters = [
     { id: 'latest', name: 'Mới nhất', icon: ClockIcon },
@@ -601,6 +575,36 @@ const Posts = () => {
     });
   };
 
+  // Handle report post
+  const handleReportPost = async (postId, reportData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetId: postId,
+          ...reportData
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to report post');
+      }
+      
+      // Show success message
+      setReportSuccess(true);
+      setTimeout(() => setReportSuccess(false), 3000);
+      return true;
+    } catch (error) {
+      console.error('Error reporting post:', error);
+      return false;
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Success Banner */}
@@ -608,6 +612,16 @@ const Posts = () => {
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
           <span>Đăng bài thành công!</span>
           <button onClick={() => setShowSuccess(false)} className="ml-4 text-green-700">
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Report Success Banner */}
+      {reportSuccess && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
+          <span>Báo cáo đã được gửi thành công!</span>
+          <button onClick={() => setReportSuccess(false)} className="ml-4 text-yellow-700">
             ×
           </button>
         </div>
@@ -805,9 +819,11 @@ const Posts = () => {
                 <div className="p-4">                  
                   <div className="flex justify-between items-center mt-4">
                     <div className="flex items-center space-x-3">
-                      <UserAvatar
-                        src={selectedVideo.UserImage || "https://placehold.co/100x100?text=User"} 
+                      <Avatar
+                        src={selectedVideo.UserImage}
+                        name={selectedVideo.FullName}
                         alt={selectedVideo.FullName || "User"}
+                        size="small"
                       />
                       <div>
                         <p className="font-medium">{selectedVideo.FullName || "Unknown User"}</p>
@@ -853,6 +869,29 @@ const Posts = () => {
                           <BookmarkIcon className="h-5 w-5" />
                         )}
                       </button>
+                      
+                      {/* Report Button - Only show for posts not owned by the current user */}
+                      {(() => {
+                        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                        const isOwner = currentUser.UserID === selectedVideo.UserID || currentUser.id === selectedVideo.UserID;
+                        
+                        return !isOwner && (
+                          <button
+                            onClick={() => handleReportPost(selectedVideo.PostID, {
+                              title: 'Báo cáo bài viết vi phạm',
+                              content: 'Bài viết này có nội dung vi phạm tiêu chuẩn cộng đồng',
+                              category: 'CONTENT',
+                              targetType: 'POST'
+                            })}
+                            className="flex items-center space-x-1 px-3 py-1.5 rounded-full bg-gray-100 text-yellow-600 hover:bg-gray-200"
+                            title="Báo cáo bài viết"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -874,8 +913,8 @@ const Posts = () => {
                   
                   {/* Comment Form */}
                   <form onSubmit={handleSubmitComment} className="flex items-center space-x-2 mb-6">
-                    <UserAvatar
-                      src={JSON.parse(localStorage.getItem('user') || '{}').ProfileImage}
+                    <Avatar
+                      src={JSON.parse(localStorage.getItem('user') || '{}').ProfileImage || JSON.parse(localStorage.getItem('user') || '{}').avatar}
                       name={JSON.parse(localStorage.getItem('user') || '{}').FullName}
                       alt="Your profile"
                       size="small"
@@ -918,7 +957,7 @@ const Posts = () => {
                     <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                       {comments.map((comment) => (
                         <div key={comment.CommentID} className="flex space-x-2">
-                          <UserAvatar
+                          <Avatar
                             src={comment.UserImage}
                             name={comment.FullName}
                             alt={comment.FullName}

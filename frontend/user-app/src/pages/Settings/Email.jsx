@@ -9,23 +9,28 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
+import { userServices } from '@/services/api';
 
 const Email = () => {
   const dispatch = useDispatch();
   const { profileInfo } = useSelector(state => state.user);
   
-  const [emails, setEmails] = useState([
-    { 
-      email: profileInfo?.email || 'user@example.com', 
-      isPrimary: true, 
-      isVerified: true,
-      visibility: 'private' 
-    }
-  ]);
+  const [emails, setEmails] = useState([]);
   
   const [newEmail, setNewEmail] = useState('');
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [emailPrivacy, setEmailPrivacy] = useState(true);
+  
+  useEffect(() => {
+    userServices.getEmails()
+      .then(response => {
+        setEmails(response.data.emails);
+      })
+      .catch(error => {
+        console.error('Error fetching emails:', error);
+        toast.error('Không thể tải danh sách email');
+      });
+  }, []);
   
   // Handle add new email
   const handleAddEmail = (e) => {
@@ -38,58 +43,58 @@ const Email = () => {
       return;
     }
     
-    // Check if email already exists
-    if (emails.some(item => item.email === newEmail)) {
-      toast.error('Email này đã được thêm vào tài khoản của bạn');
-      return;
-    }
-    
-    // Add new email
-    setEmails([
-      ...emails,
-      { 
-        email: newEmail, 
-        isPrimary: false, 
-        isVerified: false,
-        visibility: 'private'
-      }
-    ]);
-    
-    // Reset form
-    setNewEmail('');
-    setShowAddEmail(false);
-    
-    // In a real app, we would dispatch an action to add the email
-    toast.success('Email đã được thêm. Vui lòng kiểm tra hộp thư để xác thực.');
+    // Call API to add email
+    userServices.addEmail(newEmail)
+      .then(() => {
+        toast.success('Email đã được thêm. Vui lòng kiểm tra hộp thư để xác thực.');
+        setNewEmail('');
+        setShowAddEmail(false);
+        // Refresh list
+        return userServices.getEmails();
+      })
+      .then(res => setEmails(res.data.emails))
+      .catch(error => {
+        console.error('Error adding email:', error);
+        toast.error('Có lỗi khi thêm email');
+      });
   };
   
   // Handle make email primary
-  const handleMakePrimary = (email) => {
-    const updatedEmails = emails.map(item => ({
-      ...item,
-      isPrimary: item.email === email
-    }));
-    
-    setEmails(updatedEmails);
-    toast.success(`Đã đặt ${email} làm email chính`);
+  const handleMakePrimary = (emailId) => {
+    userServices.setPrimaryEmail(emailId)
+      .then(() => {
+        toast.success('Đã đặt email chính thành công');
+        return userServices.getEmails();
+      })
+      .then(res => setEmails(res.data.emails))
+      .catch(error => {
+        console.error('Error setting primary email:', error);
+        toast.error('Có lỗi khi đặt email chính');
+      });
   };
   
   // Handle delete email
-  const handleDeleteEmail = (email) => {
-    // Don't allow deleting primary email
-    if (emails.find(item => item.email === email).isPrimary) {
-      toast.error('Không thể xóa email chính. Vui lòng đặt email khác làm email chính trước.');
-      return;
-    }
-    
-    const updatedEmails = emails.filter(item => item.email !== email);
-    setEmails(updatedEmails);
-    toast.success('Email đã được xóa');
+  const handleDeleteEmail = (emailId) => {
+    userServices.deleteEmail(emailId)
+      .then(() => {
+        toast.success('Email đã được xóa');
+        return userServices.getEmails();
+      })
+      .then(res => setEmails(res.data.emails))
+      .catch(error => {
+        console.error('Error deleting email:', error);
+        toast.error(error.response?.data?.message || 'Có lỗi khi xóa email');
+      });
   };
   
   // Handle resend verification
-  const handleResendVerification = (email) => {
-    toast.info(`Đã gửi lại email xác thực đến ${email}`);
+  const handleResendVerification = (emailId) => {
+    userServices.resendVerificationEmail(emailId)
+      .then(() => toast.info('Đã gửi lại email xác thực'))
+      .catch(error => {
+        console.error('Error resending verification:', error);
+        toast.error('Có lỗi khi gửi lại email xác thực');
+      });
   };
   
   // Handle email privacy toggle
@@ -154,19 +159,19 @@ const Email = () => {
           </div>
           <div className="p-5">
             <div className="space-y-5">
-              {emails.map((item, index) => (
-                <div key={index} className="flex items-center justify-between border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
+              {emails.map((item) => (
+                <div key={item.EmailID} className="flex items-center justify-between border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
                   <div className="flex items-start">
                     <EnvelopeIcon className="h-5 w-5 text-gray-400 mt-0.5 mr-2" />
                     <div>
                       <div className="flex items-center">
-                        <span className="font-medium text-gray-900">{item.email}</span>
-                        {item.isPrimary && (
+                        <span className="font-medium text-gray-900">{item.Email}</span>
+                        {item.IsPrimary && (
                           <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                             Chính
                           </span>
                         )}
-                        {item.isVerified ? (
+                        {item.IsVerified ? (
                           <span className="ml-2 inline-flex items-center text-green-600">
                             <CheckCircleIcon className="h-4 w-4 mr-1" />
                             <span className="text-xs">Đã xác thực</span>
@@ -179,30 +184,30 @@ const Email = () => {
                         )}
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        Quyền riêng tư: {item.visibility === 'private' ? 'Riêng tư' : 'Công khai'}
+                        Quyền riêng tư: {item.Visibility === 'private' ? 'Riêng tư' : 'Công khai'}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    {!item.isVerified && (
+                    {!item.IsVerified && (
                       <button 
-                        onClick={() => handleResendVerification(item.email)}
+                        onClick={() => handleResendVerification(item.EmailID)}
                         className="text-xs text-blue-600 hover:text-blue-800"
                       >
                         Gửi lại xác thực
                       </button>
                     )}
-                    {!item.isPrimary && item.isVerified && (
+                    {!item.IsPrimary && item.IsVerified && (
                       <button 
-                        onClick={() => handleMakePrimary(item.email)}
+                        onClick={() => handleMakePrimary(item.EmailID)}
                         className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
                       >
                         Đặt làm chính
                       </button>
                     )}
-                    {!item.isPrimary && (
+                    {!item.IsPrimary && (
                       <button 
-                        onClick={() => handleDeleteEmail(item.email)}
+                        onClick={() => handleDeleteEmail(item.EmailID)}
                         className="text-red-500 hover:text-red-700"
                       >
                         <TrashIcon className="h-4 w-4" />
@@ -277,7 +282,7 @@ const Email = () => {
               <label className="relative inline-flex cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={true}
+                  defaultChecked={true}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
@@ -298,7 +303,7 @@ const Email = () => {
               <label className="relative inline-flex cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={true}
+                  defaultChecked={true}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
@@ -319,7 +324,7 @@ const Email = () => {
               <label className="relative inline-flex cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={false}
+                  defaultChecked={false}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600

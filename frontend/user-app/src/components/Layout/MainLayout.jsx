@@ -753,53 +753,7 @@ const MainLayout = ({ children }) => {
                   })}
                 </nav>
 
-                {/* User Profile Section */}
-                <div className="border-t border-gray-200 mt-auto bg-white">
-                  {sidebarOpen ? (
-                    <div className="p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg mx-2 my-2 shadow-sm">
-                      <div className="flex items-center space-x-3">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full blur-sm opacity-25"></div>
-                          <Avatar
-                            src={currentUser?.avatar || currentUser?.profileImage}
-                            name={currentUser?.fullName || currentUser?.username || 'User'}
-                            alt={currentUser?.fullName || currentUser?.username || 'User'}
-                            size="medium"
-                            className="relative ring-2 ring-white flex-shrink-0 shadow-sm"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-semibold text-gray-800 truncate">
-                            {currentUser?.fullName || currentUser?.username || 'User'}
-                          </h3>
-                          <p className="text-xs text-gray-500 truncate">
-                            {currentUser?.Email || currentUser?.email}
-                          </p>
-                        </div>
-                        <button 
-                          onClick={() => navigate('/profile')}
-                          className="p-1.5 hover:bg-blue-50 rounded-full transition-colors flex-shrink-0"
-                          title="Xem hồ sơ"
-                        >
-                          <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-3 flex justify-center my-2">
-                      <button onClick={() => navigate('/profile')} title="Xem hồ sơ" className="relative group">
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full blur-sm opacity-25 group-hover:opacity-40 transition-opacity"></div>
-                        <Avatar
-                          src={currentUser?.avatar || currentUser?.profileImage}
-                          name={currentUser?.fullName || currentUser?.username || 'User'}
-                          alt={currentUser?.fullName || currentUser?.username || 'User'}
-                          size="large"
-                          className="relative ring-2 ring-white hover:ring-blue-100 transition-all duration-200"
-                        />
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {/* User Profile Section - Removed completely */}
               </div>
             </div>
 

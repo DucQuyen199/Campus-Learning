@@ -161,7 +161,7 @@ const MediaLightbox = ({ isOpen, media, currentIndex, onClose, onNext, onPrev })
   );
 };
 
-const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia, onLocationFilter, onBookmark }) => {
+const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshMedia, onLocationFilter, onBookmark, onReport }) => {
   const [posts, setPosts] = useState(initialPosts || []);
   const [editingPost, setEditingPost] = useState(null);
 
@@ -196,6 +196,11 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
 
   const handleReportPost = async (postId, reportData) => {
     try {
+      // Use the provided onReport function if available, otherwise use the local implementation
+      if (onReport) {
+        return await onReport(postId, reportData);
+      }
+      
       const token = localStorage.getItem('token');
       const response = await fetch('/api/reports', {
         method: 'POST',
@@ -215,9 +220,11 @@ const PostList = ({ initialPosts, onLike, onComment, onShare, onEdit, onRefreshM
       
       // Show success message
       alert('Báo cáo đã được gửi thành công!');
+      return true;
     } catch (error) {
       console.error('Error reporting post:', error);
       alert('Có lỗi xảy ra khi gửi báo cáo. Vui lòng thử lại sau.');
+      return false;
     }
   };
 
@@ -354,6 +361,11 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const fileInputRef = useRef(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportTitle, setReportTitle] = useState('Báo cáo bài viết vi phạm');
+  const [reportContent, setReportContent] = useState('');
+  const [reportCategory, setReportCategory] = useState('CONTENT');
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   const handleLike = () => {
     setIsLiked(!isLiked);
@@ -733,21 +745,44 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
     setCurrentMediaIndex((prevIndex) => (prevIndex - 1 + mediaCount) % mediaCount);
   };
 
+  const handleReportSubmit = async () => {
+    if (!reportContent.trim()) {
+      return;
+    }
+    
+    setSubmittingReport(true);
+    try {
+      await onReport(post.PostID, {
+        title: reportTitle,
+        content: reportContent,
+        category: reportCategory,
+        targetType: 'POST'
+      });
+      
+      setShowReportDialog(false);
+      setReportContent('');
+    } catch (error) {
+      console.error('Error submitting report:', error);
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
       {/* Post Header */}
       <div className="p-4 flex justify-between items-start">
         <div className="flex items-start space-x-3">
           <Avatar
-            src={post.UserImage}
-            name={post.FullName}
-            alt={post.FullName}
+            src={post.UserImage || post.avatar || post.profileImage}
+            name={post.FullName || post.fullName || post.username}
+            alt={post.FullName || post.fullName || post.username}
             size="small"
             className="mr-2"
           />
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="font-medium text-gray-900">{post.FullName}</h3>
+              <h3 className="font-medium text-gray-900">{post.FullName || post.fullName || post.username}</h3>
               {location && !isEditing && (
                 <div 
                   className="flex items-center text-xs text-blue-700 hover:underline cursor-pointer"
@@ -802,12 +837,7 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
                 ) : (
                   <button
                     onClick={() => {
-                      onReport(post.PostID, { 
-                        title: 'Báo cáo bài viết vi phạm',
-                        content: 'Bài viết này có nội dung vi phạm tiêu chuẩn cộng đồng', 
-                        category: 'CONTENT',
-                        targetType: 'POST'
-                      });
+                      setShowReportDialog(true);
                       setShowOptions(false);
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-yellow-600 hover:bg-gray-100"
@@ -1223,8 +1253,14 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
           {/* Comment Form */}
           <form onSubmit={handleSubmitComment} className="flex items-center space-x-2 mb-4">
             <Avatar
-              src={JSON.parse(localStorage.getItem('user') || '{}').ProfileImage}
-              name={JSON.parse(localStorage.getItem('user') || '{}').FullName}
+              src={(() => {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                return user.ProfileImage || user.profileImage || user.avatar || user.avatarUrl;
+              })()}
+              name={(() => {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                return user.FullName || user.fullName || user.username || 'User';
+              })()}
               alt="Your profile"
               size="small"
             />
@@ -1267,14 +1303,14 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
               {comments.map((comment) => (
                 <div key={comment.CommentID} className="flex space-x-2">
                   <Avatar
-                    src={comment.UserImage}
-                    name={comment.FullName}
-                    alt={comment.FullName}
+                    src={comment.UserImage || comment.avatar || comment.profileImage}
+                    name={comment.FullName || comment.fullName || comment.username}
+                    alt={comment.FullName || comment.fullName || comment.username}
                     size="small"
                   />
                   <div className="flex-1">
                     <div className="bg-gray-100 rounded-lg px-3 py-2">
-                      <div className="font-medium text-sm">{comment.FullName}</div>
+                      <div className="font-medium text-sm">{comment.FullName || comment.fullName || comment.username}</div>
                       <div className="text-sm prose prose-sm max-w-none overflow-x-auto">
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
@@ -1306,6 +1342,67 @@ const PostCard = ({ post, onLike, onComment, onShare, onDelete, onReport, onEdit
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Report Dialog */}
+      {showReportDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium mb-4">Báo cáo bài viết</h3>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-medium mb-1">Loại báo cáo</label>
+              <select
+                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={reportCategory}
+                onChange={(e) => setReportCategory(e.target.value)}
+              >
+                <option value="CONTENT">Nội dung không phù hợp</option>
+                <option value="HARASSMENT">Quấy rối</option>
+                <option value="VIOLENCE">Bạo lực</option>
+                <option value="SPAM">Spam</option>
+                <option value="OTHER">Khác</option>
+              </select>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-medium mb-1">Chi tiết báo cáo</label>
+              <textarea
+                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
+                value={reportContent}
+                onChange={(e) => setReportContent(e.target.value)}
+                placeholder="Vui lòng mô tả chi tiết nội dung vi phạm..."
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowReportDialog(false)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                disabled={submittingReport}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleReportSubmit}
+                className="px-4 py-2 text-white bg-yellow-600 rounded-lg hover:bg-yellow-700 flex items-center"
+                disabled={!reportContent.trim() || submittingReport}
+              >
+                {submittingReport ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang gửi...
+                  </>
+                ) : (
+                  'Gửi báo cáo'
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

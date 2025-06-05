@@ -32,10 +32,6 @@ CREATE TABLE Users (
 );
 GO
 
-ALTER TABLE Users
-ADD PasskeyCredentials NVARCHAR(MAX), -- Thông tin xác thực sinh trắc học (Passkey)
-    HasPasskey BIT DEFAULT 0;         -- Đánh dấu người dùng đã thiết lập passkey chưa
-
 -- Bảng UserProfiles: Lưu thông tin bổ sung của người dùng như học vấn, kinh nghiệm làm việc
 CREATE TABLE UserProfiles (
     ProfileID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của profile
@@ -50,4 +46,29 @@ CREATE TABLE UserProfiles (
     TimeZone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh', -- Múi giờ
     NotificationPreferences NVARCHAR(MAX), -- Cài đặt thông báo dạng JSON
     UpdatedAt DATETIME DEFAULT GETDATE() -- Thời điểm cập nhật gần nhất
+);
+
+CREATE TABLE [dbo].[UserPresence] (
+    [PresenceID]      BIGINT         IDENTITY (1, 1) NOT NULL,
+    [UserID]          BIGINT         NULL,
+    [Status]          VARCHAR (20)   DEFAULT ('offline') NULL,
+    [LastActiveAt]    DATETIME       DEFAULT (getdate()) NULL,
+    [CurrentDeviceID] VARCHAR (255)  NULL,
+    [LastLocation]    NVARCHAR (MAX) NULL,
+    PRIMARY KEY CLUSTERED ([PresenceID] ASC),
+    CONSTRAINT [CHK_Presence_Status] CHECK ([Status]='in_call' OR [Status]='busy' OR [Status]='away' OR [Status]='offline' OR [Status]='online'),
+    FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID])
+);
+
+CREATE TABLE UserEmails (
+    EmailID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+    Email VARCHAR(255) NOT NULL,
+    IsPrimary BIT NOT NULL DEFAULT 0,
+    IsVerified BIT NOT NULL DEFAULT 0,
+    Visibility VARCHAR(20) NOT NULL DEFAULT 'private',
+    VerificationToken VARCHAR(255) NULL,
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    VerifiedAt DATETIME NULL,
+    CONSTRAINT UQ_UserEmails_User_Email UNIQUE (UserID, Email)
 );

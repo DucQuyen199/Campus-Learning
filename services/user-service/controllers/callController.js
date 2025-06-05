@@ -465,10 +465,12 @@ exports.getActiveCalls = async (req, res) => {
     // Get user ID from the authenticated request
     const userId = req.user ? req.user.id || req.user.userId || req.user.UserID : null;
 
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized: User not authenticated'
+    // If the user is not authenticated or is a guest, return an empty array
+    if (!userId || req.user.role === 'GUEST') {
+      console.log('User is not authenticated or is a guest, returning empty active calls list');
+      return res.status(200).json({
+        success: true,
+        data: []
       });
     }
 

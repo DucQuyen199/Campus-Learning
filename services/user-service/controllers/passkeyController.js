@@ -1,6 +1,9 @@
 const { base64url } = require('../utils/encoding');
 const User = require('../models/user');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
+const sql = require('mssql');
+const { pool } = require('../config/db');
 
 // Store challenges temporarily in memory (in production, use Redis or similar)
 const challenges = new Map();
@@ -55,10 +58,11 @@ exports.generateRegistrationOptions = async (req, res) => {
     };
 
     // If user already has credentials, exclude them
-    if (user.passkeyCredentials) {
+    if (user.PasskeyCredentials) {
       try {
-        const credentials = JSON.parse(user.passkeyCredentials);
+        let credentials = JSON.parse(user.PasskeyCredentials);
         if (Array.isArray(credentials) && credentials.length > 0) {
+          console.log(`User ${userId} has ${credentials.length} existing credentials`);
           registrationOptions.excludeCredentials = credentials.map(cred => ({
             id: cred.id,
             type: 'public-key',
@@ -67,6 +71,7 @@ exports.generateRegistrationOptions = async (req, res) => {
         }
       } catch (error) {
         console.error('Error parsing existing credentials:', error);
+        console.error('Raw credentials:', user.PasskeyCredentials);
       }
     }
 
@@ -136,14 +141,22 @@ exports.verifyRegistration = async (req, res) => {
     
     // Store the credential
     let credentials = [];
-    if (user.passkeyCredentials) {
+    if (user.PasskeyCredentials) {
       try {
-        credentials = JSON.parse(user.passkeyCredentials);
+        credentials = JSON.parse(user.PasskeyCredentials);
         if (!Array.isArray(credentials)) {
           credentials = [];
         }
+        
+        // Check for duplicate credentials
+        const existingCredIndex = credentials.findIndex(cred => cred.id === rawId);
+        if (existingCredIndex >= 0) {
+          console.log(`Found duplicate credential ID ${rawId}, replacing it`);
+          credentials.splice(existingCredIndex, 1);
+        }
       } catch (error) {
         console.error('Error parsing existing credentials:', error);
+        credentials = [];
       }
     }
     
@@ -151,8 +164,8 @@ exports.verifyRegistration = async (req, res) => {
     
     // Update user with new credential
     await user.update({ 
-      passkeyCredentials: JSON.stringify(credentials),
-      hasPasskey: true
+      PasskeyCredentials: JSON.stringify(credentials),
+      HasPasskey: true
     });
     
     return res.json({ 
@@ -173,17 +186,36 @@ exports.generateAuthenticationOptions = async (req, res) => {
     const { email } = req.body;
     
     if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+      console.log('Authentication options request missing email');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email is required' 
+      });
     }
     
+    console.log(`Generating authentication options for email: ${email}`);
+    
     const user = await User.findOne({ 
-      $or: [
-        { username: email },
-        { email: email }
-      ]
+      where: {
+        [Op.or]: [
+          { Username: email },
+          { Email: email }
+        ]
+      }
     });
     
-    if (!user || !user.hasPasskey) {
+    // Check if user exists and has a passkey
+    // Treat NULL HasPasskey as false
+    if (!user) {
+      console.log(`User not found for email: ${email}`);
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found or no passkey registered' 
+      });
+    }
+    
+    if (user.HasPasskey !== true) {
+      console.log(`User found but HasPasskey is not true: ${user.UserID}, HasPasskey=${user.HasPasskey}`);
       return res.status(404).json({ 
         success: false,
         message: 'User not found or no passkey registered' 
@@ -195,19 +227,23 @@ exports.generateAuthenticationOptions = async (req, res) => {
     const challengeBase64 = base64url.encode(challenge);
     
     // Store the challenge with user ID for verification later
-    challenges.set(user._id.toString(), {
+    challenges.set(user.UserID.toString(), {
       challenge: challengeBase64,
-      userId: user._id
+      userId: user.UserID
     });
     
     // Get user credentials
     let credentials = [];
-    if (user.passkeyCredentials) {
+    if (user.PasskeyCredentials) {
       try {
-        credentials = JSON.parse(user.passkeyCredentials);
+        credentials = JSON.parse(user.PasskeyCredentials);
+        console.log(`Found ${credentials.length} credentials for user ${user.UserID}`);
       } catch (error) {
         console.error('Error parsing credentials:', error);
+        console.error('Raw credentials:', user.PasskeyCredentials);
       }
+    } else {
+      console.log(`No credentials found for user ${user.UserID} despite HasPasskey=true`);
     }
     
     // Create authentication options
@@ -222,6 +258,8 @@ exports.generateAuthenticationOptions = async (req, res) => {
         transports: ['internal']
       }))
     };
+    
+    console.log('Authentication options generated successfully');
     
     return res.json({
       success: true,
@@ -249,21 +287,37 @@ exports.verifyAuthentication = async (req, res) => {
     const { email, response } = req.body;
     
     if (!email || !response) {
+      console.log('Missing email or response in verification request');
       return res.status(400).json({ 
         success: false,
         message: 'Email and authentication response are required'
       });
     }
     
+    console.log(`Verifying authentication for email: ${email}`);
+    
     // Find user
     const user = await User.findOne({
-      $or: [
-        { username: email },
-        { email: email }
-      ]
+      where: {
+        [Op.or]: [
+          { Username: email },
+          { Email: email }
+        ]
+      }
     });
     
-    if (!user || !user.hasPasskey) {
+    // Check if user exists and has a passkey
+    // Treat NULL HasPasskey as false
+    if (!user) {
+      console.log(`User not found for email: ${email}`);
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found or no passkey registered'
+      });
+    }
+    
+    if (user.HasPasskey !== true) {
+      console.log(`User found but HasPasskey is not true: ${user.UserID}, HasPasskey=${user.HasPasskey}`);
       return res.status(404).json({ 
         success: false,
         message: 'User not found or no passkey registered'
@@ -271,21 +325,42 @@ exports.verifyAuthentication = async (req, res) => {
     }
     
     // Parse response data
-    const clientDataJSON = JSON.parse(
-      Buffer.from(base64url.decode(response.response.clientDataJSON)).toString()
-    );
+    let clientDataJSON;
+    try {
+      clientDataJSON = JSON.parse(
+        Buffer.from(base64url.decode(response.response.clientDataJSON)).toString()
+      );
+      console.log('Parsed client data:', clientDataJSON);
+    } catch (error) {
+      console.error('Error parsing client data JSON:', error);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid client data format'
+      });
+    }
     
     // Find the challenge
-    const storedData = challenges.get(user._id.toString());
-    if (!storedData || storedData.challenge !== clientDataJSON.challenge) {
+    const storedData = challenges.get(user.UserID.toString());
+    if (!storedData) {
+      console.log(`No challenge found for user ${user.UserID}`);
       return res.status(400).json({ 
         success: false,
         message: 'Authentication challenge not found or expired'
       });
     }
     
+    if (storedData.challenge !== clientDataJSON.challenge) {
+      console.log(`Challenge mismatch for user ${user.UserID}`);
+      console.log(`Expected: ${storedData.challenge}`);
+      console.log(`Received: ${clientDataJSON.challenge}`);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Authentication challenge mismatch'
+      });
+    }
+    
     // Remove used challenge
-    challenges.delete(user._id.toString());
+    challenges.delete(user.UserID.toString());
     
     // Verify origin: use ORIGIN env var or request Origin header
     const expectedOrigin = process.env.ORIGIN || req.headers.origin;
@@ -301,31 +376,52 @@ exports.verifyAuthentication = async (req, res) => {
     
     // In a real implementation, we would verify the signature here
     // For this example, we'll just assume the signature is valid
+    console.log('Authentication successful for user:', user.UserID);
     
     // Generate JWT tokens
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
     
-    // Update last login time
-    await user.update({
-      lastLoginAt: new Date(),
-      lastLoginIP: req.ip || 'unknown'
-    });
+    // Update last login time - Fix the date format issue
+    try {
+      // Use direct SQL query instead of Sequelize model update to avoid date format issues
+      await pool.request()
+        .input('userId', sql.BigInt, user.UserID)
+        .input('ip', sql.VarChar, req.ip || 'unknown')
+        .query(`
+          UPDATE Users
+          SET LastLoginAt = GETDATE(), 
+              LastLoginIP = @ip
+          WHERE UserID = @userId
+        `);
+      
+      console.log(`Updated LastLoginAt for user ${user.UserID}`);
+    } catch (error) {
+      console.error('Error updating LastLoginAt:', error);
+      // Continue with the authentication process even if updating the login time fails
+    }
     
     return res.json({
       success: true,
       message: 'Authentication successful',
       user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-        image: user.image
+        id: user.UserID,
+        UserID: user.UserID,
+        username: user.Username,
+        Username: user.Username,
+        email: user.Email,
+        Email: user.Email,
+        fullName: user.FullName,
+        FullName: user.FullName,
+        role: user.Role,
+        Role: user.Role,
+        image: user.Image,
+        Image: user.Image,
+        // Add any other user fields needed by the frontend
       },
       tokens: {
-        accessToken,
-        refreshToken
+        accessToken: accessToken,
+        refreshToken: refreshToken
       }
     });
   } catch (error) {
@@ -351,9 +447,9 @@ exports.listPasskeys = async (req, res) => {
     }
     
     let credentials = [];
-    if (user.passkeyCredentials) {
+    if (user.PasskeyCredentials) {
       try {
-        credentials = JSON.parse(user.passkeyCredentials);
+        credentials = JSON.parse(user.PasskeyCredentials);
         
         // Clean up sensitive data before sending to client
         credentials = credentials.map(cred => ({
@@ -368,7 +464,7 @@ exports.listPasskeys = async (req, res) => {
     
     return res.json({
       success: true,
-      hasPasskey: user.hasPasskey,
+      hasPasskey: user.HasPasskey,
       passkeys: credentials
     });
   } catch (error) {
@@ -395,13 +491,13 @@ exports.removePasskey = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    if (!user.passkeyCredentials) {
+    if (!user.PasskeyCredentials) {
       return res.status(404).json({ message: 'No passkeys found' });
     }
     
     let credentials = [];
     try {
-      credentials = JSON.parse(user.passkeyCredentials);
+      credentials = JSON.parse(user.PasskeyCredentials);
       if (!Array.isArray(credentials)) {
         credentials = [];
       }
@@ -418,8 +514,8 @@ exports.removePasskey = async (req, res) => {
     
     // Update user
     await user.update({
-      passkeyCredentials: JSON.stringify(updatedCredentials),
-      hasPasskey
+      PasskeyCredentials: JSON.stringify(updatedCredentials),
+      HasPasskey: hasPasskey
     });
     
     return res.json({

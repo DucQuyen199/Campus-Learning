@@ -91,6 +91,16 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(45),
     allowNull: true
   },
+  PasskeyCredentials: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'PasskeyCredentials'
+  },
+  HasPasskey: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'HasPasskey'
+  },
   CreatedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

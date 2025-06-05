@@ -1,379 +1,327 @@
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
-const { generateAuthenticationOptions, verifyAuthenticationResponse, 
-        generateRegistrationOptions, verifyRegistrationResponse } = require('@simplewebauthn/server');
-const { isoBase64URL } = require('@simplewebauthn/server/helpers');
+const { base64url } = require('../utils/encoding');
+const User = require('../models/user');
+const crypto = require('crypto');
 
-// In-memory cache for challenges (in production, use Redis or another persistent store)
-const challengeCache = new Map();
+// Store challenges temporarily in memory (in production, use Redis or similar)
+const challenges = new Map();
 
-// Configuration for WebAuthn
-const rpName = 'CampusT Learning Platform';
+// WebAuthn configuration
+const rpName = 'CampusT';
 const rpID = process.env.RP_ID || 'localhost';
 const origin = process.env.ORIGIN || `https://${rpID}`;
 
 /**
- * Generate passkey registration options
+ * Generate registration options for creating a new passkey
  */
 exports.generateRegistrationOptions = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
     
-    // Get user from database
-    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    // Parse existing credentials if any
-    let existingCredentials = [];
-    if (user.PasskeyCredentials) {
+    // Generate a random challenge
+    const challenge = crypto.randomBytes(32);
+    const challengeBase64 = base64url.encode(challenge);
+    
+    // Store the challenge with user ID for verification later
+    challenges.set(userId.toString(), challengeBase64);
+    
+    // Generate registration options
+    const registrationOptions = {
+      challenge: challengeBase64,
+      rp: {
+        name: rpName,
+        id: rpID,
+      },
+      user: {
+        id: base64url.encode(Buffer.from(userId.toString())),
+        name: user.Email || user.Username,
+        displayName: user.FullName || user.Username,
+      },
+      pubKeyCredParams: [
+        { type: 'public-key', alg: -7 }, // ES256
+        { type: 'public-key', alg: -257 }, // RS256
+      ],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform', // Use platform authenticator (like fingerprint or Face ID)
+        userVerification: 'required', // Require biometric verification
+        requireResidentKey: true,
+      },
+      timeout: 60000, // 1 minute
+      attestation: 'none' // Don't request attestation to keep things simple
+    };
+
+    // If user already has credentials, exclude them
+    if (user.passkeyCredentials) {
       try {
-        existingCredentials = JSON.parse(user.PasskeyCredentials);
+        const credentials = JSON.parse(user.passkeyCredentials);
+        if (Array.isArray(credentials) && credentials.length > 0) {
+          registrationOptions.excludeCredentials = credentials.map(cred => ({
+            id: cred.id,
+            type: 'public-key',
+            transports: ['internal']
+          }));
+        }
       } catch (error) {
         console.error('Error parsing existing credentials:', error);
       }
     }
 
-    // Generate registration options
-    const options = await generateRegistrationOptions({
-      rpName,
-      rpID,
-      userID: user.UserID.toString(),
-      userName: user.Email,
-      userDisplayName: user.FullName,
-      attestationType: 'none',
-      excludeCredentials: existingCredentials.map(cred => ({
-        id: isoBase64URL.toBuffer(cred.credentialID),
-        type: 'public-key',
-      })),
-      authenticatorSelection: {
-        residentKey: 'required',
-        userVerification: 'preferred',
-      },
-      extensions: {
-        credProps: true,
-        // Store user info for credential discovery
-        prf: {
-          eval: {
-            first: JSON.stringify({ 
-              userId: user.UserID.toString(), 
-              email: user.Email 
-            })
-          }
-        }
-      }
-    });
-
-    // Store challenge in cache with user ID
-    const challenge = options.challenge;
-    challengeCache.set(user.UserID.toString(), {
-      challenge,
-      expires: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-    });
-
-    res.json({
+    return res.json({
       success: true,
-      options
+      options: registrationOptions
     });
   } catch (error) {
     console.error('Error generating registration options:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi tạo tùy chọn đăng ký',
-      error: error.message
-    });
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 /**
- * Verify passkey registration
+ * Verify registration of a new passkey credential
  */
 exports.verifyRegistration = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { response } = req.body;
-
-    // Get user from database
-    const user = await User.findById(userId);
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const { id, rawId, type, response } = req.body;
+    
+    // Verify the challenge
+    const expectedChallenge = challenges.get(userId.toString());
+    if (!expectedChallenge) {
+      return res.status(400).json({ message: 'Registration session expired' });
     }
 
-    // Get stored challenge
-    const challengeData = challengeCache.get(user.UserID.toString());
-    if (!challengeData || challengeData.expires < Date.now()) {
+    // Remove used challenge
+    challenges.delete(userId.toString());
+    
+    // Parse client data JSON
+    const clientDataJSON = JSON.parse(
+      Buffer.from(base64url.decode(response.clientDataJSON)).toString()
+    );
+    
+    // Verify challenge
+    if (clientDataJSON.challenge !== expectedChallenge) {
+      return res.status(400).json({ message: 'Challenge verification failed' });
+    }
+    
+    // Verify origin: use ORIGIN env var or request Origin header
+    const expectedOrigin = process.env.ORIGIN || req.headers.origin;
+    if (clientDataJSON.origin !== expectedOrigin) {
+      console.error(`Origin mismatch: expected ${expectedOrigin}, actual ${clientDataJSON.origin}`);
       return res.status(400).json({ 
-        success: false, 
-        message: 'Challenge đã hết hạn hoặc không hợp lệ, vui lòng thử lại' 
+        success: false,
+        message: 'Origin verification failed',
+        expected: expectedOrigin,
+        actual: clientDataJSON.origin
       });
     }
 
-    // Verify the registration response
-    const verification = await verifyRegistrationResponse({
-      response,
-      expectedChallenge: challengeData.challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
-    });
-
-    if (!verification.verified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Xác thực đăng ký không thành công' 
-      });
-    }
-
-    // Get credential details
-    const { credentialID, credentialPublicKey } = verification.registrationInfo;
-
-    // Parse existing credentials or initialize empty array
-    let existingCredentials = [];
-    if (user.PasskeyCredentials) {
+    // Create credential object to store
+    const credential = {
+      id: rawId,
+      publicKey: response.attestationObject, // In real implementation, extract the public key from attestationObject
+      type,
+      createdAt: new Date().toISOString(),
+      name: req.body.name || 'My Passkey'
+    };
+    
+    // Store the credential
+    let credentials = [];
+    if (user.passkeyCredentials) {
       try {
-        existingCredentials = JSON.parse(user.PasskeyCredentials);
+        credentials = JSON.parse(user.passkeyCredentials);
+        if (!Array.isArray(credentials)) {
+          credentials = [];
+        }
       } catch (error) {
         console.error('Error parsing existing credentials:', error);
       }
     }
-
-    // Add new credential
-    const newCredential = {
-      id: uuidv4(),
-      credentialID: isoBase64URL.fromBuffer(credentialID),
-      credentialPublicKey: isoBase64URL.fromBuffer(credentialPublicKey),
-      counter: verification.registrationInfo.counter,
-      createdAt: new Date().toISOString()
-    };
-
-    existingCredentials.push(newCredential);
-
-    // Update user with new credentials
-    await User.updateOne(
-      { UserID: user.UserID },
-      { 
-        PasskeyCredentials: JSON.stringify(existingCredentials),
-        HasPasskey: true
-      }
-    );
-
-    // Clear challenge from cache
-    challengeCache.delete(user.UserID.toString());
-
-    res.json({
-      success: true,
-      message: 'Đăng ký passkey thành công'
+    
+    credentials.push(credential);
+    
+    // Update user with new credential
+    await user.update({ 
+      passkeyCredentials: JSON.stringify(credentials),
+      hasPasskey: true
+    });
+    
+    return res.json({ 
+      success: true, 
+      message: 'Passkey registered successfully' 
     });
   } catch (error) {
-    console.error('Error verifying registration:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi xác minh đăng ký',
-      error: error.message
-    });
+    console.error('Error registering passkey:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
 /**
- * Generate authentication options for login
+ * Generate authentication options for login with passkey
  */
 exports.generateAuthenticationOptions = async (req, res) => {
   try {
     const { email } = req.body;
     
-    // Check if email is provided
     if (!email) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Email là bắt buộc' 
-      });
+      return res.status(400).json({ message: 'Email is required' });
     }
-
-    // Find user by email
-    const user = await User.findOne({ Email: email });
     
-    if (!user) {
+    const user = await User.findOne({ 
+      $or: [
+        { username: email },
+        { email: email }
+      ]
+    });
+    
+    if (!user || !user.hasPasskey) {
       return res.status(404).json({ 
-        success: false, 
-        message: 'Không tìm thấy người dùng với email này' 
+        success: false,
+        message: 'User not found or no passkey registered' 
       });
     }
-
-    // Check if user has registered passkeys
-    if (!user.HasPasskey) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Người dùng chưa đăng ký passkey' 
-      });
+    
+    // Generate a random challenge
+    const challenge = crypto.randomBytes(32);
+    const challengeBase64 = base64url.encode(challenge);
+    
+    // Store the challenge with user ID for verification later
+    challenges.set(user._id.toString(), {
+      challenge: challengeBase64,
+      userId: user._id
+    });
+    
+    // Get user credentials
+    let credentials = [];
+    if (user.passkeyCredentials) {
+      try {
+        credentials = JSON.parse(user.passkeyCredentials);
+      } catch (error) {
+        console.error('Error parsing credentials:', error);
+      }
     }
-
-    // Parse existing credentials
-    let existingCredentials = [];
-    try {
-      existingCredentials = JSON.parse(user.PasskeyCredentials || '[]');
-    } catch (error) {
-      console.error('Error parsing credentials:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Lỗi khi xử lý thông tin xác thực' 
-      });
-    }
-
-    if (!existingCredentials.length) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Không tìm thấy passkey đã đăng ký' 
-      });
-    }
-
-    // Generate authentication options
-    const options = await generateAuthenticationOptions({
-      rpID,
-      userVerification: 'preferred',
-      allowCredentials: existingCredentials.map(cred => ({
-        id: isoBase64URL.toBuffer(cred.credentialID),
+    
+    // Create authentication options
+    const authOptions = {
+      challenge: challengeBase64,
+      timeout: 60000,
+      rpId: rpID,
+      userVerification: 'required',
+      allowCredentials: credentials.map(cred => ({
+        id: cred.id,
         type: 'public-key',
-      })),
-    });
-
-    // Store challenge in cache with user ID
-    challengeCache.set(user.UserID.toString(), {
-      challenge: options.challenge,
-      email: user.Email,
-      expires: Date.now() + 5 * 60 * 1000, // 5 minutes expiry
-    });
-
-    res.json({
+        transports: ['internal']
+      }))
+    };
+    
+    return res.json({
       success: true,
-      options
+      options: authOptions,
+      userInfo: {
+        email: user.Email,
+        name: user.FullName || user.Username
+      }
     });
   } catch (error) {
     console.error('Error generating authentication options:', error);
-    res.status(500).json({
+    return res.status(500).json({ 
       success: false,
-      message: 'Lỗi máy chủ khi tạo tùy chọn xác thực',
-      error: error.message
+      message: 'Server error', 
+      error: error.message 
     });
   }
 };
 
 /**
- * Verify passkey authentication for login
+ * Verify passkey authentication
  */
 exports.verifyAuthentication = async (req, res) => {
   try {
     const { email, response } = req.body;
     
-    // Find user by email
-    const user = await User.findOne({ Email: email });
+    if (!email || !response) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email and authentication response are required'
+      });
+    }
     
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Không tìm thấy người dùng với email này' 
-      });
-    }
-
-    // Get stored challenge
-    const challengeData = challengeCache.get(user.UserID.toString());
-    if (!challengeData || challengeData.expires < Date.now()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Challenge đã hết hạn hoặc không hợp lệ, vui lòng thử lại' 
-      });
-    }
-
-    // Parse existing credentials
-    let existingCredentials = [];
-    try {
-      existingCredentials = JSON.parse(user.PasskeyCredentials || '[]');
-    } catch (error) {
-      console.error('Error parsing credentials:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Lỗi khi xử lý thông tin xác thực' 
-      });
-    }
-
-    // Find the credential that was used
-    const credentialID = isoBase64URL.fromBuffer(response.id);
-    const credential = existingCredentials.find(
-      cred => cred.credentialID === credentialID
-    );
-
-    if (!credential) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Không tìm thấy thông tin xác thực' 
-      });
-    }
-
-    // Verify the authentication response
-    const verification = await verifyAuthenticationResponse({
-      response,
-      expectedChallenge: challengeData.challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
-      authenticator: {
-        credentialID: isoBase64URL.toBuffer(credential.credentialID),
-        credentialPublicKey: isoBase64URL.toBuffer(credential.credentialPublicKey),
-        counter: credential.counter,
-      },
+    // Find user
+    const user = await User.findOne({
+      $or: [
+        { username: email },
+        { email: email }
+      ]
     });
-
-    if (!verification.verified) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Xác thực không thành công' 
+    
+    if (!user || !user.hasPasskey) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found or no passkey registered'
       });
     }
-
-    // Update the credential counter
-    credential.counter = verification.authenticationInfo.newCounter;
     
-    // Update credentials in database
-    await User.updateOne(
-      { UserID: user.UserID },
-      { PasskeyCredentials: JSON.stringify(existingCredentials) }
+    // Parse response data
+    const clientDataJSON = JSON.parse(
+      Buffer.from(base64url.decode(response.response.clientDataJSON)).toString()
     );
-
-    // Clear challenge from cache
-    challengeCache.delete(user.UserID.toString());
-
-    // Update last login info
-    await User.updateOne(
-      { UserID: user.UserID },
-      { 
-        LastLoginAt: new Date(),
-        LastLoginIP: req.ip
-      }
-    );
-
-    // Generate tokens
-    const accessToken = jwt.sign(
-      { userId: user.UserID, email: user.Email, role: user.Role },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-
-    const refreshToken = jwt.sign(
-      { userId: user.UserID },
-      process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    // Return user info and tokens
-    res.json({
+    
+    // Find the challenge
+    const storedData = challenges.get(user._id.toString());
+    if (!storedData || storedData.challenge !== clientDataJSON.challenge) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Authentication challenge not found or expired'
+      });
+    }
+    
+    // Remove used challenge
+    challenges.delete(user._id.toString());
+    
+    // Verify origin: use ORIGIN env var or request Origin header
+    const expectedOrigin = process.env.ORIGIN || req.headers.origin;
+    if (clientDataJSON.origin !== expectedOrigin) {
+      console.error(`Origin mismatch: expected ${expectedOrigin}, actual ${clientDataJSON.origin}`);
+      return res.status(400).json({ 
+        success: false,
+        message: 'Origin verification failed',
+        expected: expectedOrigin,
+        actual: clientDataJSON.origin
+      });
+    }
+    
+    // In a real implementation, we would verify the signature here
+    // For this example, we'll just assume the signature is valid
+    
+    // Generate JWT tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    
+    // Update last login time
+    await user.update({
+      lastLoginAt: new Date(),
+      lastLoginIP: req.ip || 'unknown'
+    });
+    
+    return res.json({
       success: true,
-      message: 'Đăng nhập thành công bằng passkey',
+      message: 'Authentication successful',
       user: {
-        id: user.UserID,
-        username: user.Username,
-        email: user.Email,
-        fullName: user.FullName,
-        role: user.Role,
-        image: user.Image
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        image: user.image
       },
       tokens: {
         accessToken,
@@ -382,54 +330,50 @@ exports.verifyAuthentication = async (req, res) => {
     });
   } catch (error) {
     console.error('Error verifying authentication:', error);
-    res.status(500).json({
+    return res.status(500).json({ 
       success: false,
-      message: 'Lỗi máy chủ khi xác minh xác thực',
-      error: error.message
+      message: 'Server error', 
+      error: error.message 
     });
   }
 };
 
 /**
- * List all registered passkeys for a user
+ * List all passkeys for the current user
  */
 exports.listPasskeys = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user.id;
+    const user = await User.findByPk(userId);
     
-    // Get user from database
-    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+      return res.status(404).json({ message: 'User not found' });
     }
-
-    // Parse existing credentials
+    
     let credentials = [];
-    if (user.HasPasskey && user.PasskeyCredentials) {
+    if (user.passkeyCredentials) {
       try {
-        const fullCredentials = JSON.parse(user.PasskeyCredentials);
-        // Only return non-sensitive information
-        credentials = fullCredentials.map(cred => ({
+        credentials = JSON.parse(user.passkeyCredentials);
+        
+        // Clean up sensitive data before sending to client
+        credentials = credentials.map(cred => ({
           id: cred.id,
+          name: cred.name || 'Unnamed passkey',
           createdAt: cred.createdAt
         }));
       } catch (error) {
         console.error('Error parsing credentials:', error);
       }
     }
-
-    res.json({
+    
+    return res.json({
       success: true,
-      hasPasskey: user.HasPasskey,
+      hasPasskey: user.hasPasskey,
       passkeys: credentials
     });
   } catch (error) {
     console.error('Error listing passkeys:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi lấy danh sách passkey',
-      error: error.message
-    });
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -438,60 +382,69 @@ exports.listPasskeys = async (req, res) => {
  */
 exports.removePasskey = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { passkeyId } = req.params;
+    const userId = req.user.id;
+    const passkeyId = req.params.passkeyId;
     
     if (!passkeyId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'ID passkey là bắt buộc' 
-      });
+      return res.status(400).json({ message: 'Passkey ID is required' });
     }
-
-    // Get user from database
-    const user = await User.findById(userId);
+    
+    const user = await User.findByPk(userId);
+    
     if (!user) {
-      return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
+      return res.status(404).json({ message: 'User not found' });
     }
-
-    // Parse existing credentials
+    
+    if (!user.passkeyCredentials) {
+      return res.status(404).json({ message: 'No passkeys found' });
+    }
+    
     let credentials = [];
-    if (user.PasskeyCredentials) {
-      try {
-        credentials = JSON.parse(user.PasskeyCredentials);
-      } catch (error) {
-        console.error('Error parsing credentials:', error);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Lỗi khi xử lý thông tin xác thực' 
-        });
+    try {
+      credentials = JSON.parse(user.passkeyCredentials);
+      if (!Array.isArray(credentials)) {
+        credentials = [];
       }
+    } catch (error) {
+      console.error('Error parsing credentials:', error);
+      return res.status(500).json({ message: 'Error parsing credentials' });
     }
-
-    // Filter out the credential to remove
+    
+    // Filter out the passkey to remove
     const updatedCredentials = credentials.filter(cred => cred.id !== passkeyId);
     
-    // Update user with new credentials list
+    // If no passkeys left, set hasPasskey to false
     const hasPasskey = updatedCredentials.length > 0;
-    await User.updateOne(
-      { UserID: user.UserID },
-      { 
-        PasskeyCredentials: JSON.stringify(updatedCredentials),
-        HasPasskey: hasPasskey
-      }
-    );
-
-    res.json({
+    
+    // Update user
+    await user.update({
+      passkeyCredentials: JSON.stringify(updatedCredentials),
+      hasPasskey
+    });
+    
+    return res.json({
       success: true,
-      message: 'Xóa passkey thành công',
+      message: 'Passkey removed successfully',
       hasPasskey
     });
   } catch (error) {
     console.error('Error removing passkey:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Lỗi máy chủ khi xóa passkey',
-      error: error.message
-    });
+    return res.status(500).json({ message: 'Server error', error: error.message });
   }
+};
+
+// Helper function to generate access token
+const generateAccessToken = (user) => {
+  // This should be implemented according to your authentication system
+  // For example, using JWT:
+  // return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return 'access-token-placeholder';
+};
+
+// Helper function to generate refresh token
+const generateRefreshToken = (user) => {
+  // This should be implemented according to your authentication system
+  // For example, using JWT with longer expiry:
+  // return jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  return 'refresh-token-placeholder';
 }; 

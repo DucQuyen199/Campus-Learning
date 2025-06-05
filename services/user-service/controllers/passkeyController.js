@@ -1,6 +1,7 @@
 const { base64url } = require('../utils/encoding');
 const User = require('../models/user');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const sql = require('mssql');
 const { pool } = require('../config/db');
@@ -12,6 +13,11 @@ const challenges = new Map();
 const rpName = 'CampusT';
 const rpID = process.env.RP_ID || 'localhost';
 const origin = process.env.ORIGIN || `https://${rpID}`;
+
+// Token configuration
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
+const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
 
 /**
  * Generate registration options for creating a new passkey
@@ -531,16 +537,18 @@ exports.removePasskey = async (req, res) => {
 
 // Helper function to generate access token
 const generateAccessToken = (user) => {
-  // This should be implemented according to your authentication system
-  // For example, using JWT:
-  // return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  return 'access-token-placeholder';
+  return jwt.sign(
+    { userId: user.UserID, role: user.Role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
 };
 
 // Helper function to generate refresh token
 const generateRefreshToken = (user) => {
-  // This should be implemented according to your authentication system
-  // For example, using JWT with longer expiry:
-  // return jwt.sign({ id: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
-  return 'refresh-token-placeholder';
+  return jwt.sign(
+    { userId: user.UserID, role: user.Role, tokenType: 'refresh' },
+    JWT_SECRET,
+    { expiresIn: JWT_REFRESH_EXPIRES_IN }
+  );
 }; 

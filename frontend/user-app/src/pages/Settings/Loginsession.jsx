@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { 
@@ -10,43 +10,23 @@ import {
   XMarkIcon,
   ShieldCheckIcon
 } from '@heroicons/react/24/outline';
+import { userServices } from '@/services/api';
 
 const LoginSession = () => {
   const dispatch = useDispatch();
+  const [sessions, setSessions] = useState([]);
   
-  // Mock data for sessions
-  const [sessions, setSessions] = useState([
-    {
-      id: 'session-1',
-      device: 'desktop',
-      browser: 'Chrome',
-      os: 'Windows 10',
-      ip: '192.168.1.1',
-      location: 'Hồ Chí Minh, Việt Nam',
-      lastActive: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-      isCurrent: true
-    },
-    {
-      id: 'session-2',
-      device: 'mobile',
-      browser: 'Safari',
-      os: 'iOS 15',
-      ip: '192.168.1.2',
-      location: 'Hà Nội, Việt Nam',
-      lastActive: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      isCurrent: false
-    },
-    {
-      id: 'session-3',
-      device: 'tablet',
-      browser: 'Firefox',
-      os: 'Android 12',
-      ip: '192.168.1.3',
-      location: 'Đà Nẵng, Việt Nam',
-      lastActive: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-      isCurrent: false
-    }
-  ]);
+  // Fetch sessions on mount
+  useEffect(() => {
+    userServices.getSessions()
+      .then(res => {
+        setSessions(res.data.sessions);
+      })
+      .catch(err => {
+        console.error('Error fetching sessions:', err);
+        toast.error('Không thể tải danh sách phiên đăng nhập');
+      });
+  }, []);
   
   // Format date to relative time
   const formatRelativeTime = (date) => {
@@ -83,26 +63,29 @@ const LoginSession = () => {
   
   // Handle terminate session
   const handleTerminateSession = (sessionId) => {
-    // Filter out the terminated session
-    const updatedSessions = sessions.filter(session => session.id !== sessionId);
-    setSessions(updatedSessions);
-    
-    // Show success message
-    toast.success('Phiên đăng nhập đã được kết thúc');
-    
-    // In a real app, we would dispatch an action to terminate the session
+    userServices.deleteSession(sessionId)
+      .then(() => {
+        toast.success('Phiên đăng nhập đã được kết thúc');
+        setSessions(sessions.filter(s => s.id !== sessionId));
+      })
+      .catch(err => {
+        console.error('Error terminating session:', err);
+        toast.error('Lỗi khi kết thúc phiên đăng nhập');
+      });
   };
   
   // Handle terminate all other sessions
   const handleTerminateAllOtherSessions = () => {
-    // Keep only the current session
-    const currentSession = sessions.find(session => session.isCurrent);
-    setSessions(currentSession ? [currentSession] : []);
-    
-    // Show success message
-    toast.success('Tất cả các phiên khác đã được kết thúc');
-    
-    // In a real app, we would dispatch an action to terminate all other sessions
+    userServices.terminateOtherSessions()
+      .then(() => {
+        const currentSession = sessions.find(s => s.isCurrent);
+        setSessions(currentSession ? [currentSession] : []);
+        toast.success('Tất cả các phiên khác đã được kết thúc');
+      })
+      .catch(err => {
+        console.error('Error terminating other sessions:', err);
+        toast.error('Lỗi khi kết thúc các phiên khác');
+      });
   };
   
   return (
@@ -224,79 +207,36 @@ const LoginSession = () => {
             <h3 className="text-lg font-medium text-gray-900">Lịch sử đăng nhập</h3>
           </div>
           <div className="p-5">
-            <p className="text-sm text-gray-500 mb-4">
-              Hiển thị lịch sử đăng nhập trong 30 ngày qua. Nếu bạn thấy hoạt động đáng ngờ, hãy thay đổi mật khẩu của bạn ngay lập tức.
-            </p>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead>
-                  <tr>
-                    <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thiết bị
-                    </th>
-                    <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Vị trí
-                    </th>
-                    <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thời gian
-                    </th>
-                    <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Trạng thái
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  <tr>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Chrome trên Windows 10
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      Hồ Chí Minh, Việt Nam
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      Hôm nay, 10:30
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Thành công
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Safari trên iOS 15
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      Hà Nội, Việt Nam
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      Hôm qua, 15:45
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Thành công
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Firefox trên Ubuntu
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      Đà Nẵng, Việt Nam
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-                      3 ngày trước, 09:12
-                    </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        Thất bại
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {sessions.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead>
+                    <tr>
+                      <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thiết bị</th>
+                      <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vị trí</th>
+                      <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời gian</th>
+                      <th className="px-3 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {sessions
+                      .sort((a, b) => new Date(b.lastActive) - new Date(a.lastActive))
+                      .map(session => (
+                        <tr key={session.id}>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">{session.browser} trên {session.os}</td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{session.location} ({session.ip})</td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">{formatRelativeTime(session.lastActive)}</td>
+                          <td className="px-3 py-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Thành công</span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center text-gray-500">Chưa có lịch sử đăng nhập</div>
+            )}
           </div>
         </div>
       </div>

@@ -72,3 +72,31 @@ CREATE TABLE UserEmails (
     VerifiedAt DATETIME NULL,
     CONSTRAINT UQ_UserEmails_User_Email UNIQUE (UserID, Email)
 );
+
+-- Table for SSH keys
+CREATE TABLE UserSSHKeys (
+    KeyID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+    Title NVARCHAR(100) NOT NULL,
+    KeyType VARCHAR(20) NOT NULL,
+    KeyValue NVARCHAR(MAX) NOT NULL,
+    Fingerprint VARCHAR(100) NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    LastUsedAt DATETIME NULL,
+    DeletedAt DATETIME NULL,
+    CONSTRAINT UQ_UserSSHKeys_User_Fingerprint UNIQUE (UserID, Fingerprint)
+);
+
+-- Table for GPG keys
+CREATE TABLE UserGPGKeys (
+    KeyID BIGINT IDENTITY(1,1) PRIMARY KEY,
+    UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+    Title NVARCHAR(100) NOT NULL,
+    KeyType VARCHAR(20) NOT NULL,
+    KeyValue NVARCHAR(MAX) NOT NULL,
+    Fingerprint VARCHAR(100) NOT NULL,
+    CreatedAt DATETIME DEFAULT GETDATE(),
+    ExpiresAt DATETIME NULL,
+    DeletedAt DATETIME NULL,
+    CONSTRAINT UQ_UserGPGKeys_User_Fingerprint UNIQUE (UserID, Fingerprint)
+);

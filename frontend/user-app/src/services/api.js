@@ -98,6 +98,10 @@ const userServices = {
   setPrimaryEmail: (emailId) => api.put(`/api/users/emails/${emailId}/primary`),
   deleteEmail: (emailId) => api.delete(`/api/users/emails/${emailId}`),
   resendVerificationEmail: (emailId) => api.post(`/api/users/emails/${emailId}/resend-verification`),
+  // Session management
+  getSessions: () => api.get('/api/users/sessions'),
+  deleteSession: (sessionId) => api.delete(`/api/users/sessions/${sessionId}`),
+  terminateOtherSessions: () => api.post('/api/users/sessions/terminate-others'),
 };
 
 // =================== COURSE SERVICES ===================

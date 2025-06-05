@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
 const emailController = require('../controllers/emailController');
+const sessionController = require('../controllers/sessionController');
 const authController = require('../controllers/authController');
+const sshController = require('../controllers/sshController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const User = require('../models/user');
 
@@ -23,29 +25,32 @@ router.get('/search', authMiddleware, userController.searchUsers);
 // Gợi ý bạn bè
 router.get('/suggest-friends', authMiddleware, userController.suggestFriends);
 
-// Đường dẫn mới cho danh sách người dùng (đảm bảo route này có '/' ở đầu)
-router.get('/', authMiddleware, userController.getUsers);
-
-// Email settings routes (moved before dynamic userId route)
+// Email settings routes
 router.get('/emails', authMiddleware, emailController.getUserEmails);
 router.post('/emails', authMiddleware, emailController.addUserEmail);
 router.put('/emails/:emailId/primary', authMiddleware, emailController.setPrimaryEmail);
 router.delete('/emails/:emailId', authMiddleware, emailController.deleteUserEmail);
 router.post('/emails/:emailId/resend-verification', authMiddleware, emailController.resendVerificationEmail);
 
+// SSH key routes
+router.get('/ssh-keys', authMiddleware, sshController.getUserSSHKeys);
+router.post('/ssh-keys', authMiddleware, sshController.addSSHKey);
+router.delete('/ssh-keys/:keyId', authMiddleware, sshController.deleteSSHKey);
+
+// GPG key routes
+router.get('/gpg-keys', authMiddleware, sshController.getUserGPGKeys);
+router.post('/gpg-keys', authMiddleware, sshController.addGPGKey);
+router.delete('/gpg-keys/:keyId', authMiddleware, sshController.deleteGPGKey);
+
+// Session management routes
+router.get('/sessions', authMiddleware, sessionController.getUserSessions);
+router.delete('/sessions/:sessionId', authMiddleware, sessionController.deleteUserSession);
+router.post('/sessions/terminate-others', authMiddleware, sessionController.terminateOtherSessions);
+
+// Đường dẫn mới cho danh sách người dùng (đảm bảo route này có '/' ở đầu)
+router.get('/', authMiddleware, userController.getUsers);
+
 // Route để lấy thông tin người dùng theo ID - phải đặt ở cuối cùng
 router.get('/:userId', authMiddleware, userController.getUserById);
-
-// Ensure you have a route handler for GET /api/users
-router.get('/', async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit) || 100;
-    const users = await User.find({}).limit(limit);
-    res.json(users);
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
 
 module.exports = router; 

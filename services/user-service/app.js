@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { authenticateToken } = require('./middleware/auth');
+const { runMigration: runSSHGPGMigration } = require('./utils/run-ssh-gpg-migration');
 
 // Load environment variables first
 dotenv.config();
@@ -20,6 +21,11 @@ db.sequelize.authenticate()
     console.log('Connected to database');
     // Set up model associations after successful authentication
     db.setupAssociations();
+    
+    // Run migrations
+    runSSHGPGMigration()
+      .then(() => console.log('SSH and GPG tables ready'))
+      .catch(err => console.error('Error setting up SSH and GPG tables:', err));
   })
   .catch(err => {
     console.error('Database connection error:', err);
@@ -46,6 +52,8 @@ const aiRoutes = require('./routes/aiRoutes');
 const competitionRoutes = require('./routes/competitionRoutes');
 const passkeyRoutes = require('./routes/passkeyRoutes');
 const app = express();
+// trust proxy so req.ip respects X-Forwarded-For
+app.set('trust proxy', true);
 
 // Initialize in-memory caches
 app.locals.conversationCache = {};

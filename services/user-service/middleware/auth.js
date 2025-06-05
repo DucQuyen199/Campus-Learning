@@ -4,6 +4,13 @@ const sql = require('mssql');
 
 // Create the authentication function
 const authenticate = async (req, res, next) => {
+  // Special case for /calls/active endpoint
+  if (req.path === '/calls/active' || req.originalUrl === '/calls/active') {
+    console.log('Allowing access to /calls/active without authentication');
+    req.user = { id: null, userId: null, role: 'GUEST' };
+    return next();
+  }
+  
   // Check if authentication should be bypassed for testing
   if (req.bypassAuth === true) {
     console.log('Bypassing authentication for testing');
@@ -21,7 +28,6 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded token:', decoded);
     
     // Handle different JWT token structures (id or userId)
     const userIdFromToken = decoded.userId || decoded.id;

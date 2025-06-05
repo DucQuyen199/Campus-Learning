@@ -162,7 +162,7 @@ app.use('/api', competitionRoutes);
 app.use('/api/passkeys', passkeyRoutes);
 
 // Direct route handler for /calls/active to fix 404 error
-app.get('/calls/active', authenticateToken, (req, res) => {
+app.get('/calls/active', (req, res) => {
   // Redirect to the proper endpoint
   const callController = require('./controllers/callController');
   return callController.getActiveCalls(req, res);

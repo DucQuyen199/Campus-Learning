@@ -6,18 +6,30 @@ import {
   EyeIcon,
   EyeSlashIcon,
   FingerPrintIcon,
-  XMarkIcon
+  ExclamationCircleIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import axios from 'axios';
 
 // Check if passkey is supported by the browser
 const isPasskeySupported = () => {
-  return window.PublicKeyCredential !== undefined;
+  // Check for basic PublicKeyCredential support
+  const hasCredentials = typeof window.PublicKeyCredential !== 'undefined';
+  // Check for isUserVerifyingPlatformAuthenticatorAvailable (needed for biometrics)
+  const hasBiometricCheck = hasCredentials && 
+    typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function';
+  
+  console.log('WebAuthn Support Check:', { 
+    hasCredentials, 
+    hasBiometricCheck
+  });
+  
+  return hasCredentials;
 };
 
 const Login = () => {
@@ -37,15 +49,29 @@ const Login = () => {
   const [redirectMessage, setRedirectMessage] = useState('');
   const [authChecked, setAuthChecked] = useState(false);
   const [isPasskeyAvailable, setIsPasskeyAvailable] = useState(false);
-  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
   const [biometricAttempts, setBiometricAttempts] = useState(0);
-  const [biometricState, setBiometricState] = useState('waiting'); // 'waiting', 'scanning', 'processing'
   const maxBiometricAttempts = 3;
   const biometricTimeoutRef = useRef(null);
-
-  // Check if browser supports passkeys
+  const emailInputRef = useRef(null);
+  
+  // Check if browser supports passkeys and platform authenticator (biometrics)
   useEffect(() => {
-    setIsPasskeyAvailable(isPasskeySupported());
+    // Basic WebAuthn support check
+    const hasBasicSupport = isPasskeySupported();
+    setIsPasskeyAvailable(hasBasicSupport);
+    
+    // Additionally check for platform authenticator (biometrics)
+    if (hasBasicSupport && typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(available => {
+          console.log(`Platform authenticator (biometrics) available: ${available}`);
+          // We'll still enable the button even if platform authenticator isn't available,
+          // as the user might have a security key or other authenticator
+        })
+        .catch(err => {
+          console.error('Error checking platform authenticator:', err);
+        });
+    }
   }, []);
 
   // Clear timeout on component unmount
@@ -93,17 +119,41 @@ const Login = () => {
   };
 
   const handleLoginSuccess = useCallback((userData) => {
-    // Store user data in Redux
-    dispatch(setUser(userData));
+    // Log incoming userData for debugging
+    console.log('handleLoginSuccess called with:', userData);
     
-    // Store user data in localStorage for persistence
-    localStorage.setItem('user', JSON.stringify(userData));
+    // Ensure user data has the required fields
+    const processedUserData = {
+      ...userData,
+      // Ensure consistent field naming (backend might use different formats)
+      id: userData.id || userData.UserID,
+      UserID: userData.UserID || userData.id,
+      username: userData.username || userData.Username,
+      email: userData.email || userData.Email,
+      role: (userData.role || userData.Role || 'STUDENT').toUpperCase(),
+      token: userData.token,
+    };
     
-    // Show success toast - don't wait for it to complete
+    // Store user data and token in Redux
+    dispatch(setUser(processedUserData));
+    
+    // Persist token and user in localStorage for future sessions
+    if (processedUserData.token) {
+      localStorage.setItem('token', processedUserData.token);
+      localStorage.setItem('authToken', processedUserData.token);
+    }
+    
+    // Store complete user data
+    localStorage.setItem('user', JSON.stringify(processedUserData));
+    
+    // Show success toast
     toast.success('Đăng nhập thành công!');
     
+    // Log that we're about to navigate
+    console.log('Navigating to home page after successful login');
+    
     // Navigate with replace to prevent going back to login page
-    navigate('/', { replace: true });
+    navigate('/home', { replace: true });
   }, [dispatch, navigate]);
 
   const loginWithPasskey = async () => {
@@ -113,161 +163,170 @@ const Login = () => {
       return;
     }
 
+    // Verify browser support first
+    if (!window.PublicKeyCredential) {
+      toast.error('Trình duyệt của bạn không hỗ trợ xác thực sinh trắc học.');
+      console.error('WebAuthn is not supported in this browser');
+      return;
+    }
+
     setError('');
-    setShowBiometricPrompt(true);
-    setBiometricState('waiting');
     
-    // Don't set loading state immediately, as we want to wait for user to interact with the biometric prompt
-    // Only after they start interacting with the OS prompt will we show loading state
+    // Ensure email is provided to fetch authentication options
+    if (!formData.email) {
+      setError('Vui lòng nhập email để đăng nhập bằng sinh trắc học');
+      toast.error('Vui lòng nhập email trước khi sử dụng sinh trắc học');
+      // Focus on the email input
+      if (emailInputRef.current) {
+        emailInputRef.current.focus();
+      }
+      return;
+    }
     
     try {
+      // Set loading state for the fingerprint button only
+      setPasskeyLoading(true);
+      
       let options;
-      let isConditionalMediationAvailable = false;
-
-      // Check if conditional mediation is available (modern browsers support this)
-      if (window.PublicKeyCredential && 
-          window.PublicKeyCredential.isConditionalMediationAvailable && 
-          typeof window.PublicKeyCredential.isConditionalMediationAvailable === 'function') {
-        isConditionalMediationAvailable = await window.PublicKeyCredential.isConditionalMediationAvailable();
-      }
-
-      if (!formData.email) {
-        // If no email provided, try to use conditional mediation (auto-fill)
-        if (!isConditionalMediationAvailable) {
-          setError('Vui lòng nhập email để đăng nhập bằng passkey');
-          setShowBiometricPrompt(false);
-          return;
-        }
-
-        // Use conditional mediation to auto-discover credentials
-        options = {
-          mediation: 'conditional',
-          publicKey: {
-            challenge: Uint8Array.from(
-              'auto-discover-challenge', 
-              c => c.charCodeAt(0)
-            ),
-            rpId: window.location.hostname,
-            userVerification: 'preferred',
-          }
-        };
-
-        // Start loading now, as the OS biometric prompt is about to appear
-        setPasskeyLoading(true);
-        setBiometricState('scanning');
+      console.log(`Requesting authentication options for email: ${formData.email}`);
+      try {
+        // Get the API base URL from environment or use a fallback
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        console.log(`Using API base URL: ${API_BASE_URL}`);
         
-        // Request authentication from browser using auto-discovery
-        // This is a blocking call - it will wait for the user to provide biometric input
-        const credential = await navigator.credentials.get(options);
-        
-        // Update state to show we're now processing the authentication
-        setBiometricState('processing');
-        
-        if (!credential) {
-          throw new Error('Không tìm thấy passkey');
-        }
-
-        // Extract user info from credential
-        const userHandle = credential.response.userHandle 
-          ? new TextDecoder().decode(credential.response.userHandle)
-          : null;
-        
-        if (!userHandle) {
-          throw new Error('Không thể xác định người dùng');
-        }
-
-        const userInfo = JSON.parse(userHandle);
-        setFormData({...formData, email: userInfo.email});
-        
-        // Now proceed with normal authentication using the discovered credential
-        const optionsResponse = await axios.post('/api/passkeys/auth/options', {
-          email: userInfo.email
-        });
-
-        options = optionsResponse.data.options;
-      } else {
-        // Normal flow with provided email
-        const optionsResponse = await axios.post('/api/passkeys/auth/options', {
+        const optionsResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/options`, {
           email: formData.email
         });
-
+        console.log('Server response for auth options:', optionsResponse.data);
         if (!optionsResponse.data.success) {
           throw new Error(optionsResponse.data.message || 'Không thể tạo yêu cầu xác thực');
         }
-
         options = optionsResponse.data.options;
-        
-        // Start loading now, as the OS biometric prompt is about to appear
-        setPasskeyLoading(true);
-        setBiometricState('scanning');
+      } catch (apiError) {
+        console.error('Error fetching authentication options:', apiError);
+        if (apiError.response) {
+          console.error('Server response:', apiError.response.data);
+          console.error('Status code:', apiError.response.status);
+        } else if (apiError.request) {
+          console.error('No response received:', apiError.request);
+          console.error('Network error or server not running');
+        } else {
+          console.error('Error setting up request:', apiError.message);
+        }
+        throw new Error(`Lỗi khi lấy thông tin xác thực: ${apiError.message}`);
       }
 
       // Step 2: Create credentials with WebAuthn API
-      options.challenge = Uint8Array.from(
-        atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), 
-        c => c.charCodeAt(0)
-      );
+      try {
+        // Convert base64url challenge to Uint8Array
+        options.challenge = Uint8Array.from(
+          atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), 
+          c => c.charCodeAt(0)
+        );
 
-      if (options.allowCredentials) {
-        options.allowCredentials = options.allowCredentials.map(credential => {
-          return {
-            ...credential,
-            id: Uint8Array.from(
-              atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')), 
-              c => c.charCodeAt(0)
-            )
-          };
-        });
+        if (options.allowCredentials) {
+          options.allowCredentials = options.allowCredentials.map(credential => {
+            return {
+              ...credential,
+              id: Uint8Array.from(
+                atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')), 
+                c => c.charCodeAt(0)
+              )
+            };
+          });
+        }
+      } catch (encodingError) {
+        console.error('Error preparing WebAuthn options:', encodingError);
+        throw new Error('Lỗi định dạng dữ liệu xác thực');
       }
+
+      // Tell the user what's happening
+      toast('Vui lòng xác thực bằng sinh trắc học của thiết bị khi được yêu cầu');
 
       // Request authentication from browser - this will trigger the OS biometric prompt
       // This is a blocking call - it will wait for the user to provide biometric input
+      // IMPORTANT: At this point, the device's native biometric UI (TouchID/FaceID/etc.) will appear
+      console.log('🔐 Activating device biometric authentication - watch for native OS prompt');
+      console.log('Authentication options:', JSON.stringify({
+        ...options,
+        challenge: 'Uint8Array',
+        allowCredentials: options.allowCredentials ? 'Array of credentials' : undefined
+      }));
+      
+      // Force a slight delay to ensure UI updates before the potentially blocking credential.get call
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // The native biometric prompt should appear after this call
       const credential = await navigator.credentials.get({
         publicKey: options
       });
 
-      // If we got here, the user has successfully provided their fingerprint/biometric
-      console.log('Biometric authentication successful - processing server verification');
-      setBiometricState('processing');
+      // If we got here, the user has successfully provided their fingerprint/biometric through the device's hardware
+      console.log('✅ Native biometric authentication successful - processing server verification');
 
       // Step 3: Prepare credential for server verification
-      const authResponse = {
-        id: credential.id,
-        rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId)))
-          .replace(/\+/g, '-')
-          .replace(/\//g, '_')
-          .replace(/=/g, ''),
-        response: {
-          clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON)))
+      let authResponse;
+      try {
+        authResponse = {
+          id: credential.id,
+          rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId)))
             .replace(/\+/g, '-')
             .replace(/\//g, '_')
             .replace(/=/g, ''),
-          authenticatorData: btoa(String.fromCharCode(...new Uint8Array(credential.response.authenticatorData)))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, ''),
-          signature: btoa(String.fromCharCode(...new Uint8Array(credential.response.signature)))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, ''),
-          userHandle: credential.response.userHandle
-            ? btoa(String.fromCharCode(...new Uint8Array(credential.response.userHandle)))
+          response: {
+            clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON)))
               .replace(/\+/g, '-')
               .replace(/\//g, '_')
-              .replace(/=/g, '')
-            : null
-        },
-        type: credential.type
-      };
+              .replace(/=/g, ''),
+            authenticatorData: btoa(String.fromCharCode(...new Uint8Array(credential.response.authenticatorData)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, ''),
+            signature: btoa(String.fromCharCode(...new Uint8Array(credential.response.signature)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, ''),
+            userHandle: credential.response.userHandle
+              ? btoa(String.fromCharCode(...new Uint8Array(credential.response.userHandle)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '')
+              : null
+          },
+          type: credential.type
+        };
+      } catch (encodingError) {
+        console.error('Error encoding credential for server:', encodingError);
+        throw new Error('Lỗi xử lý dữ liệu sinh trắc học');
+      }
 
       // Step 4: Send response to server for verification
-      const verifyResponse = await axios.post('/api/passkeys/auth/verify', {
-        email: formData.email,
-        response: authResponse
-      });
+      let verifyResponse;
+      try {
+        // Get the API base URL from environment or use a fallback
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        
+        verifyResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/verify`, {
+          email: formData.email,
+          response: authResponse
+        });
+        
+        console.log('Server verification response:', verifyResponse.data);
 
-      if (!verifyResponse.data.success) {
-        throw new Error(verifyResponse.data.message || 'Xác thực không thành công');
+        if (!verifyResponse.data.success) {
+          throw new Error(verifyResponse.data.message || 'Xác thực không thành công');
+        }
+      } catch (apiError) {
+        console.error('Error during server verification:', apiError);
+        if (apiError.response) {
+          console.error('Server response:', apiError.response.data);
+          console.error('Status code:', apiError.response.status);
+        } else if (apiError.request) {
+          console.error('No response received:', apiError.request);
+        } else {
+          console.error('Error setting up request:', apiError.message);
+        }
+        throw new Error(`Lỗi xác thực với máy chủ: ${apiError.message}`);
       }
 
       // Authentication successful - reset attempts
@@ -276,16 +335,36 @@ const Login = () => {
       // Handle successful login
       const { user, tokens } = verifyResponse.data;
       
-      // Store tokens
-      localStorage.setItem('accessToken', tokens.accessToken);
-      localStorage.setItem('refreshToken', tokens.refreshToken);
+      // Build full user object with token
+      const userWithToken = { 
+        ...user, 
+        token: tokens.accessToken,
+        // Ensure these critical fields are available for the app's authentication system
+        UserID: user.id,
+        username: user.username,
+        role: user.role || 'STUDENT',
+      };
       
-      // Handle successful login
-      handleLoginSuccess(user);
+      console.log('Constructed user object for login:', userWithToken);
+      
+      // Store tokens in localStorage directly for extra safety
+      localStorage.setItem('token', tokens.accessToken);
+      localStorage.setItem('authToken', tokens.accessToken);
+      
+      // Handle successful login via passkey
+      handleLoginSuccess(userWithToken);
       
       toast.success('Đăng nhập bằng sinh trắc học thành công!');
+      
+      // Add a direct navigation as backup in case handleLoginSuccess doesn't redirect
+      setTimeout(() => {
+        if (window.location.pathname.includes('/login')) {
+          console.log('Backup navigation to home triggered');
+          navigate('/home', { replace: true });
+        }
+      }, 1000);
     } catch (error) {
-      console.error('Passkey authentication error:', error);
+      console.error('❌ Passkey authentication error:', error);
       
       // Increment failed attempts
       const newAttempts = biometricAttempts + 1;
@@ -296,16 +375,32 @@ const Login = () => {
         setError('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
         toast.error('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
       } else {
-        setError(`Xác thực sinh trắc học thất bại (lần thử ${newAttempts}/${maxBiometricAttempts}). ${error.message || ''}`);
+        // Provide more helpful error messages based on common WebAuthn errors
+        let errorMessage = `Xác thực sinh trắc học thất bại (lần thử ${newAttempts}/${maxBiometricAttempts}).`;
+        
+        if (error.name === 'NotAllowedError') {
+          errorMessage += ' Người dùng từ chối xác thực hoặc không có sinh trắc học được đăng ký.';
+        } else if (error.name === 'SecurityError') {
+          errorMessage += ' Lỗi bảo mật: yêu cầu xác thực phải đến từ nguồn an toàn (HTTPS).';
+        } else if (error.name === 'AbortError') {
+          errorMessage += ' Xác thực bị hủy.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage += ' Phương thức xác thực không được hỗ trợ.';
+        } else {
+          errorMessage += ` ${error.message || ''}`;
+        }
+        
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     } finally {
       setPasskeyLoading(false);
-      setBiometricState('waiting');
       
-      // Add a small delay before hiding the prompt to ensure OS prompt is shown first
-      biometricTimeoutRef.current = setTimeout(() => {
-        setShowBiometricPrompt(false);
-      }, 500);
+      // Remove the timeout for hiding the prompt
+      if (biometricTimeoutRef.current) {
+        clearTimeout(biometricTimeoutRef.current);
+        biometricTimeoutRef.current = null;
+      }
     }
   };
 
@@ -390,9 +485,11 @@ const Login = () => {
             >
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Email
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Email
+                    </label>
+                  </div>
                   <div className="mt-1 relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <EnvelopeIcon className="h-5 w-5 text-gray-400" />
@@ -404,6 +501,7 @@ const Login = () => {
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
                       className="pl-10 block w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="your@email.com"
+                      ref={emailInputRef}
                     />
                   </div>
                 </div>
@@ -417,7 +515,7 @@ const Login = () => {
                       <LockClosedIcon className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                      type={showPassword ? "text" : "password"}
+                      type="password"
                       required
                       value={formData.password}
                       onChange={(e) => setFormData({...formData, password: e.target.value})}
@@ -462,111 +560,122 @@ const Login = () => {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center">
+              <div className="flex items-center space-x-4">
+                {/* Main login button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`flex-grow flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white ${
+                    loading 
+                      ? 'bg-blue-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                  } transition-colors`}
+                >
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang đăng nhập...
+                    </>
+                  ) : 'Đăng nhập'}
+                </button>
+                
+                {/* Fingerprint button */}
+                {isPasskeyAvailable && (
                   <button
-                    type="submit"
-                    disabled={loading}
-                    className={`flex-grow flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white ${
-                      loading 
-                        ? 'bg-blue-400 cursor-not-allowed' 
+                    type="button"
+                    onClick={loginWithPasskey}
+                    disabled={passkeyLoading || !formData.email}
+                    className={`p-3 border border-transparent rounded-lg shadow-sm ${
+                      passkeyLoading || !formData.email
+                        ? 'bg-gray-300 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                     } transition-colors`}
+                    title="Đăng nhập bằng sinh trắc học"
                   >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Đang đăng nhập...
-                      </>
-                    ) : 'Đăng nhập'}
+                    {passkeyLoading ? (
+                      <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <FingerPrintIcon className="h-6 w-6 text-white" />
+                    )}
                   </button>
-                  
-                  {isPasskeyAvailable && biometricAttempts < maxBiometricAttempts && (
-                    <button
-                      type="button"
-                      onClick={loginWithPasskey}
-                      disabled={passkeyLoading}
-                      className={`ml-2 p-3 border border-gray-300 rounded-lg shadow-sm ${
-                        passkeyLoading 
-                          ? 'bg-gray-100 cursor-not-allowed' 
-                          : 'bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                      } transition-colors`}
-                      title="Đăng nhập bằng sinh trắc học"
-                    >
-                      {passkeyLoading ? (
-                        <svg className="animate-spin h-5 w-5 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <FingerPrintIcon className="h-5 w-5 text-blue-600" />
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                {isPasskeyAvailable && biometricAttempts < maxBiometricAttempts ? (
-                  <div className="text-center text-xs text-gray-500">
-                    <span>Bấm vào biểu tượng vân tay để đăng nhập bằng sinh trắc học</span>
-                  </div>
-                ) : biometricAttempts >= maxBiometricAttempts && (
-                  <div className="text-center text-xs text-red-500">
-                    <span>Quá nhiều lần thử. Vui lòng sử dụng mật khẩu.</span>
-                  </div>
                 )}
+              </div>
 
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-white text-gray-500">Hoặc đăng nhập với</span>
-                  </div>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
                 </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Hoặc đăng nhập với</span>
+                </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-                  >
-                    <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
-                      <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4"
-                      />
-                      <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853"
-                      />
-                      <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05"
-                      />
-                      <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335"
-                      />
-                      <path d="M1 1h22v22H1z" fill="none" />
-                    </svg>
-                    Google
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-                  >
-                    <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
-                      />
-                    </svg>
-                    Github
-                  </button>
-                </div>
+              <div className="grid grid-cols-4 gap-3">
+                {/* Facebook */}
+                <button
+                  type="button"
+                  className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-5 w-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
+                    <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                
+                {/* Google */}
+                <button
+                  type="button"
+                  className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24">
+                    <path
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      fill="#4285F4"
+                    />
+                    <path
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      fill="#34A853"
+                    />
+                    <path
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                      fill="#FBBC05"
+                    />
+                    <path
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      fill="#EA4335"
+                    />
+                    <path d="M1 1h22v22H1z" fill="none" />
+                  </svg>
+                </button>
+                
+                {/* GitHub */}
+                <button
+                  type="button"
+                  className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"
+                    />
+                  </svg>
+                </button>
+                
+                {/* Twitter/X */}
+                <button
+                  type="button"
+                  className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </button>
               </div>
 
               <div className="text-center mt-6">
@@ -581,6 +690,22 @@ const Login = () => {
                 </span>
               </div>
             </motion.form>
+
+            {/* Display a message if fingerprint login is not available */}
+            {!isPasskeyAvailable && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-start space-x-3">
+                  <ExclamationCircleIcon className="h-6 w-6 text-yellow-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-gray-900">Thiết bị không hỗ trợ</h4>
+                    <p className="text-sm mt-1 text-gray-600">
+                      Trình duyệt hoặc thiết bị của bạn không hỗ trợ xác thực sinh trắc học.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </motion.div>
         </div>
 
@@ -952,7 +1077,7 @@ const Login = () => {
                 content: ["Tầng 15, Tòa nhà Innovation", "Quận 1, TP. Hồ Chí Minh"],
                 icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               }
             ].map((item, index) => (
@@ -1035,7 +1160,7 @@ const Login = () => {
               <a href="#" className="text-gray-400 hover:text-gray-500">
                 <span className="sr-only">LinkedIn</span>
                 <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path fillRule="evenodd" d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M20.447 20.452h-3.554v-5.569c0-1.328-.07-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" clipRule="evenodd" />
                 </svg>
               </a>
             </div>
@@ -1055,68 +1180,6 @@ const Login = () => {
           <p className="text-gray-400">© 2025 CAMPUST. Tất cả quyền được bảo lưu.</p>
         </div>
       </motion.footer>
-
-      {/* Biometric authentication modal */}
-      <AnimatePresence>
-        {showBiometricPrompt && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Xác thực sinh trắc học</h3>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowBiometricPrompt(false);
-                    setPasskeyLoading(false);
-                  }}
-                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex flex-col items-center justify-center py-4">
-                <div className="bg-blue-100 p-4 rounded-full mb-4">
-                  <FingerPrintIcon className={`h-12 w-12 ${biometricState === 'scanning' ? 'text-blue-700 animate-pulse' : 'text-blue-600'}`} />
-                </div>
-                <p className="text-center text-gray-700 mb-2">
-                  {biometricState === 'waiting' && 'Vui lòng xác thực danh tính của bạn'}
-                  {biometricState === 'scanning' && 'Đang quét vân tay...'}
-                  {biometricState === 'processing' && 'Xác thực thành công, đang xử lý...'}
-                </p>
-                <p className="text-center text-sm text-gray-500">
-                  {biometricState === 'waiting' && 'Sử dụng vân tay, khuôn mặt hoặc phương thức sinh trắc học đã đăng ký'}
-                  {biometricState === 'scanning' && 'Vui lòng đặt ngón tay lên cảm biến vân tay'}
-                  {biometricState === 'processing' && 'Đang đăng nhập vào hệ thống...'}
-                </p>
-                {biometricAttempts > 0 && (
-                  <p className="mt-3 text-sm text-red-600">
-                    Lần thử thứ {biometricAttempts + 1}/{maxBiometricAttempts}
-                  </p>
-                )}
-              </div>
-              <div className="mt-2">
-                <div className="flex justify-center">
-                  <div className={`flex space-x-1 ${biometricState === 'processing' ? 'animate-bounce' : 'animate-pulse'}`}>
-                    <div className={`h-2 w-2 rounded-full ${biometricState === 'processing' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                    <div className={`h-2 w-2 rounded-full ${biometricState === 'processing' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                    <div className={`h-2 w-2 rounded-full ${biometricState === 'processing' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

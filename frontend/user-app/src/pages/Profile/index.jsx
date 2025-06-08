@@ -24,10 +24,12 @@ import {
   UserIcon,
   UserGroupIcon,
   BookmarkIcon,
-  PencilIcon
+  PencilIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import PostList from '../../components/Post/PostList';
 import { Avatar } from '../../components';
+import EmailVerification from './EmailVerification';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -63,6 +65,8 @@ const Profile = () => {
 
   // Tab state for posts - added 'saved'
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'image', 'video', 'saved'
+
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -881,6 +885,37 @@ const Profile = () => {
         </div>
       )}
       
+      {/* Email Verification Modal */}
+      {showEmailVerification && (
+        <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" onClick={() => setShowEmailVerification(false)}></div>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="absolute top-0 right-0 pt-4 pr-4">
+                <button
+                  type="button"
+                  className="bg-white rounded-md text-gray-400 hover:text-gray-500"
+                  onClick={() => setShowEmailVerification(false)}
+                >
+                  <span className="sr-only">Close</span>
+                  <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                </button>
+              </div>
+              <EmailVerification onClose={(success) => {
+                setShowEmailVerification(false);
+                if (success) {
+                  // Update user data after successful verification
+                  setUserData(prev => ({
+                    ...prev,
+                    EmailVerified: true
+                  }));
+                }
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Main content grid */}
       <div className="flex w-full">
         {/* Left column - Profile Info - Fixed */}
@@ -1046,15 +1081,15 @@ const Profile = () => {
                       <div>
                         <p className="text-sm text-gray-500">Email</p>
                         <div className="flex items-center">
-                          <p className="text-gray-900 mr-2">{userData?.Email || userData?.email || 'Chưa cập nhật'}</p>
                           {(userData?.EmailVerified === true || userData?.emailVerified === true) ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              Đã xác thực
-                            </span>
+                            <p className="text-gray-900">{userData?.Email || userData?.email || 'Chưa cập nhật'}</p>
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Chưa xác thực
-                            </span>
+                            <p 
+                              className="text-red-600 cursor-pointer hover:underline"
+                              onClick={() => isOwnProfile && setShowEmailVerification(true)}
+                            >
+                              {userData?.Email || userData?.email || 'Chưa cập nhật'}
+                            </p>
                           )}
                         </div>
                       </div>

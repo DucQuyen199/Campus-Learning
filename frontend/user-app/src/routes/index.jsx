@@ -10,6 +10,7 @@ import Payment from '@/pages/Payment';
 import PaymentResult from '@/pages/PaymentResult';
 import LoginPage from '@/pages/Auth/Login';
 import RegisterPage from '@/pages/Auth/Register';
+import ForgotPasswordPage from '@/pages/Auth/ForgotPassword';
 import ProfilePage from '@/pages/Profile';
 import SettingsPage from '@/pages/Settings';
 import NotFound from '@/pages/NotFound';
@@ -62,6 +63,7 @@ const AppRoutes = () => {
       <Route path="/" element={<AuthLayout />}>
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
       </Route>
     </Routes>
   );

@@ -149,7 +149,7 @@ const Chat = () => {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         
-        setEvents(response.data || []);
+        setEvents(response.data.events || []);
       } catch (error) {
         console.error('Error fetching events:', error);
         setEventsError('Không thể tải danh sách sự kiện');
@@ -2349,7 +2349,7 @@ const Chat = () => {
                     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
                   })
                     .then(response => {
-                      setEvents(response.data || []);
+                      setEvents(response.data.events || []);
                       setEventsError(null);
                     })
                     .catch(error => {

@@ -22,4 +22,13 @@ router.post('/email/verify', verificationController.verifyEmail);
 // Resend verification OTP
 router.post('/email/resend-otp', verificationController.resendVerificationOTP);
 
+// Add a new email address to account
+router.post('/email/add', verificationController.addEmail);
+
+// Verify additional email
+router.post('/email/verify-additional', verificationController.verifyAdditionalEmail);
+
+// Resend verification for additional email
+router.post('/email/resend-additional-verification', verificationController.resendAdditionalEmailVerification);
+
 module.exports = router; 

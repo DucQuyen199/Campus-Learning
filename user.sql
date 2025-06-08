@@ -149,7 +149,7 @@ END
 ELSE
 BEGIN
     PRINT 'UserSSHKeys table already exists';
-END;
+END
 
 -- Add GPG keys table if it doesn't exist
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserGPGKeys')
@@ -172,7 +172,7 @@ END
 ELSE
 BEGIN
     PRINT 'UserGPGKeys table already exists';
-END; 
+END
 
 USE campushubt;
 
@@ -189,7 +189,25 @@ BEGIN
 END
 ELSE
 BEGIN
-    PRINT 'Type column already exists in EmailVerifications table';
-END; 
+    -- Check if the Type column size should be increased
+    DECLARE @TypeColumnLength INT;
+    SELECT @TypeColumnLength = CHARACTER_MAXIMUM_LENGTH 
+    FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'EmailVerifications' AND COLUMN_NAME = 'Type';
+    
+    IF @TypeColumnLength < 20
+    BEGIN
+        ALTER TABLE EmailVerifications
+        ALTER COLUMN Type VARCHAR(20);
+        
+        PRINT 'Type column modified to VARCHAR(20)';
+    END
+    ELSE
+    BEGIN
+        PRINT 'Type column already exists with sufficient length';
+    END
+END;
 
 use campushubt;
+
+SELECT * from users;

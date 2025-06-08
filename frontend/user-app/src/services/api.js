@@ -94,10 +94,11 @@ const userServices = {
   updateAchievements: (achievements) => api.put('/api/users/profile', { achievements }),
   // Email settings
   getEmails: () => api.get('/api/users/emails'),
-  addEmail: (email) => api.post('/api/users/emails', { email }),
+  addEmail: (email) => api.post('/api/verification/email/add', { email }),
   setPrimaryEmail: (emailId) => api.put(`/api/users/emails/${emailId}/primary`),
   deleteEmail: (emailId) => api.delete(`/api/users/emails/${emailId}`),
-  resendVerificationEmail: (emailId) => api.post(`/api/users/emails/${emailId}/resend-verification`),
+  resendVerificationEmail: (emailId) => api.post(`/api/verification/email/resend-additional-verification`, { emailId }),
+  verifyAdditionalEmail: (email, otp) => api.post('/api/verification/email/verify-additional', { email, otp }),
   // Session management
   getSessions: () => api.get('/api/users/sessions'),
   deleteSession: (sessionId) => api.delete(`/api/users/sessions/${sessionId}`),

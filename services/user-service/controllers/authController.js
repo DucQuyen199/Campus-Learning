@@ -131,8 +131,8 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Find user
-    const result = await transaction.request()
+    // First try to find user by primary email in Users table
+    let result = await transaction.request()
       .input('email', sql.VarChar, email)
       .query(`
         SELECT UserID, Username, Email, Password, FullName, Role, Status, AccountStatus, HasPasskey
@@ -142,13 +142,30 @@ exports.login = async (req, res) => {
         AND AccountStatus = 'ACTIVE'
       `);
 
-    const user = result.recordset[0];
-
+    let user = result.recordset[0];
+    
+    // If not found by primary email, check for verified secondary emails
     if (!user) {
-      await transaction.rollback();
-      return res.status(401).json({
-        message: 'Email hoặc mật khẩu không chính xác'
-      });
+      const secondaryEmailResult = await transaction.request()
+        .input('email', sql.VarChar, email)
+        .query(`
+          SELECT u.UserID, u.Username, u.Email AS PrimaryEmail, u.Password, u.FullName, u.Role, u.Status, u.AccountStatus, u.HasPasskey
+          FROM Users u
+          JOIN UserEmails ue ON u.UserID = ue.UserID
+          WHERE ue.Email = @email
+          AND ue.IsVerified = 1
+          AND u.DeletedAt IS NULL
+          AND u.AccountStatus = 'ACTIVE'
+        `);
+        
+      if (secondaryEmailResult.recordset.length > 0) {
+        user = secondaryEmailResult.recordset[0];
+      } else {
+        await transaction.rollback();
+        return res.status(401).json({
+          message: 'Email hoặc mật khẩu không chính xác'
+        });
+      }
     }
 
     // Check password
@@ -197,6 +214,9 @@ exports.login = async (req, res) => {
     );
 
     const hasPasskey = user.HasPasskey;
+    
+    // Use the primary email in the response
+    const responseEmail = user.PrimaryEmail || user.Email;
 
     res.json({
       message: 'Đăng nhập thành công',
@@ -205,7 +225,7 @@ exports.login = async (req, res) => {
       user: {
         id: user.UserID,
         username: user.Username,
-        email: user.Email,
+        email: responseEmail,
         fullName: user.FullName,
         role: user.Role,
         hasPasskey

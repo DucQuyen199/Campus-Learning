@@ -23,7 +23,8 @@ import {
   ClockIcon,
   UserIcon,
   UserGroupIcon,
-  BookmarkIcon
+  BookmarkIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import PostList from '../../components/Post/PostList';
 import { Avatar } from '../../components';
@@ -888,30 +889,7 @@ const Profile = () => {
             {/* Header Section */}
             <div className="bg-blue-600 h-32 md:h-40 relative">
               <div className="absolute -bottom-16 md:-bottom-20 left-8">
-                <div className="h-32 w-32 md:h-40 md:w-40 rounded-full bg-white p-1 relative">
-                  <div 
-                    className={`w-full h-full rounded-full overflow-hidden relative ${isOwnProfile ? 'cursor-pointer group' : ''}`}
-                    onClick={isOwnProfile ? handleProfilePictureClick : undefined}
-                  >
-                    <Avatar 
-                      src={userData?.Image}
-                      name={userData?.FullName}
-                      alt={userData?.FullName}
-                      size="xxl"
-                      className="border-2 border-white"
-                    />
-                    
-                    {isOwnProfile && (
-                      <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        {uploadingImage ? (
-                          <ArrowPathIcon className="h-8 w-8 text-white animate-spin" />
-                        ) : (
-                          <CameraIcon className="h-8 w-8 text-white" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
+                <div className="h-32 w-32 md:h-40 md:w-40 rounded-full bg-white p-1 relative flex items-center justify-center overflow-hidden">
                   {isOwnProfile && (
                     <input
                       type="file"
@@ -920,6 +898,26 @@ const Profile = () => {
                       className="hidden"
                       accept="image/*"
                     />
+                  )}
+                  
+                  <Avatar 
+                    src={userData?.Image}
+                    name={userData?.FullName}
+                    alt={userData?.FullName}
+                    size="xxl"
+                    className="border-2 border-white w-full h-full object-cover"
+                    onClick={isOwnProfile ? handleProfilePictureClick : undefined}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                  
+                  {isOwnProfile && (
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-full cursor-pointer" onClick={handleProfilePictureClick}>
+                      {uploadingImage ? (
+                        <ArrowPathIcon className="h-8 w-8 text-white animate-spin" />
+                      ) : (
+                        <CameraIcon className="h-8 w-8 text-white" />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -1022,9 +1020,10 @@ const Profile = () => {
                     ) : (
                       <button
                         onClick={handleEdit}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition border border-gray-300"
+                        title="Chỉnh sửa thông tin"
                       >
-                        Chỉnh sửa
+                        <PencilIcon className="h-5 w-5 text-gray-600" />
                       </button>
                     )
                   )}

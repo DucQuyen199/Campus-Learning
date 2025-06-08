@@ -61,6 +61,7 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
         className="w-full h-full object-cover object-center"
         onError={handleImageError}
         loading="lazy"
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
     </div>
   );

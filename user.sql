@@ -100,3 +100,96 @@ CREATE TABLE UserGPGKeys (
     DeletedAt DATETIME NULL,
     CONSTRAINT UQ_UserGPGKeys_User_Fingerprint UNIQUE (UserID, Fingerprint)
 );
+
+-- Tạo bảng EmailVerifications nếu chưa tồn tại
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[EmailVerifications]') AND type in (N'U'))
+BEGIN
+    CREATE TABLE EmailVerifications (
+        VerificationID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        UserID BIGINT NOT NULL,
+        Email VARCHAR(100) NOT NULL,
+        OTP VARCHAR(6) NOT NULL,
+        ExpiresAt DATETIME NOT NULL,
+        IsUsed BIT DEFAULT 0,
+        CreatedAt DATETIME DEFAULT GETDATE(),
+        CONSTRAINT FK_EmailVerifications_Users FOREIGN KEY (UserID) REFERENCES Users(UserID)
+    );
+    
+    CREATE INDEX IX_EmailVerifications_UserID ON EmailVerifications(UserID);
+    CREATE INDEX IX_EmailVerifications_Email ON EmailVerifications(Email);
+    CREATE INDEX IX_EmailVerifications_OTP ON EmailVerifications(OTP);
+    
+    PRINT 'Bảng EmailVerifications đã được tạo thành công';
+END
+ELSE
+BEGIN
+    PRINT 'Bảng EmailVerifications đã tồn tại';
+END 
+
+use campushubt;
+
+-- Add SSH keys table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserSSHKeys')
+BEGIN
+    CREATE TABLE UserSSHKeys (
+        KeyID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+        Title NVARCHAR(100) NOT NULL,
+        KeyType VARCHAR(20) NOT NULL,
+        KeyValue NVARCHAR(MAX) NOT NULL,
+        Fingerprint VARCHAR(100) NOT NULL,
+        CreatedAt DATETIME DEFAULT GETDATE(),
+        LastUsedAt DATETIME NULL,
+        DeletedAt DATETIME NULL,
+        CONSTRAINT UQ_UserSSHKeys_User_Fingerprint UNIQUE (UserID, Fingerprint)
+    );
+    
+    PRINT 'Created UserSSHKeys table';
+END
+ELSE
+BEGIN
+    PRINT 'UserSSHKeys table already exists';
+END;
+
+-- Add GPG keys table if it doesn't exist
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserGPGKeys')
+BEGIN
+    CREATE TABLE UserGPGKeys (
+        KeyID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+        Title NVARCHAR(100) NOT NULL,
+        KeyType VARCHAR(20) NOT NULL,
+        KeyValue NVARCHAR(MAX) NOT NULL,
+        Fingerprint VARCHAR(100) NOT NULL,
+        CreatedAt DATETIME DEFAULT GETDATE(),
+        ExpiresAt DATETIME NULL,
+        DeletedAt DATETIME NULL,
+        CONSTRAINT UQ_UserGPGKeys_User_Fingerprint UNIQUE (UserID, Fingerprint)
+    );
+    
+    PRINT 'Created UserGPGKeys table';
+END
+ELSE
+BEGIN
+    PRINT 'UserGPGKeys table already exists';
+END; 
+
+USE campushubt;
+
+-- Add Type column to EmailVerifications table if it doesn't exist
+IF NOT EXISTS (
+    SELECT * FROM INFORMATION_SCHEMA.COLUMNS 
+    WHERE TABLE_NAME = 'EmailVerifications' AND COLUMN_NAME = 'Type'
+)
+BEGIN
+    ALTER TABLE EmailVerifications
+    ADD Type VARCHAR(20) NULL DEFAULT 'email_verification';
+    
+    PRINT 'Type column added to EmailVerifications table';
+END
+ELSE
+BEGIN
+    PRINT 'Type column already exists in EmailVerifications table';
+END; 
+
+use campushubt;

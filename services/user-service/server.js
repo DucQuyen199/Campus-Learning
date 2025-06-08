@@ -11,6 +11,47 @@ const path = require('path');
 
 const PORT = process.env.PORT || 5001;
 
+// Hàm tạo bảng EmailVerifications
+async function createEmailVerificationsTable() {
+  try {
+    console.log('Creating EmailVerifications table if it does not exist...');
+    
+    const checkTableResult = await pool.request().query(`
+      SELECT OBJECT_ID('dbo.EmailVerifications') as TableExists
+    `);
+    
+    const tableExists = checkTableResult.recordset[0].TableExists !== null;
+    
+    if (!tableExists) {
+      await pool.request().query(`
+        CREATE TABLE EmailVerifications (
+          VerificationID BIGINT IDENTITY(1,1) PRIMARY KEY,
+          UserID BIGINT NOT NULL,
+          Email VARCHAR(100) NOT NULL,
+          OTP VARCHAR(6) NOT NULL,
+          ExpiresAt DATETIME NOT NULL,
+          IsUsed BIT DEFAULT 0,
+          CreatedAt DATETIME DEFAULT GETDATE(),
+          CONSTRAINT FK_EmailVerifications_Users FOREIGN KEY (UserID) REFERENCES Users(UserID)
+        );
+        
+        CREATE INDEX IX_EmailVerifications_UserID ON EmailVerifications(UserID);
+        CREATE INDEX IX_EmailVerifications_Email ON EmailVerifications(Email);
+        CREATE INDEX IX_EmailVerifications_OTP ON EmailVerifications(OTP);
+      `);
+      
+      console.log('EmailVerifications table created successfully.');
+    } else {
+      console.log('EmailVerifications table already exists.');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error creating EmailVerifications table:', error);
+    throw error;
+  }
+}
+
 // Create HTTP server
 const server = http.createServer(app);
 
@@ -52,6 +93,13 @@ const startServer = async () => {
   try {
     // Start execution service
     const executionService = startExecutionService();
+    
+    // Run database migrations
+    try {
+      await createEmailVerificationsTable();
+    } catch (migrationError) {
+      console.error('Migration error:', migrationError);
+    }
     
     // Initialize Docker first
     const dockerResult = await initializeDocker();

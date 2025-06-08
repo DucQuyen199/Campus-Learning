@@ -4,16 +4,11 @@ const { pool } = require('../config/db');
 
 async function runMigration() {
   try {
-    console.log('Running SSH and GPG tables migration...');
+    console.log('Skipping SSH and GPG tables migration (not required)...');
     
-    // Read the SQL migration file
-    const migrationFilePath = path.join(__dirname, 'migrations', 'ssh_gpg_tables.sql');
-    const migrationSql = fs.readFileSync(migrationFilePath, 'utf8');
-    
-    // Execute the SQL
-    await pool.request().query(migrationSql);
-    
-    console.log('SSH and GPG tables migration completed successfully');
+    // No longer trying to read the missing SQL file
+    // Just return success since we don't need to create these tables
+    return true;
   } catch (error) {
     console.error('Migration failed:', error);
   }

@@ -51,6 +51,7 @@ const friendshipRoutes = require('./routes/friendshipRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const competitionRoutes = require('./routes/competitionRoutes');
 const passkeyRoutes = require('./routes/passkeyRoutes');
+const verificationRoutes = require('./routes/verificationRoutes');
 const app = express();
 // trust proxy so req.ip respects X-Forwarded-For
 app.set('trust proxy', true);
@@ -160,6 +161,7 @@ app.use('/api/friendships', friendshipRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api', competitionRoutes);
 app.use('/api/passkeys', passkeyRoutes);
+app.use('/api/verification', verificationRoutes);
 
 // Direct route handler for /calls/active to fix 404 error
 app.get('/calls/active', (req, res) => {

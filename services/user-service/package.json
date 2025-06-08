@@ -34,6 +34,7 @@
     "morgan": "^1.10.0",
     "mssql": "^9.1.1",
     "multer": "^1.4.5-lts.2",
+    "nodemailer": "^7.0.3",
     "react-redux": "^9.2.0",
     "redis": "^4.6.7",
     "sequelize": "^6.37.6",

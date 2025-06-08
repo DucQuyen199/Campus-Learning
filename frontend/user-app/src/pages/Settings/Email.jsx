@@ -7,7 +7,8 @@ import {
   PlusCircleIcon, 
   TrashIcon,
   CheckCircleIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  LockClosedIcon
 } from '@heroicons/react/24/outline';
 import { userServices } from '@/services/api';
 
@@ -20,6 +21,11 @@ const Email = () => {
   const [newEmail, setNewEmail] = useState('');
   const [showAddEmail, setShowAddEmail] = useState(false);
   const [emailPrivacy, setEmailPrivacy] = useState(true);
+  
+  // State for email verification
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
   
   useEffect(() => {
     userServices.getEmails()
@@ -43,19 +49,29 @@ const Email = () => {
       return;
     }
     
+    // Check email limit (max 3)
+    if (emails.length >= 3) {
+      toast.error('Bạn chỉ có thể thêm tối đa 3 địa chỉ email');
+      return;
+    }
+    
     // Call API to add email
     userServices.addEmail(newEmail)
       .then(() => {
         toast.success('Email đã được thêm. Vui lòng kiểm tra hộp thư để xác thực.');
         setNewEmail('');
         setShowAddEmail(false);
+        // Show verification form
+        setVerificationEmail(newEmail);
+        setShowVerification(true);
+        
         // Refresh list
         return userServices.getEmails();
       })
       .then(res => setEmails(res.data.emails))
       .catch(error => {
         console.error('Error adding email:', error);
-        toast.error('Có lỗi khi thêm email');
+        toast.error(error.response?.data?.message || 'Có lỗi khi thêm email');
       });
   };
   
@@ -93,7 +109,32 @@ const Email = () => {
       .then(() => toast.info('Đã gửi lại email xác thực'))
       .catch(error => {
         console.error('Error resending verification:', error);
-        toast.error('Có lỗi khi gửi lại email xác thực');
+        toast.error(error.response?.data?.message || 'Có lỗi khi gửi lại email xác thực');
+      });
+  };
+  
+  // Handle verify email with OTP
+  const handleVerifyEmail = (e) => {
+    e.preventDefault();
+    
+    if (!verificationCode || verificationCode.length < 6) {
+      toast.error('Vui lòng nhập mã xác thực hợp lệ');
+      return;
+    }
+    
+    userServices.verifyAdditionalEmail(verificationEmail, verificationCode)
+      .then(() => {
+        toast.success('Xác thực email thành công');
+        setShowVerification(false);
+        setVerificationCode('');
+        setVerificationEmail('');
+        // Refresh email list
+        return userServices.getEmails();
+      })
+      .then(res => setEmails(res.data.emails))
+      .catch(error => {
+        console.error('Error verifying email:', error);
+        toast.error(error.response?.data?.message || 'Có lỗi khi xác thực email');
       });
   };
   
@@ -218,6 +259,61 @@ const Email = () => {
               ))}
             </div>
             
+            {/* Verification Form */}
+            {showVerification && (
+              <div className="mt-6 p-4 border border-blue-100 rounded-md bg-blue-50">
+                <div className="flex items-start mb-3">
+                  <LockClosedIcon className="h-5 w-5 text-blue-600 mt-0.5 mr-2" />
+                  <h4 className="font-medium text-blue-800">Xác thực email: {verificationEmail}</h4>
+                </div>
+                <form onSubmit={handleVerifyEmail} className="space-y-3">
+                  <div>
+                    <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nhập mã xác thực đã gửi đến email của bạn
+                    </label>
+                    <input
+                      type="text"
+                      id="verificationCode"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Nhập mã 6 chữ số"
+                      maxLength={6}
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Nếu bạn không thấy email, hãy kiểm tra thư mục spam
+                    </p>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      Xác thực
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        userServices.resendVerificationEmail(verificationEmail);
+                        toast.info("Đã gửi lại mã xác thực");
+                      }}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      Gửi lại mã
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowVerification(false)}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      Sau này
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+            
             {showAddEmail ? (
               <div className="mt-6">
                 <form onSubmit={handleAddEmail} className="space-y-4">
@@ -257,10 +353,16 @@ const Email = () => {
                 <button
                   onClick={() => setShowAddEmail(true)}
                   className="flex items-center text-blue-600 hover:text-blue-800"
+                  disabled={emails.length >= 3}
                 >
                   <PlusCircleIcon className="h-5 w-5 mr-1" />
-                  <span>Thêm địa chỉ email</span>
+                  <span>Thêm địa chỉ email {emails.length >= 3 && '(Đã đạt giới hạn)'}</span>
                 </button>
+                {emails.length >= 3 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Bạn chỉ có thể thêm tối đa 3 địa chỉ email.
+                  </p>
+                )}
               </div>
             )}
           </div>

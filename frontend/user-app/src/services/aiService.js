@@ -157,7 +157,7 @@ const isITRelatedQuestion = (message) => {
 export const initChat = async () => {
   try {
     // Kiểm tra xem API key có tồn tại không
-    if (!API_KEY || API_KEY === 'undefined' || API_KEY === '') {
+    if (!API_KEY || API_KEY === 'undefined') {
       throw new Error('API key không hợp lệ hoặc chưa được cấu hình');
     }
 

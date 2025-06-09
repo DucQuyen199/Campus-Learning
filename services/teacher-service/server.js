@@ -4,10 +4,40 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const routes = require('./routes');
 const { poolPromise } = require('./config/database');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
+
+// Import routes
+const authRoutes = require('./routes/auth.routes');
+const courseRoutes = require('./routes/course.routes');
+const studentRoutes = require('./routes/student.routes');
+const assignmentRoutes = require('./routes/assignment.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5003;
+
+// Authentication middleware
+const authenticate = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'Invalid token format' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('Auth error:', error);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
+};
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -48,6 +78,12 @@ poolPromise.then((pool) => {
   console.error('Database connection failed:', err);
   // Don't exit process, let the reconnection logic handle it
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/courses', authenticate, courseRoutes);
+app.use('/api/students', authenticate, studentRoutes);
+app.use('/api/assignments', authenticate, assignmentRoutes);
 
 // API Routes
 app.use('/api/v1', routes); // Match the frontend's expected endpoint

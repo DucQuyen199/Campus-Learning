@@ -3,34 +3,37 @@ const jwt = require('jsonwebtoken');
 
 const teacherAuth = async (req, res, next) => {
     try {
-        // Lấy token từ header
+        // Get token from header
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) {
-            return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
+            return res.status(401).json({ message: 'Authentication token not found' });
         }
 
         // Verify token
         let decoded;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET);
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
         } catch (error) {
             console.error('JWT Verification Error:', error);
             if (error.name === 'TokenExpiredError') {
-                return res.status(401).json({ message: 'Token đã hết hạn' });
+                return res.status(401).json({ message: 'Token has expired' });
             }
-            return res.status(401).json({ message: 'Token không hợp lệ' });
+            return res.status(401).json({ message: 'Invalid token' });
         }
         
         // Check if userId exists in the decoded token
-        if (!decoded.userId) {
-            return res.status(401).json({ message: 'Token không chứa thông tin người dùng' });
+        // Support both naming conventions: userId and UserID
+        const userId = decoded.userId || decoded.UserID;
+        
+        if (!userId) {
+            return res.status(401).json({ message: 'Token does not contain user information' });
         }
 
         try {
-            // Kiểm tra user và role trong database
+            // Check user and role in database
             const pool = await poolPromise;
             const result = await pool.request()
-                .input('userId', decoded.userId)
+                .input('userId', userId)
                 .query(`
                     SELECT u.UserID, u.Role, u.FullName, u.Email, u.Avatar 
                     FROM Users u
@@ -41,16 +44,18 @@ const teacherAuth = async (req, res, next) => {
 
             if (result.recordset.length === 0) {
                 return res.status(403).json({ 
-                    message: 'Không có quyền truy cập. Tài khoản không phải giáo viên hoặc quản trị viên',
+                    message: 'Access denied. Account is not a teacher or administrator',
                     error: 'forbidden',
-                    userId: decoded.userId
+                    userId: userId
                 });
             }
 
-            // Thêm thông tin user vào request để sử dụng trong các handlers
+            // Add user info to request for use in handlers
+            // Ensure both formats are available for backward compatibility
             req.user = {
                 ...result.recordset[0],
-                UserID: decoded.userId
+                userId: userId,
+                UserID: userId
             };
             
             console.log(`User authenticated: ${req.user.FullName} (${req.user.Role})`);
@@ -58,14 +63,14 @@ const teacherAuth = async (req, res, next) => {
         } catch (dbError) {
             console.error('Database Error in Auth Middleware:', dbError);
             return res.status(500).json({ 
-                message: 'Lỗi khi kiểm tra quyền người dùng',
+                message: 'Error checking user permissions',
                 error: dbError.message 
             });
         }
     } catch (error) {
         console.error('Auth Error:', error);
         res.status(401).json({ 
-            message: 'Lỗi xác thực người dùng',
+            message: 'User authentication error',
             error: error.message
         });
     }

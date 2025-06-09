@@ -1,466 +1,239 @@
 const express = require('express');
 const router = express.Router();
 const { poolPromise, sql } = require('../config/database');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-// TODO: Import controller khi đã tạo
-// const assignmentController = require('../controllers/assignmentController');
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../uploads/assignments');
+    
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename with original extension
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, uniqueSuffix + ext);
+  }
+});
 
-// Get all assignments created by the teacher
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Get all assignments for the teacher
 router.get('/', async (req, res) => {
   try {
-    const { search, courseId, moduleId, status, page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
-    
+    const { search, courseId } = req.query;
     const pool = await poolPromise;
     const request = pool.request()
-      .input('teacherId', sql.BigInt, req.user.UserID)
-      .input('offset', sql.Int, offset)
-      .input('limit', sql.Int, parseInt(limit));
+      .input('teacherId', sql.BigInt, req.user.UserID);
     
-    // Modified query to use CodingExercises as assignments
     let query = `
       SELECT 
-        ce.ExerciseID as AssignmentID, 
-        ce.Title, 
-        ce.Description, 
-        DATEADD(day, 14, ce.CreatedAt) as DueDate, 
-        ce.Points as TotalPoints, 
-        ce.CreatedAt, 
-        ce.UpdatedAt,
-        cl.LessonID,
-        cl.Title as LessonTitle,
-        cm.ModuleID, 
-        cm.Title as ModuleTitle,
-        c.CourseID, 
-        c.Title as CourseTitle,
-        (SELECT COUNT(*) FROM CodingSubmissions WHERE ExerciseID = ce.ExerciseID) as SubmissionsCount
-      FROM CodingExercises ce
-      JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-      JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-      JOIN Courses c ON cm.CourseID = c.CourseID
-      WHERE (c.InstructorID = @teacherId)
+        a.AssignmentID, a.Title, a.Description, a.CourseID, a.TotalPoints, a.DueDate, 
+        a.CreatedAt, a.UpdatedAt,
+        c.Title as CourseName,
+        (SELECT COUNT(*) FROM AssignmentSubmissions WHERE AssignmentID = a.AssignmentID) as SubmissionsCount,
+        (SELECT COUNT(*) FROM CourseEnrollments WHERE CourseID = a.CourseID AND Status = 'active') as StudentsCount
+      FROM Assignments a
+      JOIN Courses c ON a.CourseID = c.CourseID
+      WHERE c.InstructorID = @teacherId
     `;
     
-    const countQuery = `
-      SELECT COUNT(*) as TotalCount
-      FROM CodingExercises ce
-      JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-      JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-      JOIN Courses c ON cm.CourseID = c.CourseID
-      WHERE (c.InstructorID = @teacherId)
-    `;
-    
-    // Add filters if provided
     if (search) {
-      request.input('search', sql.NVarChar(100), `%${search}%`);
-      query += ` AND (ce.Title LIKE @search OR ce.Description LIKE @search)`;
-      countQuery += ` AND (ce.Title LIKE @search OR ce.Description LIKE @search)`;
+      request.input('search', sql.NVarChar, `%${search}%`);
+      query += ` AND (a.Title LIKE @search OR a.Description LIKE @search)`;
     }
     
     if (courseId) {
       request.input('courseId', sql.BigInt, courseId);
-      query += ` AND c.CourseID = @courseId`;
-      countQuery += ` AND c.CourseID = @courseId`;
+      query += ` AND a.CourseID = @courseId`;
     }
     
-    if (moduleId) {
-      request.input('moduleId', sql.BigInt, moduleId);
-      query += ` AND cm.ModuleID = @moduleId`;
-      countQuery += ` AND cm.ModuleID = @moduleId`;
-    }
+    query += ` ORDER BY a.CreatedAt DESC`;
     
-    if (status === 'active') {
-      const now = new Date();
-      console.log('Using ACTIVE status filter with date:', now);
-      request.input('activeNow', sql.DateTime, now);
-      query += ` AND DATEADD(day, 14, ce.CreatedAt) > @activeNow`;  // Setting an arbitrary due date 14 days after creation
-      countQuery += ` AND DATEADD(day, 14, ce.CreatedAt) > @activeNow`;
-    } else if (status === 'past') {
-      const now = new Date();
-      console.log('Using PAST status filter with date:', now);
-      request.input('pastNow', sql.DateTime, now);
-      query += ` AND DATEADD(day, 14, ce.CreatedAt) <= @pastNow`;  // Setting an arbitrary due date 14 days after creation 
-      countQuery += ` AND DATEADD(day, 14, ce.CreatedAt) <= @pastNow`;
-    }
-    
-    // Include ModulePractices as additional assignments using UNION
-    if (!moduleId && !search) { // Only add module practices if not filtering by specific module or search term
-      query = `(${query})
-      UNION
-      SELECT 
-        mp.PracticeID as AssignmentID, 
-        mp.Title, 
-        mp.Description, 
-        DATEADD(day, 14, mp.CreatedAt) as DueDate, 
-        0 as TotalPoints, 
-        mp.CreatedAt, 
-        mp.UpdatedAt,
-        NULL as LessonID,
-        NULL as LessonTitle,
-        mp.ModuleID, 
-        cm.Title as ModuleTitle,
-        c.CourseID, 
-        c.Title as CourseTitle,
-        0 as SubmissionsCount
-      FROM ModulePractices mp
-      JOIN CourseModules cm ON mp.ModuleID = cm.ModuleID
-      JOIN Courses c ON cm.CourseID = c.CourseID
-      WHERE (c.InstructorID = @teacherId)`;
-      
-      // Add status condition separately
-      if (status === 'active') {
-        query += ` AND DATEADD(day, 14, mp.CreatedAt) > @activeNow`;
-      } else if (status === 'past') {
-        query += ` AND DATEADD(day, 14, mp.CreatedAt) <= @pastNow`;
-      }
-    }
-    
-    // Finalize query with pagination
-    query += `
-      ORDER BY DueDate DESC
-      OFFSET @offset ROWS
-      FETCH NEXT @limit ROWS ONLY
-    `;
-    
-    // Get assignments with pagination
     const result = await request.query(query);
     
-    // Get total count for pagination - simplified to approximate count
-    const totalCount = result.recordset.length; // Simplified approach
-    const totalPages = Math.ceil(totalCount / limit);
-    
-    return res.status(200).json({
+    res.json({
       assignments: result.recordset,
-      pagination: {
-        totalCount,
-        totalPages,
-        currentPage: parseInt(page),
-        limit: parseInt(limit)
-      }
+      totalCount: result.recordset.length
     });
   } catch (error) {
-    console.error('Get Assignments Error:', error);
-    return res.status(500).json({ message: 'Server error while fetching assignments', error: error.message });
+    console.error('Error getting assignments:', error);
+    res.status(500).json({ message: 'Error retrieving assignments', error: error.message });
   }
 });
 
-// Get assignment details with submissions
+// Get a specific assignment by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
     
-    // Verify teacher has access to this assignment (coding exercise)
+    // Verify teacher has access to this assignment
     const accessCheck = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
+      .input('assignmentId', sql.BigInt, id)
       .input('teacherId', sql.BigInt, req.user.UserID)
       .query(`
-        SELECT COUNT(*) as HasAccess
-        FROM CodingExercises ce
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        WHERE ce.ExerciseID = @exerciseId 
-        AND (c.InstructorID = @teacherId)
-      `);
-    
-    if (accessCheck.recordset[0].HasAccess === 0) {
-      // If not found in CodingExercises, check if it's a ModulePractice
-      const practiceCheck = await pool.request()
-        .input('practiceId', sql.BigInt, id)
-        .input('teacherId', sql.BigInt, req.user.UserID)
-        .query(`
-          SELECT COUNT(*) as HasAccess
-          FROM ModulePractices mp
-          JOIN CourseModules cm ON mp.ModuleID = cm.ModuleID
-          JOIN Courses c ON cm.CourseID = c.CourseID
-          WHERE mp.PracticeID = @practiceId 
-          AND (c.InstructorID = @teacherId)
+        SELECT a.AssignmentID
+        FROM Assignments a
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE a.AssignmentID = @assignmentId 
+        AND c.InstructorID = @teacherId
         `);
       
-      if (practiceCheck.recordset[0].HasAccess === 0) {
+    if (accessCheck.recordset.length === 0) {
         return res.status(403).json({ message: 'You do not have access to this assignment' });
       }
       
-      // It's a module practice
-      const practiceResult = await pool.request()
-        .input('practiceId', sql.BigInt, id)
-        .query(`
-          SELECT 
-            mp.PracticeID as AssignmentID, 
-            mp.Title, 
-            mp.Description, 
-            DATEADD(day, 14, mp.CreatedAt) as DueDate,
-            mp.Difficulty,
-            0 as TotalPoints, 
-            mp.CreatedAt, 
-            mp.UpdatedAt,
-            cm.ModuleID, 
-            cm.Title as ModuleTitle,
-            c.CourseID, 
-            c.Title as CourseTitle,
-            0 as TotalSubmissions,
-            0 as GradedSubmissions
-          FROM ModulePractices mp
-          JOIN CourseModules cm ON mp.ModuleID = cm.ModuleID
-          JOIN Courses c ON cm.CourseID = c.CourseID
-          WHERE mp.PracticeID = @practiceId
-        `);
-      
-      if (practiceResult.recordset.length === 0) {
-        return res.status(404).json({ message: 'Assignment not found' });
-      }
-      
-      const assignment = practiceResult.recordset[0];
-      
-      // For module practices, we'll return test cases instead of submissions
-      const testCasesResult = await pool.request()
-        .input('practiceId', sql.BigInt, id)
-        .query(`
-          SELECT 
-            TestCaseID, 
-            Input, 
-            ExpectedOutput, 
-            IsHidden, 
-            OrderIndex
-          FROM PracticeTestCases
-          WHERE PracticeID = @practiceId
-          ORDER BY OrderIndex ASC
-        `);
-      
-      return res.status(200).json({
-        assignment,
-        testCases: testCasesResult.recordset,
-        submissions: [],
-        pendingSubmissions: []
-      });
-    }
-    
-    // It's a coding exercise
+    // Get assignment details
     const assignmentResult = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
+      .input('assignmentId', sql.BigInt, id)
       .query(`
         SELECT 
-          ce.ExerciseID as AssignmentID, 
-          ce.Title, 
-          ce.Description, 
-          DATEADD(day, 14, ce.CreatedAt) as DueDate,
-          ce.Points as TotalPoints, 
-          ce.CreatedAt, 
-          ce.UpdatedAt,
-          ce.Difficulty,
-          cl.LessonID,
-          cl.Title as LessonTitle,
-          cm.ModuleID, 
-          cm.Title as ModuleTitle,
-          c.CourseID, 
-          c.Title as CourseTitle,
-          (SELECT COUNT(*) FROM CodingSubmissions WHERE ExerciseID = ce.ExerciseID) as TotalSubmissions,
-          (SELECT COUNT(*) FROM CodingSubmissions WHERE ExerciseID = ce.ExerciseID AND Status = 'accepted') as GradedSubmissions
-        FROM CodingExercises ce
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        WHERE ce.ExerciseID = @exerciseId
+          a.*, 
+          c.Title as CourseName,
+          (SELECT COUNT(*) FROM AssignmentSubmissions WHERE AssignmentID = a.AssignmentID) as SubmissionsCount,
+          (SELECT COUNT(*) FROM CourseEnrollments WHERE CourseID = a.CourseID AND Status = 'active') as StudentsCount
+        FROM Assignments a
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE a.AssignmentID = @assignmentId
       `);
     
     if (assignmentResult.recordset.length === 0) {
       return res.status(404).json({ message: 'Assignment not found' });
     }
     
+    // Get assignment files
+    const filesResult = await pool.request()
+      .input('assignmentId', sql.BigInt, id)
+      .query(`
+        SELECT * FROM AssignmentFiles
+        WHERE AssignmentID = @assignmentId
+      `);
+    
     const assignment = assignmentResult.recordset[0];
+    assignment.files = filesResult.recordset;
     
-    // Get submissions
-    const submissionsResult = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
-      .query(`
-        SELECT 
-          s.SubmissionID, s.UserID, s.SubmittedAt as SubmissionDate, 
-          s.Code as Content, s.Score, s.Status, '' as Feedback,
-          u.FullName, u.Email
-        FROM CodingSubmissions s
-        JOIN Users u ON s.UserID = u.UserID
-        WHERE s.ExerciseID = @exerciseId
-        ORDER BY s.SubmittedAt DESC
-      `);
-    
-    // Get enrolled students who haven't submitted
-    const pendingSubmissionsResult = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
-      .input('courseId', sql.BigInt, assignment.CourseID)
-      .query(`
-        SELECT 
-          u.UserID, u.FullName, u.Email
-        FROM Users u
-        JOIN CourseEnrollments ce ON u.UserID = ce.UserID
-        WHERE ce.CourseID = @courseId
-        AND u.Role = 'STUDENT'
-        AND u.DeletedAt IS NULL
-        AND u.UserID NOT IN (
-          SELECT UserID FROM CodingSubmissions 
-          WHERE ExerciseID = @exerciseId
-        )
-      `);
-    
-    return res.status(200).json({
-      assignment,
-      submissions: submissionsResult.recordset,
-      pendingSubmissions: pendingSubmissionsResult.recordset
-    });
+    res.json(assignment);
   } catch (error) {
-    console.error('Get Assignment Details Error:', error);
-    return res.status(500).json({ message: 'Server error while fetching assignment details', error: error.message });
+    console.error('Error getting assignment:', error);
+    res.status(500).json({ message: 'Error retrieving assignment', error: error.message });
   }
 });
 
-// Create a new assignment (as a coding exercise)
-router.post('/', async (req, res) => {
+// Create a new assignment
+router.post('/', upload.array('files', 5), async (req, res) => {
   try {
-    const { 
-      moduleId, 
-      lessonId,
-      title, 
-      description, 
-      programmingLanguage = 'javascript',
-      initialCode = '',
-      points = 100,
-      difficulty = 'medium'
-    } = req.body;
+    const { title, description, courseId, dueDate, totalPoints } = req.body;
+    const files = req.files || [];
     
-    if (!moduleId || !title) {
-      return res.status(400).json({ message: 'Module ID and title are required' });
+    if (!title || !courseId) {
+      return res.status(400).json({ message: 'Title and courseId are required' });
     }
     
     const pool = await poolPromise;
     
-    // If no lessonId provided, get the first lesson in the module or create one
-    let targetLessonId = lessonId;
-    if (!targetLessonId) {
-      // Get the first lesson of the module if it exists
-      const lessonCheck = await pool.request()
-        .input('moduleId', sql.BigInt, moduleId)
-        .query(`
-          SELECT TOP 1 LessonID 
-          FROM CourseLessons 
-          WHERE ModuleID = @moduleId 
-          ORDER BY OrderIndex ASC
-        `);
-      
-      if (lessonCheck.recordset.length > 0) {
-        targetLessonId = lessonCheck.recordset[0].LessonID;
-      } else {
-        // Create a new lesson if none exists
-        const lessonResult = await pool.request()
-          .input('moduleId', sql.BigInt, moduleId)
-          .input('title', sql.NVarChar(255), 'Exercises')
-          .input('description', sql.NVarChar(500), 'Collection of exercises')
-          .input('type', sql.VarChar(50), 'coding')
-          .input('orderIndex', sql.Int, 1)
-          .query(`
-            INSERT INTO CourseLessons (ModuleID, Title, Description, Type, OrderIndex, IsPublished)
-            VALUES (@moduleId, @title, @description, @type, @orderIndex, 1);
-            SELECT SCOPE_IDENTITY() AS LessonID;
-          `);
-        
-        targetLessonId = lessonResult.recordset[0].LessonID;
-      }
-    }
-    
-    // Verify teacher has access to this module/lesson
-    const moduleCheck = await pool.request()
-      .input('moduleId', sql.BigInt, moduleId)
+    // Verify teacher has access to this course
+    const courseCheck = await pool.request()
+      .input('courseId', sql.BigInt, courseId)
       .input('teacherId', sql.BigInt, req.user.UserID)
       .query(`
-        SELECT 
-          m.ModuleID, c.CourseID, c.Title as CourseTitle 
-        FROM CourseModules m
-        JOIN Courses c ON m.CourseID = c.CourseID
-        WHERE m.ModuleID = @moduleId 
-        AND (c.InstructorID = @teacherId)
+        SELECT CourseID
+        FROM Courses
+        WHERE CourseID = @courseId 
+        AND InstructorID = @teacherId
       `);
     
-    if (moduleCheck.recordset.length === 0) {
-      return res.status(403).json({ message: 'You do not have access to this module' });
+    if (courseCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this course' });
     }
     
-    // Create assignment as a coding exercise
-    const result = await pool.request()
-      .input('lessonId', sql.BigInt, targetLessonId)
-      .input('title', sql.NVarChar(255), title)
-      .input('description', sql.NVarChar(sql.MAX), description || null)
-      .input('programmingLanguage', sql.VarChar(50), programmingLanguage)
-      .input('initialCode', sql.NVarChar(sql.MAX), initialCode)
-      .input('solutionCode', sql.NVarChar(sql.MAX), '')
-      .input('testCases', sql.NVarChar(sql.MAX), '[]')
-      .input('difficulty', sql.VarChar(20), difficulty)
-      .input('points', sql.Int, points)
-      .query(`
-        INSERT INTO CodingExercises (
-          LessonID, Title, Description, ProgrammingLanguage, 
-          InitialCode, SolutionCode, TestCases, Difficulty, Points
-        )
-        VALUES (
-          @lessonId, @title, @description, @programmingLanguage,
-          @initialCode, @solutionCode, @testCases, @difficulty, @points
-        );
+    // Begin transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    
+    try {
+      // Insert assignment
+      const assignmentRequest = new sql.Request(transaction);
+      assignmentRequest
+        .input('title', sql.NVarChar, title)
+        .input('description', sql.NVarChar, description || '')
+        .input('courseId', sql.BigInt, courseId)
+        .input('dueDate', sql.DateTime, dueDate ? new Date(dueDate) : null)
+        .input('totalPoints', sql.Int, totalPoints || 100)
+        .input('createdBy', sql.BigInt, req.user.UserID);
+      
+      const insertResult = await assignmentRequest.query(`
+        INSERT INTO Assignments (Title, Description, CourseID, DueDate, TotalPoints, CreatedBy, CreatedAt, UpdatedAt)
+        VALUES (@title, @description, @courseId, @dueDate, @totalPoints, @createdBy, GETDATE(), GETDATE());
         
-        SELECT SCOPE_IDENTITY() AS ExerciseID;
+        SELECT SCOPE_IDENTITY() AS AssignmentID;
       `);
     
-    const exerciseId = result.recordset[0].ExerciseID;
+      const assignmentId = insertResult.recordset[0].AssignmentID;
     
-    // Get the created exercise with full details
-    const exerciseResult = await pool.request()
-      .input('exerciseId', sql.BigInt, exerciseId)
+      // Insert files if any
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileRequest = new sql.Request(transaction);
+          await fileRequest
+            .input('assignmentId', sql.BigInt, assignmentId)
+            .input('fileName', sql.NVarChar, file.originalname)
+            .input('filePath', sql.NVarChar, file.path)
+            .input('fileSize', sql.Int, file.size)
+            .input('fileType', sql.NVarChar, file.mimetype)
       .query(`
-        SELECT 
-          ce.ExerciseID as AssignmentID, 
-          ce.Title, 
-          ce.Description, 
-          DATEADD(day, 14, ce.CreatedAt) as DueDate,
-          ce.Points as TotalPoints, 
-          ce.CreatedAt, 
-          ce.UpdatedAt,
-          ce.Difficulty,
-          cl.LessonID,
-          cl.Title as LessonTitle,
-          cm.ModuleID, 
-          cm.Title as ModuleTitle,
-          c.CourseID, 
-          c.Title as CourseTitle
-        FROM CodingExercises ce
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        WHERE ce.ExerciseID = @exerciseId
-      `);
+              INSERT INTO AssignmentFiles (AssignmentID, FileName, FilePath, FileSize, FileType, UploadedAt)
+              VALUES (@assignmentId, @fileName, @filePath, @fileSize, @fileType, GETDATE());
+            `);
+        }
+      }
+      
+      await transaction.commit();
+      
+      res.status(201).json({
+        message: 'Assignment created successfully',
+        assignmentId: assignmentId
+      });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Error creating assignment:', error);
     
-    if (exerciseResult.recordset.length === 0) {
-      return res.status(500).json({ message: 'Failed to retrieve created assignment' });
+    // Delete uploaded files if any
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (err) {
+          console.error('Error deleting file:', err);
+        }
+      });
     }
     
-    return res.status(201).json({
-      message: 'Assignment created successfully',
-      assignment: exerciseResult.recordset[0]
-    });
-  } catch (error) {
-    console.error('Create Assignment Error:', error);
-    return res.status(500).json({ message: 'Server error while creating assignment', error: error.message });
+    res.status(500).json({ message: 'Error creating assignment', error: error.message });
   }
 });
 
 // Update an assignment
-router.put('/:id', async (req, res) => {
+router.put('/:id', upload.array('files', 5), async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      title, 
-      description, 
-      programmingLanguage,
-      initialCode,
-      points,
-      difficulty
-    } = req.body;
+    const { title, description, courseId, dueDate, totalPoints } = req.body;
+    const files = req.files || [];
     
     if (!title) {
       return res.status(400).json({ message: 'Title is required' });
@@ -468,142 +241,107 @@ router.put('/:id', async (req, res) => {
     
     const pool = await poolPromise;
     
-    // Verify teacher has access to this assignment (coding exercise)
+    // Verify teacher has access to this assignment
     const accessCheck = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
+      .input('assignmentId', sql.BigInt, id)
       .input('teacherId', sql.BigInt, req.user.UserID)
       .query(`
-        SELECT COUNT(*) as HasAccess
-        FROM CodingExercises ce
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        WHERE ce.ExerciseID = @exerciseId 
-        AND (c.InstructorID = @teacherId)
+        SELECT a.AssignmentID
+        FROM Assignments a
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE a.AssignmentID = @assignmentId 
+        AND c.InstructorID = @teacherId
       `);
     
-    if (accessCheck.recordset[0].HasAccess === 0) {
-      // Check if it's a ModulePractice
-      const practiceCheck = await pool.request()
-        .input('practiceId', sql.BigInt, id)
+    if (accessCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this assignment' });
+    }
+    
+    // Verify teacher has access to the target course if changing
+    if (courseId) {
+      const courseCheck = await pool.request()
+        .input('courseId', sql.BigInt, courseId)
         .input('teacherId', sql.BigInt, req.user.UserID)
         .query(`
-          SELECT COUNT(*) as HasAccess
-          FROM ModulePractices mp
-          JOIN CourseModules cm ON mp.ModuleID = cm.ModuleID
-          JOIN Courses c ON cm.CourseID = c.CourseID
-          WHERE mp.PracticeID = @practiceId 
-          AND (c.InstructorID = @teacherId)
+          SELECT CourseID
+          FROM Courses
+          WHERE CourseID = @courseId 
+          AND InstructorID = @teacherId
         `);
       
-      if (practiceCheck.recordset[0].HasAccess === 0) {
-        return res.status(403).json({ message: 'You do not have access to this assignment' });
+      if (courseCheck.recordset.length === 0) {
+        return res.status(403).json({ message: 'You do not have access to this course' });
+      }
       }
       
-      // Update module practice
-      const updateResult = await pool.request()
-        .input('practiceId', sql.BigInt, id)
-        .input('title', sql.NVarChar(255), title)
-        .input('description', sql.NVarChar(sql.MAX), description || null)
-        .input('programmingLanguage', sql.VarChar(50), programmingLanguage)
-        .input('initialCode', sql.NVarChar(sql.MAX), initialCode)
-        .input('difficulty', sql.VarChar(20), difficulty)
-        .query(`
-          UPDATE ModulePractices
-          SET 
-            Title = @title,
+    // Begin transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    
+    try {
+      // Update assignment
+      const updateRequest = new sql.Request(transaction);
+      updateRequest
+        .input('assignmentId', sql.BigInt, id)
+        .input('title', sql.NVarChar, title)
+        .input('description', sql.NVarChar, description || '')
+        .input('courseId', sql.BigInt, courseId)
+        .input('dueDate', sql.DateTime, dueDate ? new Date(dueDate) : null)
+        .input('totalPoints', sql.Int, totalPoints || 100);
+      
+      await updateRequest.query(`
+        UPDATE Assignments
+        SET Title = @title,
             Description = @description,
-            ${programmingLanguage ? 'ProgrammingLanguage = @programmingLanguage,' : ''}
-            ${initialCode ? 'InitialCode = @initialCode,' : ''}
-            ${difficulty ? 'Difficulty = @difficulty,' : ''}
+            CourseID = @courseId,
+            DueDate = @dueDate,
+            TotalPoints = @totalPoints,
             UpdatedAt = GETDATE()
-          WHERE PracticeID = @practiceId
+        WHERE AssignmentID = @assignmentId;
         `);
       
-      // Get updated practice details
-      const practiceResult = await pool.request()
-        .input('practiceId', sql.BigInt, id)
+      // Add new files if any
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileRequest = new sql.Request(transaction);
+          await fileRequest
+            .input('assignmentId', sql.BigInt, id)
+            .input('fileName', sql.NVarChar, file.originalname)
+            .input('filePath', sql.NVarChar, file.path)
+            .input('fileSize', sql.Int, file.size)
+            .input('fileType', sql.NVarChar, file.mimetype)
         .query(`
-          SELECT 
-            mp.PracticeID as AssignmentID, 
-            mp.Title, 
-            mp.Description, 
-            DATEADD(day, 14, mp.CreatedAt) as DueDate,
-            mp.Difficulty,
-            0 as TotalPoints, 
-            mp.CreatedAt, 
-            mp.UpdatedAt,
-            cm.ModuleID, 
-            cm.Title as ModuleTitle,
-            c.CourseID, 
-            c.Title as CourseTitle
-          FROM ModulePractices mp
-          JOIN CourseModules cm ON mp.ModuleID = cm.ModuleID
-          JOIN Courses c ON cm.CourseID = c.CourseID
-          WHERE mp.PracticeID = @practiceId
-        `);
+              INSERT INTO AssignmentFiles (AssignmentID, FileName, FilePath, FileSize, FileType, UploadedAt)
+              VALUES (@assignmentId, @fileName, @filePath, @fileSize, @fileType, GETDATE());
+            `);
+        }
+      }
       
-      return res.status(200).json({
+      await transaction.commit();
+      
+      res.json({
         message: 'Assignment updated successfully',
-        assignment: practiceResult.recordset[0]
+        assignmentId: id
+      });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Error updating assignment:', error);
+    
+    // Delete uploaded files if any
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (err) {
+          console.error('Error deleting file:', err);
+        }
       });
     }
     
-    // Update coding exercise
-    const updateResult = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
-      .input('title', sql.NVarChar(255), title)
-      .input('description', sql.NVarChar(sql.MAX), description || null)
-      .input('programmingLanguage', sql.VarChar(50), programmingLanguage)
-      .input('initialCode', sql.NVarChar(sql.MAX), initialCode)
-      .input('points', sql.Int, points)
-      .input('difficulty', sql.VarChar(20), difficulty)
-      .query(`
-        UPDATE CodingExercises
-        SET 
-          Title = @title,
-          Description = @description,
-          ${programmingLanguage ? 'ProgrammingLanguage = @programmingLanguage,' : ''}
-          ${initialCode ? 'InitialCode = @initialCode,' : ''}
-          ${points ? 'Points = @points,' : ''}
-          ${difficulty ? 'Difficulty = @difficulty,' : ''}
-          UpdatedAt = GETDATE()
-        WHERE ExerciseID = @exerciseId
-      `);
-    
-    // Get updated exercise details
-    const exerciseResult = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
-      .query(`
-        SELECT 
-          ce.ExerciseID as AssignmentID, 
-          ce.Title, 
-          ce.Description, 
-          DATEADD(day, 14, ce.CreatedAt) as DueDate,
-          ce.Points as TotalPoints, 
-          ce.CreatedAt, 
-          ce.UpdatedAt,
-          ce.Difficulty,
-          cl.LessonID,
-          cl.Title as LessonTitle,
-          cm.ModuleID, 
-          cm.Title as ModuleTitle,
-          c.CourseID, 
-          c.Title as CourseTitle
-        FROM CodingExercises ce
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        WHERE ce.ExerciseID = @exerciseId
-      `);
-    
-    return res.status(200).json({
-      message: 'Assignment updated successfully',
-      assignment: exerciseResult.recordset[0]
-    });
-  } catch (error) {
-    console.error('Update Assignment Error:', error);
-    return res.status(500).json({ message: 'Server error while updating assignment', error: error.message });
+    res.status(500).json({ message: 'Error updating assignment', error: error.message });
   }
 });
 
@@ -613,85 +351,216 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     const pool = await poolPromise;
     
-    // Verify teacher has access to this assignment (coding exercise)
+    // Verify teacher has access to this assignment
     const accessCheck = await pool.request()
-      .input('exerciseId', sql.BigInt, id)
+      .input('assignmentId', sql.BigInt, id)
       .input('teacherId', sql.BigInt, req.user.UserID)
       .query(`
-        SELECT COUNT(*) as HasAccess
-        FROM CodingExercises ce
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        WHERE ce.ExerciseID = @exerciseId 
-        AND (c.InstructorID = @teacherId)
+        SELECT a.AssignmentID
+        FROM Assignments a
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE a.AssignmentID = @assignmentId 
+        AND c.InstructorID = @teacherId
       `);
     
-    if (accessCheck.recordset[0].HasAccess === 0) {
-      // Check if it's a ModulePractice
-      const practiceCheck = await pool.request()
-        .input('practiceId', sql.BigInt, id)
+    if (accessCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this assignment' });
+    }
+    
+    // Begin transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    
+    try {
+      // Get file paths to delete after transaction
+      const filesRequest = new sql.Request(transaction);
+      filesRequest.input('assignmentId', sql.BigInt, id);
+      const filesResult = await filesRequest.query(`
+        SELECT FilePath FROM AssignmentFiles
+        WHERE AssignmentID = @assignmentId
+      `);
+      
+      const filePaths = filesResult.recordset.map(file => file.FilePath);
+      
+      // Delete files from database
+      const deleteFilesRequest = new sql.Request(transaction);
+      deleteFilesRequest.input('assignmentId', sql.BigInt, id);
+      await deleteFilesRequest.query(`
+        DELETE FROM AssignmentFiles
+        WHERE AssignmentID = @assignmentId
+      `);
+      
+      // Delete submissions (and related grades/feedback)
+      const deleteSubmissionsRequest = new sql.Request(transaction);
+      deleteSubmissionsRequest.input('assignmentId', sql.BigInt, id);
+      await deleteSubmissionsRequest.query(`
+        DELETE FROM AssignmentSubmissions
+        WHERE AssignmentID = @assignmentId
+      `);
+      
+      // Delete assignment
+      const deleteAssignmentRequest = new sql.Request(transaction);
+      deleteAssignmentRequest.input('assignmentId', sql.BigInt, id);
+      await deleteAssignmentRequest.query(`
+        DELETE FROM Assignments
+        WHERE AssignmentID = @assignmentId
+      `);
+      
+      await transaction.commit();
+      
+      // Delete physical files
+      filePaths.forEach(filePath => {
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          console.error('Error deleting file:', err);
+        }
+      });
+      
+      res.json({ message: 'Assignment deleted successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Error deleting assignment:', error);
+    res.status(500).json({ message: 'Error deleting assignment', error: error.message });
+  }
+});
+
+// Get all submissions for an assignment
+router.get('/:id/submissions', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await poolPromise;
+    
+    // Verify teacher has access to this assignment
+    const accessCheck = await pool.request()
+      .input('assignmentId', sql.BigInt, id)
         .input('teacherId', sql.BigInt, req.user.UserID)
         .query(`
-          SELECT COUNT(*) as HasAccess
-          FROM ModulePractices mp
-          JOIN CourseModules cm ON mp.ModuleID = cm.ModuleID
-          JOIN Courses c ON cm.CourseID = c.CourseID
-          WHERE mp.PracticeID = @practiceId 
-          AND (c.InstructorID = @teacherId)
+        SELECT a.AssignmentID
+        FROM Assignments a
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE a.AssignmentID = @assignmentId 
+        AND c.InstructorID = @teacherId
         `);
       
-      if (practiceCheck.recordset[0].HasAccess === 0) {
+    if (accessCheck.recordset.length === 0) {
         return res.status(403).json({ message: 'You do not have access to this assignment' });
       }
       
-      // Delete practice test cases first
-      await pool.request()
-        .input('practiceId', sql.BigInt, id)
+    // Get submissions
+    const result = await pool.request()
+      .input('assignmentId', sql.BigInt, id)
+      .query(`
+        SELECT 
+          s.SubmissionID, s.AssignmentID, s.UserID, s.SubmittedAt, s.Score, s.Feedback,
+          s.Status, s.GradedAt, s.GradedBy,
+          u.FullName, u.Email, u.Avatar
+        FROM AssignmentSubmissions s
+        JOIN Users u ON s.UserID = u.UserID
+        WHERE s.AssignmentID = @assignmentId
+        ORDER BY s.SubmittedAt DESC
+      `);
+    
+    res.json({
+      submissions: result.recordset,
+      totalCount: result.recordset.length
+    });
+  } catch (error) {
+    console.error('Error getting submissions:', error);
+    res.status(500).json({ message: 'Error retrieving submissions', error: error.message });
+  }
+});
+
+// Assign an assignment to students in a course
+router.post('/:id/assign', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { dueDate } = req.body;
+    const pool = await poolPromise;
+    
+    // Verify teacher has access to this assignment
+    const accessCheck = await pool.request()
+      .input('assignmentId', sql.BigInt, id)
+      .input('teacherId', sql.BigInt, req.user.UserID)
         .query(`
-          DELETE FROM PracticeTestCases
-          WHERE PracticeID = @practiceId
-        `);
-      
-      // Delete module practice
-      await pool.request()
-        .input('practiceId', sql.BigInt, id)
-        .query(`
-          DELETE FROM ModulePractices
-          WHERE PracticeID = @practiceId
-        `);
-      
-      return res.status(200).json({ message: 'Assignment deleted successfully' });
+        SELECT a.AssignmentID, a.CourseID
+        FROM Assignments a
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE a.AssignmentID = @assignmentId 
+        AND c.InstructorID = @teacherId
+      `);
+    
+    if (accessCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this assignment' });
     }
     
-    // Delete coding submissions first
-    await pool.request()
-      .input('exerciseId', sql.BigInt, id)
+    const courseId = accessCheck.recordset[0].CourseID;
+    
+    // Update assignment due date if provided
+    if (dueDate) {
+      await pool.request()
+        .input('assignmentId', sql.BigInt, id)
+        .input('dueDate', sql.DateTime, new Date(dueDate))
+        .query(`
+          UPDATE Assignments
+          SET DueDate = @dueDate,
+              UpdatedAt = GETDATE()
+          WHERE AssignmentID = @assignmentId
+        `);
+    }
+    
+    // Get all active students in the course
+    const studentsResult = await pool.request()
+      .input('courseId', sql.BigInt, courseId)
       .query(`
-        DELETE FROM CodingSubmissions
-        WHERE ExerciseID = @exerciseId
+        SELECT UserID
+        FROM CourseEnrollments
+        WHERE CourseID = @courseId
+        AND Status = 'active'
       `);
     
-    // Delete coding exercise
-    await pool.request()
-      .input('exerciseId', sql.BigInt, id)
-      .query(`
-        DELETE FROM CodingExercises
-        WHERE ExerciseID = @exerciseId
-      `);
+    const students = studentsResult.recordset;
     
-    return res.status(200).json({ message: 'Assignment deleted successfully' });
+    if (students.length === 0) {
+      return res.status(400).json({ message: 'No active students found in this course' });
+    }
+    
+    // Send notifications to all students
+    for (const student of students) {
+      // Create notification
+    await pool.request()
+        .input('userId', sql.BigInt, student.UserID)
+        .input('type', sql.VarChar, 'assignment')
+        .input('title', sql.NVarChar, 'New Assignment')
+        .input('content', sql.NVarChar, `You have a new assignment to complete.`)
+        .input('relatedId', sql.BigInt, id)
+        .input('relatedType', sql.VarChar, 'assignment')
+      .query(`
+          INSERT INTO Notifications (UserID, Type, Title, Content, RelatedID, RelatedType, IsRead, CreatedAt)
+          VALUES (@userId, @type, @title, @content, @relatedId, @relatedType, 0, GETDATE())
+      `);
+    }
+    
+    res.json({
+      message: 'Assignment assigned to students successfully',
+      studentsCount: students.length
+    });
   } catch (error) {
-    console.error('Delete Assignment Error:', error);
-    return res.status(500).json({ message: 'Server error while deleting assignment', error: error.message });
+    console.error('Error assigning to students:', error);
+    res.status(500).json({ message: 'Error assigning to students', error: error.message });
   }
 });
 
 // Grade a submission
-router.put('/submissions/:id', async (req, res) => {
+router.post('/submissions/:submissionId/grade', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { score, feedback, status = 'graded' } = req.body;
+    const { submissionId } = req.params;
+    const { score, feedback } = req.body;
     
     if (score === undefined) {
       return res.status(400).json({ message: 'Score is required' });
@@ -701,97 +570,116 @@ router.put('/submissions/:id', async (req, res) => {
     
     // Verify teacher has access to this submission
     const accessCheck = await pool.request()
-      .input('submissionId', sql.BigInt, id)
+      .input('submissionId', sql.BigInt, submissionId)
       .input('teacherId', sql.BigInt, req.user.UserID)
       .query(`
-        SELECT 
-          cs.SubmissionID, 
-          cs.ExerciseID,
-          ce.Title as ExerciseTitle,
-          c.Title as CourseTitle,
-          cs.UserID,
-          u.FullName as StudentName,
-          u.Email as StudentEmail
-        FROM CodingSubmissions cs
-        JOIN CodingExercises ce ON cs.ExerciseID = ce.ExerciseID
-        JOIN CourseLessons cl ON ce.LessonID = cl.LessonID
-        JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-        JOIN Courses c ON cm.CourseID = c.CourseID
-        JOIN Users u ON cs.UserID = u.UserID
-        WHERE cs.SubmissionID = @submissionId 
+        SELECT s.SubmissionID, s.AssignmentID
+        FROM AssignmentSubmissions s
+        JOIN Assignments a ON s.AssignmentID = a.AssignmentID
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE s.SubmissionID = @submissionId 
         AND c.InstructorID = @teacherId
       `);
     
     if (accessCheck.recordset.length === 0) {
-      return res.status(403).json({ message: 'You do not have access to grade this submission' });
+      return res.status(403).json({ message: 'You do not have access to this submission' });
     }
-    
-    const submission = accessCheck.recordset[0];
     
     // Update submission with grade
     await pool.request()
-      .input('submissionId', sql.BigInt, id)
+      .input('submissionId', sql.BigInt, submissionId)
       .input('score', sql.Int, score)
-      .input('feedback', sql.NVarChar(2000), feedback || '')
-      .input('status', sql.VarChar(20), status)
+      .input('feedback', sql.NVarChar, feedback || '')
+      .input('gradedBy', sql.BigInt, req.user.UserID)
       .query(`
-        UPDATE CodingSubmissions
-        SET 
-          Score = @score,
-          Status = @status,
-          GradedAt = GETDATE()
+        UPDATE AssignmentSubmissions
+        SET Score = @score,
+            Feedback = @feedback,
+            GradedAt = GETDATE(),
+            GradedBy = @gradedBy,
+            Status = 'graded'
         WHERE SubmissionID = @submissionId
       `);
     
-    // Update assignment progress - CodingSubmissions doesn't directly link to enrollment
-    // so we need to find the enrollment
-    try {
-      const enrollment = await pool.request()
-        .input('userId', sql.BigInt, submission.UserID)
-        .input('exerciseId', sql.BigInt, submission.ExerciseID)
-        .query(`
-          SELECT TOP 1 ce.CourseID
-          FROM CodingExercises cex
-          JOIN CourseLessons cl ON cex.LessonID = cl.LessonID
-          JOIN CourseModules cm ON cl.ModuleID = cm.ModuleID
-          JOIN Courses c ON cm.CourseID = c.CourseID
-          WHERE cex.ExerciseID = @exerciseId
-        `);
+    // Get student ID for notification
+    const studentResult = await pool.request()
+      .input('submissionId', sql.BigInt, submissionId)
+      .query(`
+        SELECT UserID, AssignmentID
+        FROM AssignmentSubmissions
+        WHERE SubmissionID = @submissionId
+      `);
+    
+    if (studentResult.recordset.length > 0) {
+      const studentId = studentResult.recordset[0].UserID;
+      const assignmentId = studentResult.recordset[0].AssignmentID;
       
-      if (enrollment.recordset.length > 0) {
-        const courseId = enrollment.recordset[0].CourseID;
-        
-        // Update lesson progress
-        await pool.request()
-          .input('userId', sql.BigInt, submission.UserID)
-          .input('exerciseId', sql.BigInt, submission.ExerciseID)
-          .input('lessonId', sql.BigInt, submission.LessonID)
-          .input('courseId', sql.BigInt, courseId)
-          .query(`
-            UPDATE LessonProgress
-            SET 
-              Status = 'completed',
-              CompletedAt = GETDATE()
-            FROM LessonProgress lp
-            JOIN CourseEnrollments ce ON lp.EnrollmentID = ce.EnrollmentID
-            JOIN CourseLessons cl ON lp.LessonID = cl.LessonID
-            JOIN CodingExercises cex ON cl.LessonID = cex.LessonID
-            WHERE ce.UserID = @userId 
-            AND ce.CourseID = @courseId
-            AND cex.ExerciseID = @exerciseId
-          `);
-      }
-    } catch (err) {
-      console.warn('Failed to update lesson progress:', err);
-      // Continue even if this fails
+      // Create notification for student
+      await pool.request()
+        .input('userId', sql.BigInt, studentId)
+        .input('type', sql.VarChar, 'grade')
+        .input('title', sql.NVarChar, 'Assignment Graded')
+        .input('content', sql.NVarChar, `Your assignment has been graded. Score: ${score}`)
+        .input('relatedId', sql.BigInt, assignmentId)
+        .input('relatedType', sql.VarChar, 'assignment')
+        .query(`
+          INSERT INTO Notifications (UserID, Type, Title, Content, RelatedID, RelatedType, IsRead, CreatedAt)
+          VALUES (@userId, @type, @title, @content, @relatedId, @relatedType, 0, GETDATE())
+        `);
     }
     
-    return res.status(200).json({
-      message: 'Submission graded successfully'
+    res.json({
+      message: 'Submission graded successfully',
+      submissionId: submissionId
     });
   } catch (error) {
-    console.error('Grade Submission Error:', error);
-    return res.status(500).json({ message: 'Server error while grading submission', error: error.message });
+    console.error('Error grading submission:', error);
+    res.status(500).json({ message: 'Error grading submission', error: error.message });
+  }
+});
+
+// Delete a file from an assignment
+router.delete('/files/:fileId', async (req, res) => {
+  try {
+    const { fileId } = req.params;
+    const pool = await poolPromise;
+    
+    // Verify teacher has access to this file
+    const accessCheck = await pool.request()
+      .input('fileId', sql.BigInt, fileId)
+      .input('teacherId', sql.BigInt, req.user.UserID)
+      .query(`
+        SELECT f.FileID, f.FilePath
+        FROM AssignmentFiles f
+        JOIN Assignments a ON f.AssignmentID = a.AssignmentID
+        JOIN Courses c ON a.CourseID = c.CourseID
+        WHERE f.FileID = @fileId 
+        AND c.InstructorID = @teacherId
+        `);
+      
+    if (accessCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this file' });
+    }
+    
+    const filePath = accessCheck.recordset[0].FilePath;
+        
+    // Delete file from database
+        await pool.request()
+      .input('fileId', sql.BigInt, fileId)
+          .query(`
+        DELETE FROM AssignmentFiles
+        WHERE FileID = @fileId
+      `);
+    
+    // Delete physical file
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    res.json({ message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ message: 'Error deleting file', error: error.message });
   }
 });
 

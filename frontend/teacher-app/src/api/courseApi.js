@@ -21,6 +21,19 @@ export const courseApi = apiSlice.injectEndpoints({
       providesTags: (result, error, id) => [{ type: 'Course', id }],
     }),
     
+    getModuleLessons: builder.query({
+      query: (moduleId) => `courses/modules/${moduleId}/lessons`,
+      providesTags: (result, error, moduleId) => [
+        { type: 'Module', id: moduleId },
+        { type: 'Lesson', id: 'LIST' }
+      ],
+    }),
+    
+    getLessonById: builder.query({
+      query: (lessonId) => `courses/lessons/${lessonId}`,
+      providesTags: (result, error, lessonId) => [{ type: 'Lesson', id: lessonId }],
+    }),
+    
     updateCourse: builder.mutation({
       query: ({ id, courseData }) => ({
         url: `courses/${id}`,
@@ -52,6 +65,7 @@ export const courseApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, { moduleId }) => [
         { type: 'Course', id: 'LIST' },
+        { type: 'Module', id: moduleId }
       ],
     }),
     
@@ -61,7 +75,11 @@ export const courseApi = apiSlice.injectEndpoints({
         method: 'POST',
         body: data,
       }),
-      invalidatesTags: [{ type: 'Course', id: 'LIST' }],
+      invalidatesTags: (result, error, { moduleId }) => [
+        { type: 'Course', id: 'LIST' },
+        { type: 'Module', id: moduleId },
+        { type: 'Lesson', id: 'LIST' }
+      ],
     }),
     
     updateLesson: builder.mutation({
@@ -70,7 +88,11 @@ export const courseApi = apiSlice.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
-      invalidatesTags: [{ type: 'Course', id: 'LIST' }],
+      invalidatesTags: (result, error, { lessonId }) => [
+        { type: 'Course', id: 'LIST' },
+        { type: 'Lesson', id: lessonId },
+        { type: 'Lesson', id: 'LIST' }
+      ],
     }),
     
     getCourseEnrollments: builder.query({
@@ -88,6 +110,8 @@ export const courseApi = apiSlice.injectEndpoints({
 export const {
   useGetCoursesQuery,
   useGetCourseByIdQuery,
+  useGetModuleLessonsQuery,
+  useGetLessonByIdQuery,
   useUpdateCourseMutation,
   useCreateModuleMutation,
   useUpdateModuleMutation,

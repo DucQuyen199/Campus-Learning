@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
-// ... định nghĩa các routes
+const teacherController = require('../controllers/teacherController');
 
-// TODO: Import controller khi đã tạo
-// const teacherController = require('../controllers/teacherController');
+// Profile routes
+router.get('/profile', teacherController.getTeacherProfile);
+router.put('/profile', teacherController.updateTeacherProfile);
 
+// Basic route
 router.get('/', (req, res) => {
     res.json({ message: 'Teacher routes working' });
 });

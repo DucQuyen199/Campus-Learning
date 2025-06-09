@@ -30,16 +30,28 @@ const DashboardPage = () => {
 
   useEffect(() => {
     if (courseData) {
-      setStats(prev => ({ ...prev, courseCount: courseData.pagination.totalCount }));
+      const courseCount = courseData.pagination?.totalCount || 
+                         (courseData.courses?.length || 0);
+      setStats(prev => ({ ...prev, courseCount }));
     }
+    
     if (studentData) {
-      setStats(prev => ({ ...prev, activeStudentCount: studentData.pagination.totalCount }));
+      const activeStudentCount = studentData.pagination?.totalCount || 
+                                (studentData.students?.length || 0);
+      setStats(prev => ({ ...prev, activeStudentCount }));
     }
+    
     if (assignmentData) {
-      setStats(prev => ({ ...prev, pendingAssignmentCount: assignmentData.pagination.totalCount }));
+      const pendingAssignmentCount = assignmentData.pagination?.totalCount || 
+                                    assignmentData.totalCount ||
+                                    (assignmentData.assignments?.length || 0);
+      setStats(prev => ({ ...prev, pendingAssignmentCount }));
     }
+    
     if (notificationData) {
-      setStats(prev => ({ ...prev, unreadNotificationCount: notificationData.unreadCount }));
+      const unreadNotificationCount = notificationData.unreadCount || 
+                                     (notificationData.notifications?.filter(n => !n.IsRead)?.length || 0);
+      setStats(prev => ({ ...prev, unreadNotificationCount }));
     }
   }, [courseData, studentData, assignmentData, notificationData]);
 

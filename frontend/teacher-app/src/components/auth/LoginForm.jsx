@@ -8,8 +8,10 @@ const LoginForm = () => {
   const location = useLocation();
   const [login, { isLoading }] = useLoginMutation();
   
-  // Lấy URL trả về từ location state hoặc mặc định là dashboard
-  const from = location.state?.from?.pathname || '/dashboard';
+  // Lấy URL trả về từ location state hoặc từ localStorage hoặc mặc định là dashboard
+  const redirectPath = localStorage.getItem('auth_redirect') || 
+                     location.state?.from?.pathname || 
+                     '/dashboard';
   
   const [formData, setFormData] = useState({
     email: '',
@@ -33,9 +35,13 @@ const LoginForm = () => {
       const result = await login(formData).unwrap();
       // Chỉ chuyển hướng khi nhận được phản hồi thành công
       if (result && result.token) {
+        // Clear stored redirect path
+        const redirectTo = redirectPath;
+        localStorage.removeItem('auth_redirect');
+        
         // Độ trễ nhỏ để cho phép cập nhật trạng thái
         setTimeout(() => {
-          navigate(from, { replace: true });
+          navigate(redirectTo, { replace: true });
         }, 100);
       }
     } catch (error) {

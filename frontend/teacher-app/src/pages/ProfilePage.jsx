@@ -14,9 +14,9 @@ const ProfilePage = () => {
         {user ? (
           <div className="text-center">
             <div className="w-24 h-24 rounded-full bg-primary-100 mx-auto flex items-center justify-center">
-              {user.Image ? (
+              {user.ImageUrl ? (
                 <img 
-                  src={user.Image} 
+                  src={user.ImageUrl} 
                   alt={user.FullName} 
                   className="w-full h-full rounded-full object-cover"
                 />

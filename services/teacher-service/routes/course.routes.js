@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT 
         c.CourseID, c.Title, c.Description, c.Category,
-        c.Status, c.CreatedAt, c.UpdatedAt,
+        c.Status, c.CreatedAt, c.UpdatedAt, c.ImageUrl,
         (SELECT COUNT(*) FROM CourseEnrollments WHERE CourseID = c.CourseID) as EnrollmentsCount,
         (SELECT COUNT(*) FROM CourseModules WHERE CourseID = c.CourseID) as ModulesCount
       FROM Courses c
@@ -102,7 +102,7 @@ router.get('/:id', async (req, res) => {
         SELECT COUNT(*) as HasAccess
         FROM Courses
         WHERE CourseID = @courseId 
-        AND (InstructorID = @teacherId)
+        AND InstructorID = @teacherId 
         AND DeletedAt IS NULL
       `);
     
@@ -116,14 +116,14 @@ router.get('/:id', async (req, res) => {
       .query(`
         SELECT 
           c.CourseID, c.Title, c.Description, c.Category,
-          c.Status, c.CreatedAt, c.UpdatedAt,
-          c.Prerequisites, c.LearningObjectives, c.Level, c.Duration,
+          c.Status, c.CreatedAt, c.UpdatedAt, c.ImageUrl,
+          c.Requirements, c.Objectives, c.Level, c.Duration,
           u.FullName as CreatorName, u.Email as CreatorEmail,
           (SELECT COUNT(*) FROM CourseEnrollments WHERE CourseID = c.CourseID) as EnrollmentsCount,
           (SELECT COUNT(*) FROM CourseModules WHERE CourseID = c.CourseID) as ModulesCount,
-          (SELECT COUNT(*) FROM Assignments a JOIN CourseModules m ON a.ModuleID = m.ModuleID WHERE m.CourseID = c.CourseID) as AssignmentsCount
+          (SELECT COUNT(*) FROM CodingExercises ce JOIN CourseLessons cl ON ce.LessonID = cl.LessonID JOIN CourseModules m ON cl.ModuleID = m.ModuleID WHERE m.CourseID = c.CourseID) as ExercisesCount
         FROM Courses c
-        JOIN Users u ON c.InstructorID = u.UserID
+        LEFT JOIN Users u ON c.InstructorID = u.UserID
         WHERE c.CourseID = @courseId AND c.DeletedAt IS NULL
       `);
     
@@ -139,8 +139,8 @@ router.get('/:id', async (req, res) => {
       .query(`
         SELECT 
           m.ModuleID, m.Title, m.Description, m.OrderIndex, m.CreatedAt,
-          (SELECT COUNT(*) FROM Lessons WHERE ModuleID = m.ModuleID) as LessonsCount,
-          (SELECT COUNT(*) FROM Assignments WHERE ModuleID = m.ModuleID) as AssignmentsCount
+          (SELECT COUNT(*) FROM CourseLessons WHERE ModuleID = m.ModuleID) as LessonsCount,
+          (SELECT COUNT(*) FROM CodingExercises ce JOIN CourseLessons cl ON ce.LessonID = cl.LessonID WHERE cl.ModuleID = m.ModuleID) as ExercisesCount
         FROM CourseModules m
         WHERE m.CourseID = @courseId
         ORDER BY m.OrderIndex
@@ -151,32 +151,39 @@ router.get('/:id', async (req, res) => {
       .input('courseId', sql.BigInt, id)
       .query(`
         SELECT TOP 10
-          ce.EnrollmentID, ce.UserID, ce.EnrollmentDate, ce.Progress,
+          ce.EnrollmentID, ce.UserID, ce.EnrolledAt as EnrollmentDate, ce.Progress,
           u.FullName, u.Email
         FROM CourseEnrollments ce
         JOIN Users u ON ce.UserID = u.UserID
         WHERE ce.CourseID = @courseId
-        ORDER BY ce.EnrollmentDate DESC
+        ORDER BY ce.EnrolledAt DESC
       `);
     
-    // Get recent announcements
-    const announcementsResult = await pool.request()
-      .input('courseId', sql.BigInt, id)
-      .query(`
-        SELECT TOP 5
-          a.AnnouncementID, a.Title, a.Content, a.CreatedAt,
-          u.FullName as CreatorName
-        FROM Announcements a
-        JOIN Users u ON a.CreatedBy = u.UserID
-        WHERE a.CourseID = @courseId
-        ORDER BY a.CreatedAt DESC
-      `);
+    // Get recent announcements - Can't query if this table doesn't exist
+    let announcements = [];
+    try {
+      const announcementsResult = await pool.request()
+        .input('courseId', sql.BigInt, id)
+        .query(`
+          SELECT TOP 5
+            a.AnnouncementID, a.Title, a.Content, a.CreatedAt,
+            u.FullName as CreatorName
+          FROM Announcements a
+          JOIN Users u ON a.CreatedBy = u.UserID
+          WHERE a.CourseID = @courseId
+          ORDER BY a.CreatedAt DESC
+        `);
+      announcements = announcementsResult.recordset;
+    } catch (e) {
+      // Table might not exist, ignore
+      console.log('Announcements table might not exist:', e.message);
+    }
     
     return res.status(200).json({
       course,
       modules: modulesResult.recordset,
       recentEnrollments: enrollmentsResult.recordset,
-      announcements: announcementsResult.recordset
+      announcements
     });
   } catch (error) {
     console.error('Get Course Details Error:', error);
@@ -204,7 +211,7 @@ router.post('/:id/modules', async (req, res) => {
         SELECT COUNT(*) as HasAccess
         FROM Courses
         WHERE CourseID = @courseId 
-        AND (InstructorID = @teacherId) 
+        AND InstructorID = @teacherId 
         AND DeletedAt IS NULL
       `);
     
@@ -374,7 +381,7 @@ router.post('/modules/:moduleId/lessons', async (req, res) => {
         .input('moduleId', sql.BigInt, moduleId)
         .query(`
           SELECT ISNULL(MAX(OrderIndex), 0) + 1 as NextOrderIndex
-          FROM Lessons
+          FROM CourseLessons
           WHERE ModuleID = @moduleId
         `);
       
@@ -391,7 +398,7 @@ router.post('/modules/:moduleId/lessons', async (req, res) => {
       .input('orderIndex', sql.Int, lessonOrderIndex)
       .input('createdAt', sql.DateTime, new Date())
       .query(`
-        INSERT INTO Lessons (ModuleID, Title, Content, Type, Duration, OrderIndex, CreatedAt)
+        INSERT INTO CourseLessons (ModuleID, Title, Content, Type, Duration, OrderIndex, CreatedAt)
         OUTPUT INSERTED.LessonID
         VALUES (@moduleId, @title, @content, @type, @duration, @orderIndex, @createdAt)
       `);
@@ -436,7 +443,7 @@ router.put('/lessons/:lessonId', async (req, res) => {
       .input('teacherId', sql.BigInt, req.user.UserID)
       .query(`
         SELECT l.LessonID, m.ModuleID, c.CourseID
-        FROM Lessons l
+        FROM CourseLessons l
         JOIN CourseModules m ON l.ModuleID = m.ModuleID
         JOIN Courses c ON m.CourseID = c.CourseID
         WHERE l.LessonID = @lessonId 
@@ -451,7 +458,7 @@ router.put('/lessons/:lessonId', async (req, res) => {
     const courseId = accessCheck.recordset[0].CourseID;
     
     // Build update query
-    let updateQuery = 'UPDATE Lessons SET ';
+    let updateQuery = 'UPDATE CourseLessons SET ';
     const updateValues = [];
     
     if (title) {
@@ -541,9 +548,9 @@ router.get('/:id/enrollments', async (req, res) => {
     
     let query = `
       SELECT 
-        ce.EnrollmentID, ce.UserID, ce.EnrollmentDate, 
-        ce.CompletionDate, ce.Progress, ce.LastAccessedAt,
-        u.FullName, u.Email, u.Image, u.Status as UserStatus
+        ce.EnrollmentID, ce.UserID, ce.EnrolledAt as EnrollmentDate, 
+        ce.CompletedAt as CompletionDate, ce.Progress, ce.LastAccessedLessonID as LastAccessedAt,
+        u.FullName, u.Email, u.ImageUrl, u.Status as UserStatus
       FROM CourseEnrollments ce
       JOIN Users u ON ce.UserID = u.UserID
       WHERE ce.CourseID = @courseId
@@ -564,11 +571,11 @@ router.get('/:id/enrollments', async (req, res) => {
     }
     
     if (status === 'completed') {
-      query += ` AND ce.CompletionDate IS NOT NULL`;
-      countQuery += ` AND ce.CompletionDate IS NOT NULL`;
+      query += ` AND ce.CompletedAt IS NOT NULL`;
+      countQuery += ` AND ce.CompletedAt IS NOT NULL`;
     } else if (status === 'in_progress') {
-      query += ` AND ce.CompletionDate IS NULL AND ce.Progress > 0`;
-      countQuery += ` AND ce.CompletionDate IS NULL AND ce.Progress > 0`;
+      query += ` AND ce.CompletedAt IS NULL AND ce.Progress > 0`;
+      countQuery += ` AND ce.CompletedAt IS NULL AND ce.Progress > 0`;
     } else if (status === 'not_started') {
       query += ` AND ce.Progress = 0`;
       countQuery += ` AND ce.Progress = 0`;
@@ -576,7 +583,7 @@ router.get('/:id/enrollments', async (req, res) => {
     
     // Finalize query with pagination
     query += `
-      ORDER BY ce.EnrollmentDate DESC
+      ORDER BY ce.EnrolledAt DESC
       OFFSET @offset ROWS
       FETCH NEXT @limit ROWS ONLY
     `;
@@ -599,8 +606,8 @@ router.get('/:id/enrollments', async (req, res) => {
       .query(`
         SELECT 
           COUNT(*) as TotalEnrollments,
-          SUM(CASE WHEN CompletionDate IS NOT NULL THEN 1 ELSE 0 END) as CompletedCount,
-          SUM(CASE WHEN CompletionDate IS NULL AND Progress > 0 THEN 1 ELSE 0 END) as InProgressCount,
+          SUM(CASE WHEN CompletedAt IS NOT NULL THEN 1 ELSE 0 END) as CompletedCount,
+          SUM(CASE WHEN CompletedAt IS NULL AND Progress > 0 THEN 1 ELSE 0 END) as InProgressCount,
           SUM(CASE WHEN Progress = 0 THEN 1 ELSE 0 END) as NotStartedCount,
           AVG(Progress) as AverageProgress
         FROM CourseEnrollments
@@ -620,6 +627,92 @@ router.get('/:id/enrollments', async (req, res) => {
   } catch (error) {
     console.error('Get Course Enrollments Error:', error);
     return res.status(500).json({ message: 'Server error while fetching course enrollments' });
+  }
+});
+
+// Update course details
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { 
+      title, description, shortDescription, level, 
+      category, subCategory, requirements, objectives, 
+      price, discountPrice, imageUrl, videoUrl, duration
+    } = req.body;
+    
+    if (!title && !description) {
+      return res.status(400).json({ message: 'At least title or description is required' });
+    }
+    
+    const pool = await poolPromise;
+    
+    // Verify teacher has access to this course
+    const accessCheck = await pool.request()
+      .input('courseId', sql.BigInt, id)
+      .input('teacherId', sql.BigInt, req.user.UserID)
+      .query(`
+        SELECT COUNT(*) as HasAccess
+        FROM Courses
+        WHERE CourseID = @courseId 
+        AND InstructorID = @teacherId 
+        AND DeletedAt IS NULL
+      `);
+    
+    if (accessCheck.recordset[0].HasAccess === 0) {
+      return res.status(403).json({ message: 'You do not have access to update this course' });
+    }
+    
+    // Build update query
+    let updateQuery = 'UPDATE Courses SET UpdatedAt = @updatedAt';
+    
+    if (title) updateQuery += ', Title = @title';
+    if (description) updateQuery += ', Description = @description';
+    if (shortDescription) updateQuery += ', ShortDescription = @shortDescription';
+    if (level) updateQuery += ', Level = @level';
+    if (category) updateQuery += ', Category = @category';
+    if (subCategory) updateQuery += ', SubCategory = @subCategory';
+    if (requirements) updateQuery += ', Requirements = @requirements';
+    if (objectives) updateQuery += ', Objectives = @objectives';
+    if (price !== undefined) updateQuery += ', Price = @price';
+    if (discountPrice !== undefined) updateQuery += ', DiscountPrice = @discountPrice';
+    if (imageUrl) updateQuery += ', ImageUrl = @imageUrl';
+    if (videoUrl) updateQuery += ', VideoUrl = @videoUrl';
+    if (duration) updateQuery += ', Duration = @duration';
+    
+    updateQuery += ' WHERE CourseID = @courseId AND InstructorID = @teacherId';
+    
+    // Update course
+    const request = pool.request()
+      .input('courseId', sql.BigInt, id)
+      .input('teacherId', sql.BigInt, req.user.UserID)
+      .input('updatedAt', sql.DateTime, new Date())
+      .input('title', sql.NVarChar(255), title)
+      .input('description', sql.NVarChar('max'), description)
+      .input('shortDescription', sql.NVarChar(500), shortDescription)
+      .input('level', sql.VarChar(20), level)
+      .input('category', sql.VarChar(50), category)
+      .input('subCategory', sql.VarChar(50), subCategory)
+      .input('requirements', sql.NVarChar('max'), requirements)
+      .input('objectives', sql.NVarChar('max'), objectives)
+      .input('price', sql.Decimal(10, 2), price)
+      .input('discountPrice', sql.Decimal(10, 2), discountPrice)
+      .input('imageUrl', sql.VarChar(255), imageUrl)
+      .input('videoUrl', sql.VarChar(255), videoUrl)
+      .input('duration', sql.Int, duration);
+    
+    const result = await request.query(updateQuery);
+    
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Course not found or you do not have permission to update it' });
+    }
+    
+    return res.status(200).json({ 
+      message: 'Course updated successfully',
+      courseId: id
+    });
+  } catch (error) {
+    console.error('Update Course Error:', error);
+    return res.status(500).json({ message: 'Server error while updating course', error: error.message });
   }
 });
 

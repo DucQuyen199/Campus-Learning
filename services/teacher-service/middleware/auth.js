@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const { poolPromise, sql } = require('../config/database');
 require('dotenv').config();
 
-// Verify JWT and ensure user is a teacher
+// Verify JWT and ensure user is a teacher or admin
 const verifyTeacher = (req, res, next) => {
   // Skip auth for the login route
   if (req.path === '/auth/login') {
@@ -20,14 +20,14 @@ const verifyTeacher = (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Check if user exists and is a teacher
+    // Check if user exists and is a teacher or admin
     poolPromise.then(pool => {
       pool.request()
         .input('userId', sql.BigInt, decoded.userId)
         .query(`
-          SELECT UserID, Username, Email, FullName, Role, Status
+          SELECT UserID, Username, Email, FullName, Role 
           FROM Users
-          WHERE UserID = @userId AND DeletedAt IS NULL AND Status = 'active'
+          WHERE UserID = @userId AND AccountStatus = 'ACTIVE'
         `)
         .then(result => {
           if (result.recordset.length === 0) {
@@ -36,9 +36,13 @@ const verifyTeacher = (req, res, next) => {
           
           const user = result.recordset[0];
           
-          // Check if user is a teacher
-          if (user.Role !== 'TEACHER') {
-            return res.status(403).json({ message: 'Access denied. Not authorized as a teacher.' });
+          // Cho phép cả TEACHER và ADMIN
+          if (user.Role !== 'TEACHER' && user.Role !== 'ADMIN') {
+            return res.status(403).json({ 
+              message: 'Access denied. Not authorized. Only teachers and admins can access.',
+              requiredRole: 'TEACHER/ADMIN', 
+              userRole: user.Role 
+            });
           }
           
           // Set user in request

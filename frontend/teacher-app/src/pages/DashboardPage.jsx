@@ -45,28 +45,28 @@ const DashboardPage = () => {
 
   const statsCards = [
     {
-      title: 'My Courses',
+      title: 'Khóa Học Của Tôi',
       value: stats.courseCount,
       icon: <AcademicCapIcon className="w-12 h-12 text-primary-500" />,
       color: 'bg-primary-50',
       link: '/courses',
     },
     {
-      title: 'Active Students',
+      title: 'Học Viên Hoạt Động',
       value: stats.activeStudentCount,
       icon: <UserGroupIcon className="w-12 h-12 text-blue-500" />,
       color: 'bg-blue-50',
       link: '/students',
     },
     {
-      title: 'Pending Assignments',
+      title: 'Bài Tập Đang Chờ',
       value: stats.pendingAssignmentCount,
       icon: <DocumentTextIcon className="w-12 h-12 text-amber-500" />,
       color: 'bg-amber-50',
       link: '/assignments',
     },
     {
-      title: 'Unread Notifications',
+      title: 'Thông Báo Chưa Đọc',
       value: stats.unreadNotificationCount,
       icon: <BellIcon className="w-12 h-12 text-red-500" />,
       color: 'bg-red-50',
@@ -77,8 +77,8 @@ const DashboardPage = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Welcome, {user?.FullName || 'Teacher'}</h1>
-        <p className="text-gray-600">Here's what's happening with your courses today.</p>
+        <h1 className="text-3xl font-bold text-gray-800">Xin chào, {user?.FullName || 'Giảng Viên'}</h1>
+        <p className="text-gray-600">Dưới đây là thông tin về các khóa học của bạn hôm nay.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -102,9 +102,9 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Recent Courses</h2>
+            <h2 className="text-xl font-semibold">Khóa Học Gần Đây</h2>
             <Link to="/courses" className="text-primary-600 hover:text-primary-700">
-              View All
+              Xem Tất Cả
             </Link>
           </div>
           {courseData?.courses?.length ? (
@@ -117,9 +117,9 @@ const DashboardPage = () => {
                 >
                   <div className="flex items-center">
                     <div className="flex-shrink-0 mr-4">
-                      {course.Image ? (
+                      {course.ImageUrl ? (
                         <img
-                          src={course.Image}
+                          src={course.ImageUrl}
                           alt={course.Title}
                           className="w-12 h-12 rounded-md object-cover"
                         />
@@ -132,7 +132,7 @@ const DashboardPage = () => {
                     <div>
                       <h3 className="text-md font-medium text-gray-900">{course.Title}</h3>
                       <p className="text-sm text-gray-500">
-                        {course.EnrollmentsCount} students
+                        {course.EnrollmentsCount} học viên
                       </p>
                     </div>
                   </div>
@@ -140,15 +140,15 @@ const DashboardPage = () => {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 py-4 text-center">No courses found</p>
+            <p className="text-gray-500 py-4 text-center">Không tìm thấy khóa học nào</p>
           )}
         </div>
 
         <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Upcoming Assignments</h2>
+            <h2 className="text-xl font-semibold">Bài Tập Sắp Tới</h2>
             <Link to="/assignments" className="text-primary-600 hover:text-primary-700">
-              View All
+              Xem Tất Cả
             </Link>
           </div>
           {assignmentData?.assignments?.length ? (
@@ -170,18 +170,18 @@ const DashboardPage = () => {
                         {assignment.Title}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        Due: {new Date(assignment.DueDate).toLocaleDateString()}
+                        Hạn: {new Date(assignment.DueDate).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-sm font-medium text-gray-900">
-                      {assignment.SubmissionsCount} submissions
+                      {assignment.SubmissionsCount} bài nộp
                     </div>
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 py-4 text-center">No upcoming assignments</p>
+            <p className="text-gray-500 py-4 text-center">Không có bài tập sắp tới</p>
           )}
         </div>
       </div>

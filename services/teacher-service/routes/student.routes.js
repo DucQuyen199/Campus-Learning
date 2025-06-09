@@ -246,7 +246,7 @@ router.post('/:id/warnings', async (req, res) => {
         JOIN Courses c ON ce.CourseID = c.CourseID
         JOIN Users u ON ce.UserID = u.UserID
         WHERE ce.UserID = @studentId AND ce.CourseID = @courseId 
-        AND c.CreatedBy = @teacherId AND u.Role = 'STUDENT' AND u.DeletedAt IS NULL
+        AND c.InstructorID = @teacherId AND u.Role = 'STUDENT' AND u.DeletedAt IS NULL
       `);
     
     if (studentCheck.recordset[0].IsValid === 0) {

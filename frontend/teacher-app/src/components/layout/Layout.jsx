@@ -9,6 +9,7 @@ import Sidebar from './Sidebar';
 import DashboardPage from '../../pages/DashboardPage';
 import CoursesPage from '../../pages/CoursesPage';
 import CourseDetailPage from '../../pages/CourseDetailPage';
+import CourseEditPage from '../../pages/CourseEditPage';
 import StudentsPage from '../../pages/StudentsPage';
 import StudentDetailPage from '../../pages/StudentDetailPage';
 import AssignmentsPage from '../../pages/AssignmentsPage';
@@ -47,6 +48,7 @@ const Layout = () => {
               {/* Courses */}
               <Route path="/courses" element={<CoursesPage />} />
               <Route path="/courses/:id" element={<CourseDetailPage />} />
+              <Route path="/courses/:id/edit" element={<CourseEditPage />} />
               
               {/* Students */}
               <Route path="/students" element={<StudentsPage />} />

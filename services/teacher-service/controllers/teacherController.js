@@ -13,9 +13,9 @@ const teacherController = {
                            AVG(CAST(ce.Rating as FLOAT)) as AverageRating
                     FROM Courses c
                     LEFT JOIN CourseEnrollments ce ON c.CourseID = ce.CourseID
-                    WHERE c.CreatedBy = @teacherId OR c.InstructorID = @teacherId
+                    WHERE c.InstructorID = @teacherId
                     GROUP BY c.CourseID, c.Title, c.Description, c.Status, 
-                             c.CreatedAt, c.UpdatedAt, c.Price, c.Slug
+                             c.CreatedAt, c.UpdatedAt, c.Price, c.Slug, c.ImageUrl
                 `);
 
             res.json(result.recordset);
@@ -41,9 +41,10 @@ const teacherController = {
                     LEFT JOIN CourseEnrollments ce ON c.CourseID = ce.CourseID
                     LEFT JOIN CourseModules cm ON c.CourseID = cm.CourseID
                     LEFT JOIN CourseLessons cl ON cm.ModuleID = cl.ModuleID
-                    WHERE c.CourseID = @courseId AND (c.CreatedBy = @teacherId OR c.InstructorID = @teacherId)
+                    WHERE c.CourseID = @courseId AND c.InstructorID = @teacherId
                     GROUP BY c.CourseID, c.Title, c.Description, c.Status,
-                             c.CreatedAt, c.UpdatedAt, c.Price, c.Slug
+                             c.CreatedAt, c.UpdatedAt, c.Price, c.Slug, c.ImageUrl,
+                             c.Requirements, c.Objectives, c.Level, c.Duration
                 `);
 
             if (result.recordset.length === 0) {
@@ -75,7 +76,7 @@ const teacherController = {
                     AND EXISTS (
                         SELECT 1 FROM Courses c 
                         WHERE c.CourseID = ce.CourseID 
-                        AND (c.CreatedBy = @teacherId OR c.InstructorID = @teacherId)
+                        AND c.InstructorID = @teacherId
                     )
                     GROUP BY u.UserID, u.Username, u.Email, 
                              ce.EnrollmentDate, ce.Status
@@ -102,7 +103,7 @@ const teacherController = {
                     SELECT COUNT(*) as HasAccess
                     FROM Courses
                     WHERE CourseID = @courseId 
-                    AND (CreatedBy = @teacherId OR InstructorID = @teacherId)
+                    AND InstructorID = @teacherId
                     AND DeletedAt IS NULL
                 `);
             
@@ -205,17 +206,17 @@ const teacherController = {
                     SELECT 
                         (SELECT COUNT(DISTINCT CourseID) 
                          FROM Courses 
-                         WHERE CreatedBy = @teacherId OR InstructorID = @teacherId) as TotalCourses,
+                         WHERE InstructorID = @teacherId) as TotalCourses,
                         
                         (SELECT COUNT(DISTINCT ce.UserID)
                          FROM CourseEnrollments ce
                          JOIN Courses c ON ce.CourseID = c.CourseID
-                         WHERE c.CreatedBy = @teacherId OR c.InstructorID = @teacherId) as TotalStudents,
+                         WHERE c.InstructorID = @teacherId) as TotalStudents,
                         
                         (SELECT AVG(CAST(Rating as FLOAT))
                          FROM CourseEnrollments ce
                          JOIN Courses c ON ce.CourseID = c.CourseID
-                         WHERE c.CreatedBy = @teacherId OR c.InstructorID = @teacherId) as AverageRating
+                         WHERE c.InstructorID = @teacherId) as AverageRating
                 `);
 
             res.json(result.recordset[0]);

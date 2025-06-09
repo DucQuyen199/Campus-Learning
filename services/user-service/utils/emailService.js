@@ -63,7 +63,7 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
     subject = 'Xác thực email của bạn';
     htmlContent = `
       <p>Xin chào ${fullName},</p>
-      <p>Cảm ơn bạn đã đăng ký tài khoản tại Campust. Để hoàn tất quá trình đăng ký, vui lòng nhập mã xác thực sau:</p>
+      <p>Bạn đang yêu cầu xác thực tài khoản tại Campust. Để hoàn tất quá trình xác thực, vui lòng nhập mã xác thực sau:</p>
       <div style="margin: 20px 0; text-align: center;">
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; font-size: 24px; letter-spacing: 5px; font-weight: bold;">${otp}</div>
       </div>
@@ -75,11 +75,11 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
       <div style="text-align: center; margin-bottom: 20px;">
-        <h2 style="color: #2563eb;">Campust</h2>
+        <h2 style="color: #2563eb;">CAMPUST</h2>
       </div>
       <div>
         ${htmlContent}
-        <p>Trân trọng,<br/>Đội ngũ Campust</p>
+        <p>Trân trọng,<br/>Đội ngũ CAMPUST</p>
       </div>
     </div>
   `;

@@ -15,7 +15,10 @@ const teacherAuth = async (req, res, next) => {
             decoded = jwt.verify(token, process.env.JWT_SECRET);
         } catch (error) {
             console.error('JWT Verification Error:', error);
-            return res.status(401).json({ message: 'Token không hợp lệ hoặc hết hạn' });
+            if (error.name === 'TokenExpiredError') {
+                return res.status(401).json({ message: 'Token đã hết hạn' });
+            }
+            return res.status(401).json({ message: 'Token không hợp lệ' });
         }
         
         // Check if userId exists in the decoded token
@@ -29,31 +32,42 @@ const teacherAuth = async (req, res, next) => {
             const result = await pool.request()
                 .input('userId', decoded.userId)
                 .query(`
-                    SELECT u.UserID, u.Role, u.FullName, u.Email 
+                    SELECT u.UserID, u.Role, u.FullName, u.Email, u.Avatar 
                     FROM Users u
                     WHERE u.UserID = @userId 
                     AND (u.Role = 'TEACHER' OR u.Role = 'ADMIN')
-                    AND (u.Status = 'ONLINE' OR u.Status = 'AWAY')
-                    AND u.DeletedAt IS NULL
                     AND u.AccountStatus = 'ACTIVE'
                 `);
 
             if (result.recordset.length === 0) {
-                return res.status(403).json({ message: 'Không có quyền truy cập' });
+                return res.status(403).json({ 
+                    message: 'Không có quyền truy cập. Tài khoản không phải giáo viên hoặc quản trị viên',
+                    error: 'forbidden',
+                    userId: decoded.userId
+                });
             }
 
+            // Thêm thông tin user vào request để sử dụng trong các handlers
             req.user = {
                 ...result.recordset[0],
                 UserID: decoded.userId
             };
+            
+            console.log(`User authenticated: ${req.user.FullName} (${req.user.Role})`);
             next();
         } catch (dbError) {
             console.error('Database Error in Auth Middleware:', dbError);
-            return res.status(500).json({ message: 'Lỗi khi kiểm tra quyền người dùng' });
+            return res.status(500).json({ 
+                message: 'Lỗi khi kiểm tra quyền người dùng',
+                error: dbError.message 
+            });
         }
     } catch (error) {
         console.error('Auth Error:', error);
-        res.status(401).json({ message: 'Token không hợp lệ' });
+        res.status(401).json({ 
+            message: 'Lỗi xác thực người dùng',
+            error: error.message
+        });
     }
 };
 

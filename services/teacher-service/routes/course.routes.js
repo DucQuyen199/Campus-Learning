@@ -516,6 +516,78 @@ router.put('/lessons/:lessonId', async (req, res) => {
   }
 });
 
+// Get lessons for a specific module
+router.get('/modules/:moduleId/lessons', async (req, res) => {
+  try {
+    const { moduleId } = req.params;
+    const pool = await poolPromise;
+    
+    // Verify teacher has access to this module
+    const accessCheck = await pool.request()
+      .input('moduleId', sql.BigInt, moduleId)
+      .input('teacherId', sql.BigInt, req.user.UserID)
+      .query(`
+        SELECT m.ModuleID, c.CourseID
+        FROM CourseModules m
+        JOIN Courses c ON m.CourseID = c.CourseID
+        WHERE m.ModuleID = @moduleId 
+        AND (c.InstructorID = @teacherId) 
+        AND c.DeletedAt IS NULL
+      `);
+    
+    if (accessCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this module' });
+    }
+    
+    // Get lessons for the module
+    const result = await pool.request()
+      .input('moduleId', sql.BigInt, moduleId)
+      .query(`
+        SELECT 
+          LessonID, ModuleID, Title, Description, Type,
+          Content, VideoUrl, Duration, OrderIndex, 
+          IsPreview, IsPublished, CreatedAt, UpdatedAt
+        FROM CourseLessons
+        WHERE ModuleID = @moduleId
+        ORDER BY OrderIndex
+      `);
+    
+    // Get coding exercises for these lessons
+    const lessonIds = result.recordset.map(lesson => lesson.LessonID);
+    
+    let exercises = [];
+    if (lessonIds.length > 0) {
+      const exercisesResult = await pool.request()
+        .input('lessonIds', sql.VarChar(8000), lessonIds.join(','))
+        .query(`
+          SELECT ExerciseID, LessonID, Title, Description, ProgrammingLanguage,
+                 Difficulty, Points, CreatedAt, UpdatedAt
+          FROM CodingExercises
+          WHERE LessonID IN (SELECT value FROM STRING_SPLIT(@lessonIds, ','))
+        `);
+      
+      exercises = exercisesResult.recordset;
+    }
+    
+    // Add exercises to their corresponding lessons
+    const lessonsWithExercises = result.recordset.map(lesson => {
+      const lessonExercises = exercises.filter(ex => ex.LessonID === lesson.LessonID);
+      return {
+        ...lesson,
+        exercises: lessonExercises
+      };
+    });
+    
+    return res.status(200).json({
+      moduleId,
+      lessons: lessonsWithExercises
+    });
+  } catch (error) {
+    console.error('Get Module Lessons Error:', error);
+    return res.status(500).json({ message: 'Server error while fetching module lessons', error: error.message });
+  }
+});
+
 // Get course enrollments
 router.get('/:id/enrollments', async (req, res) => {
   try {
@@ -713,6 +785,75 @@ router.put('/:id', async (req, res) => {
   } catch (error) {
     console.error('Update Course Error:', error);
     return res.status(500).json({ message: 'Server error while updating course', error: error.message });
+  }
+});
+
+// Get a specific lesson by ID
+router.get('/lessons/:lessonId', async (req, res) => {
+  try {
+    const { lessonId } = req.params;
+    const pool = await poolPromise;
+    
+    // Verify teacher has access to this lesson
+    const accessCheck = await pool.request()
+      .input('lessonId', sql.BigInt, lessonId)
+      .input('teacherId', sql.BigInt, req.user.UserID)
+      .query(`
+        SELECT l.LessonID, m.ModuleID, c.CourseID
+        FROM CourseLessons l
+        JOIN CourseModules m ON l.ModuleID = m.ModuleID
+        JOIN Courses c ON m.CourseID = c.CourseID
+        WHERE l.LessonID = @lessonId 
+        AND (c.InstructorID = @teacherId) 
+        AND c.DeletedAt IS NULL
+      `);
+    
+    if (accessCheck.recordset.length === 0) {
+      return res.status(403).json({ message: 'You do not have access to this lesson' });
+    }
+    
+    // Get lesson details
+    const lessonResult = await pool.request()
+      .input('lessonId', sql.BigInt, lessonId)
+      .query(`
+        SELECT 
+          l.LessonID, l.ModuleID, l.Title, l.Description, l.Type,
+          l.Content, l.VideoUrl, l.Duration, l.OrderIndex, 
+          l.IsPreview, l.IsPublished, l.CreatedAt, l.UpdatedAt
+        FROM CourseLessons l
+        WHERE l.LessonID = @lessonId
+      `);
+    
+    if (lessonResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Lesson not found' });
+    }
+    
+    const lesson = lessonResult.recordset[0];
+    
+    // Get coding exercises if this is a coding lesson
+    let exercises = [];
+    if (lesson.Type === 'coding') {
+      const exercisesResult = await pool.request()
+        .input('lessonId', sql.BigInt, lessonId)
+        .query(`
+          SELECT ExerciseID, LessonID, Title, Description, ProgrammingLanguage,
+                 Difficulty, Points, CreatedAt, UpdatedAt
+          FROM CodingExercises
+          WHERE LessonID = @lessonId
+        `);
+      
+      exercises = exercisesResult.recordset;
+    }
+    
+    return res.status(200).json({
+      lesson: {
+        ...lesson,
+        exercises
+      }
+    });
+  } catch (error) {
+    console.error('Get Lesson Error:', error);
+    return res.status(500).json({ message: 'Server error while fetching lesson', error: error.message });
   }
 });
 

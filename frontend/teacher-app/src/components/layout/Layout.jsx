@@ -10,6 +10,9 @@ import DashboardPage from '../../pages/DashboardPage';
 import CoursesPage from '../../pages/CoursesPage';
 import CourseDetailPage from '../../pages/CourseDetailPage';
 import CourseEditPage from '../../pages/CourseEditPage';
+import ModuleDetailPage from '../../pages/ModuleDetailPage';
+import LessonDetailPage from '../../pages/LessonDetailPage';
+import LessonEditPage from '../../pages/LessonEditPage';
 import StudentsPage from '../../pages/StudentsPage';
 import StudentDetailPage from '../../pages/StudentDetailPage';
 import AssignmentsPage from '../../pages/AssignmentsPage';
@@ -49,6 +52,9 @@ const Layout = () => {
               <Route path="/courses" element={<CoursesPage />} />
               <Route path="/courses/:id" element={<CourseDetailPage />} />
               <Route path="/courses/:id/edit" element={<CourseEditPage />} />
+              <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetailPage />} />
+              <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetailPage />} />
+              <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId/edit" element={<LessonEditPage />} />
               
               {/* Students */}
               <Route path="/students" element={<StudentsPage />} />

@@ -2,6 +2,197 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Mặc định với màu blue */
+    --color-primary: #3b82f6; /* blue-500 */
+    --color-secondary: #60a5fa; /* blue-400 */
+    --color-accent: #dbeafe; /* blue-100 */
+    --color-hover: #2563eb; /* blue-600 */
+    --color-active: #1d4ed8; /* blue-700 */
+  }
+
+  /* Thiết lập font size toàn cục */
+  html {
+    font-size: 16px;
+  }
+
+  /* Khi người dùng chọn fontSize: small */
+  .text-size-small {
+    font-size: 14px;
+  }
+
+  /* Khi người dùng chọn fontSize: large */
+  .text-size-large {
+    font-size: 18px;
+  }
+
+  /* Dark mode */
+  .dark {
+    @apply bg-gray-900 text-gray-100;
+  }
+  
+  /* Style form inputs to use theme colors */
+  input:focus, textarea:focus, select:focus {
+    @apply ring-2 ring-theme-primary border-theme-primary outline-none;
+  }
+  
+  /* Style checkboxes */
+  input[type="checkbox"]:checked {
+    @apply bg-theme-primary border-theme-primary;
+  }
+  
+  /* Style radio buttons */
+  input[type="radio"]:checked {
+    @apply bg-theme-primary border-theme-primary;
+  }
+}
+
+/* Theme-aware utility classes */
+@layer components {
+  .bg-theme-primary {
+    background-color: var(--color-primary);
+  }
+  .bg-theme-secondary {
+    background-color: var(--color-secondary);
+  }
+  .bg-theme-accent {
+    background-color: var(--color-accent);
+  }
+  .bg-theme-hover {
+    background-color: var(--color-hover);
+  }
+  .bg-theme-active {
+    background-color: var(--color-active);
+  }
+  
+  .text-theme-primary {
+    color: var(--color-primary);
+  }
+  .text-theme-secondary {
+    color: var(--color-secondary);
+  }
+  .text-theme-hover {
+    color: var(--color-hover);
+  }
+  .text-theme-active {
+    color: var(--color-active);
+  }
+  
+  .border-theme-primary {
+    border-color: var(--color-primary);
+  }
+  .border-theme-secondary {
+    border-color: var(--color-secondary);
+  }
+  .border-theme-accent {
+    border-color: var(--color-accent);
+  }
+  
+  .ring-theme-primary {
+    --tw-ring-color: var(--color-primary);
+  }
+  .ring-theme-accent {
+    --tw-ring-color: var(--color-accent);
+  }
+  
+  .hover\:bg-theme-primary:hover {
+    background-color: var(--color-primary);
+  }
+  .hover\:bg-theme-hover:hover {
+    background-color: var(--color-hover);
+  }
+  .hover\:bg-theme-accent:hover {
+    background-color: var(--color-accent);
+  }
+  
+  .hover\:text-theme-primary:hover {
+    color: var(--color-primary);
+  }
+  .hover\:text-theme-secondary:hover {
+    color: var(--color-secondary);
+  }
+  .hover\:text-theme-hover:hover {
+    color: var(--color-hover);
+  }
+  
+  .focus\:border-theme-primary:focus {
+    border-color: var(--color-primary);
+  }
+  
+  .focus\:ring-theme-primary:focus {
+    --tw-ring-color: var(--color-primary);
+  }
+  
+  /* Form element theme classes */
+  .form-input {
+    @apply w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
+           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+           focus:ring-2 focus:ring-theme-primary focus:border-theme-primary;
+  }
+  
+  .form-select {
+    @apply w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
+           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+           focus:ring-2 focus:ring-theme-primary focus:border-theme-primary;
+  }
+  
+  .form-checkbox {
+    @apply rounded border-gray-300 dark:border-gray-600 text-theme-primary 
+           focus:ring-theme-primary focus:ring-offset-0;
+  }
+  
+  .form-radio {
+    @apply border-gray-300 dark:border-gray-600 text-theme-primary 
+           focus:ring-theme-primary focus:ring-offset-0;
+  }
+  
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+  }
+  
+  .form-error {
+    @apply mt-1 text-sm text-red-600 dark:text-red-400;
+  }
+  
+  .form-success {
+    @apply mt-1 text-sm text-green-600 dark:text-green-400;
+  }
+}
+
+/* Hiệu ứng chuyển tiếp màu sắc */
+.transition-colors {
+  transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Ẩn thanh cuộn khi không cần thiết */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.7);
+}
+
+/* Dark mode cho thanh cuộn */
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.7);
+}
+
 @layer utilities {
   .animate-slide-in-right {
     animation: slideInRight 0.3s ease-out forwards;

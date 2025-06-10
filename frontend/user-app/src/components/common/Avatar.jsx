@@ -27,6 +27,7 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
   // Generate UI Avatars URL with the name (if provided) or a default "User" text
   const getUiAvatarUrl = () => {
     const displayName = name || alt || 'User';
+    // We're using the theme's primary color for the background in the UI Avatars
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random&color=fff&size=${pixelSizes[size]}&rounded=true`;
   };
   
@@ -52,7 +53,7 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
   
   return (
     <div 
-      className={`overflow-hidden rounded-full ${sizeClasses[size]} bg-gray-100 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
+      className={`overflow-hidden rounded-full ${sizeClasses[size]} bg-gray-100 dark:bg-gray-700 flex-shrink-0 ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity duration-200' : ''}`}
       onClick={onClick}
     >
       <img 

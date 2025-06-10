@@ -4,6 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Toaster } from 'react-hot-toast';
 import MainLayout from './components/Layout/MainLayout';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Home from './pages/Home';
 import Courses from './pages/Courses';
 import CourseDetail from './pages/Courses/CourseDetail';
@@ -47,115 +48,117 @@ import './toast-custom.css';
 
 function App() {
   return (
-    <CallProvider>
-      <MainLayout>
-        <ToastContainer 
-          position="top-right"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          className="toast-container-custom"
-          toastClassName="toast-custom"
-          style={{ top: '70px' }} // Add top margin to push below navbar
-        />
-        <Toaster 
-          position="top-right" 
-          toastOptions={{
-            style: {
-              marginTop: '70px', // Push Toaster notifications below navbar
-            },
-          }}
-        />
-        <CallInterface />
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          
-          {/* Public course and event routes */}
-          <Route path="/courses/*" element={<Courses />} />
-          <Route path="/courses/:courseId" element={<CourseDetail />} />
-          <Route path="/events/:eventId" element={<EventDetail />} />
-          <Route path="/roadmaps" element={<Roadmaps />} />
-          
-          {/* Payment callback routes - need to be public for third-party returns */}
-          <Route path="/payment/callback" element={<PaymentResult />} />
-          <Route path="/payment/paypal/success" element={<PaymentResult />} />
-          <Route path="/payment/paypal/cancel" element={<PaymentResult />} />
+    <ThemeProvider>
+      <CallProvider>
+        <MainLayout>
+          <ToastContainer 
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            className="toast-container-custom"
+            toastClassName="toast-custom"
+            style={{ top: '70px' }} // Add top margin to push below navbar
+          />
+          <Toaster 
+            position="top-right" 
+            toastOptions={{
+              style: {
+                marginTop: '70px', // Push Toaster notifications below navbar
+              },
+            }}
+          />
+          <CallInterface />
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            {/* Public course and event routes */}
+            <Route path="/courses/*" element={<Courses />} />
+            <Route path="/courses/:courseId" element={<CourseDetail />} />
+            <Route path="/events/:eventId" element={<EventDetail />} />
+            <Route path="/roadmaps" element={<Roadmaps />} />
+            
+            {/* Payment callback routes - need to be public for third-party returns */}
+            <Route path="/payment/callback" element={<PaymentResult />} />
+            <Route path="/payment/paypal/success" element={<PaymentResult />} />
+            <Route path="/payment/paypal/cancel" element={<PaymentResult />} />
 
-          {/* Protected routes */}
-          {[
-            { path: '/home', element: <Home /> },
-            { path: '/profile', element: <Profile /> },
-            { path: '/profile/:userId', element: <Profile /> },
-            { path: '/friends', element: <Friends /> },
-            { path: '/events', element: <Events /> },
-            { path: '/posts', element: <Posts /> },
-            { path: '/notifications', element: <Notifications /> },
-            { path: '/ranking', element: <Ranking /> },
-            { path: '/ai-chat', element: <AIChat /> },
-            { path: '/ai-test-local', element: <AiTestLocal /> },
-            { path: '/other-courses', element: <OtherCourses /> },
-            { path: '/chat', element: <Chat /> },
-            { path: '/reports', element: <Reports /> },
-            { path: '/settings', element: <Settings /> },
-            { path: '/exams/*', element: <Exams /> },
-            { path: '/competitions', element: <CompetitionsPage /> },
-            { path: '/competitions/:id', element: <CompetitionDetail /> },
-            { path: '/competitions/:competitionId/problems/:problemId', element: <ProblemDetail /> },
-            { path: '/courses/:courseId/learn', element: <CourseLearning /> },
-            { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
-            { path: '/payment/:courseId', element: <Payment /> }
-          ].map(({ path, element }) => (
-            <Route
-              key={path}
-              path={path}
+            {/* Protected routes */}
+            {[
+              { path: '/home', element: <Home /> },
+              { path: '/profile', element: <Profile /> },
+              { path: '/profile/:userId', element: <Profile /> },
+              { path: '/friends', element: <Friends /> },
+              { path: '/events', element: <Events /> },
+              { path: '/posts', element: <Posts /> },
+              { path: '/notifications', element: <Notifications /> },
+              { path: '/ranking', element: <Ranking /> },
+              { path: '/ai-chat', element: <AIChat /> },
+              { path: '/ai-test-local', element: <AiTestLocal /> },
+              { path: '/other-courses', element: <OtherCourses /> },
+              { path: '/chat', element: <Chat /> },
+              { path: '/reports', element: <Reports /> },
+              { path: '/settings', element: <Settings /> },
+              { path: '/exams/*', element: <Exams /> },
+              { path: '/competitions', element: <CompetitionsPage /> },
+              { path: '/competitions/:id', element: <CompetitionDetail /> },
+              { path: '/competitions/:competitionId/problems/:problemId', element: <ProblemDetail /> },
+              { path: '/courses/:courseId/learn', element: <CourseLearning /> },
+              { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
+              { path: '/payment/:courseId', element: <Payment /> }
+            ].map(({ path, element }) => (
+              <Route
+                key={path}
+                path={path}
+                element={
+                  <AuthMiddleware>
+                    {element}
+                  </AuthMiddleware>
+                }
+              />
+            ))}
+
+            {/* Public story creation route */}
+            <Route path="/stories/create" element={<StoryCreate />} />
+
+            {/* Root route */}
+            <Route 
+              path="/" 
               element={
-                <AuthMiddleware>
-                  {element}
-                </AuthMiddleware>
+                localStorage.getItem('token') ? 
+                <Navigate to="/home" replace /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+
+            {/* Catch all route - redirect to home if authenticated, otherwise to login */}
+            <Route 
+              path="*" 
+              element={
+                localStorage.getItem('token') ? 
+                <Navigate to="/home" replace /> : 
+                <Navigate to="/login" replace />
               }
             />
-          ))}
 
-          {/* Public story creation route */}
-          <Route path="/stories/create" element={<StoryCreate />} />
-
-          {/* Root route */}
-          <Route 
-            path="/" 
-            element={
-              localStorage.getItem('token') ? 
-              <Navigate to="/home" replace /> : 
-              <Navigate to="/login" replace />
-            } 
-          />
-
-          {/* Catch all route - redirect to home if authenticated, otherwise to login */}
-          <Route 
-            path="*" 
-            element={
-              localStorage.getItem('token') ? 
-              <Navigate to="/home" replace /> : 
-              <Navigate to="/login" replace />
-            }
-          />
-
-          {/* Support routes */}
-          <Route path="/support/faq" element={<FAQ />} />
-          <Route path="/support/help-center" element={<HelpCenter />} />
-          <Route path="/support/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/support/terms-of-use" element={<TermsOfUse />} />
-        </Routes>
-      </MainLayout>
-    </CallProvider>
+            {/* Support routes */}
+            <Route path="/support/faq" element={<FAQ />} />
+            <Route path="/support/help-center" element={<HelpCenter />} />
+            <Route path="/support/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/support/terms-of-use" element={<TermsOfUse />} />
+          </Routes>
+        </MainLayout>
+      </CallProvider>
+    </ThemeProvider>
   );
 }
 

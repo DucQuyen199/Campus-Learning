@@ -9,11 +9,11 @@ const Card = ({
   shadow = 'md',
   padding = 'md' 
 }) => {
-  const baseClasses = 'bg-white rounded-lg';
+  const baseClasses = 'bg-white dark:bg-gray-800 rounded-lg';
   
   const hoverableClass = hoverable ? 'cursor-pointer transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg' : '';
   
-  const borderClass = bordered ? 'border border-gray-200' : '';
+  const borderClass = bordered ? 'border border-gray-200 dark:border-gray-700' : '';
   
   const shadowClasses = {
     none: '',

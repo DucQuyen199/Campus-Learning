@@ -1,11 +1,49 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './src/**/*.{js,jsx,ts,tsx}',
   ],
+  darkMode: 'class',
   theme: {
     extend: {
+      colors: {
+        theme: {
+          primary: 'var(--color-primary)',
+          secondary: 'var(--color-secondary)',
+          accent: 'var(--color-accent)',
+          hover: 'var(--color-hover)',
+          active: 'var(--color-active)',
+        },
+      },
+      backgroundColor: {
+        theme: {
+          primary: 'var(--color-primary)',
+          secondary: 'var(--color-secondary)',
+          accent: 'var(--color-accent)',
+          hover: 'var(--color-hover)',
+          active: 'var(--color-active)',
+        },
+      },
+      textColor: {
+        theme: {
+          primary: 'var(--color-primary)',
+          secondary: 'var(--color-secondary)',
+        },
+      },
+      borderColor: {
+        theme: {
+          primary: 'var(--color-primary)',
+          secondary: 'var(--color-secondary)',
+          accent: 'var(--color-accent)',
+        },
+      },
+      ringColor: {
+        theme: {
+          primary: 'var(--color-primary)',
+          secondary: 'var(--color-secondary)',
+        },
+      },
       animation: {
         'slide-in-right': 'slideInRight 0.3s ease-in-out',
         'slide-out-right': 'slideOutRight 0.3s ease-in-out',

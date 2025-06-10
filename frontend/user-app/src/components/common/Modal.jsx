@@ -58,7 +58,7 @@ const Modal = ({
   
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 dark:bg-opacity-70 overflow-y-auto"
       onClick={handleOverlayClick}
       data-testid="modal-overlay"
       aria-modal="true"
@@ -66,7 +66,7 @@ const Modal = ({
     >
       <div
         className={`
-          bg-white rounded-lg shadow-xl w-full overflow-hidden relative
+          bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full overflow-hidden relative
           ${sizeClasses[size] || sizeClasses.md}
           ${className}
         `}
@@ -74,14 +74,14 @@ const Modal = ({
       >
         {/* Modal header */}
         {(title || showClose) && (
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             {title && (
-              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">{title}</h3>
             )}
             {showClose && (
               <button
                 type="button"
-                className="text-gray-400 hover:text-gray-500 focus:outline-none focus:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300 focus:outline-none focus:text-gray-500"
                 onClick={onClose}
                 aria-label="Close"
               >
@@ -94,13 +94,13 @@ const Modal = ({
         )}
         
         {/* Modal body */}
-        <div className="p-4 overflow-y-auto">
+        <div className="p-4 overflow-y-auto text-gray-700 dark:text-gray-200">
           {children}
         </div>
         
         {/* Modal footer */}
         {footer && (
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
             {footer}
           </div>
         )}

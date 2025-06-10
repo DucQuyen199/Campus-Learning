@@ -27,6 +27,7 @@ import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { SocketProvider } from './contexts/SocketContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import store from './store'
 import App from './App'
 import './index.css'
@@ -111,7 +112,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       }}>
         <AuthProvider>
           <SocketProvider>
-            <App />
+            <ThemeProvider>
+              <App />
+            </ThemeProvider>
           </SocketProvider>
         </AuthProvider>
       </BrowserRouter>

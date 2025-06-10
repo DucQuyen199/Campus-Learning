@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateProfileImage, logout as logoutAction } from '../../store/slices/authSlice';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { 
   HomeIcon, BookOpenIcon, CalendarIcon, ChatBubbleLeftRightIcon,
   BellIcon, TrophyIcon, AcademicCapIcon, UserGroupIcon,
@@ -30,6 +31,7 @@ const MainLayout = ({ children }) => {
   const searchRef = useRef(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const { logout } = useAuth();
+  const { theme, themeColor, colors } = useTheme();
   
   // Cập nhật thời gian hiện tại mỗi phút
   useEffect(() => {
@@ -468,26 +470,26 @@ const MainLayout = ({ children }) => {
   const sidebarWidth = sidebarOpen ? '250px' : '70px';
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Main container with padding */}
       <div className="p-3 h-full w-full flex flex-col">
         {/* Unified form containing all layout elements */}
-        <div className="flex flex-col w-full h-full bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="flex flex-col w-full h-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Header */}
-          <div className="border-b border-gray-200 z-10 bg-gradient-to-r from-white to-blue-50 shadow-sm">
+          <div className="border-b border-gray-200 dark:border-gray-700 z-10 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900 shadow-sm">
             <div className="flex items-center justify-between h-16 px-6">
               {/* Logo and Toggle Button */}
               <div className="flex items-center space-x-4 flex-1">
                 <button
                   onClick={toggleSidebar}
-                  className="p-2 rounded-md text-gray-500 hover:bg-blue-100 hover:text-blue-600 focus:outline-none transition-all duration-200"
+                  className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-theme-accent hover:text-theme-primary dark:hover:bg-gray-700 focus:outline-none transition-all duration-200"
                 >
                   {sidebarOpen ? <ChevronLeftIcon className="h-5 w-5" /> : <Bars3Icon className="h-5 w-5" />}
                 </button>
                 
                 <div className="flex-shrink-0">
                   <Link to="/home" className="hover:opacity-95 transition-all">
-                    <span className="font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">
+                    <span className="font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-theme-primary via-theme-secondary to-theme-hover">
                       Campust HUBT
                     </span>
                   </Link>
@@ -499,11 +501,11 @@ const MainLayout = ({ children }) => {
                 <form onSubmit={handleSearch} className="relative w-full">
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MagnifyingGlassIcon className="h-5 w-5 text-blue-400" />
+                      <MagnifyingGlassIcon className="h-5 w-5 text-theme-secondary" />
                     </div>
                     <input
                       type="text"
-                      className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-md"
+                      className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm shadow-md text-gray-900 dark:text-gray-100"
                       placeholder="Tìm kiếm người dùng..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
@@ -512,16 +514,16 @@ const MainLayout = ({ children }) => {
                   
                   {/* User search results dropdown */}
                   {showResults && searchResults.length > 0 && (
-                    <div className="absolute mt-1 w-full bg-white rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100">
+                    <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-700">
                       <div className="py-1">
-                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wider border-b border-gray-100">
+                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
                           Người dùng
                         </h3>
                         
                         {searchResults.map((user) => (
                           <div 
                             key={user.id} 
-                            className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer flex items-center transition-colors duration-150"
+                            className="px-4 py-2.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-center transition-colors duration-150"
                             onClick={() => handleUserClick(user.id)}
                           >
                             <Avatar
@@ -532,8 +534,8 @@ const MainLayout = ({ children }) => {
                               className="mr-3"
                             />
                             <div>
-                              <p className="font-medium text-gray-900">{user.fullName}</p>
-                              <p className="text-sm text-gray-500">{user.email}</p>
+                              <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
                             </div>
                           </div>
                         ))}
@@ -542,9 +544,9 @@ const MainLayout = ({ children }) => {
                   )}
                   
                   {isSearching && (
-                    <div className="absolute mt-1 w-full bg-white rounded-md shadow-lg z-20 py-3 text-center border border-gray-100">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-sm text-gray-500 mt-2">Đang tìm kiếm...</p>
+                    <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 py-3 text-center border border-gray-100 dark:border-gray-700">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-theme-primary mx-auto"></div>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Đang tìm kiếm...</p>
                     </div>
                   )}
                 </form>
@@ -555,12 +557,12 @@ const MainLayout = ({ children }) => {
                 {/* Notifications */}
                 <div className="relative" ref={notificationsRef}>
                   <button 
-                    className="p-2 rounded-full text-gray-500 hover:bg-blue-50 relative transition-all duration-200 hover:text-blue-600"
+                    className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-theme-accent/50 relative transition-all duration-200 hover:text-theme-primary dark:hover:text-theme-secondary"
                     onClick={() => setShowNotifications(!showNotifications)}
                   >
                     {unreadCount > 0 ? (
                       <>
-                        <BellIconSolid className="h-6 w-6 text-blue-600" />
+                        <BellIconSolid className="h-6 w-6 text-theme-primary" />
                         <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full animate-pulse shadow-sm">
                           {unreadCount > 9 ? '9+' : unreadCount}
                         </span>
@@ -572,27 +574,27 @@ const MainLayout = ({ children }) => {
                   
                   {/* Notifications panel */}
                   {showNotifications && (
-                    <div className={`fixed top-0 right-0 w-80 h-full bg-white shadow-xl z-30 transform transition-transform duration-300 ease-in-out overflow-hidden ${
+                    <div className={`fixed top-0 right-0 w-80 h-full bg-white dark:bg-gray-800 shadow-xl z-30 transform transition-transform duration-300 ease-in-out overflow-hidden ${
                       isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
                     }`}>
                       <div className="flex flex-col h-full">
                         {/* Header */}
-                        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-                          <h3 className="text-lg font-semibold text-gray-900">Thông báo</h3>
+                        <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-theme-accent/50 to-white dark:from-gray-700 dark:to-gray-800">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Thông báo</h3>
                           <div className="flex space-x-2">
                             {unreadCount > 0 && (
                               <button 
                                 onClick={markAllAsRead}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                className="text-xs text-theme-primary hover:text-theme-hover dark:hover:text-theme-secondary font-medium"
                               >
                                 Đánh dấu đã đọc
                               </button>
                             )}
                             <button 
                               onClick={closeNotificationsPanel}
-                              className="p-1 rounded-full hover:bg-gray-100"
+                              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                             >
-                              <XMarkIcon className="h-5 w-5 text-gray-500" />
+                              <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                             </button>
                           </div>
                         </div>
@@ -601,39 +603,39 @@ const MainLayout = ({ children }) => {
                         <div className="flex-1 overflow-y-auto">
                           {isLoadingNotifications ? (
                             <div className="py-10 text-center">
-                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                              <p className="text-sm text-gray-500 mt-2">Đang tải thông báo...</p>
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary mx-auto"></div>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Đang tải thông báo...</p>
                             </div>
                           ) : notifications.length > 0 ? (
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
                               {notifications.map((notification) => {
                                 const NotificationIcon = getNotificationIcon(notification.Type);
                                 return (
                                   <div 
                                     key={notification.NotificationID} 
-                                    className={`px-4 py-3.5 hover:bg-blue-50 cursor-pointer flex items-start ${
-                                      !notification.IsRead ? 'bg-blue-50' : ''
+                                    className={`px-4 py-3.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-start ${
+                                      !notification.IsRead ? 'bg-theme-accent/50 dark:bg-theme-accent/20' : ''
                                     } transition-colors duration-150`}
                                     onClick={() => handleNotificationClick(notification)}
                                   >
                                     <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center mr-3 ${
-                                      !notification.IsRead ? 'bg-blue-200 text-blue-700' : 'bg-gray-100 text-gray-500'
+                                      !notification.IsRead ? 'bg-theme-secondary/30 text-theme-primary dark:bg-theme-secondary/20 dark:text-theme-secondary' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                                     }`}>
                                       <NotificationIcon className="h-6 w-6" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className={`text-sm font-medium ${!notification.IsRead ? 'text-gray-900' : 'text-gray-700'}`}>
+                                      <p className={`text-sm font-medium ${!notification.IsRead ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
                                         {notification.Title}
                                       </p>
-                                      <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">
+                                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
                                         {notification.Content}
                                       </p>
-                                      <p className="text-xs text-gray-400 mt-1">
+                                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                                         {getTimeAgo(notification.CreatedAt)}
                                       </p>
                                     </div>
                                     {!notification.IsRead && (
-                                      <span className="ml-2 h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-2"></span>
+                                      <span className="ml-2 h-2 w-2 bg-theme-primary rounded-full flex-shrink-0 mt-2"></span>
                                     )}
                                   </div>
                                 );
@@ -641,20 +643,20 @@ const MainLayout = ({ children }) => {
                             </div>
                           ) : (
                             <div className="py-12 text-center">
-                              <div className="bg-blue-50 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-                                <BellIcon className="h-8 w-8 text-blue-400" />
+                              <div className="bg-theme-accent/50 dark:bg-theme-accent/20 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
+                                <BellIcon className="h-8 w-8 text-theme-secondary" />
                               </div>
-                              <p className="text-sm text-gray-500 font-medium">Không có thông báo nào</p>
-                              <p className="text-xs text-gray-400 mt-1">Thông báo mới sẽ xuất hiện ở đây</p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Không có thông báo nào</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Thông báo mới sẽ xuất hiện ở đây</p>
                             </div>
                           )}
                         </div>
                         
                         {/* Footer */}
-                        <div className="p-4 border-t border-gray-100 bg-white">
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
                           <Link 
                             to="/notifications" 
-                            className="block w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-center rounded-lg shadow-md transition-all duration-300 font-medium"
+                            className="block w-full py-2.5 bg-gradient-to-r from-theme-primary to-theme-hover hover:from-theme-hover hover:to-theme-active text-white text-center rounded-lg shadow-md transition-all duration-300 font-medium"
                             onClick={closeNotificationsPanel}
                           >
                             Xem tất cả thông báo
@@ -679,16 +681,16 @@ const MainLayout = ({ children }) => {
                 <div className="relative">
                   <button 
                     onClick={handleLogout}
-                    className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 hover:bg-blue-50 transition-all duration-200 hover:text-blue-600"
+                    className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 transition-all duration-200 hover:text-theme-primary dark:hover:text-theme-secondary"
                   >
                     <Avatar
                       src={currentUser?.avatar || currentUser?.profileImage}
                       name={currentUser?.fullName || currentUser?.username || 'User'}
                       alt={currentUser?.fullName || currentUser?.username || 'User'}
                       size="small"
-                      className="ring-2 ring-blue-100"
+                      className="ring-2 ring-theme-accent"
                     />
-                    <span className="text-sm font-medium text-gray-700 hidden sm:inline group-hover:text-blue-600">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline group-hover:text-theme-primary">
                       {currentUser?.fullName || currentUser?.username || 'User'}
                     </span>
                   </button>
@@ -703,14 +705,14 @@ const MainLayout = ({ children }) => {
             <div 
               className={`h-full border-r border-gray-200 bg-gradient-to-b from-gray-50 to-white transition-all duration-300 drop-shadow-sm ${
                 sidebarOpen ? 'w-[250px]' : 'w-[70px]'
-              }`}
+              } dark:from-gray-800 dark:to-gray-900 dark:border-gray-700`}
             >
               {/* Navigation Links */}
               <div className="h-full flex flex-col overflow-hidden">
                 <nav className="flex-1 px-2 py-4 overflow-y-auto">
                   {navigation.map((item) => {
                     const isActive = location.pathname === item.href || 
-                                    (item.href !== '/home' && location.pathname.startsWith(item.href));
+                                  (item.href !== '/home' && location.pathname.startsWith(item.href));
                     return (
                       <Link
                         key={item.name}
@@ -718,23 +720,23 @@ const MainLayout = ({ children }) => {
                         onClick={item.onClick}
                         className={`relative flex items-center ${!sidebarOpen ? 'justify-center py-5 px-2' : 'px-4 py-3.5'} mb-1.5 rounded-lg transition-all duration-200 group 
                           ${isActive 
-                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm' 
-                            : 'text-gray-600 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 hover:text-blue-600'
+                            ? 'bg-gradient-to-r from-theme-accent to-theme-accent/50 text-theme-primary shadow-sm' 
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-theme-accent/30 hover:text-theme-primary dark:hover:from-gray-800 dark:hover:to-theme-accent/20'
                           }`}
                       >
                         {/* Active indicator */}
                         {isActive && (
-                          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-7 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-r-full"></span>
+                          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-7 bg-gradient-to-b from-theme-primary to-theme-secondary rounded-r-full"></span>
                         )}
                         
                         {/* Icon container */}
-                        <div className={`flex-shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500'}`}>
+                        <div className={`flex-shrink-0 ${isActive ? 'text-theme-primary' : 'text-gray-400 dark:text-gray-500 group-hover:text-theme-primary'}`}>
                           <item.icon className={`${!sidebarOpen ? 'h-6 w-6 transition-transform duration-200 group-hover:scale-110' : 'h-5 w-5'}`} />
                         </div>
                         
                         {/* Text with slide-in effect */}
                         {sidebarOpen && (
-                          <span className={`font-medium ml-3 transition-all duration-200 ${isActive ? 'text-blue-700 font-semibold' : ''} text-sm`}>
+                          <span className={`font-medium ml-3 transition-all duration-200 ${isActive ? 'text-theme-primary font-semibold' : ''} text-sm`}>
                             {item.name}
                           </span>
                         )}
@@ -742,10 +744,10 @@ const MainLayout = ({ children }) => {
                         {/* Tooltip for collapsed sidebar */}
                         {!sidebarOpen && (
                           <div className="absolute left-full ml-6 -translate-x-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 invisible group-hover:visible transition-all duration-300 z-50">
-                            <div className="bg-gray-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap">
+                            <div className="bg-gray-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap dark:bg-gray-700">
                               {item.name}
                             </div>
-                            <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 border-t-2 border-r-2 border-transparent border-r-gray-800 border-t-gray-800 h-2 w-2 rotate-45"></div>
+                            <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 border-t-2 border-r-2 border-transparent border-r-gray-800 border-t-gray-800 h-2 w-2 rotate-45 dark:border-r-gray-700 dark:border-t-gray-700"></div>
                           </div>
                         )}
                       </Link>
@@ -758,7 +760,7 @@ const MainLayout = ({ children }) => {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-auto bg-white">
+            <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
               <main className="h-full w-full">
                 {children}
               </main>

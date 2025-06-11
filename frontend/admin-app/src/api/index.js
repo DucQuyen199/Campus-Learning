@@ -194,6 +194,7 @@ export const usersAPI = {
     reason: 'Khóa bởi Admin'
   }),
   unlockUser: (id) => API.post(`/users/${id}/unlock`),
+  resetPassword: (id) => API.post(`/users/${id}/reset-password`),
   updateUserStatus: (id, status, duration) => API.post(`/users/update-status`, {
     userId: id,
     accountStatus: status,

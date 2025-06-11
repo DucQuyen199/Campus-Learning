@@ -1,4 +1,6 @@
 const { poolPromise, sql } = require('../config/database');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
 const userController = {
   // Get all users
@@ -196,6 +198,41 @@ const userController = {
       res.json({ message: 'User account unlocked successfully' });
     } catch (error) {
       console.error('Error unlocking user account:', error);
+      res.status(500).json({ message: error.message });
+    }
+  },
+
+  // Reset user password
+  resetUserPassword: async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Generate a secure random password (12 characters)
+      const newPassword = crypto.randomBytes(6).toString('hex');
+      
+      // Hash the password with bcrypt
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      
+      const pool = await poolPromise;
+      await pool.request()
+        .input('userId', sql.BigInt, id)
+        .input('password', sql.VarChar(255), hashedPassword)
+        .query(`
+          UPDATE Users
+          SET Password = @password,
+              UpdatedAt = GETDATE()
+          WHERE UserID = @userId AND DeletedAt IS NULL
+        `);
+
+      // Return the new plain text password to be shown to the admin
+      res.json({ 
+        success: true, 
+        message: 'Password reset successfully',
+        newPassword: newPassword
+      });
+    } catch (error) {
+      console.error('Error resetting user password:', error);
       res.status(500).json({ message: error.message });
     }
   }

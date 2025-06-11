@@ -3,7 +3,8 @@ import {
   Card, Table, Space, Button, Dropdown, Modal, 
   Tag, Typography, Input, message, Tooltip, Divider,
   Row, Col, Statistic, Select, Form, Avatar,
-  Tabs, Switch, Menu, Radio, Segmented, Empty, Spin
+  Tabs, Switch, Menu, Radio, Segmented, Empty, Spin,
+  Alert
 } from 'antd';
 import {
   UserAddOutlined, EditOutlined, LockOutlined, 
@@ -13,7 +14,8 @@ import {
   DownloadOutlined, CheckOutlined, CloseOutlined,
   UnlockOutlined, MailOutlined, IdcardOutlined,
   CalendarOutlined, SafetyCertificateOutlined,
-  AppstoreOutlined, BarsOutlined, ExportOutlined
+  AppstoreOutlined, BarsOutlined, ExportOutlined,
+  KeyOutlined, CopyOutlined
 } from '@ant-design/icons';
 import { format } from 'date-fns';
 import api from '../../services/api';
@@ -58,6 +60,11 @@ const UserManagement = () => {
   const [lockReason, setLockReason] = useState('');
   const [newRole, setNewRole] = useState('');
   const [editUserForm] = Form.useForm();
+  
+  // Password reset state
+  const [passwordResetModalVisible, setPasswordResetModalVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isPasswordResetLoading, setIsPasswordResetLoading] = useState(false);
   
   // Load users on component mount
   useEffect(() => {
@@ -460,6 +467,54 @@ const UserManagement = () => {
     );
   };
   
+  // Open password reset modal
+  const openPasswordResetModal = (user) => {
+    setSelectedUser(user);
+    setPasswordResetModalVisible(true);
+    setNewPassword('');
+  };
+  
+  // Close password reset modal
+  const closePasswordResetModal = () => {
+    setPasswordResetModalVisible(false);
+    setNewPassword('');
+  };
+  
+  // Handle password reset
+  const handlePasswordReset = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      setIsPasswordResetLoading(true);
+      const response = await usersAPI.resetPassword(selectedUser.UserID);
+      
+      if (response.data && response.data.newPassword) {
+        setNewPassword(response.data.newPassword);
+        message.success('Đặt lại mật khẩu thành công');
+      } else {
+        message.warning('Không nhận được mật khẩu mới từ máy chủ');
+      }
+    } catch (err) {
+      console.error('Failed to reset password:', err);
+      message.error('Không thể đặt lại mật khẩu người dùng');
+    } finally {
+      setIsPasswordResetLoading(false);
+    }
+  };
+  
+  // Copy password to clipboard
+  const copyPasswordToClipboard = () => {
+    if (newPassword) {
+      navigator.clipboard.writeText(newPassword)
+        .then(() => {
+          message.success('Đã sao chép mật khẩu vào clipboard');
+        })
+        .catch(() => {
+          message.error('Không thể sao chép mật khẩu');
+        });
+    }
+  };
+  
   // Generate actions dropdown menu
   const getActionMenu = (user) => {
     const items = [
@@ -472,6 +527,12 @@ const UserManagement = () => {
         key: 'changeRole',
         label: 'Thay đổi vai trò',
         icon: <SafetyCertificateOutlined />
+      },
+      {
+        key: 'resetPassword',
+        label: 'Đặt lại mật khẩu',
+        icon: <KeyOutlined />,
+        danger: true
       }
     ];
     
@@ -502,6 +563,8 @@ const UserManagement = () => {
           openLockDialog(user);
         } else if (key === 'unlock') {
           handleUnlockUser(user);
+        } else if (key === 'resetPassword') {
+          openPasswordResetModal(user);
         }
       }
     };
@@ -713,6 +776,9 @@ const UserManagement = () => {
       actions={[
         <Tooltip title="Xem chi tiết">
           <EyeOutlined key="view" onClick={() => showUserDetails(user)} />
+        </Tooltip>,
+        <Tooltip title="Đặt lại mật khẩu">
+          <KeyOutlined key="resetPassword" onClick={() => openPasswordResetModal(user)} />
         </Tooltip>,
         user.AccountStatus === 'LOCKED' ? (
           <Tooltip title="Mở khóa tài khoản">
@@ -1037,6 +1103,18 @@ const UserManagement = () => {
           <Button key="close" onClick={() => setDetailModalVisible(false)}>
             Đóng
           </Button>,
+          selectedUser && (
+            <Button
+              key="resetPassword"
+              icon={<KeyOutlined />}
+              onClick={() => {
+                setDetailModalVisible(false);
+                openPasswordResetModal(selectedUser);
+              }}
+            >
+              Đặt lại mật khẩu
+            </Button>
+          ),
           selectedUser && selectedUser.AccountStatus === 'LOCKED' ? (
             <Button
               key="unlock"
@@ -1286,6 +1364,79 @@ const UserManagement = () => {
               <Input.TextArea rows={4} placeholder="Nhập thông tin giới thiệu" />
             </Form.Item>
           </Form>
+        )}
+      </Modal>
+      
+      {/* Password Reset Modal */}
+      <Modal
+        title="Đặt lại mật khẩu người dùng"
+        open={passwordResetModalVisible}
+        onCancel={closePasswordResetModal}
+        footer={[
+          <Button key="close" onClick={closePasswordResetModal}>
+            Đóng
+          </Button>,
+          !newPassword && (
+            <Button 
+              key="reset" 
+              type="primary" 
+              danger 
+              onClick={handlePasswordReset}
+              loading={isPasswordResetLoading}
+            >
+              Đặt lại mật khẩu
+            </Button>
+          )
+        ]}
+      >
+        {selectedUser && (
+          <div>
+            <div style={{ marginBottom: 16 }}>
+              <Text>
+                Bạn đang đặt lại mật khẩu cho tài khoản: <Text strong>{selectedUser.FullName || selectedUser.Username}</Text>
+              </Text>
+            </div>
+            
+            {!newPassword ? (
+              <div style={{ marginTop: 24 }}>
+                <Alert
+                  message="Cảnh báo"
+                  description="Thao tác này sẽ tạo một mật khẩu mới và xóa mật khẩu cũ. Người dùng sẽ cần sử dụng mật khẩu mới để đăng nhập."
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              </div>
+            ) : (
+              <div style={{ marginTop: 24 }}>
+                <Alert
+                  message="Mật khẩu mới đã được tạo"
+                  description="Hãy sao chép và chia sẻ mật khẩu này với người dùng. Mật khẩu sẽ không được hiển thị lại sau khi đóng hộp thoại này."
+                  type="success"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+                <div style={{ 
+                  padding: '12px 16px',
+                  background: '#f5f5f5',
+                  borderRadius: 4,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: 16 
+                }}>
+                  <Text copyable={false} strong>{newPassword}</Text>
+                  <Button 
+                    icon={<CopyOutlined />}
+                    onClick={copyPasswordToClipboard}
+                    type="primary"
+                  >
+                    Sao chép
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </Modal>
       

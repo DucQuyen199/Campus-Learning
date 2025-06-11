@@ -17,4 +17,7 @@ router.put('/:id/role', userController.updateUserRole);
 router.post('/:id/lock', userController.lockUser);
 router.post('/:id/unlock', userController.unlockUser);
 
+// Password management
+router.post('/:id/reset-password', userController.resetUserPassword);
+
 module.exports = router; 

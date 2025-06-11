@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CreatePost from '../components/Post/CreatePost';
@@ -63,6 +63,8 @@ const Posts = () => {
   const [reportCategory, setReportCategory] = useState('CONTENT');
   const [reportTargetId, setReportTargetId] = useState(null);
   const [submittingReport, setSubmittingReport] = useState(false);
+  
+  const [videoThumbnails, setVideoThumbnails] = useState({});
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -605,6 +607,69 @@ const Posts = () => {
     }
   };
 
+  // Function to generate video thumbnails
+  const generateVideoThumbnail = (videoUrl, postId) => {
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    
+    // Format the URL correctly
+    const formattedUrl = videoUrl.startsWith('http') 
+      ? videoUrl 
+      : `/uploads/${videoUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`;
+      
+    video.src = formattedUrl;
+    video.muted = true;
+    video.playsInline = true;
+    
+    // Capture a frame after 1 second
+    video.addEventListener('loadeddata', () => {
+      // Seek to 1 second (or to the duration if less than 1 second)
+      video.currentTime = Math.min(1, video.duration || 1);
+    });
+    
+    video.addEventListener('seeked', () => {
+      // Create a canvas to capture the frame
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the video frame to the canvas
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Convert canvas to data URL
+      try {
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        // Save the thumbnail in state
+        setVideoThumbnails(prev => ({
+          ...prev,
+          [postId]: dataUrl
+        }));
+      } catch (error) {
+        console.error('Error generating thumbnail:', error);
+      }
+      
+      // Clean up
+      video.remove();
+    });
+    
+    // Start loading the video
+    video.load();
+  };
+  
+  // Generate thumbnails for videos when posts are loaded
+  useEffect(() => {
+    if (posts.length > 0) {
+      posts.forEach(post => {
+        if (post.media && post.media.length > 0 && 
+            post.media[0].MediaType === 'video' && 
+            !videoThumbnails[post.PostID]) {
+          generateVideoThumbnail(post.media[0].MediaUrl, post.PostID);
+        }
+      });
+    }
+  }, [posts]);
+
   return (
     <div className="w-full min-h-screen bg-gray-50">
       {/* Success Banner */}
@@ -835,7 +900,7 @@ const Posts = () => {
                       <button 
                         onClick={() => handleLike(selectedVideo.PostID)}
                         className={`flex items-center space-x-1 px-3 py-1.5 rounded-full ${
-                          selectedVideo.IsLiked ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          selectedVideo.IsLiked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         title={selectedVideo.IsLiked ? "Bỏ thích" : "Thích"}
                       >
@@ -859,7 +924,7 @@ const Posts = () => {
                       <button
                         onClick={() => handleBookmark(selectedVideo.PostID)}
                         className={`flex items-center justify-center p-2 rounded-full ${
-                          selectedVideo.IsBookmarked ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          selectedVideo.IsBookmarked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                         title={selectedVideo.IsBookmarked ? "Bỏ lưu bài viết" : "Lưu bài viết"}
                       >
@@ -1042,15 +1107,14 @@ const Posts = () => {
                           {post.media[0].MediaType === 'video' ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-black">
                               <img 
-                                src={post.media[0].ThumbnailUrl || post.media[0].MediaUrl.startsWith('http') 
-                                  ? post.media[0].ThumbnailUrl || post.media[0].MediaUrl 
+                                src={videoThumbnails[post.PostID] || post.media[0].ThumbnailUrl || post.media[0].MediaUrl.startsWith('http') 
+                                  ? videoThumbnails[post.PostID] || post.media[0].ThumbnailUrl || post.media[0].MediaUrl 
                                   : `/uploads/${post.media[0].MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`
                                 }
                                 alt="Video thumbnail"
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.onerror = null;
-                                  // Use a video thumbnail placeholder instead of just text
                                   e.target.src = "https://via.placeholder.com/100x100/eee/999?text=Video+Preview";
                                 }}
                               />
@@ -1096,8 +1160,48 @@ const Posts = () => {
                         </ReactMarkdown>
                       </div>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
-                        <span>{post.LikesCount || 0} lượt thích</span>
-                        <span className="mx-1">•</span>
+                        <div className="flex items-center mr-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent post selection when clicking like button
+                              handleLike(post.PostID);
+                            }}
+                            className={`flex items-center focus:outline-none ${post.IsLiked ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            aria-label={post.IsLiked ? "Bỏ thích" : "Thích"}
+                          >
+                            {post.IsLiked ? (
+                              <ThumbUpSolid className="h-4 w-4 mr-1 text-blue-600" />
+                            ) : (
+                              <HandThumbUpIcon className="h-4 w-4 mr-1" />
+                            )}
+                            <span className={post.IsLiked ? "text-blue-600" : ""}>{post.LikesCount || 0}</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center mx-2">
+                          <ChatBubbleLeftIcon className="h-4 w-4 mr-1 text-gray-500" />
+                          <span>{post.CommentsCount || 0}</span>
+                        </div>
+                        
+                        <div className="flex items-center mx-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent post selection when clicking bookmark button
+                              handleBookmark(post.PostID);
+                            }}
+                            className={`flex items-center focus:outline-none ${post.IsBookmarked ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                            aria-label={post.IsBookmarked ? "Bỏ lưu" : "Lưu bài viết"}
+                          >
+                            {post.IsBookmarked ? (
+                              <BookmarkSolid className="h-4 w-4 mr-1 text-blue-600" />
+                            ) : (
+                              <BookmarkIcon className="h-4 w-4 mr-1" />
+                            )}
+                            <span className={post.IsBookmarked ? "text-blue-600" : ""}>{post.BookmarksCount || 0}</span>
+                          </button>
+                        </div>
+                        
+                        <span className="mx-2 text-gray-400">•</span>
                         <span>{new Date(post.CreatedAt).toLocaleDateString()}</span>
                       </div>
                     </div>

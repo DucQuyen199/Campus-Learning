@@ -1042,15 +1042,16 @@ const Posts = () => {
                           {post.media[0].MediaType === 'video' ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-black">
                               <img 
-                                src={post.media[0].MediaUrl.startsWith('http') 
-                                  ? post.media[0].MediaUrl 
+                                src={post.media[0].ThumbnailUrl || post.media[0].MediaUrl.startsWith('http') 
+                                  ? post.media[0].ThumbnailUrl || post.media[0].MediaUrl 
                                   : `/uploads/${post.media[0].MediaUrl.replace(/^\/uploads\//, '').replace(/^uploads\//, '')}`
                                 }
-                                alt="Thumbnail"
+                                alt="Video thumbnail"
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.onerror = null;
-                                  e.target.src = "https://placehold.co/100x100?text=Video";
+                                  // Use a video thumbnail placeholder instead of just text
+                                  e.target.src = "https://via.placeholder.com/100x100/eee/999?text=Video+Preview";
                                 }}
                               />
                               <div className="absolute inset-0 flex items-center justify-center">
@@ -1071,7 +1072,7 @@ const Posts = () => {
                               className="absolute inset-0 w-full h-full object-cover rounded-lg"
                               onError={(e) => {
                                 e.target.onerror = null;
-                                e.target.src = "https://placehold.co/100x100?text=Image";
+                                e.target.src = "https://via.placeholder.com/100x100/eee/999?text=Image";
                               }}
                             />
                           )}
@@ -1079,7 +1080,9 @@ const Posts = () => {
                       ) : (
                         <div className="bg-gray-200 rounded-lg w-full pb-[56.25%] relative">
                           <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                            Không có ảnh
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
                           </div>
                         </div>
                       )}
@@ -1087,6 +1090,11 @@ const Posts = () => {
                     
                     <div className="w-2/3">
                       <p className="text-xs text-gray-500">{post.FullName || "Unknown User"}</p>
+                      <div className="font-medium text-sm line-clamp-2 mb-1 prose prose-sm">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {post.Title || post.Content?.substring(0, 60) || "Không có tiêu đề"}
+                        </ReactMarkdown>
+                      </div>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
                         <span>{post.LikesCount || 0} lượt thích</span>
                         <span className="mx-1">•</span>

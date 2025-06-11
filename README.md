@@ -6,13 +6,14 @@ Campus T is a comprehensive learning management system designed to facilitate on
 
 ## Technology Stack
 
-- **Frontend**: React.js, Next.js
+- **Frontend**: React.js, Material-UI, Tailwind CSS
 - **Backend**: Node.js, Express
 - **Database**: SQL Server
 - **Authentication**: JWT
 - **Code Execution**: Judge0 API
 - **Container Technology**: Docker
 - **IDE Integration**: Code Server (VS Code in browser)
+- **Real-time Communication**: Socket.io
 
 ## Project Structure
 
@@ -20,65 +21,146 @@ Campus T is a comprehensive learning management system designed to facilitate on
 
 - **user-app**: 
   - Main application for regular users/students
-  - Features: Course browsing, lesson viewing, progress tracking, assessments
-  - Tech stack: React.js with material-UI
+  - Features: 
+    - Course browsing and learning
+    - Progress tracking
+    - Social features (posts, stories, friends)
+    - Payments integration
+    - Event participation
+    - AI chat assistance
+    - Competitions and coding challenges
+    - Exams and assessments
+    - Roadmaps for learning paths
+  - Pages include:
+    - Home, Courses, CourseDetail, CourseLearning
+    - Profile, Friends, Posts
+    - Payments, PaymentResult
+    - Exams, Competitions
+    - Chat, AIChat
+    - Notifications, Ranking
+    - Settings, Support
 
 - **user-sinhvienapp**: 
-  - Specialized student application with enhanced features
-  - Additional capabilities: Academic records, specialized coursework, student services
-  - Tech stack: React.js with custom components
+  - Specialized student application for Vietnamese university students
+  - Features:
+    - Academic record management
+    - Schedule viewing
+    - Tuition payment
+    - Registration for courses and exams
+    - Academic results tracking
+    - Student services
+  - Pages include:
+    - Dashboard
+    - Academic
+    - Schedule
+    - Tuition
+    - Results
+    - Registration
+    - Services
 
 - **teacher-app**: 
   - Application for teachers/instructors
-  - Features: Course creation, content management, student performance analytics, grading
-  - Tech stack: React.js with data visualization libraries
+  - Features:
+    - Course creation and management
+    - Module and lesson editing
+    - Student performance tracking
+    - Assignment management and grading
+    - Dashboard with analytics
+    - Notifications system
+  - Pages include:
+    - DashboardPage
+    - CoursesPage, CourseDetailPage, CourseEditPage
+    - ModuleDetailPage
+    - LessonDetailPage, LessonEditPage
+    - AssignmentsPage, AssignmentDetailPage
+    - StudentsPage, StudentDetailPage
+    - ProfilePage
 
 - **admin-app**: 
   - Administration interface for system management
-  - Features: User management, course approvals, system configuration, reporting
-  - Tech stack: React.js with advanced admin components
+  - Features:
+    - User management across all roles
+    - Course approvals and moderation
+    - System configuration
+    - Reporting and analytics
 
 - **admin-sinhvienapp**: 
   - Specialized administration interface for student management
-  - Features: Student record management, academic program administration, specialized reporting
-  - Tech stack: React.js with role-based access controls
+  - Features:
+    - Student record management
+    - Academic program administration
+    - Specialized reporting for educational institutions
 
 ### Backend Services
 
 - **user-service**: 
   - Core services for regular users/students
-  - APIs: Authentication, course access, progress tracking, assessments
-  - Tech stack: Node.js, Express, SQL Server integration
+  - API endpoints:
+    - Authentication (login, register, password reset)
+    - Course browsing and enrollment
+    - Lesson progress tracking
+    - Payment processing (VNPay, PayPal)
+    - Social features (posts, friends, stories)
+    - Notifications
+    - Chat functionality
+  - Key controllers:
+    - authController - User authentication
+    - courseController - Course management and access
+    - lessonController - Lesson content and progress
+    - paymentController - Payment processing
+    - socialController - Social interactions
 
 - **user-sinhvienservice**: 
-  - Specialized services for students
-  - APIs: Academic records, specialized course access, student-specific functions
-  - Tech stack: Node.js, Express, SQL Server with student data models
+  - Specialized services for Vietnamese university students
+  - Features:
+    - Academic record management
+    - Course registration
+    - Grade tracking
+    - Tuition payment processing
+    - Student information management
 
 - **teacher-service**: 
   - Services supporting teacher functionality
-  - APIs: Course management, content upload, grade processing, analytics
-  - Tech stack: Node.js, Express, content management integrations
+  - Features:
+    - Course and content management
+    - Assignment creation and grading
+    - Student performance analytics
+    - Communication with students
 
 - **admin-service**: 
   - Services for administrative functions
-  - APIs: User management, system configuration, reporting
-  - Tech stack: Node.js, Express, advanced database operations
+  - Features:
+    - User account management
+    - System configuration
+    - Content moderation
+    - Analytics and reporting
 
 - **admin-sinhvienservice**: 
   - Specialized services for student administration
-  - APIs: Student record management, program management, academic reporting
-  - Tech stack: Node.js, Express, specialized student data operations
+  - Features:
+    - Academic program management
+    - Student record administration
+    - Reporting for educational institutions
 
 - **judge0-master**: 
   - Code execution and evaluation service
-  - Features: Secure code execution, test case validation, performance analysis
-  - Tech stack: Judge0 API, Docker containers
+  - Features:
+    - Secure code execution in isolated environments
+    - Support for multiple programming languages
+    - Test case validation
+    - Performance analysis for code submissions
+    - Integration with coding challenges and assignments
+  - Configuration via judge0.conf
+  - Dockerized for security and scalability
 
 - **code-server**: 
   - In-browser IDE for coding exercises
-  - Features: VS Code in browser, syntax highlighting, extensions support
-  - Tech stack: Code-Server, Docker
+  - Features:
+    - VS Code interface in the browser
+    - Syntax highlighting
+    - Extensions support
+    - Integration with judge0 for code execution
+    - Real-time collaboration features
 
 ## Setup and Installation
 
@@ -158,6 +240,31 @@ Campus T is a comprehensive learning management system designed to facilitate on
 
 ## Features
 
+### Course Management System
+
+- Course creation and publishing workflow
+- Module and lesson organization
+- Content types: video, text, quiz, coding exercises
+- Preview lessons for marketing
+- Progress tracking
+- Enrollment and payment processing
+
+### User Authentication and Authorization
+
+- JWT-based authentication
+- Role-based access control
+- Password reset functionality
+- Social login options
+
+### Payment Integration
+
+- Multiple payment gateways:
+  - VNPay integration for Vietnamese users
+  - PayPal for international payments
+- Transaction history tracking
+- Payment verification
+- Course enrollment activation
+
 ### Preview Lessons
 
 The system supports preview functionality allowing unregistered users to access the first 3 lessons of each module to evaluate course content before registration.
@@ -207,15 +314,35 @@ The system supports preview functionality allowing unregistered users to access 
 - Preview lessons are marked with "Xem trước" (Preview) labels for easy identification
 - Access restrictions are enforced for non-preview content
 
-### Other Key Features
+### Code Execution and IDE Integration
 
-- **Course Management**: Create, update, and manage courses and modules
-- **User Authentication**: Secure JWT-based authentication and authorization
-- **Progress Tracking**: Track and display user progress through courses
-- **Assessment System**: Quizzes, assignments, and coding challenges
-- **Code Execution**: In-browser code execution with Judge0
-- **Integrated IDE**: Browser-based coding environment
-- **Analytics Dashboard**: Performance metrics for students and instructors
+- In-browser code execution with Judge0
+- Support for multiple programming languages
+- Automated test case validation
+- Integrated VS Code environment
+- Code sharing and collaboration
+
+### Social Features
+
+- User profiles and connections
+- Posts and stories sharing
+- Friend management
+- Chat functionality
+- Notifications system
+
+### Competition System
+
+- Coding competitions with timed challenges
+- Multiple problem difficulties
+- Real-time leaderboard
+- Submission history and analysis
+
+### Educational Support
+
+- Learning roadmaps
+- AI-assisted learning via chat interface
+- Progress tracking and analytics
+- Exam preparation and practice
 
 ## Development Guidelines
 
@@ -289,8 +416,8 @@ The system supports preview functionality allowing unregistered users to access 
 
 ## License
 
-[Specify License]
+© 2023 Campus T. All rights reserved.
 
 ## Contact
 
-[Contact Information]
+For more information, contact the development team at dev@campust.com

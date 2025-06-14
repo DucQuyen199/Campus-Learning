@@ -767,6 +767,9 @@ function calculateSimilarity(answer, template, keywords) {
       contentSimilarity: 0
     };
   }
+
+  // Convert template to string if it's not already
+  const templateStr = String(template);
   
   // Normalize the keywords if it's a string
   let keywordArray = [];
@@ -785,7 +788,7 @@ function calculateSimilarity(answer, template, keywords) {
   }
   
   // Extract key phrases from template (lines that look important)
-  const templateLines = template.split('\n').filter(line => line.trim());
+  const templateLines = templateStr.split('\n').filter(line => line.trim());
   const keyPhrases = templateLines
     .filter(line => line.includes('-') || line.includes(':') || line.match(/^\d+\./) || line.length > 20)
     .map(line => line.replace(/^[-\d\.\s]+/, '').trim());
@@ -801,13 +804,13 @@ function calculateSimilarity(answer, template, keywords) {
   const keywordScore = totalKeywords > 0 ? (keywordsMatched / totalKeywords) * 100 : 0;
   
   // Calculate content similarity using paragraph structure and key concepts
-  const contentSimilarity = calculateContentSimilarity(answer, template);
+  const contentSimilarity = calculateContentSimilarity(answer, templateStr);
   
   // Calculate total similarity with higher weight on keywords for essay questions
   const totalSimilarity = (keywordScore * 0.7) + (contentSimilarity * 0.3);
   
   console.log(`Grading result:
-    - Template length: ${template.length} characters
+    - Template length: ${templateStr.length} characters
     - Answer length: ${answer.length} characters
     - Keywords matched: ${keywordsMatched}/${totalKeywords}
     - Keyword score: ${keywordScore.toFixed(2)}%

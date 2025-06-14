@@ -374,138 +374,116 @@ const ExamList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="py-12 bg-gradient-to-br from-indigo-900 to-indigo-700 text-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Danh sách kỳ thi</h1>
-            <p className="text-indigo-100 text-lg mb-8">
-              Danh sách các kỳ thi hiện có trên hệ thống. Đăng ký hoặc xem thông tin chi tiết về các kỳ thi.
-            </p>
-            
-            {/* Search Box */}
-            <div className="relative max-w-lg">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder="Tìm kiếm kỳ thi..."
-                className="w-full px-5 py-3 pr-12 rounded-xl text-gray-700 bg-white/90 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-md"
-              />
-              <div className="absolute right-0 top-0 h-full px-4 flex items-center">
-                {refreshing ? (
-                  <svg className="w-5 h-5 text-indigo-600 animate-spin" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (
-                  <button onClick={handleRefresh} className="text-indigo-600 hover:text-indigo-800">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Tabs Navigation */}
-      <div className="container mx-auto px-4 -mt-6 relative z-10">
-        <div className="bg-white rounded-xl shadow-md overflow-x-auto">
-          <div className="flex p-1 gap-1">
-            <button 
+    <div className="bg-gray-50 min-h-screen pb-12">
+      {/* Header section */}
+      <div className="bg-white border-b border-gray-200 mb-6">
+        <div className="container mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-gray-900">Danh sách kỳ thi</h1>
+          <div className="flex mt-6 space-x-6 overflow-x-auto pb-1">
+            <button
               onClick={() => setCurrentTab(0)}
-              className={`flex items-center gap-2 py-3 px-4 text-sm font-medium rounded-lg flex-shrink-0 transition-all
-                ${currentTab === 0 
-                  ? 'bg-indigo-100 text-indigo-700' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
+              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${
+                currentTab === 0 ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
             >
-              <Description className="w-4 h-4" />
-              Tất cả
+              Tất cả kỳ thi
             </button>
-            <button 
+            
+            <button
               onClick={() => setCurrentTab(1)}
-              className={`flex items-center gap-2 py-3 px-4 text-sm font-medium rounded-lg flex-shrink-0 transition-all
-                ${currentTab === 1
-                  ? 'bg-indigo-100 text-indigo-700' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
+              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${
+                currentTab === 1 ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
             >
-              <AccessTime className="w-4 h-4" />
               Sắp diễn ra
             </button>
-            <button 
+
+            <button
               onClick={() => setCurrentTab(2)}
-              className={`flex items-center gap-2 py-3 px-4 text-sm font-medium rounded-lg flex-shrink-0 transition-all
-                ${currentTab === 2
-                  ? 'bg-indigo-100 text-indigo-700' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
+              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${
+                currentTab === 2 ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
             >
-              <Timer className="w-4 h-4" />
               Đang diễn ra
             </button>
-            <button 
+
+            <button
               onClick={() => setCurrentTab(3)}
-              className={`flex items-center gap-2 py-3 px-4 text-sm font-medium rounded-lg flex-shrink-0 transition-all
-                ${currentTab === 3
-                  ? 'bg-indigo-100 text-indigo-700' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
+              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${
+                currentTab === 3 ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
             >
-              <CheckCircle className="w-4 h-4" />
               Đã kết thúc
             </button>
-            <button 
+
+            <button
               onClick={() => setCurrentTab(4)}
-              className={`flex items-center gap-2 py-3 px-4 text-sm font-medium rounded-lg flex-shrink-0 transition-all
-                ${currentTab === 4
-                  ? 'bg-indigo-100 text-indigo-700' 
-                  : 'text-gray-600 hover:bg-gray-100'}`}
+              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${
+                currentTab === 4 ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+              }`}
             >
-              <AutoAwesome className="w-4 h-4" />
               Đã đăng ký
             </button>
           </div>
         </div>
       </div>
-      
-      {/* Exam List */}
-      <div className="container mx-auto px-4 py-8">
-        {filteredExams.length === 0 ? (
-          <div className="flex justify-center pt-12">
-            <div className="bg-white p-8 rounded-2xl shadow-sm max-w-md w-full text-center">
-              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">Không tìm thấy kỳ thi</h3>
-              <p className="text-gray-500 mb-6">
-                {searchTerm 
-                  ? `Không tìm thấy kỳ thi phù hợp với từ khóa "${searchTerm}". Vui lòng thử tìm kiếm với từ khóa khác.` 
-                  : 'Không có kỳ thi nào trong danh mục này. Vui lòng chọn danh mục khác hoặc quay lại sau.'}
-              </p>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="px-6 py-2 border border-indigo-500 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
-                >
-                  Xóa tìm kiếm
-                </button>
-              )}
-            </div>
+
+      <div className="container mx-auto px-4">
+        {/* Secondary filter bar */}
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {currentTab === 0 ? 'Tất cả kỳ thi' :
+               currentTab === 1 ? 'Kỳ thi sắp diễn ra' :
+               currentTab === 2 ? 'Kỳ thi đang diễn ra' :
+               currentTab === 3 ? 'Kỳ thi đã kết thúc' :
+               'Kỳ thi đã đăng ký'}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {filteredExams.length} kỳ thi có sẵn
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
-            {filteredExams.map(exam => {
+          
+          <div className="flex gap-2">
+            {/* Search Box */}
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Tìm kiếm kỳ thi..."
+                className="w-64 px-4 py-2 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <Search className="w-4 h-4 text-gray-400" />
+              </div>
+            </div>
+
+            <button
+              onClick={handleRefresh}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                refreshing ? 'bg-gray-100 text-gray-400' : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+              }`}
+              disabled={refreshing}
+            >
+              <Refresh className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Exam Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {loading ? (
+            renderSkeletons()
+          ) : filteredExams.length > 0 ? (
+            filteredExams.map(exam => {
               const difficultyInfo = getDifficultyLevel(exam.PassingScore, exam.TotalPoints);
               const statusInfo = getStatusInfo(exam.StartTime, exam.EndTime);
               
               return (
                 <div 
                   key={exam.ExamID}
-                  className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 h-[520px] flex flex-col"
+                  className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 cursor-pointer h-full flex flex-col transform transition-all duration-300 hover:-translate-y-1"
                 >
                   <div className="h-2 w-full" style={{ backgroundColor: statusInfo.bgColor }}></div>
                   <div className="p-5 flex-grow flex flex-col">
@@ -525,7 +503,7 @@ const ExamList = () => {
                       </div>
                     </div>
                     
-                    <Link to={`/exams/${exam.ExamID}`} className="group-hover:text-indigo-600 transition-colors">
+                    <Link to={`/exams/${exam.ExamID}`} className="group-hover:text-blue-600 transition-colors">
                       <h3 className="font-bold text-lg mb-2 line-clamp-2 h-14" title={exam.Title}>
                         {exam.Title}
                       </h3>
@@ -551,7 +529,7 @@ const ExamList = () => {
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Thời gian</p>
                           <div className="flex items-center text-gray-700 font-medium">
-                            <Timer fontSize="small" className="mr-1.5 text-indigo-600 flex-shrink-0" />
+                            <Timer fontSize="small" className="mr-1.5 text-blue-600 flex-shrink-0" />
                             <span className="truncate">
                               {exam.Duration} phút
                             </span>
@@ -560,7 +538,7 @@ const ExamList = () => {
                         <div>
                           <p className="text-gray-400 text-xs mb-1">Điểm đạt</p>
                           <div className="flex items-center text-gray-700 font-medium">
-                            <SportsScore fontSize="small" className="mr-1.5 text-indigo-600 flex-shrink-0" />
+                            <SportsScore fontSize="small" className="mr-1.5 text-blue-600 flex-shrink-0" />
                             <span className="truncate">
                               {exam.PassingScore}/{exam.TotalPoints} đ
                             </span>
@@ -571,7 +549,7 @@ const ExamList = () => {
                       <div className="mb-4">
                         <p className="text-gray-400 text-xs mb-1">Thời gian mở</p>
                         <div className="flex items-center text-gray-700 font-medium">
-                          <CalendarMonth fontSize="small" className="mr-1.5 text-indigo-600 flex-shrink-0" />
+                          <CalendarMonth fontSize="small" className="mr-1.5 text-blue-600 flex-shrink-0" />
                           <span className="truncate">
                             {format(new Date(exam.StartTime), 'HH:mm - dd/MM/yyyy', { locale: vi })}
                           </span>
@@ -584,20 +562,20 @@ const ExamList = () => {
                     {exam.IsRegistered ? (
                       <Link 
                         to={`/exams/${exam.ExamID}`}
-                        className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium"
+                        className="flex items-center justify-center gap-2 w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
                       >
-                        Xem chi tiết
+                        Vào thi ngay
                         <ArrowForward fontSize="small" />
                       </Link>
                     ) : (
                       <button
                         onClick={() => handleRegister(exam.ExamID)}
                         disabled={registering[exam.ExamID]}
-                        className="flex items-center justify-center gap-2 w-full py-3 border border-indigo-600 text-indigo-600 rounded-xl hover:bg-indigo-50 transition-colors font-medium"
+                        className="flex items-center justify-center gap-2 w-full py-3 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-colors font-medium"
                       >
                         {registering[exam.ExamID] ? (
                           <>
-                            <svg className="w-4 h-4 text-indigo-600 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -611,9 +589,35 @@ const ExamList = () => {
                   </div>
                 </div>
               );
-            })}
-          </div>
-        )}
+            })
+          ) : (
+            <div className="col-span-full py-12 text-center">
+              <div className="bg-white rounded-xl p-8 max-w-md mx-auto shadow-sm">
+                <div className="bg-gray-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Không tìm thấy kỳ thi
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  {searchTerm 
+                    ? `Không tìm thấy kỳ thi phù hợp với từ khóa "${searchTerm}". Vui lòng thử tìm kiếm với từ khóa khác.` 
+                    : 'Không có kỳ thi nào trong danh mục này. Vui lòng chọn danh mục khác hoặc quay lại sau.'}
+                </p>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    Xóa tìm kiếm
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

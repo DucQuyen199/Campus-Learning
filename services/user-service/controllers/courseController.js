@@ -660,7 +660,7 @@ function createVnpayUrl(transaction, originUrl, ipAddr) {
   const sortedParams = sortObject(vnpParams);
   
   // Ký request với HMAC SHA512
-  const signData = querystring.stringify(sortedParams, { encode: false });
+  const signData = querystring.stringify(sortedParams);
   const hmac = crypto.createHmac('sha512', secretKey);
   const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
   
@@ -671,7 +671,7 @@ function createVnpayUrl(transaction, originUrl, ipAddr) {
   console.log('VNPay payment parameters:', JSON.stringify(sortedParams));
   
   // Tạo URL đầy đủ với tham số
-  const paymentUrl = `${vnpUrl}?${querystring.stringify(sortedParams, { encode: false })}`;
+  const paymentUrl = `${vnpUrl}?${querystring.stringify(sortedParams)}`;
   console.log('Final VNPay URL:', paymentUrl);
   
   return paymentUrl;
@@ -706,7 +706,7 @@ exports.paymentCallback = async (req, res) => {
     
     // Check signature
     const secretKey = process.env.VNP_HASH_SECRET;
-    const signData = querystring.stringify(sortedParams, { encode: false });
+    const signData = querystring.stringify(sortedParams);
     const hmac = crypto.createHmac('sha512', secretKey);
     const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
     
@@ -1024,6 +1024,32 @@ exports.getPaymentHistory = async (req, res) => {
     return res.status(200).json({ success: true, data: payments });
   } catch (error) {
     console.error('Error fetching payment history:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get course payment history for a specific course
+exports.getCoursePaymentHistory = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const courseId = req.params.courseId;
+    
+    if (!courseId) {
+      return res.status(400).json({ success: false, message: 'Course ID is required' });
+    }
+    
+    const payments = await PaymentTransaction.findAll({
+      where: {
+        UserID: userId,
+        CourseID: courseId
+      },
+      order: [['CreatedAt', 'DESC']],
+      limit: 10 // Limit the results to the 10 most recent transactions
+    });
+    
+    return res.status(200).json({ success: true, data: payments });
+  } catch (error) {
+    console.error('Error fetching course payment history:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

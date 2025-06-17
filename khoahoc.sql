@@ -1,3 +1,4 @@
+select * from Courses;
 -- Bảng Courses: Quản lý thông tin khóa học
 CREATE TABLE Courses (
     CourseID BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -163,6 +164,48 @@ CREATE TABLE PracticeTestCases (
     OrderIndex INT NOT NULL,
     CreatedAt DATETIME DEFAULT GETDATE()
 );
+
+-- Bảng PaymentTransactions: Quản lý giao dịch thanh toán
+IF OBJECT_ID('dbo.PaymentTransactions', 'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[PaymentTransactions] (
+        [TransactionID]   BIGINT          IDENTITY (1, 1) NOT NULL,
+        [UserID]          BIGINT          NULL,
+        [CourseID]        BIGINT          NULL,
+        [Amount]          DECIMAL (10, 2) NOT NULL,
+        [Currency]        VARCHAR (10)    DEFAULT ('VND') NULL,
+        [PaymentMethod]   VARCHAR (50)    NOT NULL,
+        [TransactionCode] VARCHAR (100)   NULL,
+        [PaymentStatus]   VARCHAR (20)    DEFAULT ('pending') NULL,
+        [PaymentDate]     DATETIME        NULL,
+        [CreatedAt]       DATETIME        DEFAULT (getdate()) NULL,
+        [UpdatedAt]       DATETIME        DEFAULT (getdate()) NULL,
+        [PaymentDetails]  NVARCHAR (MAX)  NULL,
+        PRIMARY KEY CLUSTERED ([TransactionID] ASC),
+        CONSTRAINT [CHK_Payment_Method] CHECK ([PaymentMethod]='paypal' OR [PaymentMethod]='free' OR [PaymentMethod]='momo' OR [PaymentMethod]='bank_transfer' OR [PaymentMethod]='credit_card' OR [PaymentMethod]='vnpay'),
+        CONSTRAINT [CHK_Payment_Status] CHECK ([PaymentStatus]='cancelled' OR [PaymentStatus]='refunded' OR [PaymentStatus]='failed' OR [PaymentStatus]='completed' OR [PaymentStatus]='pending'),
+        FOREIGN KEY ([CourseID]) REFERENCES [dbo].[Courses] ([CourseID]),
+        FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID]),
+        UNIQUE NONCLUSTERED ([TransactionCode] ASC)
+    );
+END
+
+-- Bảng PaymentHistory: Lưu lịch sử thanh toán
+IF OBJECT_ID('dbo.PaymentHistory', 'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[PaymentHistory] (
+        [HistoryID]     BIGINT         IDENTITY (1, 1) NOT NULL,
+        [TransactionID] BIGINT         NULL,
+        [Status]        VARCHAR (50)   NOT NULL,
+        [Message]       NVARCHAR (500) NULL,
+        [ResponseData]  NVARCHAR (MAX) NULL,
+        [IPAddress]     VARCHAR (50)   NULL,
+        [UserAgent]     NVARCHAR (500) NULL,
+        [CreatedAt]     DATETIME       DEFAULT (getdate()) NULL,
+        PRIMARY KEY CLUSTERED ([HistoryID] ASC),
+        FOREIGN KEY ([TransactionID]) REFERENCES [dbo].[PaymentTransactions] ([TransactionID])
+    );
+END
 
 use campushubt;
 -- Thêm khóa học với các bài thực hành đầy đủ
@@ -1193,3 +1236,113 @@ select * from CourseEnrollments;
 select * from LessonProgress;
 select * from CodingExercises;
 select * from CodingSubmissions;
+use campushubt;
+
+-- Corrected SQL to safely update security course information
+USE campushubt;
+GO
+
+-- Create a separate transaction for updating the security course
+BEGIN TRANSACTION;
+BEGIN TRY
+    -- First, verify if the security course exists
+    DECLARE @SecurityCourseID BIGINT;
+    SELECT @SecurityCourseID = CourseID FROM Courses WHERE Title = N'Bảo Mật Thông Tin và An Toàn Mạng';
+    
+    IF @SecurityCourseID IS NOT NULL
+    BEGIN
+        -- Update ratings and enrollment count for security course
+        UPDATE Courses
+        SET Rating = 4.8,
+            RatingCount = 126,
+            EnrolledCount = 1840
+        WHERE CourseID = @SecurityCourseID;
+        
+        PRINT 'Security course updated successfully';
+    END
+    ELSE
+    BEGIN
+        PRINT 'Security course not found. Please create it first.';
+    END
+    
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    PRINT 'Error updating security course: ' + ERROR_MESSAGE();
+END CATCH
+
+
+-- 1. Xóa dữ liệu khỏi LessonProgress
+DELETE FROM LessonProgress
+WHERE EnrollmentID IN (
+    SELECT EnrollmentID FROM CourseEnrollments WHERE CourseID = 10007
+);
+
+-- 2. Xóa dữ liệu khỏi CodingSubmissions
+DELETE FROM CodingSubmissions
+WHERE ExerciseID IN (
+    SELECT ExerciseID FROM CodingExercises
+    WHERE LessonID IN (
+        SELECT LessonID FROM CourseLessons
+        WHERE ModuleID IN (
+                SELECT ModuleID FROM CourseModules WHERE CourseID = 10007
+        )
+    )
+);
+
+-- 3. Xóa dữ liệu khỏi PracticeTestCases
+DELETE FROM PracticeTestCases
+WHERE PracticeID IN (
+    SELECT PracticeID FROM ModulePractices
+    WHERE ModuleID IN (
+        SELECT ModuleID FROM CourseModules WHERE CourseID = 10007
+    )
+);
+
+-- 4. Xóa dữ liệu khỏi CodingExercises
+DELETE FROM CodingExercises
+WHERE LessonID IN (
+    SELECT LessonID FROM CourseLessons
+    WHERE ModuleID IN (
+        SELECT ModuleID FROM CourseModules WHERE CourseID = 10007
+    )
+);
+
+-- 5. Xóa dữ liệu khỏi ModulePractices
+DELETE FROM ModulePractices
+WHERE ModuleID IN (
+    SELECT ModuleID FROM CourseModules WHERE CourseID = 10007
+);
+
+-- 6. Xóa dữ liệu khỏi CourseLessons
+DELETE FROM CourseLessons
+WHERE ModuleID IN (
+    SELECT ModuleID FROM CourseModules WHERE CourseID = 10007
+);
+
+-- 7. Xóa dữ liệu khỏi CourseEnrollments
+DELETE FROM CourseEnrollments
+WHERE CourseID = 10007;
+
+-- 8. Xóa dữ liệu khỏi CourseModules
+DELETE FROM CourseModules
+WHERE CourseID = 10007;
+
+-- 9. Cuối cùng, xóa chính khóa học trong bảng Courses
+DELETE FROM Courses
+WHERE CourseID = 10007;
+-- Xóa giao dịch thanh toán liên quan đến khoá học
+DELETE FROM PaymentTransactions
+WHERE CourseID = 10007;
+
+-- Xoá lịch sử thanh toán liên quan đến các giao dịch của khoá học
+DELETE FROM PaymentHistory
+WHERE TransactionID IN (
+    SELECT TransactionID FROM PaymentTransactions WHERE CourseID = 10007
+);
+
+
+
+
+select * from Courses;

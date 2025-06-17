@@ -142,42 +142,33 @@ const CategoryChip = ({ category }) => {
 
 // Enhanced Skeleton loading component for events - cập nhật để giống Courses
 const EventCardSkeleton = () => (
-  <div className="bg-white rounded-2xl overflow-hidden animate-pulse border border-gray-200 shadow-lg h-full flex flex-col">
-    <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 relative">
-      <div className="absolute top-3 right-3 flex gap-2">
-        <div className="h-5 w-12 bg-gray-300 rounded-xl"></div>
-      </div>
-      <div className="absolute top-3 left-3 flex flex-col gap-2">
-        <div className="h-5 w-16 bg-gray-300 rounded-xl"></div>
-        <div className="h-5 w-12 bg-gray-300 rounded-xl"></div>
-      </div>
-    </div>
+  <div className="bg-white rounded-xl overflow-hidden animate-pulse border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col">
+    <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative"></div>
     <div className="p-5 space-y-3 flex-1 flex flex-col">
-      <div className="space-y-2">
-        <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-3/4"></div>
-        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-full"></div>
-        <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-4/5"></div>
+      <div className="h-4 bg-gray-100 rounded-md w-1/2 mb-1"></div>
+      <div className="h-5 bg-gray-200 rounded-md w-4/5"></div>
+      <div className="h-4 bg-gray-100 rounded-md w-full"></div>
+      <div className="h-4 bg-gray-100 rounded-md w-2/3"></div>
+      <div className="flex items-center gap-2 mt-2">
+        <div className="h-4 w-4 rounded-full bg-gray-200"></div>
+        <div className="h-3 bg-gray-100 rounded-md w-12"></div>
+        <div className="h-4 w-4 rounded-full bg-gray-200"></div>
+        <div className="h-3 bg-gray-100 rounded-md w-16"></div>
       </div>
-      <div className="flex items-center gap-3 pt-2">
-        <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg">
-          <div className="h-3 bg-gray-300 rounded-full w-3"></div>
-          <div className="h-3 bg-gray-300 rounded-lg w-8"></div>
-        </div>
-        <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-lg">
-          <div className="h-3 bg-gray-300 rounded-full w-3"></div>
-          <div className="h-3 bg-gray-300 rounded-lg w-6"></div>
-        </div>
-      </div>
-      <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-auto">
-        <div className="space-y-1">
-          <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg w-16"></div>
-          <div className="h-3 bg-gray-200 rounded-lg w-12"></div>
-        </div>
-        <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl w-16"></div>
+      <div className="mt-auto pt-4 flex justify-between items-center border-t border-gray-100 mt-3">
+        <div className="h-5 bg-gray-200 rounded-md w-16"></div>
+        <div className="h-8 bg-gray-200 rounded-md w-20"></div>
       </div>
     </div>
   </div>
 )
+
+// Hàm helper để render skeleton trong loading state
+const renderSkeletons = () => {
+  return Array(6).fill(0).map((_, index) => (
+    <EventCardSkeleton key={`skeleton-${index}`} />
+  ));
+};
 
 const Events = () => {
   const navigate = useNavigate()
@@ -278,8 +269,24 @@ const Events = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600"></div>
+      <div className="bg-gray-50 min-h-screen pb-12">
+        <div className="bg-white border-b border-gray-200 mb-6">
+          <div className="container mx-auto px-4 py-6">
+            <h1 className="text-2xl font-bold text-gray-900">Khám phá sự kiện</h1>
+            <div className="animate-pulse mt-6">
+              <div className="h-10 bg-gray-200 rounded-md w-full max-w-3xl"></div>
+            </div>
+          </div>
+        </div>
+        <div className="container mx-auto px-4">
+          <div className="mb-8 animate-pulse">
+            <div className="h-6 bg-gray-200 rounded-md w-1/4 mb-2"></div>
+            <div className="h-4 bg-gray-100 rounded-md w-16"></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {renderSkeletons()}
+          </div>
+        </div>
       </div>
     )
   }
@@ -304,108 +311,19 @@ const Events = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Enhanced Header with better aligned buttons */}
-      <div className="bg-white border-b border-gray-200 py-6 w-full shadow-sm">
-        <div className="w-full max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="w-full"
-          >
-            <div className="flex flex-col md:flex-row gap-6 items-center w-full">
-              {/* Search with enhanced border */}
-              <div className="relative flex-grow w-full">
-                <div className="flex shadow-sm">
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm sự kiện..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-l-lg border-2 border-blue-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  />
-                  <button 
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-r-lg flex items-center justify-center transition-colors font-medium"
-                  >
-                    <MagnifyingGlassIcon className="w-5 h-5" />
-                    <span className="ml-2">Tìm kiếm</span>
-                  </button>
-                </div>
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              </div>
-
-              {/* Filters - Better aligned */}
-              <div className="flex items-center gap-4 shrink-0">
-                <div className="relative">
-                  <select
-                    value={filters.category || "all"}
-                    onChange={(e) => handleFilterChange("category", e.target.value)}
-                    className="pl-3 pr-10 py-3 rounded-lg border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none shadow-sm hover:border-blue-400 transition-colors font-medium"
-                  >
-                    <option value="all">Tất cả danh mục</option>
-                    {eventCategories.map((category) => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                  <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                </div>
-
-                <div className="relative">
-                  <select
-                    value={filters.difficulty || "all"}
-                    onChange={(e) => handleFilterChange("difficulty", e.target.value)}
-                    className="pl-3 pr-10 py-3 rounded-lg border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none shadow-sm hover:border-blue-400 transition-colors font-medium"
-                  >
-                    <option value="all">Mọi độ khó</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
-                  </select>
-                  <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500 pointer-events-none" />
-                </div>
-
-                {/* Enhanced View Toggle */}
-                <div className="flex items-center bg-gray-200 rounded-lg p-1.5 shadow-sm">
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    className={`p-2 rounded-md transition-all ${
-                      viewMode === "grid" 
-                        ? "bg-white text-blue-600 shadow-md" 
-                        : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                    }`}
-                    aria-label="Grid view"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    className={`p-2 rounded-md transition-all ${
-                      viewMode === "list" 
-                        ? "bg-white text-blue-600 shadow-md" 
-                        : "text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                    }`}
-                    aria-label="List view"
-                  >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            {/* Enhanced Category Pills */}
-            <div className="flex overflow-x-auto gap-3 mt-5 pb-2 scrollbar-hide">
+    <div className="bg-gray-50 min-h-screen pb-12">
+      {/* Header section */}
+      <div className="bg-white border-b border-gray-200 mb-6">
+        <div className="container mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-gray-900">Khám phá sự kiện</h1>
+          <div className="flex justify-between items-center mt-6">
+            <div className="flex space-x-6 overflow-x-auto">
               <button
                 onClick={() => setActiveCategory("all")}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${
+                className={`px-4 py-2 font-medium rounded-md ${
                   activeCategory === "all"
-                    ? "bg-blue-600 text-white border-blue-700 shadow-md"
-                    : "bg-white text-gray-600 hover:bg-gray-50 border-gray-300 hover:border-gray-400"
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
                 }`}
               >
                 Tất cả
@@ -414,29 +332,61 @@ const Events = () => {
                 <button
                   key={category}
                   onClick={() => setActiveCategory(category)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${
+                  className={`px-4 py-2 font-medium rounded-md ${
                     activeCategory === category
-                      ? "bg-blue-600 text-white border-blue-700 shadow-md"
-                      : "bg-white text-gray-600 hover:bg-gray-50 border-gray-300 hover:border-gray-400"
+                      ? "bg-blue-50 text-blue-600"
+                      : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
                   }`}
                 >
                   {category}
                 </button>
               ))}
             </div>
-          </motion.div>
+            
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <select
+                  value={filters.difficulty || "all"}
+                  onChange={(e) => handleFilterChange("difficulty", e.target.value)}
+                  className="px-4 py-2 rounded-md text-sm font-medium border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
+                >
+                  <option value="all">Mọi độ khó</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="expert">Expert</option>
+                </select>
+                <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+              </div>
+            
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Tìm kiếm sự kiện..."
+                  className="w-64 px-4 py-2 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <svg 
+                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" 
+                  fill="none" 
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Content - Coursera Style */}
-      <div className="w-full max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Events Grid - Coursera Style */}
-        <div className={`grid ${
-          viewMode === "grid" 
-            ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" 
-            : "grid-cols-1 gap-3"
-        }`}>
-          {filteredEvents.map((event, index) => (
+      <div className="container mx-auto px-4 py-8">
+        {/* Đã loại bỏ secondary filter bar */}
+  
+        {/* Events Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? renderSkeletons() : filteredEvents.map((event, index) => (
             <motion.div
               key={event.EventID}
               initial={{ opacity: 0, y: 20 }}
@@ -446,67 +396,48 @@ const Events = () => {
               onClick={() => handleViewDetail(event.EventID)}
             >
               {/* Event Card - Coursera Style */}
-              <div className={`bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all duration-300 overflow-hidden ${
-                viewMode === "list" ? "flex w-full" : "flex flex-col h-full"
-              }`}>
-                {/* Image Container - Now exactly 65% width in list view */}
-                <div className={`relative ${
-                  viewMode === "list" 
-                    ? "w-[65%]" 
-                    : "aspect-video"
-                }`}>
+              <div className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow h-full flex flex-col">
+                {/* Image Container */}
+                <div className="relative overflow-hidden">
                   <img
                     src={event.ImageUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87"}
                     alt={event.Title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-52 object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute top-2 left-2">
-                    <StatusBadge status={event.Status} />
-                  </div>
-                  <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-xs">
-                    <CalendarDaysIcon className="w-3.5 h-3.5" />
-                    <span>{formatDate(event.EventDate)}</span>
-                  </div>
                 </div>
 
-                {/* Content - Now exactly 35% width in list view */}
-                <div className={`flex-1 p-4 flex flex-col ${viewMode === "list" ? "w-[35%]" : ""}`}>
-                  <div className="flex gap-1.5 mb-2">
-                    <CategoryChip category={event.Category} />
-                    <DifficultyBadge difficulty={event.Difficulty} />
+                {/* Content section */}
+                <div className="p-5 flex-1 flex flex-col">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-xl font-semibold line-clamp-2">
+                      {event.Title}
+                    </h3>
+                    <StatusBadge status={event.Status} />
                   </div>
                   
-                  <h3 className="text-base font-bold text-gray-900 mb-1.5 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
-                    {event.Title}
-                  </h3>
+                  {/* Event short description */}
+                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                    {event.Description || "Tham gia sự kiện này để có cơ hội giao lưu học hỏi và mở rộng kiến thức trong lĩnh vực này."}
+                  </p>
                   
-                  <div className="space-y-1.5 text-xs text-gray-500 flex-1">
-                    <div className="flex items-center gap-1">
-                      <MapPinIcon className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="truncate">{event.Location}</span>
+                  {/* Event stats - style giống competitions */}
+                  <div className="text-sm text-gray-500 mt-auto">
+                    <div className="flex items-center mb-1">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                      </svg>
+                      <span>
+                        {formatDate(event.EventDate)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <UsersIcon className="w-3.5 h-3.5 text-gray-400" />
-                      <span>{event.CurrentAttendees}/{event.MaxAttendees}</span>
-                    </div>
-                  </div>
 
-                  <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <div className="flex flex-col">
-                      {event.Price > 0 ? (
-                        <span className="text-base font-bold text-blue-600">
-                          {event.Price.toLocaleString()}₫
-                        </span>
-                      ) : (
-                        <span className="text-base font-bold text-green-600">
-                          Miễn phí
-                        </span>
-                      )}
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                      </svg>
+                      <span>{event.Difficulty || 'Trung Bình'}</span>
                     </div>
-                    <button className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                      Chi tiết
-                    </button>
                   </div>
                 </div>
               </div>
@@ -514,29 +445,38 @@ const Events = () => {
           ))}
         </div>
 
-        {/* Empty State - Coursera Style */}
+        {/* Empty State */}
         {filteredEvents.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center py-16 bg-white rounded-lg shadow-sm"
-          >
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-              <CalendarDaysIcon className="w-6 h-6 text-blue-600" />
+          <div className="col-span-full py-12 text-center">
+            <div className="bg-white rounded-xl p-8 max-w-md mx-auto shadow-sm">
+              <div className="bg-gray-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                <CalendarDaysIcon className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Không tìm thấy sự kiện
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {searchTerm 
+                  ? `Không có sự kiện nào phù hợp với từ khóa "${searchTerm}". Vui lòng thử tìm kiếm với từ khóa khác.` 
+                  : 'Hiện tại chưa có sự kiện nào trong danh mục này. Hãy thử danh mục khác!'}
+              </p>
+              {searchTerm ? (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  Xóa tìm kiếm
+                </button>
+              ) : (
+                <button
+                  onClick={clearFilters}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  Xóa bộ lọc
+                </button>
+              )}
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-1">Không tìm thấy sự kiện</h3>
-            <p className="text-gray-500 mb-4">
-              {searchTerm 
-                ? `Không có sự kiện nào phù hợp với từ khóa "${searchTerm}"`
-                : "Hiện tại chưa có sự kiện nào trong danh mục này"}
-            </p>
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-            >
-              Xóa bộ lọc
-            </button>
-          </motion.div>
+          </div>
         )}
       </div>
     </div>

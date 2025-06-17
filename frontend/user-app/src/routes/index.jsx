@@ -18,7 +18,7 @@ import PrivateRoute from './PrivateRoute';
 import EventDetail from '@/pages/Events/EventDetail';
 import ChatPage from '@/components/chat/ChatPage';
 import PaymentCallback from '@/pages/Courses/PaymentCallback';
-import PaymentHistory from '@/pages/Courses/PaymentHistory';
+import PaymentHistory from '@/pages/PaymentHistory';
 import AiTestLocal from '@/pages/AiTestLocal';
 
 const AppRoutes = () => {
@@ -45,6 +45,11 @@ const AppRoutes = () => {
         <Route path="payment-result" element={
           <PrivateRoute>
             <PaymentResult />
+          </PrivateRoute>
+        } />
+        <Route path="payment-history" element={
+          <PrivateRoute>
+            <PaymentHistory />
           </PrivateRoute>
         } />
         <Route path="profile" element={

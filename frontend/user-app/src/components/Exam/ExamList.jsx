@@ -152,7 +152,7 @@ const ExamList = () => {
     return 'Khó';
   };
 
-  return (
+    return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Danh Sách Kỳ Thi</h1>
@@ -161,70 +161,79 @@ const ExamList = () => {
         </p>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex mb-6 border-b">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 font-medium ${
-            filter === 'all'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Tất cả
-        </button>
-        <button
-          onClick={() => setFilter('upcoming')}
-          className={`px-4 py-2 font-medium ${
-            filter === 'upcoming'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Sắp diễn ra
-        </button>
-        <button
-          onClick={() => setFilter('ongoing')}
-          className={`px-4 py-2 font-medium ${
-            filter === 'ongoing'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Đang diễn ra
-        </button>
-        <button
-          onClick={() => setFilter('completed')}
-          className={`px-4 py-2 font-medium ${
-            filter === 'completed'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Đã kết thúc
-        </button>
-        <button
-          onClick={() => setFilter('registered')}
-          className={`px-4 py-2 font-medium ${
-            filter === 'registered'
-              ? 'border-b-2 border-blue-500 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Đã đăng ký
-        </button>
-      </div>
+      {/* Filter tabs with search box on the right */}
+      <div className="flex justify-between items-center mb-6 border-b">
+        <div className="flex">
+            <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 font-medium ${
+              filter === 'all'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+            Tất cả
+            </button>
+            <button
+            onClick={() => setFilter('upcoming')}
+            className={`px-4 py-2 font-medium ${
+              filter === 'upcoming'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Sắp diễn ra
+            </button>
+            <button
+            onClick={() => setFilter('ongoing')}
+            className={`px-4 py-2 font-medium ${
+              filter === 'ongoing'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Đang diễn ra
+            </button>
+            <button
+            onClick={() => setFilter('completed')}
+            className={`px-4 py-2 font-medium ${
+              filter === 'completed'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Đã kết thúc
+            </button>
+            <button
+            onClick={() => setFilter('registered')}
+            className={`px-4 py-2 font-medium ${
+              filter === 'registered'
+                ? 'border-b-2 border-blue-500 text-blue-600'
+                : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Đã đăng ký
+            </button>
+          </div>
 
-      {/* Search box */}
-      <div className="mb-6">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          placeholder="Tìm kiếm kỳ thi..."
-          className="w-full md:w-64 px-4 py-2 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-      </div>
+        <div className="relative pb-2">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Tìm kiếm kỳ thi..."
+                className="w-64 px-4 py-2 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+          <svg 
+            className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" 
+            fill="none" 
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+              </div>
+            </div>
 
       {loading ? (
         <div className="flex justify-center items-center py-12">
@@ -240,7 +249,7 @@ const ExamList = () => {
               const difficulty = getDifficultyLevel(exam.PassingScore, exam.TotalPoints);
               
               return (
-                <div
+                <div 
                   key={exam.ExamID}
                   className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow flex flex-col h-full"
                 >
@@ -312,14 +321,14 @@ const ExamList = () => {
           ) : (
             <div className="col-span-full py-16 text-center">
               <p className="text-gray-500">Không tìm thấy kỳ thi nào phù hợp với bộ lọc.</p>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
                   className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Xóa tìm kiếm
-                </button>
-              )}
+                  >
+                    Xóa tìm kiếm
+                  </button>
+                )}
             </div>
           )}
         </div>

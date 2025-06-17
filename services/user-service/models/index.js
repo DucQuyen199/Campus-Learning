@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Import user models
-const User = require('./user');
+const User = require('./User');
 const UserAchievement = require('./UserAchievement');
 const Achievement = require('./Achievement');
 const Chat = require('./Chat');
@@ -98,6 +98,13 @@ const setupAssociations = () => {
     }
     
     console.log('Model associations completed');
+    
+    // Setup association between PaymentTransaction and Course
+    if (models.PaymentTransaction && models.Course) {
+      console.log('Setting up PaymentTransaction <-> Course association');
+      models.PaymentTransaction.belongsTo(models.Course, { foreignKey: 'CourseID' });
+      models.Course.hasMany(models.PaymentTransaction, { foreignKey: 'CourseID' });
+    }
     
     // Return the loaded models
     return models;

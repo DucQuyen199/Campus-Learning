@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { enrollFreeCourse, fetchEnrolledCourses } from '../../store/slices/courseSlice';
@@ -10,6 +10,7 @@ import { Avatar } from '../../components';
 const CourseDetail = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const { isAuthenticated } = useAuth();
   const [course, setCourse] = useState(null);
@@ -18,12 +19,27 @@ const CourseDetail = () => {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrollmentData, setEnrollmentData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [paymentHistoryLoading, setPaymentHistoryLoading] = useState(false);
 
   // Function to format price values
   const formatPrice = (price) => {
     if (price === null || price === undefined) return 0;
     const numericPrice = parseFloat(price);
     return isNaN(numericPrice) ? 0 : numericPrice;
+  };
+
+  // Format date to a more readable format
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // Hàm để định dạng dữ liệu khóa học theo cấu trúc SQL
@@ -74,6 +90,23 @@ const CourseDetail = () => {
     }
     
     return formattedData;
+  };
+
+  // Fetch payment history for this course
+  const fetchPaymentHistory = async () => {
+    if (!isAuthenticated || !courseId) return;
+    
+    setPaymentHistoryLoading(true);
+    try {
+      const response = await courseApi.getCoursePaymentHistory(courseId);
+      if (response && response.data && Array.isArray(response.data)) {
+        setPaymentHistory(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+    } finally {
+      setPaymentHistoryLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -141,6 +174,37 @@ const CourseDetail = () => {
       fetchCourseDetails();
     }
   }, [courseId, isAuthenticated, navigate]);
+
+  // Re-check enrollment if redirected after payment
+  useEffect(() => {
+    if (location.state?.paymentSuccess) {
+      if (isAuthenticated) {
+        // Force refresh enrollment status
+        courseApi.checkEnrollment(courseId)
+          .then(res => {
+            if (res.success && res.isEnrolled) {
+              setIsEnrolled(true);
+              setEnrollmentData(res.enrollmentData);
+              // Refresh the enrolled courses list in Redux store
+              dispatch(fetchEnrolledCourses({ forceRefresh: true }));
+              // Show success toast again to confirm
+              toast.success('Đã đăng ký khóa học thành công!');
+            }
+          })
+          .catch(err => console.error('Error re-checking enrollment:', err));
+        
+        // Also fetch payment history after successful payment
+        fetchPaymentHistory();
+      }
+    }
+  }, [location.state?.paymentSuccess, courseId, isAuthenticated, dispatch]);
+
+  // Fetch payment history when tab is switched to 'payment-history'
+  useEffect(() => {
+    if (activeTab === 'payment-history' && isAuthenticated) {
+      fetchPaymentHistory();
+    }
+  }, [activeTab, isAuthenticated, courseId]);
 
   const handleEnroll = async () => {
     if (!isAuthenticated) {
@@ -405,7 +469,7 @@ const CourseDetail = () => {
       {/* Course Content Tabs */}
       <div className="bg-white rounded-2xl shadow-md overflow-hidden mb-8">
         <div className="border-b">
-          <div className="flex">
+          <div className="flex flex-wrap">
             <button
               className={`px-6 py-3 font-medium text-sm ${
                 activeTab === 'overview' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'
@@ -430,6 +494,16 @@ const CourseDetail = () => {
             >
               Giảng viên
             </button>
+            {isAuthenticated && (
+              <button
+                className={`px-6 py-3 font-medium text-sm ${
+                  activeTab === 'payment-history' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'
+                }`}
+                onClick={() => setActiveTab('payment-history')}
+              >
+                Lịch sử thanh toán
+              </button>
+            )}
           </div>
         </div>
         
@@ -595,6 +669,75 @@ const CourseDetail = () => {
               ) : (
                 <div className="bg-gray-50 rounded-2xl p-6">
                   <p className="text-gray-500">Chưa có thông tin về giảng viên.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'payment-history' && isAuthenticated && (
+            <div>
+              <h2 className="text-xl font-bold mb-6">Lịch sử thanh toán</h2>
+              
+              {paymentHistoryLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                </div>
+              ) : paymentHistory.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                    <thead>
+                      <tr>
+                        <th className="py-3 px-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã giao dịch</th>
+                        <th className="py-3 px-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phương thức</th>
+                        <th className="py-3 px-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Số tiền</th>
+                        <th className="py-3 px-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
+                        <th className="py-3 px-4 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ngày thanh toán</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paymentHistory.map((payment) => (
+                        <tr key={payment.TransactionID} className="hover:bg-gray-50">
+                          <td className="py-3 px-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.TransactionCode || 'N/A'}</td>
+                          <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700">
+                            {payment.PaymentMethod === 'vnpay' ? 'VNPay' : 
+                             payment.PaymentMethod === 'paypal' ? 'PayPal' : 
+                             payment.PaymentMethod === 'free' ? 'Miễn phí' : payment.PaymentMethod}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700">
+                            {payment.Amount?.toLocaleString()} {payment.Currency || 'VND'}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              payment.PaymentStatus === 'completed' ? 'bg-green-100 text-green-800' : 
+                              payment.PaymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 
+                              payment.PaymentStatus === 'failed' ? 'bg-red-100 text-red-800' : 
+                              payment.PaymentStatus === 'refunded' ? 'bg-blue-100 text-blue-800' : 
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {payment.PaymentStatus === 'completed' ? 'Thành công' : 
+                               payment.PaymentStatus === 'pending' ? 'Đang xử lý' : 
+                               payment.PaymentStatus === 'failed' ? 'Thất bại' : 
+                               payment.PaymentStatus === 'refunded' ? 'Hoàn tiền' : 
+                               payment.PaymentStatus}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap text-sm text-gray-700">
+                            {formatDate(payment.PaymentDate || payment.CreatedAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900">Chưa có giao dịch</h3>
+                  <p className="mt-1 text-sm text-gray-500">Bạn chưa có giao dịch nào cho khóa học này.</p>
                 </div>
               )}
             </div>

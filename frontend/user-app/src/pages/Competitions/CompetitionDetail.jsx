@@ -110,8 +110,15 @@ const CompetitionDetail = () => {
           setRefreshKey(prev => prev + 1);
         }, 1000);
       } else {
-        console.log('Registration response indicates failure:', response);
-        toast.error(response.message || 'Failed to register for the competition');
+        // Handle specific error cases
+        if (response.notOpen) {
+          toast.error('This competition is not open for registration at this time');
+        } else if (response.isFull) {
+          toast.error('This competition is full. No more registrations are being accepted');
+        } else {
+          console.log('Registration response indicates failure:', response);
+          toast.error(response.message || 'Failed to register for the competition');
+        }
       }
     } catch (err) {
       console.error('Error registering for competition:', err);
@@ -145,6 +152,12 @@ const CompetitionDetail = () => {
                   isRegistered: true // Ensure isRegistered is true
                 });
               }
+              break;
+            } else if (data.message && data.message.toLowerCase().includes('not open for registration')) {
+              toast.error('This competition is not open for registration at this time');
+              break;
+            } else if (data.message && data.message.toLowerCase().includes('full')) {
+              toast.error('This competition is full. No more registrations are being accepted');
               break;
             }
             toast.error(data.message || 'Invalid registration request');
@@ -668,9 +681,13 @@ const CompetitionDetail = () => {
       {/* Cover image */}
       <div className="relative w-full h-64 md:h-80 rounded-xl overflow-hidden mb-6">
         <img
-          src={competition.CoverImageURL || 'https://via.placeholder.com/1200x400?text=Competition+Cover'}
+          src={competition.CoverImageURL || 'https://placehold.co/1200x400?text=Competition+Cover'}
           alt={competition.Title}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = 'https://placehold.co/1200x400?text=No+Image';
+          }}
         />
         <div className="absolute inset-0 bg-black bg-opacity-40 flex items-end">
           <div className="p-6 text-white w-full">

@@ -85,6 +85,22 @@ const CompetitionForm = () => {
     setSubmitting(true);
     try {
       const [startTime, endTime] = values.dateRange;
+      const now = moment();
+      
+      // Determine the appropriate initial status based on dates
+      let initialStatus = values.status;
+      if (!initialStatus || initialStatus === 'draft') {
+        // If startTime is in the future, set to 'upcoming'
+        // If startTime is now or in the past but before endTime, set to 'ongoing'
+        // Otherwise keep as draft
+        if (startTime.isBefore(now) && now.isBefore(endTime)) {
+          initialStatus = 'ongoing';
+        } else if (startTime.isAfter(now)) {
+          initialStatus = 'upcoming';
+        } else {
+          initialStatus = 'draft';
+        }
+      }
       
       const competitionData = {
         title: values.title,
@@ -93,7 +109,7 @@ const CompetitionForm = () => {
         endTime: endTime.toISOString(),
         duration: values.duration,
         difficulty: values.difficulty,
-        status: values.status || 'draft',
+        status: initialStatus,
         maxParticipants: values.maxParticipants,
         prizePool: values.prizePool,
         organizedBy: values.organizedBy,
@@ -218,6 +234,23 @@ const CompetitionForm = () => {
                   {
                     required: true,
                     message: 'Vui lòng chọn thời gian bắt đầu và kết thúc'
+                  },
+                  {
+                    validator: (_, value) => {
+                      if (!value || !value[0] || !value[1]) return Promise.resolve();
+                      
+                      const [startTime, endTime] = value;
+                      if (endTime.isBefore(startTime)) {
+                        return Promise.reject(new Error('Thời gian kết thúc phải sau thời gian bắt đầu'));
+                      }
+                      
+                      const duration = endTime.diff(startTime, 'minutes');
+                      if (duration < 5) {
+                        return Promise.reject(new Error('Cuộc thi phải kéo dài ít nhất 5 phút'));
+                      }
+                      
+                      return Promise.resolve();
+                    }
                   }
                 ]}
               >

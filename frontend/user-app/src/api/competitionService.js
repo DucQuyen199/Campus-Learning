@@ -156,6 +156,24 @@ export const registerForCompetition = async (competitionId) => {
         };
       }
       
+      // Check if competition is not open for registration
+      if (error.response.data.message?.includes('not open for registration')) {
+        return {
+          success: false,
+          message: 'This competition is not open for registration at this time.',
+          notOpen: true
+        };
+      }
+      
+      // Check if competition is full
+      if (error.response.data.message?.includes('full')) {
+        return {
+          success: false,
+          message: 'This competition is full. No more registrations are being accepted.',
+          isFull: true
+        };
+      }
+      
       // Various ways the message might indicate user is already registered
       const errorMessage = error.response.data.message || '';
       if (

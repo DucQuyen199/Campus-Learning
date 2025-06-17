@@ -397,7 +397,7 @@ exports.registerForCompetition = async (req, res) => {
     }
     
     // Check competition status
-    if (competition.Status !== 'upcoming' && competition.Status !== 'draft' && competition.Status !== 'ongoing') {
+    if (competition.Status !== 'upcoming' && competition.Status !== 'ongoing') {
       console.log(`[registerForCompetition] Competition ${competitionId} is not open for registration (status: ${competition.Status})`);
       return res.status(400).json({
         success: false,
@@ -498,17 +498,30 @@ exports.startCompetition = async (req, res) => {
       SELECT CompetitionID, Status, Duration, StartTime, EndTime
       FROM Competitions
       WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
-            AND Status = 'ongoing'
+            AND (Status = 'ongoing' OR Status = 'upcoming')
     `);
     
     if (competitionResult.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Competition not found or not currently ongoing'
+        message: 'Competition not found or not currently available for participation'
       });
     }
     
     const competition = competitionResult.recordset[0];
+    
+    // If the competition was 'upcoming', update its status to 'ongoing'
+    if (competition.Status === 'upcoming') {
+      await pool.request()
+        .input('competitionId', sql.BigInt, bigIntCompetitionId)
+        .query(`
+          UPDATE Competitions
+          SET Status = 'ongoing', UpdatedAt = GETDATE()
+          WHERE CompetitionID = @competitionId
+        `);
+      
+      console.log(`Updated competition ${competitionId} status from 'upcoming' to 'ongoing'`);
+    }
     
     // Check if user is registered
     const participantRequest = pool.request();

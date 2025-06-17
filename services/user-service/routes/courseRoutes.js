@@ -66,6 +66,9 @@ router.post('/courses/:courseId/create-payment', authMiddleware, courseControlle
 // Payment history (protected)
 router.get('/user/payment-history', authMiddleware, courseController.getPaymentHistory);
 
+// Get payment history for a specific course
+router.get('/courses/:courseId/payment-history', authMiddleware, courseController.getCoursePaymentHistory);
+
 // Create PayPal payment order (protected)
 router.post('/courses/:courseId/create-paypal-order', authMiddleware, courseController.createPayPalOrder);
 

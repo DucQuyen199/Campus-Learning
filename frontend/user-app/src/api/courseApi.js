@@ -197,13 +197,26 @@ const courseApi = {
   },
   
   // Process PayPal payment success
-  processPayPalSuccess: (orderId) => {
-    return axiosClient.post('/payment/paypal/success', { orderId });
+  processPayPalSuccess: ({ transactionId, PayerID, courseId }) => {
+    return axiosClient.post('/payment/paypal/success', { transactionId, PayerID, courseId });
   },
   
   // Process PayPal payment cancel
   processPayPalCancel: (transactionId) => {
     return axiosClient.post(`/payment/paypal/cancel?transactionId=${transactionId}`);
+  },
+  
+  // Get payment history
+  getPaymentHistory: () => {
+    return axiosClient.get('/user/payment-history');
+  },
+  
+  // Get payment history for a specific course
+  getCoursePaymentHistory: (courseId) => {
+    if (!courseId) {
+      return Promise.reject(new Error('Course ID is required'));
+    }
+    return axiosClient.get(`/courses/${courseId}/payment-history`);
   },
   
   // Get course content (lectures and materials)
@@ -480,11 +493,6 @@ const courseApi = {
     });
   },
   
-  // Get payment history
-  getPaymentHistory: () => {
-    return axiosClient.get('/user/payment-history');
-  },
-  
   // Execute code and handle result (safe - less failure prone)
   executeCode: async (code, language, stdin = '') => {
     if (!code || !language) {
@@ -636,97 +644,6 @@ const courseApi = {
         console.error('Error in submitCodeExercise:', error);
         reject(error);
       }
-    });
-  },
-  
-  // Mark a lesson as complete
-  markLessonAsComplete: async (courseId, lessonId) => {
-    return axiosClient.post(`/lessons/${lessonId}/progress`, {
-      courseId,
-      completed: true
-    });
-  },
-  
-  // Get code exercise data for a lesson
-  getCodeExercise: (courseId, lessonId) => {
-    if (!courseId || !lessonId) {
-      return Promise.reject(new Error('Course ID and Lesson ID are required'));
-    }
-    
-    return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:5001';
-      const xhr = new XMLHttpRequest();
-      
-      xhr.open('GET', `${apiUrl}/api/courses/${courseId}/lessons/${lessonId}/code-exercise`, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      
-      // Add token to header if available
-      const token = localStorage.getItem('token');
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      }
-      
-      xhr.onload = function() {
-        if (xhr.status === 200) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            resolve(response);
-          } catch (err) {
-            reject(new Error('Invalid response format'));
-          }
-        } else {
-          // No fallback, just return the error
-          reject(new Error(`API returned error status: ${xhr.status}`));
-        }
-      };
-      
-      xhr.onerror = function() {
-        reject(new Error('Lỗi kết nối đến máy chủ'));
-      };
-      
-      xhr.send();
-    });
-  },
-  
-  // Run code exercise with tests
-  runCodeExercise: (courseId, lessonId, code) => {
-    if (!courseId || !lessonId || !code) {
-      return Promise.reject(new Error('Course ID, Lesson ID, and code are required'));
-    }
-    
-    return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:5001';
-      const xhr = new XMLHttpRequest();
-      
-      xhr.open('POST', `${apiUrl}/api/courses/${courseId}/lessons/${lessonId}/run-code`, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      
-      // Add token to header if available
-      const token = localStorage.getItem('token');
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      }
-      
-      xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            resolve(response);
-          } catch (err) {
-            reject(new Error('Invalid response format'));
-          }
-        } else {
-          // No fallback, just return the error
-          reject(new Error(`API returned error status: ${xhr.status}`));
-        }
-      };
-      
-      xhr.onerror = function() {
-        reject(new Error('Lỗi kết nối đến máy chủ'));
-      };
-      
-      // Send the code in the request body
-      xhr.send(JSON.stringify({ code }));
     });
   },
   

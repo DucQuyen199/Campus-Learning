@@ -12,6 +12,7 @@ import CourseLearning from './pages/Courses/CourseLearning';
 import EditCode from './pages/Courses/EditCode';
 import Payment from './pages/Payment';
 import PaymentResult from './pages/PaymentResult';
+import PaymentHistory from './pages/PaymentHistory';
 import Events from './pages/Events';
 import EventDetail from './pages/Events/EventDetail';
 import Posts from './pages/Posts';
@@ -114,7 +115,8 @@ function App() {
               { path: '/competitions/:competitionId/problems/:problemId', element: <ProblemDetail /> },
               { path: '/courses/:courseId/learn', element: <CourseLearning /> },
               { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
-              { path: '/payment/:courseId', element: <Payment /> }
+              { path: '/payment/:courseId', element: <Payment /> },
+              { path: '/payment-history', element: <PaymentHistory /> }
             ].map(({ path, element }) => (
               <Route
                 key={path}

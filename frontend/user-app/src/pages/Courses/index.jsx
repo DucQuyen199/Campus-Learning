@@ -99,8 +99,8 @@ const isEnrolledCourse = (course, enrolledCourses = []) => {
 
 // Enhanced Skeleton loading component for courses
 const CourseCardSkeleton = () => (
-  <div className="bg-white rounded-xl overflow-hidden animate-pulse border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col">
-    <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative"></div>
+  <div className="bg-white rounded-lg overflow-hidden animate-pulse shadow-md h-full flex flex-col">
+    <div className="h-52 bg-gradient-to-br from-gray-100 to-gray-200 relative"></div>
     <div className="p-5 space-y-3 flex-1 flex flex-col">
       <div className="h-4 bg-gray-100 rounded-md w-1/2 mb-1"></div>
       <div className="h-5 bg-gray-200 rounded-md w-4/5"></div>
@@ -157,27 +157,28 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
     }
   };
 
-  // Random duration between 2-12 hours for demo purposes
-  const courseDuration = course.Duration || course.duration || Math.floor(Math.random() * 10 + 2);
-  // Random enrollment count between 100-9999 for demo purposes
-  const enrollmentCount = course.EnrolledCount || course.enrolledCount || Math.floor(Math.random() * 9900 + 100);
-  // Random difficulty level
-  const difficultyLevels = ["Cơ bản", "Trung bình", "Nâng cao"];
-  const difficulty = course.DifficultyLevel || difficultyLevels[Math.floor(Math.random() * 3)];
-  // Random star rating (4.0-5.0)
-  const rating = course.Rating || (4 + Math.random()).toFixed(1);
+  // Sử dụng dữ liệu thực tế từ API thay vì số ngẫu nhiên
+  const courseDuration = course.Duration || course.duration || 0;
+  // Sử dụng số học viên đăng ký từ dữ liệu thực tế
+  const enrollmentCount = course.EnrolledCount || course.enrolledCount || 0;
+  // Sử dụng độ khó từ dữ liệu khóa học nếu có
+  const difficulty = course.DifficultyLevel || course.Level || course.level || "Cơ bản";
+  // Sử dụng đánh giá thực tế từ dữ liệu
+  const rating = course.Rating || course.rating || 0;
+  // Lấy thêm số lượng đánh giá nếu có
+  const ratingCount = course.RatingCount || course.ratingCount || 0;
 
   return (
     <div 
-      className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md border border-gray-100 cursor-pointer h-full flex flex-col transform transition-all duration-300 hover:-translate-y-1"
+      className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg cursor-pointer h-full flex flex-col transition-shadow"
       onClick={() => navigate(`/courses/${courseId}`)}
     >
       {/* Course Image */}
-      <div className="relative aspect-video overflow-hidden">
+      <div className="relative overflow-hidden">
         <img
           src={course.ImageUrl || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
           alt={course.Title || course.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-52 object-cover"
         />
         
         {/* Course provider badge - positioned on top of the image */}
@@ -225,19 +226,19 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
             <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
-            <span>{rating}</span>
+            <span>{rating > 0 ? rating : '4.0'}{ratingCount > 0 ? ` (${ratingCount})` : ''}</span>
           </div>
           <div className="flex items-center gap-1">
             <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>{courseDuration} giờ</span>
+            <span>{courseDuration > 0 ? `${courseDuration} giờ` : 'Chưa có'}</span>
           </div>
           <div className="flex items-center gap-1">
             <svg className="w-3 h-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <span>{enrollmentCount.toLocaleString()} học viên</span>
+            <span>{enrollmentCount > 0 ? `${enrollmentCount.toLocaleString()} học viên` : '0 học viên'}</span>
           </div>
           <div className="flex items-center gap-1">
             <svg className="w-3 h-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,9 +265,9 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
           {!enrolled ? (
             <button
               onClick={handleEnrollFreeCourse}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-300 ${
+              className={`px-4 py-2 rounded-md text-sm font-medium ${
                 isFreeCourse ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
-              } shadow-sm`}
+              } transition-shadow shadow-sm`}
             >
               {isFreeCourse ? 'Đăng ký ngay' : 'Mua ngay'}
             </button>
@@ -276,7 +277,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
                 e.stopPropagation();
                 navigate(`/courses/${courseId}/learn`);
               }}
-              className="px-4 py-2 rounded-md text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-all duration-300 shadow-sm"
+              className="px-4 py-2 rounded-md text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-shadow shadow-sm"
             >
               Học tiếp
             </button>
@@ -297,6 +298,7 @@ const Courses = () => {
   const [enrollmentFilter, setEnrollmentFilter] = useState('all'); // 'all' or 'enrolled'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(''); // Thêm state cho tìm kiếm
   
   // Immediately try to load cached data without loading state
   useEffect(() => {
@@ -393,7 +395,21 @@ const Courses = () => {
   // Separate effect for handling payment success
   useEffect(() => {
     if (isAuthenticated && location.state?.paymentSuccess) {
-      dispatch(fetchEnrolledCourses({ forceRefresh: true }));
+      toast.success('Thanh toán thành công! Bạn đã đăng ký khóa học thành công.');
+      // Force refresh enrollment data to ensure updated UI
+      dispatch(fetchEnrolledCourses({ forceRefresh: true }))
+        .then(() => {
+          console.log("Successfully refreshed enrollment data after payment");
+        })
+        .catch(err => {
+          console.error("Error refreshing enrollment data after payment:", err);
+        });
+      
+      // Clear the payment success flag from location state to prevent multiple refreshes
+      window.history.replaceState(
+        { ...window.history.state, state: { ...location.state, paymentSuccess: false } },
+        document.title
+      );
     }
   }, [dispatch, isAuthenticated, location.state?.paymentSuccess]);
 
@@ -457,7 +473,12 @@ const Courses = () => {
     };
   }, [isAuthenticated, dispatch]);
 
-  // Filter courses based on selected category and enrollment status
+  // Thêm hàm xử lý search
+  const handleSearchChange = (event) => {
+    setSearchTerm(event.target.value);
+  };
+
+  // Cập nhật logic lọc courses để bao gồm cả tìm kiếm
   const filteredCourses = useMemo(() => {
     // Create sets for faster lookups
     const addedCourseIds = new Set();
@@ -471,7 +492,12 @@ const Courses = () => {
         const matchesCategory = courseCategory === 'all' || 
                               (courseCategory === 'it' ? isITCourse(course) : !isITCourse(course));
         
-        if (courseId && matchesCategory && !addedCourseIds.has(courseId)) {
+        // Thêm điều kiện tìm kiếm
+        const matchesSearch = !searchTerm || 
+          (course.Title || course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (course.Description || course.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+        
+        if (courseId && matchesCategory && matchesSearch && !addedCourseIds.has(courseId)) {
           addedCourseIds.add(courseId);
           result.push({...course, enrolled: true});
         }
@@ -495,7 +521,12 @@ const Courses = () => {
           const matchesCategory = courseCategory === 'all' || 
                                 (courseCategory === 'it' ? isITCourse(course) : !isITCourse(course));
           
-          if (matchesCategory && !isEnrolled) {
+          // Thêm điều kiện tìm kiếm
+          const matchesSearch = !searchTerm || 
+            (course.Title || course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (course.Description || course.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+          
+          if (matchesCategory && matchesSearch && !isEnrolled) {
             addedCourseIds.add(courseId);
             result.push({...course, enrolled: false});
           }
@@ -504,7 +535,7 @@ const Courses = () => {
       
       return result;
     }
-  }, [courseCategory, enrollmentFilter, allCourses, enrolledCourses, isAuthenticated]);
+  }, [courseCategory, enrollmentFilter, allCourses, enrolledCourses, isAuthenticated, searchTerm]);
 
   // Determine loading state - only show loading when actually needed
   const isLoading = useMemo(() => {
@@ -522,7 +553,7 @@ const Courses = () => {
 
   // Render skeleton placeholders during loading
   const renderSkeletons = () => {
-    return Array(8).fill(0).map((_, index) => (
+    return Array(6).fill(0).map((_, index) => (
       <CourseCardSkeleton key={`skeleton-${index}`} />
     ));
   };
@@ -567,79 +598,89 @@ const Courses = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
-      {/* Header section */}
+      {/* Header section - Cập nhật để thêm ô tìm kiếm */}
       <div className="bg-white border-b border-gray-200 mb-6">
         <div className="container mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">Khám phá khóa học</h1>
-          <div className="flex mt-6 space-x-6 overflow-x-auto pb-1">
-            <button
-              onClick={() => setCourseCategory('it')}
-              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${getTabStyle(courseCategory === 'it')}`}
-            >
-              Khóa học IT & Công nghệ
-            </button>
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-900">Khám phá khóa học</h1>
             
-            <button
-              onClick={() => setCourseCategory('regular')}
-              className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${getTabStyle(courseCategory === 'regular')}`}
-            >
-              Khóa học Thường
-            </button>
-
+            {/* Add Payment History button for authenticated users */}
             {isAuthenticated && (
               <button
-                onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
-                className={`px-6 py-3 font-medium text-sm rounded-md transition-all ${getTabStyle(enrollmentFilter === 'enrolled')}`}
+                onClick={() => navigate('/payment-history')}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
               >
-                Đã đăng ký ({enrolledCourses.filter(course => 
-                  courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
-                ).length})
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Lịch sử thanh toán
               </button>
             )}
+          </div>
+          <div className="flex justify-between items-center mt-6">
+            <div className="flex space-x-6 overflow-x-auto">
+              <button
+                onClick={() => setCourseCategory('it')}
+                className={`px-4 py-2 font-medium rounded-md ${
+                  courseCategory === 'it' 
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                Khóa học IT & Công nghệ
+              </button>
+              
+              <button
+                onClick={() => setCourseCategory('regular')}
+                className={`px-4 py-2 font-medium rounded-md ${
+                  courseCategory === 'regular'
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                Khóa học Thường
+              </button>
+
+              {isAuthenticated && (
+                <button
+                  onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
+                  className={`px-4 py-2 font-medium rounded-md ${
+                    enrollmentFilter === 'enrolled'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  Đã đăng ký ({enrolledCourses.filter(course => 
+                    courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
+                  ).length})
+                </button>
+              )}
+            </div>
+            
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Tìm kiếm khóa học..."
+                className="w-64 px-4 py-2 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <svg 
+                className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" 
+                fill="none" 
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4">
-        {/* Secondary filter bar */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {courseCategory === 'it' 
-                ? 'Khóa học IT & Công nghệ' 
-                : 'Khóa học Kiến thức cơ bản'}
-              {enrollmentFilter === 'enrolled' ? ' — Đã đăng ký' : ''}
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {filteredCourses.length} khóa học có sẵn
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <button 
-              onClick={() => setEnrollmentFilter('all')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                getButtonStyle(enrollmentFilter === 'all', 'blue')
-              }`}
-            >
-              Tất cả khóa học
-            </button>
-            
-            {isAuthenticated && (
-              <button
-                onClick={() => setEnrollmentFilter('enrolled')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  getButtonStyle(enrollmentFilter === 'enrolled', 'green')  
-                }`}
-              >
-                Đã đăng ký
-              </button>
-            )}
-          </div>
-        </div>
-
+      <div className="container mx-auto px-4 py-8">
         {/* Course Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading ? (
             renderSkeletons()
           ) : filteredCourses.length > 0 ? (
@@ -665,14 +706,25 @@ const Courses = () => {
                   Không tìm thấy khóa học
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  Hiện tại chưa có khóa học nào trong danh mục này. Hãy thử danh mục khác!
+                  {searchTerm 
+                    ? `Không tìm thấy khóa học phù hợp với từ khóa "${searchTerm}". Vui lòng thử tìm kiếm với từ khóa khác.` 
+                    : 'Hiện tại chưa có khóa học nào trong danh mục này. Hãy thử danh mục khác!'}
                 </p>
-                <button
-                  onClick={() => setCourseCategory(courseCategory === 'it' ? 'regular' : 'it')}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  Xem khóa học {courseCategory === 'it' ? 'Thường' : 'IT'}
-                </button>
+                {searchTerm ? (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    Xóa tìm kiếm
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setCourseCategory(courseCategory === 'it' ? 'regular' : 'it')}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    Xem khóa học {courseCategory === 'it' ? 'Thường' : 'IT'}
+                  </button>
+                )}
               </div>
             </div>
           )}

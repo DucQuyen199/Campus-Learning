@@ -54,13 +54,12 @@ const PaymentCallback = () => {
             await paymentService.verifyPayment(Object.fromEntries(searchParams.entries()));
           } catch (verifyError) {
             console.warn('Payment verification error (will continue):', verifyError);
-            // Non-critical error, we'll still show success to user
             setVerificationError(verifyError.message || 'Could not verify payment with server');
           }
           
-          // Redirect to course page after a delay
+          // Redirect to course detail page after a delay
           setTimeout(() => {
-            navigate(courseId ? `/courses/${courseId}/learn` : '/user/enrollments');
+            navigate(courseId ? `/courses/${courseId}` : '/courses', { state: { paymentSuccess: true } });
           }, 3000);
         } else {
           setStatus('failed');
@@ -68,7 +67,7 @@ const PaymentCallback = () => {
           
           // Redirect to course page after a delay
           setTimeout(() => {
-            navigate(courseId ? `/courses/${courseId}` : '/courses');
+            navigate(courseId ? `/courses/${courseId}` : '/courses', { state: { paymentSuccess: false } });
           }, 3000);
         }
       } catch (error) {

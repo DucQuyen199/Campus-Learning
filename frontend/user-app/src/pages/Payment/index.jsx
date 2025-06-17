@@ -17,6 +17,8 @@ const Payment = () => {
   
   // PayPal button container reference
   const paypalButtonRef = useRef(null);
+  // Store server-side PayPal transaction ID
+  const paypalServerTransactionIdRef = useRef(null);
 
   // Format price function
   const formatPrice = (price) => {
@@ -41,6 +43,8 @@ const Payment = () => {
               const response = await courseApi.createPayPalOrder(courseId);
               setLoading(false);
               if (response && response.data && response.data.orderId) {
+                // Save server transaction ID for later
+                paypalServerTransactionIdRef.current = response.data.transactionId;
                 return response.data.orderId;
               } else {
                 toast.error('Không thể tạo đơn hàng PayPal');
@@ -66,16 +70,27 @@ const Payment = () => {
           onApprove: async (data, actions) => {
             setLoading(true);
             try {
-              // Log PayPal approval data for debugging
-              console.log('PayPal approval data:', data);
+              // Capture the PayPal order
+              const details = await actions.order.capture();
+              console.log('PayPal capture details:', details);
               
-              // Navigate to the success page with the order ID
-              // The actual processing will happen on the success page
-              navigate(`/payment/paypal/success?orderID=${data.orderID}`);
+              // Process payment on backend using server transaction ID
+              const serverId = paypalServerTransactionIdRef.current;
+              await courseApi.processPayPalSuccess({
+                transactionId: serverId,
+                PayerID: data.payerID,
+                courseId
+              });
+              
+              setLoading(false);
+              // Navigate to the payment result page
+              navigate(`/payment-result?status=success&courseId=${courseId}&transactionId=${details.id}`);
             } catch (error) {
               setLoading(false);
               console.error('PayPal approval error:', error);
               toast.error(error.response?.data?.message || 'Xử lý thanh toán thất bại');
+              // Navigate to failure result
+              navigate(`/payment-result?status=error&message=${encodeURIComponent(error.message)}`);
             }
           },
           onError: (err) => {
@@ -93,6 +108,8 @@ const Payment = () => {
           onCancel: () => {
             console.log('PayPal payment cancelled');
             toast.info('Đã hủy thanh toán qua PayPal');
+            // Navigate to cancellation result
+            navigate(`/payment-result?status=cancel&courseId=${courseId}`);
           }
         }).render(paypalButtonRef.current);
       } catch (paypalError) {

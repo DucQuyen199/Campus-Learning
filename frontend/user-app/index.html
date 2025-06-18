@@ -84,10 +84,51 @@
           setTimeout(patchJQueryWhenLoaded, 100);
         }
       })();
+      
+      // Create timer elements immediately to ensure they exist
+      (function createTimerElements() {
+        if (!document.getElementById('minutes') || !document.getElementById('seconds')) {
+          var timerContainer = document.createElement('div');
+          timerContainer.style.display = 'none';
+          timerContainer.id = 'vnpay-timer-container';
+          
+          var minutesElement = document.createElement('span');
+          minutesElement.id = 'minutes';
+          minutesElement.textContent = '15';
+          
+          var colonElement = document.createTextNode(':');
+          
+          var secondsElement = document.createElement('span');
+          secondsElement.id = 'seconds';
+          secondsElement.textContent = '00';
+          
+          timerContainer.appendChild(minutesElement);
+          timerContainer.appendChild(colonElement);
+          timerContainer.appendChild(secondsElement);
+          
+          // If body exists, append to it, otherwise create a container in head
+          if (document.body) {
+            document.body.appendChild(timerContainer);
+          } else {
+            document.head.appendChild(timerContainer);
+          }
+        }
+      })();
+      
+      // Start timer early
+      window.timer = setInterval(window.updateTime, 1000);
     </script>
     
     <!-- External VNPay fix script -->
     <script src="/vnpay-fix.js"></script>
+    
+    <!-- Additional VNPay compatibility reference -->
+    <script>
+      // Secondary backup for timer variables
+      window.timer = window.timer || null;
+      window.remainingSeconds = window.remainingSeconds || 900;
+      window.updateTime = window.updateTime || function() {};
+    </script>
   </head>
   <body>
     <!-- Hidden timer elements that VNPay scripts might look for -->

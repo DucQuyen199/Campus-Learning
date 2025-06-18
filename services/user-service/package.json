@@ -41,6 +41,7 @@
     "socket.io": "^4.7.5",
     "tedious": "^18.6.1",
     "uuid": "^9.0.1",
+    "vnpay": "^2.3.0",
     "winston": "^3.8.2"
   },
   "devDependencies": {

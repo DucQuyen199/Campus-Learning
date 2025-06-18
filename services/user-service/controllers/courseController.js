@@ -13,6 +13,25 @@ const jwt = require('jsonwebtoken');
 const paypalClient = require('../utils/paypalClient');
 const { formatDateForSqlServer, createSqlServerDate } = require('../utils/dateHelpers');
 const LessonProgress = require('../models/LessonProgress');
+const { VNPay, ignoreLogger } = require('vnpay');
+
+// Initialize VNPAY client
+const vnpayHost = new URL(process.env.VNP_URL).origin;
+const vnpayClient = new VNPay({
+  tmnCode: process.env.VNP_TMN_CODE,
+  secureSecret: process.env.VNP_HASH_SECRET,
+  vnpayHost: vnpayHost,
+  queryDrAndRefundHost: vnpayHost,
+  testMode: process.env.NODE_ENV !== 'production',
+  hashAlgorithm: 'SHA512',
+  enableLog: process.env.NODE_ENV !== 'production',
+  loggerFn: ignoreLogger,
+  endpoints: {
+    paymentEndpoint: new URL(process.env.VNP_URL).pathname.slice(1),
+    queryDrRefundEndpoint: 'merchant_webapi/api/transaction',
+    getBankListEndpoint: 'qrpayauth/api/merchant/get_bank_list'
+  }
+});
 
 // Get all courses (public)
 exports.getAllCourses = async (req, res) => {
@@ -498,10 +517,11 @@ exports.createPaymentUrl = async (req, res) => {
 
     // Validate VNPay configuration
     if (!process.env.VNP_TMN_CODE || !process.env.VNP_HASH_SECRET || !process.env.VNP_URL) {
-      console.error('Missing VNPay configuration');
-      console.log('VNP_TMN_CODE:', process.env.VNP_TMN_CODE);
-      console.log('VNP_HASH_SECRET:', process.env.VNP_HASH_SECRET ? '[Set]' : '[Not set]');
-      console.log('VNP_URL:', process.env.VNP_URL);
+      console.error('Missing VNPay configuration:', {
+        tmnCode: process.env.VNP_TMN_CODE ? '[SET]' : '[NOT SET]',
+        secretKey: process.env.VNP_HASH_SECRET ? '[SET]' : '[NOT SET]',
+        vnpUrl: process.env.VNP_URL ? '[SET]' : '[NOT SET]'
+      });
       
       // Update transaction to failed
       await PaymentTransaction.update({
@@ -518,14 +538,40 @@ exports.createPaymentUrl = async (req, res) => {
       });
     }
 
-    // Create VNPAY payment URL
+    // Create VNPay payment URL using vnpay library
     try {
-      const vnpUrl = createVnpayUrl(transaction, req.headers.origin, req.ip);
-      console.log(`Generated VNPay URL for transaction ${transaction.TransactionID}`);
+      const originUrl = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+      console.log('Using originUrl for VNPay return:', originUrl);
+      // Determine bank code: use request body override or fallback to env
+      const bankCode = req.body.bankCode || process.env.VNP_BANK_CODE;
+      console.log('Using bankCode for VNPay:', bankCode);
       
+      // Determine return URL
+      let returnUrl = process.env.VNP_RETURN_URL;
+      if (!returnUrl) {
+        if (process.env.CLIENT_URL) {
+          returnUrl = `${process.env.CLIENT_URL}/payment/vnpay/callback`;
+        } else {
+          returnUrl = `${originUrl}/payment/vnpay/callback`;
+        }
+      }
+      console.log('Computed VNPay returnUrl:', returnUrl);
+
+      const paymentUrl = vnpayClient.buildPaymentUrl({
+        vnp_Amount: transaction.Amount,
+        vnp_IpAddr: req.ip,
+        vnp_TxnRef: transaction.TransactionCode,
+        vnp_OrderInfo: `Thanh toán khóa học: ${transaction.CourseID}`,
+        vnp_OrderType: 'billpayment',
+        vnp_ReturnUrl: returnUrl,
+        vnp_Locale: 'vn',
+        vnp_BankCode: bankCode
+      });
+
+      console.log(`Generated VNPay URL for transaction ${transaction.TransactionID}`, paymentUrl);
       return res.status(200).json({
         success: true,
-        paymentUrl: vnpUrl,
+        paymentUrl,
         transactionId: transaction.TransactionID
       });
     } catch (vnpError) {
@@ -556,270 +602,54 @@ exports.createPaymentUrl = async (req, res) => {
   }
 };
 
-// Create VNPAY payment URL helper function
-function createVnpayUrl(transaction, originUrl, ipAddr) {
-  // Đảm bảo định dạng ngày tháng đúng theo quy định của VNPay
-  // Format: yyyyMMddHHmmss
-  const date = new Date();
-  const createDate = date.getFullYear().toString() +
-    ('0' + (date.getMonth() + 1)).slice(-2) +
-    ('0' + date.getDate()).slice(-2) +
-    ('0' + date.getHours()).slice(-2) +
-    ('0' + date.getMinutes()).slice(-2) +
-    ('0' + date.getSeconds()).slice(-2);
-  
-  console.log('Formatted date for VNPay:', createDate);
-  
-  // Read from environment variables
-  const vnpTmnCode = process.env.VNP_TMN_CODE;
-  const secretKey = process.env.VNP_HASH_SECRET;
-  const vnpUrl = process.env.VNP_URL;
-  
-  // Make sure we have the required config
-  if (!vnpTmnCode || !secretKey || !vnpUrl) {
-    throw new Error('Missing VNPay configuration');
-  }
-  
-  // Kiểm tra Terminal ID (vnp_TmnCode)
-  if (vnpTmnCode.length < 4 || vnpTmnCode.length > 16) {
-    throw new Error('Terminal ID (vnp_TmnCode) is invalid. Must be 4-16 characters');
-  }
-  
-  // Xác định URL trả về
-  let returnUrl = process.env.VNP_RETURN_URL;
-  if (!returnUrl) {
-    if (!originUrl) {
-      throw new Error('Missing origin URL and VNP_RETURN_URL'); 
-    }
-    returnUrl = `${originUrl}/payment/vnpay/callback`;
-  }
-  
-  // Đảm bảo URL trả về hợp lệ
-  if (!returnUrl.startsWith('http://') && !returnUrl.startsWith('https://')) {
-    console.warn('Warning: Return URL should start with http:// or https://');
-  }
-  
-  // Tạo thông tin mô tả đơn hàng
-  const orderInfo = `Thanh toán khóa học: ${transaction.CourseID}`;
-  
-  // Đảm bảo amount là số nguyên và được chuyển đổi đúng cách
-  let amount = 0;
-  
-  if (typeof transaction.Amount === 'string') {
-    // Nếu là chuỗi, chuyển đổi sang số
-    amount = Math.round(parseFloat(transaction.Amount) * 100);
-  } else if (typeof transaction.Amount === 'number') {
-    // Nếu là số, chỉ cần nhân với 100 và làm tròn
-    amount = Math.round(transaction.Amount * 100);
-  } else {
-    console.error('Invalid amount format:', transaction.Amount, 'type:', typeof transaction.Amount);
-    amount = 0; // Giá trị mặc định nếu không hợp lệ
-  }
-  
-  // Đảm bảo amount là số nguyên dương
-  if (isNaN(amount) || amount <= 0) {
-    throw new Error(`Invalid amount: ${transaction.Amount}`);
-  }
-  
-  console.log('Processing amount:', transaction.Amount, 'Converted to:', amount);
-  
-  // Mã ngân hàng (để trống cho phép người dùng chọn ngân hàng trên trang VNPay)
-  const bankCode = ''; 
-  
-  // Ngôn ngữ hiển thị trên trang thanh toán VNPay
-  const locale = 'vn';
-  
-  // Mã đơn hàng
-  const txnRef = transaction.TransactionCode;
-  if (!txnRef || txnRef.length < 1 || txnRef.length > 100) {
-    throw new Error('TransactionCode is invalid. Must be 1-100 characters');
-  }
-  
-  // Create VNPay payment request parameters
-  const vnpParams = {
-    vnp_Version: '2.1.0',
-    vnp_Command: 'pay',
-    vnp_TmnCode: vnpTmnCode,
-    vnp_Locale: locale,
-    vnp_CurrCode: 'VND',
-    vnp_TxnRef: txnRef,
-    vnp_OrderInfo: orderInfo,
-    vnp_OrderType: 'billpayment',
-    vnp_Amount: amount,
-    vnp_ReturnUrl: returnUrl,
-    vnp_IpAddr: ipAddr || '127.0.0.1',
-    vnp_CreateDate: createDate
-  };
-  
-  // Thêm mã ngân hàng nếu được chỉ định
-  if (bankCode !== '') {
-    vnpParams.vnp_BankCode = bankCode;
-  }
-  
-  // Sắp xếp các tham số theo thứ tự ABC để tính toán chữ ký
-  const sortedParams = sortObject(vnpParams);
-  
-  // Ký request với HMAC SHA512
-  const signData = querystring.stringify(sortedParams);
-  const hmac = crypto.createHmac('sha512', secretKey);
-  const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-  
-  // Thêm chữ ký vào tham số
-  sortedParams.vnp_SecureHash = signed;
-  
-  // Log thông tin lần cuối trước khi gửi
-  console.log('VNPay payment parameters:', JSON.stringify(sortedParams));
-  
-  // Tạo URL đầy đủ với tham số
-  const paymentUrl = `${vnpUrl}?${querystring.stringify(sortedParams)}`;
-  console.log('Final VNPay URL:', paymentUrl);
-  
-  return paymentUrl;
-}
-
-// Helper function to sort object by key
-function sortObject(obj) {
-  const sorted = {};
-  const keys = Object.keys(obj).sort();
-  
-  for (const key of keys) {
-    sorted[key] = obj[key];
-  }
-  
-  return sorted;
-}
-
-// Handle VNPAY payment callback
+// Handle VNPay payment callback using vnpay library
 exports.paymentCallback = async (req, res) => {
   try {
-    const vnpParams = req.query;
-    const secureHash = vnpParams.vnp_SecureHash;
-    
-    console.log('VNPay callback received:', vnpParams);
-    
-    // Remove hash from params for verification
-    delete vnpParams.vnp_SecureHash;
-    delete vnpParams.vnp_SecureHashType;
-    
-    // Sort params
-    const sortedParams = sortObject(vnpParams);
-    
-    // Check signature
-    const secretKey = process.env.VNP_HASH_SECRET;
-    const signData = querystring.stringify(sortedParams);
-    const hmac = crypto.createHmac('sha512', secretKey);
-    const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
-    
-    // Check if signature is valid
-    if (secureHash === signed) {
-      const transactionId = vnpParams.vnp_TxnRef;
-      const transactionStatus = vnpParams.vnp_TransactionStatus;
-      const amount = vnpParams.vnp_Amount / 100; // VNPay trả về số tiền * 100
-      
-      // Tìm transaction trong database
-      const transaction = await PaymentTransaction.findOne({
-        where: { TransactionID: transactionId }
-      });
-
-      if (!transaction) {
-        console.error('Transaction not found:', transactionId);
-        // Redirect về trang lỗi
-        return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=error&message=Transaction_not_found`);
-      }
-
-      // Cập nhật trạng thái transaction
-      if (transactionStatus === '00') {
-        // Thanh toán thành công
-        await PaymentTransaction.update(
-          {
-            PaymentStatus: 'completed',
-            UpdatedAt: new Date()
-          },
-          {
-            where: { TransactionID: transactionId }
-          }
-        );
-
-        // Cập nhật lịch sử thanh toán
-        await PaymentHistory.update(
-          {
-            Status: 'completed',
-            Notes: 'Payment completed successfully',
-            UpdatedAt: new Date()
-          },
-          {
-            where: { TransactionID: transactionId }
-          }
-        );
-
-        // Kiểm tra xem người dùng đã đăng ký khóa học này chưa
-        const existingEnrollment = await CourseEnrollment.findOne({
-          where: {
-            UserID: transaction.UserID,
-            CourseID: transaction.CourseID
-          }
-        });
-
-        // Nếu chưa đăng ký, tạo mới enrollment
-        if (!existingEnrollment) {
-          await CourseEnrollment.create({
-            UserID: transaction.UserID,
-            CourseID: transaction.CourseID,
-            Status: 'active',
-            Progress: 0,
-            LastAccessedAt: new Date(),
-            CreatedAt: new Date(),
-            UpdatedAt: new Date()
-          });
-
-          // Cập nhật số lượng học viên đã đăng ký cho khóa học
-          await Course.increment('EnrolledCount', {
-            by: 1,
-            where: { CourseID: transaction.CourseID }
-          });
-        } else if (existingEnrollment.Status !== 'active') {
-          // Nếu đã có enrollment nhưng không active, cập nhật thành active
-          existingEnrollment.Status = 'active';
-          existingEnrollment.UpdatedAt = new Date();
-          await existingEnrollment.save();
-        }
-
-        // Redirect về trang thông báo thành công
-        return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=success&courseId=${transaction.CourseID}&transactionId=${transactionId}`);
-      } else {
-        // Thanh toán thất bại
-        await PaymentTransaction.update(
-          {
-            PaymentStatus: 'failed',
-            UpdatedAt: new Date()
-          },
-          {
-            where: { TransactionID: transactionId }
-          }
-        );
-
-        // Cập nhật lịch sử thanh toán
-        await PaymentHistory.update(
-          {
-            Status: 'failed',
-            Notes: `Payment failed with status: ${transactionStatus}`,
-            UpdatedAt: new Date()
-          },
-          {
-            where: { TransactionID: transactionId }
-          }
-        );
-
-        // Redirect về trang thông báo thất bại
-        return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=error&message=Payment_failed&code=${transactionStatus}`);
-      }
-    } else {
-      // Mã xác thực không hợp lệ
-      console.error('Invalid secure hash');
+    // Verify return URL data
+    const data = vnpayClient.verifyReturnUrl(req.query);
+    console.log('VNPay callback data:', data);
+    if (!data.isVerified) {
+      console.error('VNPay signature verification failed', data);
       return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=error&message=Invalid_signature`);
     }
+    // Find transaction by TransactionCode
+    const transaction = await PaymentTransaction.findOne({ where: { TransactionCode: data.vnp_TxnRef } });
+    if (!transaction) {
+      console.error('Transaction not found:', data.vnp_TxnRef);
+      return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=error&message=Transaction_not_found`);
+    }
+    // Update based on payment outcome
+    if (data.isSuccess) {
+      // Success
+      await PaymentTransaction.update(
+        { PaymentStatus: 'completed', UpdatedAt: new Date() },
+        { where: { TransactionCode: data.vnp_TxnRef } }
+      );
+      await PaymentHistory.update(
+        { Status: 'completed', Notes: 'Payment completed successfully', UpdatedAt: new Date() },
+        { where: { TransactionID: transaction.TransactionID } }
+      );
+      // Enroll user if not already
+      const existingEnrollment = await CourseEnrollment.findOne({ where: { UserID: transaction.UserID, CourseID: transaction.CourseID } });
+      if (!existingEnrollment) {
+        await CourseEnrollment.create({ UserID: transaction.UserID, CourseID: transaction.CourseID, Status: 'active', Progress: 0, CreatedAt: new Date(), UpdatedAt: new Date() });
+        await Course.increment('EnrolledCount', { by: 1, where: { CourseID: transaction.CourseID } });
+      }
+      return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=success&courseId=${transaction.CourseID}&transactionId=${transaction.TransactionID}`);
+    } else {
+      // Failure
+      await PaymentTransaction.update(
+        { PaymentStatus: 'failed', UpdatedAt: new Date() },
+        { where: { TransactionCode: data.vnp_TxnRef } }
+      );
+      await PaymentHistory.update(
+        { Status: 'failed', Notes: `Payment failed with code: ${data.vnp_ResponseCode}`, UpdatedAt: new Date() },
+        { where: { TransactionID: transaction.TransactionID } }
+      );
+      return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=error&message=Payment_failed&code=${data.vnp_ResponseCode}`);
+    }
   } catch (error) {
-    console.error('Error in payment callback:', error);
+    console.error('Error processing VNPay callback:', error);
     return res.redirect(`${process.env.CLIENT_URL}/payment-result?status=error&message=Server_error`);
   }
 };
@@ -2003,5 +1833,16 @@ exports.getVNPayTransaction = async (req, res) => {
   } catch (error) {
     console.error('Error fetching VNPay transaction:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get list of banks from VNPay (sandbox or production) using vnpay library
+exports.getVNPayBankList = async (req, res) => {
+  try {
+    const banks = await vnpayClient.getBankList();
+    return res.json({ success: true, data: banks });
+  } catch (error) {
+    console.error('Error fetching VNPay bank list via library:', error);
+    return res.status(500).json({ success: false, message: 'Could not fetch bank list' });
   }
 }; 

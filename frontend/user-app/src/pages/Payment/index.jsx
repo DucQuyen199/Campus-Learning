@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Loading } from '@/components';
 import courseApi from '@/api/courseApi';
@@ -19,6 +19,13 @@ const Payment = () => {
   const paypalButtonRef = useRef(null);
   // Store server-side PayPal transaction ID
   const paypalServerTransactionIdRef = useRef(null);
+
+  // Selected bank code for VNPay
+  const [selectedBank, setSelectedBank] = useState('');
+
+  // Fetch VNPay bank list for sandbox
+  const [bankList, setBankList] = useState([]);
+  const [loadingBanks, setLoadingBanks] = useState(true);
 
   // Format price function
   const formatPrice = (price) => {
@@ -257,12 +264,35 @@ const Payment = () => {
     fetchCourseDetails();
   }, [courseId, isAuthenticated, navigate]);
 
+  useEffect(() => {
+    const fetchBanks = async () => {
+      try {
+        const res = await fetch('/api/vnpay/banks');
+        const result = await res.json();
+        if (result.success) {
+          setBankList(result.data);
+          // Initialize selected bank to first available
+          if (result.data && result.data.length > 0) {
+            setSelectedBank(result.data[0].code);
+          }
+        } else {
+          console.error('Failed to fetch VNPay banks:', result.message);
+        }
+      } catch (error) {
+        console.error('Error fetching VNPay bank list:', error);
+      } finally {
+        setLoadingBanks(false);
+      }
+    };
+    fetchBanks();
+  }, []);
+
   const handlePayment = async () => {
     try {
       setProcessingPayment(true);
       
       if (paymentMethod === 'vnpay') {
-        const response = await courseApi.createPayment(courseId);
+        const response = await courseApi.createPayment(courseId, selectedBank);
         if (response.data && response.data.success && response.data.paymentUrl) {
           // Lưu thông tin thanh toán vào localStorage để kiểm tra khi quay lại
           localStorage.setItem('pendingPayment', JSON.stringify({
@@ -324,6 +354,32 @@ const Payment = () => {
         <span className="mx-2">/</span>
         <span className="text-gray-700">Thanh toán</span>
       </div>
+
+      {/* Display available banks (for debugging) */}
+      {loadingBanks ? (
+        <p>Loading bank list...</p>
+      ) : (
+        <div className="mb-4">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">VNPay Banks:</h3>
+          <ul className="list-disc list-inside text-sm text-gray-600">
+            {bankList.map(bank => (
+              <li key={bank.code} className="mb-1">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="bankCode"
+                    value={bank.code}
+                    checked={selectedBank === bank.code}
+                    onChange={() => setSelectedBank(bank.code)}
+                    className="mr-2"
+                  />
+                  {bank.code}: {bank.name}
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Order Summary */}

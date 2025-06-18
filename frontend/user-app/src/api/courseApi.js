@@ -174,8 +174,8 @@ const courseApi = {
   },
   
   // Create payment URL for VNPay
-  createPayment: (courseId) => {
-    return axiosClient.post(`/courses/${courseId}/create-payment`);
+  createPayment: (courseId, bankCode) => {
+    return axiosClient.post(`/courses/${courseId}/create-payment`, { bankCode });
   },
   
   // Process VNPay transaction details

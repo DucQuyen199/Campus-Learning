@@ -13,6 +13,9 @@ router.get('/courses', courseController.getAllCourses);
 // Payment callback from VNPAY (public)
 router.get('/payment/vnpay/callback', courseController.paymentCallback);
 
+// Fetch VNPay supported bank list (public)
+router.get('/vnpay/banks', courseController.getVNPayBankList);
+
 // =============================================
 // 2. SPECIFIC ROUTES (MUST COME BEFORE DYNAMIC ROUTES)
 // =============================================

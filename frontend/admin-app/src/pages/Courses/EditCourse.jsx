@@ -465,9 +465,9 @@ const EditCourse = () => {
 
   if (loading && !courseData.title) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Spin size="large" tip="Đang tải..." />
-      </div>
+      <Spin size="large" tip="Đang tải..." style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div />
+      </Spin>
     );
   }
 
@@ -596,7 +596,7 @@ const EditCourse = () => {
                   <InputNumber
                     min={0}
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/\$\s?|(,*)/g, '')}
+                    parser={value => value?.toString().replace(/,/g, '')}
                     style={{ width: '100%' }}
                     addonAfter="VND"
                   />
@@ -611,7 +611,7 @@ const EditCourse = () => {
                   <InputNumber
                     min={0}
                     formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/\$\s?|(,*)/g, '')}
+                    parser={value => value?.toString().replace(/,/g, '')}
                     style={{ width: '100%' }}
                     addonAfter="VND"
                   />

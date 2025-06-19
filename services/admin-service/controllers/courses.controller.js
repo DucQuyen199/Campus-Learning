@@ -270,7 +270,6 @@ exports.updateCourse = async (req, res) => {
 
     // Use the provided value or fallback to alternative field name
     const courseTitle = title || Title;
-    const courseSlug = slug || Slug;
     const courseDescription = description || Description;
     const courseShortDescription = shortDescription || ShortDescription;
     const courseInstructorId = instructorId || InstructorID;
@@ -314,7 +313,6 @@ exports.updateCourse = async (req, res) => {
     await pool.request()
       .input('courseId', sql.BigInt, id)
       .input('title', sql.NVarChar(255), courseTitle)
-      .input('slug', sql.VarChar(255), courseSlug || null)
       .input('description', sql.NVarChar(sql.MAX), courseDescription || null)
       .input('shortDescription', sql.NVarChar(500), courseShortDescription || null)
       .input('instructorId', sql.BigInt, courseInstructorId || null)
@@ -340,7 +338,6 @@ exports.updateCourse = async (req, res) => {
         UPDATE Courses
         SET
           Title = @title,
-          Slug = @slug,
           Description = @description,
           ShortDescription = @shortDescription,
           InstructorID = @instructorId,

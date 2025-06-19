@@ -547,32 +547,29 @@ const reportController = {
       
       const result = await request.query(query);
       
-      // Create CSV
+      // Create CSV with Vietnamese headers
       const csvStringifier = createCsvStringifier({
         header: [
-          { id: 'ReportID', title: 'Report ID' },
-          { id: 'Title', title: 'Title' },
-          { id: 'Content', title: 'Content' },
-          { id: 'Category', title: 'Category' },
-          { id: 'ReporterName', title: 'Reporter' },
-          { id: 'TargetID', title: 'Target ID' },
-          { id: 'TargetType', title: 'Target Type' },
-          { id: 'Status', title: 'Status' },
-          { id: 'Notes', title: 'Notes' },
-          { id: 'ActionTaken', title: 'Action Taken' },
-          { id: 'CreatedAt', title: 'Created At' },
-          { id: 'ResolvedAt', title: 'Resolved At' }
+          { id: 'ReportID', title: 'Mã báo cáo' },
+          { id: 'Title', title: 'Tiêu đề' },
+          { id: 'Content', title: 'Nội dung báo cáo' },
+          { id: 'Category', title: 'Danh mục' },
+          { id: 'ReporterName', title: 'Người báo cáo' },
+          { id: 'TargetID', title: 'Mã đối tượng' },
+          { id: 'TargetType', title: 'Loại đối tượng' },
+          { id: 'Status', title: 'Trạng thái' },
+          { id: 'Notes', title: 'Ghi chú' },
+          { id: 'ActionTaken', title: 'Hành động' },
+          { id: 'CreatedAt', title: 'Ngày tạo' },
+          { id: 'ResolvedAt', title: 'Ngày xử lý' }
         ]
       });
       
       const csvData = csvStringifier.getHeaderString() + csvStringifier.stringifyRecords(result.recordset);
-      
-      // Set response headers
-      res.setHeader('Content-Type', 'text/csv');
+      // Send CSV with UTF-8 BOM for proper Vietnamese encoding
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename=reports.csv');
-      
-      // Send CSV data
-      res.send(csvData);
+      res.send('\uFEFF' + csvData);
     } catch (error) {
       console.error('Error exporting reports:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
@@ -595,6 +592,54 @@ const reportController = {
       res.json(result.recordset);
     } catch (error) {
       console.error('Error fetching reports by category:', error);
+      res.status(500).json({ message: 'Server error', error: error.message });
+    }
+  },
+
+  // Xem nội dung bài viết được báo cáo
+  getReportedContent: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const pool = await poolPromise;
+      // Lấy thông tin báo cáo
+      const reportResult = await pool.request()
+        .input('id', id)
+        .query(`
+          SELECT * FROM Reports WHERE ReportID = @id AND DeletedAt IS NULL
+        `);
+      if (reportResult.recordset.length === 0) {
+        return res.status(404).json({ message: 'Report not found' });
+      }
+      const report = reportResult.recordset[0];
+      if (report.TargetType !== 'CONTENT') {
+        return res.status(400).json({ message: 'This report is not related to content' });
+      }
+      const targetId = report.TargetID;
+      // Lấy bài viết
+      const postResult = await pool.request()
+        .input('postId', sql.BigInt, targetId)
+        .query(`
+          SELECT 
+            PostID AS id,
+            UserID AS userId,
+            Content AS content,
+            Type AS type,
+            Visibility AS visibility,
+            Location AS location,
+            CreatedAt AS createdAt,
+            UpdatedAt AS updatedAt,
+            LikesCount AS likesCount,
+            CommentsCount AS commentsCount,
+            SharesCount AS sharesCount
+          FROM Posts
+          WHERE PostID = @postId AND DeletedAt IS NULL
+        `);
+      if (postResult.recordset.length === 0) {
+        return res.status(404).json({ message: 'Post not found' });
+      }
+      res.json({ post: postResult.recordset[0] });
+    } catch (error) {
+      console.error('Error fetching reported content:', error);
       res.status(500).json({ message: 'Server error', error: error.message });
     }
   }

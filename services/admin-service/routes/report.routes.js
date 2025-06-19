@@ -14,6 +14,9 @@ router.get('/stats', authenticateToken, isAdmin, reportController.getReportStats
 // Lấy chi tiết báo cáo theo ID
 router.get('/:id', authenticateToken, isAdmin, reportController.getReportById);
 
+// Thêm route để xem nội dung bài viết được báo cáo
+router.get('/:id/content', authenticateToken, isAdmin, reportController.getReportedContent);
+
 // Cập nhật trạng thái báo cáo
 router.put('/:id/status', authenticateToken, isAdmin, reportController.updateReportStatus);
 

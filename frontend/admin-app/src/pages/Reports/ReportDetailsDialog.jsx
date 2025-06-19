@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Dialog,
@@ -11,7 +11,8 @@ import {
   Chip,
   Divider,
   Box,
-  IconButton
+  IconButton,
+  CircularProgress
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -21,12 +22,41 @@ import {
   Flag as FlagIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { getReportedContent } from '../../api/reports';
 
 /**
  * Report Details Dialog Component
  * Displays the full details of a report and provides action buttons
  */
 const ReportDetailsDialog = ({ open, onClose, report, onAction }) => {
+  // State for target post content
+  const [targetPost, setTargetPost] = useState(null);
+  const [loadingPost, setLoadingPost] = useState(false);
+  const [postError, setPostError] = useState(null);
+
+  // Fetch reported post content when dialog opens
+  useEffect(() => {
+    if (open && report?.targetType === 'CONTENT') {
+      const fetchPost = async () => {
+        setLoadingPost(true);
+        setPostError(null);
+        try {
+          const response = await getReportedContent(report.id);
+          setTargetPost(response.data.post);
+        } catch (error) {
+          console.error('Error loading reported post:', error);
+          setPostError('Không thể tải nội dung bài viết');
+        } finally {
+          setLoadingPost(false);
+        }
+      };
+      fetchPost();
+    } else {
+      setTargetPost(null);
+      setPostError(null);
+    }
+  }, [open, report]);
+
   if (!report) return null;
   
   // Format date for display
@@ -106,6 +136,24 @@ const ReportDetailsDialog = ({ open, onClose, report, onAction }) => {
               <Typography variant="body1">{report.content}</Typography>
             </Box>
           </Grid>
+          
+          {report.targetType === 'CONTENT' && (
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary">Nội dung bài viết được báo cáo</Typography>
+              {loadingPost ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                  <CircularProgress size={20} />
+                  <Typography sx={{ ml: 1 }}>Đang tải bài viết...</Typography>
+                </Box>
+              ) : postError ? (
+                <Typography color="error">{postError}</Typography>
+              ) : targetPost ? (
+                <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, mt: 1 }}>
+                  <Typography variant="body1">{targetPost.content || targetPost.Content}</Typography>
+                </Box>
+              ) : null}
+            </Grid>
+          )}
           
           {report.status !== 'PENDING' && (
             <>

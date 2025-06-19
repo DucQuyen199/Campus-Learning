@@ -421,3 +421,41 @@ DELETE FROM [dbo].[ExamAnswerTemplates]
 WHERE [QuestionID] NOT IN (
     SELECT [QuestionID] FROM [dbo].[ExamQuestions]
 );
+
+-- Update existing exams to allow retakes
+UPDATE [dbo].[Exams]
+SET [AllowRetakes] = 1, [MaxRetakes] = 3
+WHERE [ExamID] IN (5, 6);
+
+-- Make sure the "Tư tưởng Hồ Chí Minh" exam allows retakes
+UPDATE [dbo].[Exams]
+SET [AllowRetakes] = 1, [MaxRetakes] = 3
+WHERE [Title] = N'Tư tưởng Hồ Chí Minh';
+
+-- Optional: Reset any in-progress registrations to allow testing
+DELETE FROM [dbo].[ExamParticipants]
+WHERE [ExamID] IN (5, 6) 
+AND [Status] NOT IN ('completed', 'reviewed');
+
+-- Add SQL statement to ensure the AllowRetakes and MaxRetakes columns have correct default values
+IF NOT EXISTS (
+    SELECT * FROM sys.columns 
+    WHERE Name = N'AllowRetakes' 
+    AND Object_ID = Object_ID(N'[dbo].[Exams]')
+    AND default_object_id <> 0
+)
+BEGIN
+    ALTER TABLE [dbo].[Exams]
+    ADD CONSTRAINT [DF_Exams_AllowRetakes] DEFAULT ((0)) FOR [AllowRetakes]
+END
+
+IF NOT EXISTS (
+    SELECT * FROM sys.columns 
+    WHERE Name = N'MaxRetakes' 
+    AND Object_ID = Object_ID(N'[dbo].[Exams]')
+    AND default_object_id <> 0
+)
+BEGIN
+    ALTER TABLE [dbo].[Exams]
+    ADD CONSTRAINT [DF_Exams_MaxRetakes] DEFAULT ((0)) FOR [MaxRetakes]
+END

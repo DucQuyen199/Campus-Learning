@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getAllExams, registerForExam } from '../../api/examApi';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -12,6 +12,7 @@ const ExamList = () => {
   const [registering, setRegistering] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'upcoming', 'ongoing', 'completed', 'registered'
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchExams();
@@ -68,24 +69,59 @@ const ExamList = () => {
   const handleRegister = async (examId) => {
     try {
       setRegistering(prev => ({ ...prev, [examId]: true }));
-      await registerForExam(examId);
+      const response = await registerForExam(examId);
       
+      // Update the exam with registration info and attempt counts
       setExams(exams.map(exam => 
         exam.ExamID === examId 
-          ? { ...exam, IsRegistered: true } 
+          ? { 
+              ...exam, 
+              IsRegistered: true,
+              attemptsUsed: response.attemptsUsed || 1,
+              maxAttempts: response.maxAttempts || 1
+            } 
           : exam
       ));
+
+      // Show success message with attempt information
+      if (response.attemptsUsed > 1) {
+        alert(`Đăng ký thành công! Đây là lần thử thứ ${response.attemptsUsed}/${response.maxAttempts === 'unlimited' ? '∞' : response.maxAttempts}.`);
+      }
     } catch (err) {
       console.error('Error registering for exam:', err);
       
-      if (err.response && err.response.status === 400 && 
-          err.response.data && err.response.data.message === 'Already registered for this exam') {
-        setExams(exams.map(exam => 
-          exam.ExamID === examId 
-            ? { ...exam, IsRegistered: true } 
-            : exam
-        ));
+      // Handle already registered case
+      if (err.response && err.response.status === 400) {
+        if (err.response.data.message === 'Already registered for this exam and retakes are not allowed') {
+          // Mark as registered but retakes not allowed
+          setExams(exams.map(exam => 
+            exam.ExamID === examId 
+              ? { ...exam, IsRegistered: true, allowRetakes: false } 
+              : exam
+          ));
+          alert('Bạn đã đăng ký kỳ thi này trước đó và không được phép thi lại.');
+        } else if (err.response.data.message.includes('Maximum number of attempts')) {
+          // Mark as registered with max attempts reached
+          setExams(exams.map(exam => 
+            exam.ExamID === examId 
+              ? { ...exam, IsRegistered: true, attemptsMaxedOut: true } 
+              : exam
+          ));
+          alert(err.response.data.message);
+        } else if (err.response.data.message.includes('ongoing attempt')) {
+          // Has an ongoing attempt
+          setExams(exams.map(exam => 
+            exam.ExamID === examId 
+              ? { ...exam, IsRegistered: true, hasOngoingAttempt: true } 
+              : exam
+          ));
+          alert('Bạn có một lượt thi đang diễn ra. Vui lòng hoàn thành trước khi đăng ký lượt mới.');
+        } else {
+          // Other error
+          alert('Đăng ký không thành công: ' + err.response.data.message);
+        }
       } else {
+        // General error
         alert('Đăng ký không thành công: ' + (err.response?.data?.message || 'Vui lòng thử lại sau.'));
       }
     } finally {
@@ -251,8 +287,20 @@ const ExamList = () => {
               return (
                 <div 
                   key={exam.ExamID}
-                  className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow flex flex-col h-full"
+                  className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow flex flex-col h-full relative cursor-pointer hover:border hover:border-blue-400 group"
+                  onClick={(e) => {
+                    // Only navigate if not clicking on a button or link
+                    if (!e.target.closest('button') && !e.target.closest('a')) {
+                      navigate(`/exams/${exam.ExamID}`);
+                    }
+                  }}
                 >
+                  {/* Add a hint to show it's clickable */}
+                  <div className="absolute top-2 right-2 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                    </svg>
+                  </div>
                   <div className="p-4 flex-grow">
                     <div className={`h-1 w-full -mt-4 mb-3 ${getStatusClass(status)}`}></div>
                     <div className="flex justify-between items-start">
@@ -292,26 +340,62 @@ const ExamList = () => {
                   
                   <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 h-16 flex items-center mt-auto">
                     {exam.IsRegistered ? (
-                      <Link 
-                        to={`/exams/${exam.ExamID}`}
-                        className="w-full inline-block text-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                      >
-                        Vào thi ngay
-                      </Link>
+                      <div className="mt-2">
+                        {status === 'completed' ? (
+                          <div className="flex flex-col space-y-2">
+                            <Link 
+                              to={`/exams/${exam.ExamID}/history`}
+                              className="inline-block bg-indigo-100 text-indigo-700 py-2 px-4 rounded-md text-center hover:bg-indigo-200 transition-colors"
+                              onClick={(e) => e.stopPropagation()} // Prevent the parent onClick from triggering
+                            >
+                              Xem lịch sử thi
+                            </Link>
+                            {exam.allowRetakes !== false && !exam.attemptsMaxedOut && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Prevent the parent onClick from triggering
+                                  handleRegister(exam.ExamID);
+                                }}
+                                disabled={registering[exam.ExamID]}
+                                className="bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition-colors disabled:bg-blue-300"
+                              >
+                                {registering[exam.ExamID] ? 'Đang đăng ký...' : 'Đăng ký thi lại'}
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <Link 
+                            to={`/exams/${exam.ExamID}/session`}
+                            className="inline-block bg-green-500 text-white py-2 px-4 rounded-md w-full text-center hover:bg-green-600 transition-colors"
+                            onClick={(e) => e.stopPropagation()} // Prevent the parent onClick from triggering
+                          >
+                            Vào thi ngay
+                          </Link>
+                        )}
+                        {exam.attemptsUsed && exam.maxAttempts && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            Lần thi: {exam.attemptsUsed}/{exam.maxAttempts === 'unlimited' ? '∞' : exam.maxAttempts}
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <button
-                        onClick={() => handleRegister(exam.ExamID)}
-                        disabled={registering[exam.ExamID]}
-                        className="w-full px-4 py-2 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent the parent onClick from triggering
+                          handleRegister(exam.ExamID);
+                        }}
+                        disabled={registering[exam.ExamID] || status === 'completed'}
+                        className={`mt-2 py-2 px-4 rounded-md w-full ${
+                          status === 'completed'
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-500 text-white hover:bg-blue-600'
+                        } transition-colors disabled:opacity-70`}
                       >
-                        {registering[exam.ExamID] ? (
-                          <>
-                            <span className="inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></span>
-                            Đang đăng ký...
-                          </>
-                        ) : (
-                          'Đăng ký thi'
-                        )}
+                        {registering[exam.ExamID]
+                          ? 'Đang đăng ký...'
+                          : status === 'completed'
+                            ? 'Đã kết thúc'
+                            : 'Đăng ký tham gia'}
                       </button>
                     )}
                   </div>

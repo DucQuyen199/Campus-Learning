@@ -5,7 +5,8 @@ import {
   ExamDetails, 
   ExamSession, 
   ExamResults, 
-  UpcomingExams 
+  UpcomingExams,
+  ExamHistory
 } from '../../components/Exam';
 
 const ExamsPage = () => {
@@ -16,6 +17,7 @@ const ExamsPage = () => {
       <Route path="/:examId" element={<ExamDetails />} />
       <Route path="/:examId/session" element={<ExamSession />} />
       <Route path="/results/:participantId" element={<ExamResults />} />
+      <Route path="/:examId/history" element={<ExamHistory />} />
     </Routes>
   );
 };

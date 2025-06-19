@@ -183,28 +183,53 @@ export const uploadEssayFile = async (examId, questionId, formData) => {
 export const addEssayContent = async (examId, questionId, essayData) => {
   try {
     const { content, keywords, minimumMatchPercentage } = essayData;
-    const response = await adminApi.post(
-      `/exams/${examId}/questions/${questionId}/essay`,
-      {
-        templateText: content, // Map content to templateText
-        keywords: keywords,
-        scoringCriteria: JSON.stringify({
-          minimumMatchPercentage,
-          keywords
-        })
+    
+    // Kiểm tra dữ liệu đầu vào
+    if (!questionId || !examId) {
+      throw new Error('Thiếu thông tin câu hỏi hoặc bài thi');
+    }
+    
+    const payload = {
+      templateText: content, 
+      keywords: keywords || [],
+      scoringCriteria: JSON.stringify({
+        minimumMatchPercentage: minimumMatchPercentage || 60,
+        keywords: keywords || []
+      })
+    };
+    
+    // Sử dụng request thay vì post để có thể chỉ định validateStatus
+    const response = await adminApi.request({
+      url: `/exams/${examId}/questions/${questionId}/essay`,
+      method: 'POST',
+      data: payload,
+      validateStatus: function (status) {
+        // Chấp nhận status code 404 để không hiện lỗi trong console
+        return (status >= 200 && status < 300) || status === 404;
       }
-    );
+    });
+    
+    // Xử lý trường hợp 404 nhưng không hiện lỗi trong console
+    if (response.status === 404) {
+      console.log(`API endpoint không tồn tại: /exams/${examId}/questions/${questionId}/essay`);
+      throw new Error('Không thể lưu mẫu câu hỏi. API chưa hỗ trợ tính năng này.');
+    }
+    
     return response.data;
   } catch (error) {
+    // Nếu lỗi không phải từ API hoặc không phải 404, ghi log và ném lỗi
+    if (!error.message?.includes('API chưa hỗ trợ')) {
+      console.error('Lỗi khi lưu mẫu câu hỏi:', error);
+    }
     throw error;
   }
 };
 
 // Get essay question template
-export const getEssayTemplate = async (questionId) => {
+export const getEssayTemplate = async (examId, questionId) => {
   try {
     const response = await adminApi.get(
-      `${API_URL}/questions/${questionId}/essay`
+      `${API_URL}/${examId}/questions/${questionId}/essay`
     );
     return response.data;
   } catch (error) {
@@ -243,8 +268,12 @@ export const getExamParticipants = async (examId) => {
     const response = await adminApi.get(`${API_URL}/${examId}/participants`);
     return response.data;
   } catch (error) {
-    console.error('Error fetching exam participants:', error);
     // Không hiển thị lỗi trong console khi gặp lỗi 404
-    return [];
+    if (error.response && error.response.status === 404) {
+      console.log(`Không tìm thấy dữ liệu người tham gia cho bài thi ${examId}`);
+      return { participants: [] };
+    }
+    console.error('Error fetching exam participants:', error);
+    return { participants: [] };
   }
 }; 

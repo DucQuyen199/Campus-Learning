@@ -479,79 +479,71 @@ const examController = {
   addEssayTemplate: async (req, res) => {
     try {
       const { examId, questionId } = req.params;
-      const { templateText, keywords, scoringCriteria } = req.body;
+      const { content, keywords, minimumMatchPercentage } = req.body;
 
       const pool = await poolPromise;
 
-      // Check if question exists and is essay type
+      // Kiểm tra câu hỏi tồn tại và là loại essay
       const questionCheck = await pool.request()
         .input('examId', sql.BigInt, examId)
         .input('questionId', sql.BigInt, questionId)
-        .query(`
-          SELECT * FROM ExamQuestions 
-          WHERE QuestionID = @questionId 
-          AND ExamID = @examId 
-          AND Type = 'essay'
-        `);
+        .query(
+          `SELECT * FROM ExamQuestions WHERE QuestionID = @questionId AND ExamID = @examId AND Type = 'essay'`
+        );
 
       if (questionCheck.recordset.length === 0) {
-        return res.status(404).json({ 
-          message: 'Essay question not found or question is not essay type' 
+        return res.status(404).json({
+          message: 'Essay question not found or question is not essay type'
         });
       }
 
-      // Check if template already exists
+      // Kiểm tra template đã tồn tại
       const templateCheck = await pool.request()
         .input('examId', sql.BigInt, examId)
         .input('questionId', sql.BigInt, questionId)
-        .query(`
-          SELECT * FROM ExamAnswerTemplates 
-          WHERE ExamID = @examId AND QuestionID = @questionId
-        `);
+        .query(
+          `SELECT * FROM ExamAnswerTemplates WHERE ExamID = @examId AND QuestionID = @questionId`
+        );
 
       if (templateCheck.recordset.length > 0) {
-        // Update existing template
+        // Cập nhật template
         await pool.request()
           .input('examId', sql.BigInt, examId)
           .input('questionId', sql.BigInt, questionId)
-          .input('templateText', sql.NVarChar(sql.MAX), templateText)
+          .input('content', sql.NVarChar(sql.MAX), content)
           .input('keywords', sql.NVarChar(sql.MAX), JSON.stringify(keywords || []))
-          .input('scoringCriteria', sql.NVarChar(sql.MAX), scoringCriteria)
-          .query(`
-            UPDATE ExamAnswerTemplates
-            SET TemplateText = @templateText,
-                Keywords = @keywords,
-                ScoringCriteria = @scoringCriteria,
-                UpdatedAt = GETDATE()
-            WHERE ExamID = @examId AND QuestionID = @questionId
-          `);
+          .input('minimumMatchPercentage', sql.Decimal(5, 2), minimumMatchPercentage)
+          .query(
+            `UPDATE ExamAnswerTemplates
+             SET Content = @content,
+                 Keywords = @keywords,
+                 MinimumMatchPercentage = @minimumMatchPercentage,
+                 UpdatedAt = GETDATE()
+             WHERE ExamID = @examId AND QuestionID = @questionId`
+          );
 
-        return res.status(200).json({ 
-          message: 'Essay template updated successfully' 
-        });
+        return res.status(200).json({ message: 'Essay template updated successfully' });
       }
 
-      // Create new template
+      // Tạo mới template
       await pool.request()
         .input('examId', sql.BigInt, examId)
         .input('questionId', sql.BigInt, questionId)
-        .input('templateText', sql.NVarChar(sql.MAX), templateText)
+        .input('content', sql.NVarChar(sql.MAX), content)
         .input('keywords', sql.NVarChar(sql.MAX), JSON.stringify(keywords || []))
-        .input('scoringCriteria', sql.NVarChar(sql.MAX), scoringCriteria)
-        .query(`
-          INSERT INTO ExamAnswerTemplates (
-            ExamID, QuestionID, TemplateText, 
-            Keywords, ScoringCriteria
-          )
-          VALUES (
-            @examId, @questionId, @templateText,
-            @keywords, @scoringCriteria
-          )
-        `);
+        .input('minimumMatchPercentage', sql.Decimal(5, 2), minimumMatchPercentage)
+        .query(
+          `INSERT INTO ExamAnswerTemplates (
+             ExamID, QuestionID, Content,
+             Keywords, MinimumMatchPercentage, CreatedAt, UpdatedAt
+           )
+           VALUES (
+             @examId, @questionId, @content,
+             @keywords, @minimumMatchPercentage, GETDATE(), GETDATE()
+           )`
+        );
 
-      res.status(201).json({ 
-        message: 'Essay template created successfully' 
-      });
+      res.status(201).json({ message: 'Essay template created successfully' });
     } catch (error) {
       console.error('Error creating/updating essay template:', error);
       res.status(500).json({ message: error.message });

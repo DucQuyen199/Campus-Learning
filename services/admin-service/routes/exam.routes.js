@@ -477,15 +477,25 @@ router.get('/:examId/participants', async (req, res) => {
     const { examId } = req.params;
     const pool = await poolPromise;
     
-    // Get participants
+    // Get participants with attempt numbering for repeated attempts
     const result = await pool.request()
       .input('examId', sql.BigInt, examId)
       .query(`
-        SELECT ep.*, u.FullName, u.Email, u.Image
-        FROM ExamParticipants ep
-        JOIN Users u ON ep.UserID = u.UserID
-        WHERE ep.ExamID = @examId
-        ORDER BY ep.StartedAt DESC
+        WITH UserAttempts AS (
+          SELECT 
+            ep.*,
+            u.FullName,
+            u.Email,
+            u.Image,
+            ROW_NUMBER() OVER (PARTITION BY ep.UserID ORDER BY ep.StartedAt) as AttemptNumber,
+            COUNT(*) OVER (PARTITION BY ep.UserID) as TotalAttempts
+          FROM ExamParticipants ep
+          JOIN Users u ON ep.UserID = u.UserID
+          WHERE ep.ExamID = @examId
+        )
+        SELECT *
+        FROM UserAttempts
+        ORDER BY UserID, StartedAt DESC
       `);
     
     return res.status(200).json({ participants: result.recordset });
@@ -844,32 +854,32 @@ router.post('/:examId/questions/:questionId/essay/upload', async (req, res) => {
 // Add essay template for a question
 router.post('/:examId/questions/:questionId/essay', examController.addEssayTemplate);
 
-// Get essay question template
-router.get('/questions/:questionId/essay', async (req, res) => {
+// Get essay template for a question (lấy trực tiếp từ bảng ExamAnswerTemplates)
+router.get('/:examId/questions/:questionId/essay', async (req, res) => {
   try {
-    const { questionId } = req.params;
+    const { examId, questionId } = req.params;
     const pool = await poolPromise;
-    
-    const questionResult = await pool.request()
+    const result = await pool.request()
+      .input('examId', sql.BigInt, examId)
       .input('questionId', sql.BigInt, questionId)
-      .query('SELECT * FROM ExamQuestions WHERE QuestionID = @questionId AND Type = \'essay\'');
-    
-    if (questionResult.recordset.length === 0) {
-      return res.status(404).json({ message: 'Essay question not found' });
-    }
-    
-    const question = questionResult.recordset[0];
-    const options = JSON.parse(question.Options || '{}');
-    
-    if (!options.essayTemplate) {
+      .query(
+        `SELECT TemplateID, Content, Keywords, MinimumMatchPercentage
+         FROM ExamAnswerTemplates
+         WHERE ExamID = @examId AND QuestionID = @questionId`
+      );
+    if (result.recordset.length === 0) {
       return res.status(404).json({ message: 'Essay template not found for this question' });
     }
-    
-    return res.status(200).json({ 
-      essayTemplate: options.essayTemplate 
+    const tmpl = result.recordset[0];
+    return res.status(200).json({
+      essayTemplate: {
+        content: tmpl.Content || '',
+        keywords: tmpl.Keywords ? JSON.parse(tmpl.Keywords) : [],
+        minimumMatchPercentage: tmpl.MinimumMatchPercentage
+      }
     });
   } catch (error) {
-    console.error('Get Essay Template Error:', error);
+    console.error('Error getting essay template:', error);
     return res.status(500).json({ message: 'Server error while getting essay template' });
   }
 });

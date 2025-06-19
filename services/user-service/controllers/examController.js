@@ -104,23 +104,64 @@ exports.registerForExam = async (req, res) => {
       });
     }
     
-    // Check if already registered
-    const existing = await query(`
-      SELECT * FROM ExamParticipants
-      WHERE ExamID = @examId AND UserID = @userId
-    `, { examId: examIdInt, userId });
+    // Get exam details to check if retakes are allowed
+    const examDetails = await query(`
+      SELECT ExamID, Title, AllowRetakes, MaxRetakes 
+      FROM Exams
+      WHERE ExamID = @examId
+    `, { examId: examIdInt });
     
-    if (existing && existing.length > 0) {
-      return res.status(400).json({ success: false, message: 'Already registered for this exam' });
+    if (!examDetails || examDetails.length === 0) {
+      return res.status(404).json({ success: false, message: 'Exam not found' });
     }
     
-    // Register user
+    const exam = examDetails[0];
+    
+    // Check if already registered
+    const existing = await query(`
+      SELECT ParticipantID, Status, Score
+      FROM ExamParticipants
+      WHERE ExamID = @examId AND UserID = @userId
+      ORDER BY ParticipantID DESC
+    `, { examId: examIdInt, userId });
+    
+    // If there are existing registrations
+    if (existing && existing.length > 0) {
+      // Check if retakes are allowed
+      if (!exam.AllowRetakes) {
+        return res.status(400).json({ success: false, message: 'Already registered for this exam and retakes are not allowed' });
+      }
+      
+      // Check if maximum retakes have been reached
+      if (exam.MaxRetakes > 0 && existing.length >= exam.MaxRetakes + 1) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Maximum number of attempts (${exam.MaxRetakes + 1}) has been reached` 
+        });
+      }
+      
+      // If the latest attempt is still in progress, don't allow a new one
+      const latestAttempt = existing[0];
+      if (latestAttempt.Status === 'registered' || latestAttempt.Status === 'in_progress') {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'You have an ongoing attempt for this exam. Please complete it first.' 
+        });
+      }
+    }
+    
+    // Register user for a new attempt
     await query(`
       INSERT INTO ExamParticipants (ExamID, UserID, Status)
       VALUES (@examId, @userId, 'registered')
     `, { examId: examIdInt, userId });
     
-    res.status(201).json({ success: true, message: 'Successfully registered for exam' });
+    res.status(201).json({ 
+      success: true, 
+      message: 'Successfully registered for exam',
+      attemptsUsed: existing ? existing.length + 1 : 1,
+      maxAttempts: exam.AllowRetakes ? (exam.MaxRetakes > 0 ? exam.MaxRetakes + 1 : 'unlimited') : 1
+    });
   } catch (error) {
     console.error('Error registering for exam:', error);
     res.status(500).json({ success: false, message: 'Error registering for exam', error: error.message });
@@ -645,17 +686,42 @@ exports.completeExam = async (req, res) => {
     let totalScore = 0;
     let maxScore = 0;
     
-    answers.forEach(answer => {
-      maxScore += answer.QuestionPoints || 0;
+    // Check if score was provided in the request body
+    // This allows the client to send the calculated score
+    let scoreProvided = false;
+    
+    if (req.body && (req.body.score !== undefined || req.body.finalScore !== undefined)) {
+      scoreProvided = true;
+      totalScore = parseFloat(req.body.score !== undefined ? req.body.score : req.body.finalScore);
       
-      if (answer.Score !== null) {
-        totalScore += answer.Score;
-      } else if (answer.QuestionType === 'multiple_choice' && answer.CorrectAnswer) {
-        // Auto-grade multiple choice if not already graded
-        const isCorrect = answer.Answer === answer.CorrectAnswer;
-        totalScore += isCorrect ? answer.QuestionPoints : 0;
+      // Ensure score is a valid number
+      if (isNaN(totalScore)) {
+        scoreProvided = false;
+        console.warn('Invalid score provided in request body, calculating from answers');
       }
-    });
+    }
+    
+    // If score was not provided or was invalid, calculate it
+    if (!scoreProvided) {
+      answers.forEach(answer => {
+        maxScore += answer.QuestionPoints || 0;
+        
+        if (answer.Score !== null) {
+          totalScore += answer.Score;
+        } else if (answer.QuestionType === 'multiple_choice' && answer.CorrectAnswer) {
+          // Auto-grade multiple choice if not already graded
+          const isCorrect = answer.Answer === answer.CorrectAnswer;
+          totalScore += isCorrect ? answer.QuestionPoints : 0;
+        }
+      });
+    } else {
+      // Calculate maxScore even if score was provided
+      answers.forEach(answer => {
+        maxScore += answer.QuestionPoints || 0;
+      });
+      
+      console.log(`Using provided score: ${totalScore} instead of calculating from answers`);
+    }
     
     // Update participant score
     await query(`
@@ -666,6 +732,34 @@ exports.completeExam = async (req, res) => {
       participantId: participantIdInt,
       score: totalScore 
     });
+    
+    // If client provided detailed feedback for each question, store it
+    if (req.body && req.body.feedbacks && Array.isArray(req.body.feedbacks)) {
+      try {
+        const feedbacks = req.body.feedbacks;
+        
+        // Store feedback for each question
+        for (const feedback of feedbacks) {
+          if (feedback.questionId && feedback.score !== undefined) {
+            // Update the score for this question's answer
+            await query(`
+              UPDATE ExamAnswers
+              SET Score = @score
+              WHERE ParticipantID = @participantId AND QuestionID = @questionId
+            `, {
+              participantId: participantIdInt,
+              questionId: feedback.questionId,
+              score: feedback.score
+            });
+          }
+        }
+        
+        console.log(`Updated scores for ${feedbacks.length} question answers`);
+      } catch (feedbackError) {
+        console.error('Error updating individual question scores:', feedbackError);
+        // Continue even if feedback storage fails
+      }
+    }
     
     // Return success response with participant information
     return res.status(200).json({

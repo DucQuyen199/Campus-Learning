@@ -565,7 +565,7 @@ exports.createPaymentUrl = async (req, res) => {
         vnp_OrderType: 'billpayment',
         vnp_ReturnUrl: returnUrl,
         vnp_Locale: 'vn',
-        vnp_BankCode: bankCode
+        vnp_BankCode: 'NCB'
       });
 
       console.log(`Generated VNPay URL for transaction ${transaction.TransactionID}`, paymentUrl);

@@ -16,7 +16,12 @@ import {
   ListItemText,
   Stack,
   Tooltip,
-  Avatar
+  Avatar,
+  Table,
+  TableHead,
+  TableBody,
+  TableCell,
+  TableRow
 } from '@mui/material';
 import { 
   CalendarMonth, 
@@ -35,11 +40,13 @@ import {
   MonetizationOn,
   Star,
   People,
-  AccessTime
+  AccessTime,
+  History
 } from '@mui/icons-material';
 import { getExamById, registerForExam } from '../../api/examApi';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import axiosInstance from '../../utils/axiosInstance';
 
 // Define a local fallback theme in case the import fails
 const localExamTheme = {
@@ -106,8 +113,35 @@ const ExamDetails = () => {
     try {
       setLoading(true);
       const response = await getExamById(examId);
-      setExam(response.data);
+      
+      // If AllowRetakes is null or undefined, default to false for backward compatibility
+      const examData = {
+        ...response.data,
+        AllowRetakes: response.data.AllowRetakes ?? false,
+        MaxRetakes: response.data.MaxRetakes ?? 0
+      };
+      
+      setExam(examData);
       setError(null);
+      
+      // After getting general exam details, try to fetch attempt history if user is registered
+      if (examData.IsRegistered) {
+        try {
+          const attemptsResponse = await axiosInstance.get(`/exams/${examId}/attempts`);
+          if (attemptsResponse.data.success) {
+            // Update exam with attempt information
+            setExam(prev => ({
+              ...prev, 
+              attempts: attemptsResponse.data.data.attempts,
+              attemptsUsed: attemptsResponse.data.data.attemptsUsed,
+              attemptsRemaining: attemptsResponse.data.data.attemptsRemaining
+            }));
+          }
+        } catch (err) {
+          // Silently handle error, not critical
+          console.warn('Could not fetch attempt history', err);
+        }
+      }
     } catch (err) {
       console.error('Error fetching exam details:', err);
       setError('Không thể tải thông tin kỳ thi. Vui lòng thử lại sau.');
@@ -613,6 +647,22 @@ const ExamDetails = () => {
               >
                 Thông tin khác
               </Button>
+              <Button
+                onClick={() => setActiveTab('history')}
+                sx={{
+                  px: 4,
+                  py: 2,
+                  color: activeTab === 'history' ? examTheme.colors.primary : 'text.secondary',
+                  borderBottom: activeTab === 'history' ? 2 : 0,
+                  borderColor: examTheme.colors.primary,
+                  borderRadius: 0,
+                  '&:hover': {
+                    backgroundColor: 'transparent'
+                  }
+                }}
+              >
+                Lịch sử thi
+              </Button>
             </Stack>
           </Box>
 
@@ -741,58 +791,96 @@ const ExamDetails = () => {
                 </List>
               </Box>
             )}
+
+            {activeTab === 'history' && (
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700, mb: 4 }}>
+                  Lịch sử thi và số lần thử
+                </Typography>
+                
+                <Box mb={4}>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    <strong>Chính sách thi lại:</strong> {exam.AllowRetakes ? (
+                      exam.MaxRetakes > 0 ? 
+                        `Được phép thi lại tối đa ${exam.MaxRetakes + 1} lần` :
+                        'Được phép thi lại không giới hạn số lần'
+                    ) : (
+                      'Không được phép thi lại'
+                    )}
+                  </Typography>
+
+                  {exam.attemptsUsed && (
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      <strong>Số lần đã thi:</strong> {exam.attemptsUsed} {exam.attemptsRemaining && `(còn ${exam.attemptsRemaining === 'unlimited' ? 'không giới hạn' : exam.attemptsRemaining} lượt)`}
+                    </Typography>
+                  )}
+                  
+                  {exam.attempts && exam.attempts.length > 0 ? (
+                    <Paper elevation={0} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Lần thi</TableCell>
+                            <TableCell>Thời gian</TableCell>
+                            <TableCell>Điểm số</TableCell>
+                            <TableCell>Trạng thái</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {exam.attempts.map((attempt, index) => (
+                            <TableRow key={attempt.ParticipantID}>
+                              <TableCell>{attempt.AttemptNumber || (exam.attempts.length - index)}</TableCell>
+                              <TableCell>{format(new Date(attempt.StartedAt || attempt.CreatedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
+                              <TableCell>
+                                {attempt.Score !== null ? 
+                                  `${attempt.Score}/${exam.TotalPoints} (${Math.round(attempt.Score / exam.TotalPoints * 100)}%)` : 
+                                  'Chưa có điểm'
+                                }
+                              </TableCell>
+                              <TableCell>
+                                {attempt.Status === 'completed' && 'Đã hoàn thành'}
+                                {attempt.Status === 'in_progress' && 'Đang làm bài'}
+                                {attempt.Status === 'registered' && 'Đã đăng ký'}
+                                {attempt.Status === 'reviewed' && 'Đã chấm điểm'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </Paper>
+                  ) : (
+                    <Alert severity="info">Bạn chưa tham gia kỳ thi này</Alert>
+                  )}
+                </Box>
+                
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    component={Link}
+                    to={`/exams/${examId}/history`}
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<History />}
+                  >
+                    Xem chi tiết lịch sử thi
+                  </Button>
+                  
+                  {exam.IsRegistered && exam.AllowRetakes && status.text !== 'Đã kết thúc' &&
+                    (exam.attemptsRemaining === 'unlimited' || exam.attemptsRemaining > 0) && (
+                    <Button
+                      onClick={handleRegister}
+                      variant="contained"
+                      color="primary"
+                      disabled={registering}
+                      startIcon={registering ? <CircularProgress size={20} /> : null}
+                    >
+                      {registering ? 'Đang đăng ký...' : 'Đăng ký thi lại'}
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+            )}
           </Box>
         </Paper>
-
-        {/* CTA Section */}
-        {!exam.IsRegistered && (
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 4, md: 6 },
-              borderRadius: 4,
-              backgroundColor: `${examTheme.colors.primary}08`,
-              textAlign: 'center'
-            }}
-          >
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
-              Sẵn sàng tham gia kỳ thi?
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4, maxWidth: 600, mx: 'auto' }}>
-              Đăng ký ngay để tham gia kỳ thi và chứng minh kiến thức của bạn.
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={handleRegister}
-              disabled={registering || new Date(exam.EndTime) < new Date()}
-              endIcon={registering ? null : <ArrowForward />}
-              sx={{
-                px: 4,
-                py: 1.5,
-                borderRadius: 3,
-                textTransform: 'none',
-                fontWeight: 600,
-                backgroundColor: examTheme.colors.primary,
-                '&:hover': {
-                  backgroundColor: examTheme.colors.primaryLight,
-                  transform: 'translateY(-2px)',
-                  boxShadow: examTheme.shadows.button
-                },
-                '&.Mui-disabled': {
-                  backgroundColor: `${examTheme.colors.primary}40`,
-                  color: 'white'
-                }
-              }}
-            >
-              {registering ? (
-                <>
-                  <CircularProgress size={20} thickness={4} sx={{ color: 'white', mr: 1 }} />
-                  Đang đăng ký...
-                </>
-              ) : new Date(exam.EndTime) < new Date() ? 'Kỳ thi đã kết thúc' : 'Đăng ký tham gia'}
-            </Button>
-          </Paper>
-        )}
       </Box>
     </Box>
   );

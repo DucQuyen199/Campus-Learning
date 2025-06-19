@@ -17,43 +17,73 @@ const EditEssayQuestion = () => {
   const [question, setQuestion] = useState(null);
   
   useEffect(() => {
+    // Tạo một biến để tracking việc component unmount
+    let isMounted = true;
+    
     const fetchData = async () => {
       try {
         setLoading(true);
         
         // Get exam details
+        console.log(`Đang tải dữ liệu bài thi ${examId} và câu hỏi ${questionId}`);
         const examData = await getExamById(examId);
+        
+        // Kiểm tra component có còn mounted không
+        if (!isMounted) return;
+        
         setExam(examData);
         
+        // Kiểm tra xem exam có tồn tại không
+        if (!examData || Object.keys(examData).length === 0) {
+          throw new Error('Không thể tải thông tin bài thi');
+        }
+        
         // Find the specific question
-        const foundQuestion = examData.questions.find(q => q._id === questionId);
+        const foundQuestion = examData.questions.find(q => 
+          q._id === questionId || q.QuestionID === questionId || q.QuestionID?.toString() === questionId
+        );
+        
         if (!foundQuestion) {
-          throw new Error('Question not found');
+          console.error(`Không tìm thấy câu hỏi. ID: ${questionId}, Số lượng câu hỏi: ${examData.questions?.length || 0}`);
+          throw new Error('Không tìm thấy câu hỏi trong bài thi này');
         }
         
-        if (foundQuestion.type !== 'essay') {
-          throw new Error('This is not an essay question');
+        console.log('Đã tìm thấy câu hỏi:', foundQuestion.QuestionText || foundQuestion.Content);
+        
+        const questionType = foundQuestion.Type?.toLowerCase() || foundQuestion.type?.toLowerCase();
+        if (questionType !== 'essay') {
+          throw new Error('Đây không phải là câu hỏi tự luận');
         }
         
-        setQuestion(foundQuestion);
+        if (isMounted) {
+          setQuestion(foundQuestion);
+        }
         
-        // Try to get essay template if exists
         try {
-          await getEssayTemplate(questionId);
-          // Template exists, but we'll load it in the EssayQuestionForm component
+          const questionIdentifier = foundQuestion.QuestionID || foundQuestion._id;
+          // Gọi API lấy mẫu câu hỏi tự luận với examId và questionId
+          await getEssayTemplate(examId, questionIdentifier);
         } catch (err) {
-          // No template found, this is okay for new questions
-          console.log('No template found, this is okay for new questions');
+          // Lỗi khác ngoài 404 đã được xử lý trong API
         }
       } catch (err) {
-        console.error('Error loading question:', err);
-        setError(err.message || 'Error loading question data');
+        if (isMounted) {
+          console.error('Lỗi khi tải dữ liệu câu hỏi:', err.message);
+          setError(err.message || 'Không thể tải dữ liệu câu hỏi');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     
     fetchData();
+    
+    // Cleanup function để tránh cập nhật state sau khi component unmount
+    return () => {
+      isMounted = false;
+    };
   }, [examId, questionId]);
   
   const handleBack = () => {
@@ -61,7 +91,7 @@ const EditEssayQuestion = () => {
   };
   
   const handleSaveSuccess = () => {
-    // Optional: Add any additional logic after successful save
+    // Có thể thêm logic sau khi lưu thành công
   };
   
   if (loading) {
@@ -69,6 +99,7 @@ const EditEssayQuestion = () => {
       <Container maxWidth="lg">
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 10 }}>
           <CircularProgress />
+          <Typography sx={{ ml: 2 }}>Đang tải thông tin câu hỏi...</Typography>
         </Box>
       </Container>
     );
@@ -83,13 +114,46 @@ const EditEssayQuestion = () => {
             onClick={handleBack}
             sx={{ mb: 2 }}
           >
-            Back to Exam
+            Quay lại bài thi
           </Button>
-          <Alert severity="error">{error}</Alert>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+          <Paper elevation={2} sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="h6" color="error" gutterBottom>
+              Không thể tải thông tin câu hỏi tự luận
+            </Typography>
+            <Typography variant="body1" paragraph>
+              Hệ thống không thể tải dữ liệu câu hỏi. Có thể do một trong các nguyên nhân sau:
+            </Typography>
+            <Box sx={{ textAlign: 'left', maxWidth: 600, mx: 'auto', mb: 3 }}>
+              <Typography component="div">
+                • Câu hỏi không tồn tại hoặc đã bị xóa
+              </Typography>
+              <Typography component="div">
+                • API không hỗ trợ chức năng này
+              </Typography>
+              <Typography component="div">
+                • Có lỗi kết nối đến máy chủ
+              </Typography>
+            </Box>
+            <Button 
+              variant="contained"
+              onClick={handleBack}
+              sx={{ mt: 2 }}
+            >
+              Quay lại bài thi
+            </Button>
+          </Paper>
         </Box>
       </Container>
     );
   }
+  
+  // Hỗ trợ cả hai cấu trúc dữ liệu có thể có
+  const questionText = question?.Content || question?.text || question?.QuestionText || 'Câu hỏi tự luận';
+  const questionDescription = question?.Description || question?.description || '';
+  const questionPoints = question?.Points || question?.points || 0;
   
   return (
     <Container maxWidth="lg">
@@ -99,38 +163,38 @@ const EditEssayQuestion = () => {
           onClick={handleBack}
           sx={{ mb: 2 }}
         >
-          Back to Exam
+          Quay lại bài thi
         </Button>
         
         <Breadcrumbs sx={{ mb: 2 }}>
           <Link color="inherit" onClick={() => navigate('/exams')}>
-            Exams
+            Bài thi
           </Link>
           <Link color="inherit" onClick={handleBack}>
-            {exam?.title || 'Exam'}
+            {exam?.Title || exam?.title || 'Bài thi'}
           </Link>
           <Typography color="text.primary">
-            Edit Essay Question
+            Chỉnh sửa câu hỏi tự luận
           </Typography>
         </Breadcrumbs>
         
         <Paper elevation={2} sx={{ p: 3, mb: 4 }}>
           <Typography variant="h5" gutterBottom>
-            {question?.text || 'Essay Question'}
+            {questionText}
           </Typography>
-          {question?.description && (
+          {questionDescription && (
             <Typography variant="body1" color="text.secondary" paragraph>
-              {question.description}
+              {questionDescription}
             </Typography>
           )}
           <Typography variant="body2" gutterBottom>
-            Points: {question?.points || 0}
+            Điểm: {questionPoints}
           </Typography>
         </Paper>
         
         <EssayQuestionForm 
           examId={examId} 
-          questionId={questionId} 
+          questionId={question?.QuestionID || questionId} 
           onSaveSuccess={handleSaveSuccess}
         />
       </Box>

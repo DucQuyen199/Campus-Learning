@@ -155,6 +155,7 @@ export const logFullscreenReturn = async (participantId) => {
  * @param {string|number} participantId - The participant ID
  * @param {string|number} examId - The exam ID
  * @param {Object} penalties - Optional penalties information (tabSwitches, fullscreenExits, penaltyPercentage)
+ *                            Can also include finalScore, originalScore, and feedbacks
  * @returns {Promise} - Promise with completion result and score
  */
 export const completeExam = async (participantId, examId, penalties = null) => {
@@ -167,7 +168,17 @@ export const completeExam = async (participantId, examId, penalties = null) => {
     }
     
     // Prepare request body with penalties if provided
-    const requestBody = penalties ? { penalties } : {};
+    const requestBody = penalties ? { 
+      penalties: {
+        tabSwitches: penalties.tabSwitches,
+        fullscreenExits: penalties.fullscreenExits,
+        penaltyPercentage: penalties.penaltyPercentage
+      },
+      // Include score information if available
+      score: penalties.finalScore !== undefined ? penalties.finalScore : undefined,
+      originalScore: penalties.originalScore !== undefined ? penalties.originalScore : undefined,
+      feedbacks: penalties.feedbacks
+    } : {};
     
     // Try multiple endpoint formats to support different backend configurations
     let error = null;

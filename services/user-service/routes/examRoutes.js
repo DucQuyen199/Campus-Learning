@@ -17,6 +17,68 @@ router.get('/upcoming', examController.getUpcomingExams);
 // Get exam by ID
 router.get('/:id', examController.getExamById);
 
+// Get user's attempts for a specific exam
+router.get('/:examId/attempts', async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const userId = req.user.id; // From auth middleware
+    
+    // Validate examId
+    const examIdInt = parseInt(examId, 10);
+    if (isNaN(examIdInt)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid exam ID. Must be a numeric value.' 
+      });
+    }
+    
+    // Get all attempts for this user and exam
+    const attempts = await db.query(`
+      SELECT ep.ParticipantID, ep.StartedAt, ep.CompletedAt, ep.TimeSpent, 
+             ep.Score, ep.Status, e.Title as ExamTitle, e.TotalPoints,
+             e.PassingScore, ROW_NUMBER() OVER (ORDER BY ep.ParticipantID) as AttemptNumber
+      FROM ExamParticipants ep
+      JOIN Exams e ON ep.ExamID = e.ExamID
+      WHERE ep.ExamID = @examId AND ep.UserID = @userId
+      ORDER BY ep.ParticipantID DESC
+    `, { examId: examIdInt, userId });
+    
+    // Get exam details including retake settings
+    const examDetails = await db.query(`
+      SELECT ExamID, Title, TotalPoints, PassingScore, AllowRetakes, MaxRetakes 
+      FROM Exams
+      WHERE ExamID = @examId
+    `, { examId: examIdInt });
+    
+    if (!examDetails || examDetails.length === 0) {
+      return res.status(404).json({ success: false, message: 'Exam not found' });
+    }
+    
+    const exam = examDetails[0];
+    const attemptsUsed = attempts.length;
+    const attemptsRemaining = exam.AllowRetakes 
+      ? (exam.MaxRetakes > 0 ? Math.max(0, exam.MaxRetakes + 1 - attemptsUsed) : 'unlimited') 
+      : (attemptsUsed === 0 ? 1 : 0);
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        examDetails: exam,
+        attempts,
+        attemptsUsed,
+        attemptsRemaining
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching exam attempts:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error fetching exam attempts', 
+      error: error.message 
+    });
+  }
+});
+
 // Register for exam
 router.post('/:examId/register', examController.registerForExam);
 

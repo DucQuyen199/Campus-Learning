@@ -635,7 +635,6 @@ const ExamSession = () => {
             
             // Calculate final score - use the direct sum
             const totalScore = feedbacks.reduce((sum, feedback) => sum + feedback.score, 0);
-            // No need to calculate an average score
             
             // Apply penalties immediately to the score
             const penaltyPercentage = (penalties.tabSwitch * 5) + (penalties.fullscreenExit * 3);
@@ -796,9 +795,6 @@ const ExamSession = () => {
       }));
       
       await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Remove the averaging - use the sum directly
-      // const averageScore = questions.length > 0 ? totalScore / questions.length : 0;
       
       // Apply penalties immediately to the score
       const penaltyPercentage = (penalties.tabSwitch * 5) + (penalties.fullscreenExit * 3);
@@ -815,6 +811,34 @@ const ExamSession = () => {
         penaltyPercentage: penaltyPercentage,
         feedbacks: feedbacks
       });
+      
+      // IMPORTANT: Submit the final score to the server to make sure it's saved
+      // This ensures the score is available in ExamHistory
+      try {
+        // Even if we already called completeExam before, call it again with the final calculated score
+        // to ensure the score is updated in the database
+        await completeExam(
+          finalParticipantId, 
+          examId, 
+          {
+            tabSwitches: tabSwitchCount,
+            fullscreenExits: fullscreenExitCount,
+            penaltyPercentage: penaltyPercentage,
+            finalScore: finalScore,
+            originalScore: totalScore,
+            feedbacks: feedbacks.map(fb => ({
+              questionId: exam.questions[feedbacks.indexOf(fb)]?.QuestionID,
+              score: fb.score,
+              similarity: fb.similarity
+            }))
+          }
+        );
+        
+        console.log(`Final score ${finalScore} successfully submitted to server`);
+      } catch (err) {
+        console.error('Error submitting final score to server:', err);
+      }
+      
       setShowGradingProgress(false);
       setShowResults(true);
       

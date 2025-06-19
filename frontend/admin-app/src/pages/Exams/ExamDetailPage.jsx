@@ -5,13 +5,13 @@ import {
   Card, CardContent, Divider, List, ListItem, ListItemText,
   CircularProgress, Tab, Tabs, IconButton, Tooltip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Avatar, ListItemIcon
+  Avatar, ListItemIcon, LinearProgress
 } from '@mui/material';
 import { 
   ArrowBack, CalendarToday, AccessTime, Assessment, 
   Quiz, School, Code, Description, Edit, Delete, 
   Assignment, Check, Close, Person, EmojiEvents,
-  LocalOffer, Info, Timer, MenuBook, People, Badge
+  LocalOffer, Info, Timer, MenuBook, People, Badge, Refresh
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { getExamById, getExamQuestions, getExamParticipants } from '../../api/exams';
@@ -26,50 +26,73 @@ const ExamDetailPage = () => {
   const [participants, setParticipants] = useState([]);
   const [tabValue, setTabValue] = useState(0);
 
-  useEffect(() => {
-    const fetchExamDetails = async () => {
+  const fetchExamDetails = async () => {
+    try {
+      setLoading(true);
+      const response = await getExamById(id);
+      console.log('Exam details:', response);
+      
+      if (!response) {
+        message.error('Không thể tải thông tin bài thi');
+        setLoading(false);
+        return;
+      }
+      
+      setExam(response);
+      
+      // Tải câu hỏi của bài thi
       try {
-        setLoading(true);
-        const response = await getExamById(id);
-        console.log('Exam details:', response);
-        
-        if (!response) {
-          message.error('Không thể tải thông tin bài thi');
-          setLoading(false);
-          return;
-        }
-        
-        setExam(response);
-        
-        // Tải câu hỏi của bài thi
-        try {
-          const questionsData = await getExamQuestions(id);
-          if (questionsData && Array.isArray(questionsData)) {
-            setQuestions(questionsData);
-            console.log(`Đã tải ${questionsData.length} câu hỏi của bài thi`);
-          } else {
-            console.log('Không có dữ liệu câu hỏi từ API');
-            setQuestions([]);
-          }
-        } catch (qError) {
-          console.error('Error fetching questions:', qError);
-          message.warning('Không thể tải câu hỏi cho bài thi');
+        const questionsData = await getExamQuestions(id);
+        if (questionsData && Array.isArray(questionsData)) {
+          setQuestions(questionsData);
+          console.log(`Đã tải ${questionsData.length} câu hỏi của bài thi`);
+        } else {
+          console.log('Không có dữ liệu câu hỏi từ API');
           setQuestions([]);
         }
-
-        // Không gọi API getExamParticipants do gặp lỗi 404
-        // Thay vào đó, tạo participants từ dữ liệu trong exam.sql (có thể response.participants sẽ có trong tương lai)
-        // Hoặc hiển thị danh sách rỗng (ta sẽ sử dụng này)
-        setParticipants([]);
-        console.log('Không có dữ liệu người tham gia, hiển thị danh sách trống');
-      } catch (error) {
-        console.error('Error fetching exam details:', error);
-        message.error('Không thể tải thông tin bài thi');
-      } finally {
-        setLoading(false);
+      } catch (qError) {
+        console.error('Error fetching questions:', qError);
+        message.warning('Không thể tải câu hỏi cho bài thi');
+        setQuestions([]);
       }
-    };
 
+      // Tải danh sách người tham gia bài thi
+      try {
+        const participantsData = await getExamParticipants(id);
+        if (participantsData && participantsData.participants && Array.isArray(participantsData.participants)) {
+          // Nhóm kết quả theo UserID để tổ chức dữ liệu
+          const participants = participantsData.participants;
+          
+          // Sắp xếp theo UserID và AttemptNumber nếu có
+          participants.sort((a, b) => {
+            // Sắp xếp đầu tiên theo UserID
+            if (a.UserID !== b.UserID) {
+              return a.UserID - b.UserID;
+            }
+            // Nếu cùng UserID, sắp xếp theo số lần thử (mới nhất lên trên)
+            return b.AttemptNumber - a.AttemptNumber;
+          });
+          
+          setParticipants(participants);
+          console.log(`Đã tải ${participants.length} người tham gia bài thi`);
+        } else {
+          console.log('Không có dữ liệu người tham gia từ API');
+          setParticipants([]);
+        }
+      } catch (pError) {
+        console.error('Error fetching participants:', pError);
+        message.warning('Không thể tải danh sách người tham gia');
+        setParticipants([]);
+      }
+    } catch (error) {
+      console.error('Error fetching exam details:', error);
+      message.error('Không thể tải thông tin bài thi');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchExamDetails();
   }, [id]);
 
@@ -151,10 +174,10 @@ const ExamDetailPage = () => {
 
   const getParticipantStatusColor = (status) => {
     const statusMap = {
-      'registered': 'default',
-      'in_progress': 'primary',
+      'registered': 'info',
+      'in_progress': 'warning',
       'completed': 'success',
-      'reviewed': 'info'
+      'reviewed': 'primary'
     };
     
     return statusMap[status?.toLowerCase()] || 'default';
@@ -534,7 +557,7 @@ const ExamDetailPage = () => {
           >
             <Tab label="Câu hỏi" icon={<Quiz />} iconPosition="start" />
             <Tab label="Hướng dẫn làm bài" icon={<Description />} iconPosition="start" />
-            <Tab label="Người tham gia" icon={<People />} iconPosition="start" />
+            <Tab label="Lịch sử làm bài" icon={<People />} iconPosition="start" />
             {exam.Type === 'coding' && <Tab label="Testcases" icon={<Code />} iconPosition="start" />}
           </Tabs>
 
@@ -645,40 +668,73 @@ const ExamDetailPage = () => {
             {tabValue === 2 && (
               <Box>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6" gutterBottom>
-                    Danh sách người tham gia ({participants.length})
+                  <Typography variant="h5" gutterBottom>
+                    Lịch sử làm bài ({participants.length})
                   </Typography>
                   <Button 
-                    variant="contained" 
-                    color="primary" 
-                    startIcon={<Badge />}
-                    onClick={() => navigate(`/exams/${id}/participants/invite`)}
+                    variant="outlined"
+                    onClick={() => fetchExamDetails()}
+                    startIcon={loading ? <CircularProgress size={20} /> : <Refresh />}
+                    disabled={loading}
                   >
-                    Thêm người tham gia
+                    {loading ? 'Đang tải...' : 'Làm mới'}
                   </Button>
                 </Box>
                 
+                <Box mb={3} sx={{ bgcolor: 'background.paper', p: 2, borderRadius: 1, boxShadow: 1 }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body1">
+                        <strong>Tổng điểm:</strong> {exam.TotalPoints || 100}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body1">
+                        <strong>Điểm đạt:</strong> {exam.PassingScore || 60}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <Typography variant="body1">
+                        <strong>Cho phép thi lại:</strong> {exam.AllowRetakes ? 'Có' : 'Không'}
+                        {exam.AllowRetakes && exam.MaxRetakes > 0 ? ` (Tối đa ${exam.MaxRetakes + 1} lần)` : ''}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+                
+                {loading && <LinearProgress sx={{ mb: 2 }} />}
+                
                 {participants.length > 0 ? (
-                  <TableContainer component={Paper} variant="outlined">
+                  <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
                     <Table>
-                      <TableHead>
+                      <TableHead sx={{ bgcolor: 'primary.main' }}>
                         <TableRow>
-                          <TableCell width="5%">#</TableCell>
-                          <TableCell>Học viên</TableCell>
-                          <TableCell width="15%">Trạng thái</TableCell>
-                          <TableCell width="15%">Bắt đầu</TableCell>
-                          <TableCell width="15%">Hoàn thành</TableCell>
-                          <TableCell width="10%" align="center">Điểm</TableCell>
+                          <TableCell width="5%" sx={{ color: 'white', fontWeight: 'bold' }}>#</TableCell>
+                          <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Học viên</TableCell>
+                          <TableCell width="10%" sx={{ color: 'white', fontWeight: 'bold' }}>Lần thi</TableCell>
+                          <TableCell width="15%" sx={{ color: 'white', fontWeight: 'bold' }}>Trạng thái</TableCell>
+                          <TableCell width="15%" sx={{ color: 'white', fontWeight: 'bold' }}>Bắt đầu</TableCell>
+                          <TableCell width="15%" sx={{ color: 'white', fontWeight: 'bold' }}>Hoàn thành</TableCell>
+                          <TableCell width="12%" sx={{ color: 'white', fontWeight: 'bold' }}>Thời gian làm</TableCell>
+                          <TableCell width="10%" align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Điểm</TableCell>
+                          <TableCell width="10%" align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Thao tác</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {participants.map((participant, index) => (
-                          <TableRow key={participant.ParticipantID || index} hover>
+                          <TableRow 
+                            key={participant.ParticipantID || index} 
+                            hover
+                            sx={{
+                              bgcolor: index % 2 === 0 ? 'background.default' : 'background.paper',
+                              '&:hover': { bgcolor: 'action.hover' }
+                            }}
+                          >
                             <TableCell>{index + 1}</TableCell>
                             <TableCell>
                               <Box display="flex" alignItems="center">
                                 <Avatar 
-                                  src={participant.Avatar} 
+                                  src={participant.Image || participant.Avatar} 
                                   alt={participant.FullName} 
                                   sx={{ mr: 2 }}
                                 >
@@ -695,10 +751,21 @@ const ExamDetailPage = () => {
                               </Box>
                             </TableCell>
                             <TableCell>
+                              {participant.TotalAttempts > 1 ? (
+                                <Chip 
+                                  label={`Lần ${participant.AttemptNumber}/${participant.TotalAttempts}`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                              ) : 'Lần đầu'}
+                            </TableCell>
+                            <TableCell>
                               <Chip 
                                 label={getParticipantStatusLabel(participant.Status)}
                                 color={getParticipantStatusColor(participant.Status)}
                                 size="small"
+                                sx={{ fontWeight: 'medium' }}
                               />
                             </TableCell>
                             <TableCell>
@@ -707,16 +774,38 @@ const ExamDetailPage = () => {
                             <TableCell>
                               {participant.CompletedAt ? formatDateTime(participant.CompletedAt) : 'Chưa hoàn thành'}
                             </TableCell>
+                            <TableCell>
+                              {participant.TimeSpent ? 
+                                `${participant.TimeSpent} phút` : 
+                                (participant.CompletedAt && participant.StartedAt ? 
+                                  `${Math.round((new Date(participant.CompletedAt) - new Date(participant.StartedAt)) / 60000)} phút` : 
+                                  'N/A')}
+                            </TableCell>
                             <TableCell align="center">
                               {participant.Score !== null && participant.Score !== undefined ? (
                                 <Chip
-                                  label={participant.Score}
+                                  label={`${participant.Score}/${exam.TotalPoints || 100}`}
                                   color={participant.Score >= (exam.PassingScore || 60) ? 'success' : 'error'}
                                   size="small"
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    '& .MuiChip-label': { px: 1 }
+                                  }}
                                 />
                               ) : (
                                 'Chưa có'
                               )}
+                            </TableCell>
+                            <TableCell align="center">
+                              <Button
+                                variant="contained"
+                                size="small"
+                                color="primary"
+                                onClick={() => navigate(`/exams/participants/${participant.ParticipantID}/answers`)}
+                                startIcon={<Info fontSize="small" />}
+                              >
+                                Chi tiết
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}

@@ -161,7 +161,7 @@ const paymentService = {
       const paymentData = {
         courseId,
         amount,
-        bankCode: '',
+        bankCode: 'NCB',
         language: 'vn',
         returnUrl: `${window.location.origin}/payment-callback?courseId=${courseId}`
       };

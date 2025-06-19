@@ -4,20 +4,23 @@ import {
   Container, Box, Typography, Paper, Accordion, AccordionSummary,
   AccordionDetails, Button, TextField, MenuItem, Grid, CircularProgress,
   Divider, Chip, Alert, Dialog, DialogTitle, DialogContent,
-  DialogContentText, DialogActions
+  DialogContentText, DialogActions, Switch, FormControlLabel
 } from '@mui/material';
 import {
   Save, Delete, EditNote, ExpandMore, ArrowBack
 } from '@mui/icons-material';
 import { getExamById, updateExam, deleteQuestion } from '../../api/exams';
+import { message } from 'antd';
 
 const EditExamPage = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [saveLoading, setSaveLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({ open: false, questionIndex: null });
+  const [originalData, setOriginalData] = useState(null);
   
   // Exam data
   const [examData, setExamData] = useState({
@@ -34,6 +37,8 @@ const EditExamPage = () => {
     shuffleQuestions: false,
     courseId: '',
     status: '',
+    allowRetakes: false,
+    maxRetakes: 0,
     questions: []
   });
 
@@ -41,11 +46,64 @@ const EditExamPage = () => {
     const fetchExam = async () => {
       try {
         setLoading(true);
-        const data = await getExamById(examId);
-        setExamData(data);
+        setError(null);
+        
+        console.log('Fetching exam data for ID:', examId);
+        const response = await getExamById(examId);
+        
+        if (!response) {
+          setError('Không thể tải thông tin bài thi');
+          return;
+        }
+        
+        console.log('Exam data received:', response);
+        
+        // Extract exam data from API response
+        const exam = response.exam || response;
+        
+        // Format dates for input fields
+        const formatDateForInput = (dateString) => {
+          if (!dateString) return '';
+          try {
+            const date = new Date(dateString);
+            // Format as yyyy-MM-ddThh:mm which is required by datetime-local input
+            return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+              .toISOString()
+              .slice(0, 16);
+          } catch (e) {
+            console.error('Error formatting date:', e);
+            return '';
+          }
+        };
+
+        // Map API response to form state
+        const formattedExamData = {
+          title: exam.Title || '',
+          description: exam.Description || '',
+          type: exam.Type || '',
+          duration: exam.Duration || 0,
+          totalPoints: exam.TotalPoints || 100,
+          passingScore: exam.PassingScore || 60,
+          startTime: formatDateForInput(exam.StartTime),
+          endTime: formatDateForInput(exam.EndTime),
+          instructions: exam.Instructions || '',
+          allowReview: exam.AllowReview !== false,
+          shuffleQuestions: exam.ShuffleQuestions || false,
+          courseId: exam.CourseID || '',
+          status: (exam.Status || '').toLowerCase() || 'draft',
+          allowRetakes: exam.AllowRetakes || false,
+          maxRetakes: exam.MaxRetakes || 0,
+          questions: exam.questions || []
+        };
+        
+        console.log('Formatted exam data:', formattedExamData);
+        
+        // Store the original data for reference
+        setOriginalData(formattedExamData);
+        setExamData(formattedExamData);
       } catch (err) {
         console.error('Error fetching exam:', err);
-        setError('Failed to load exam data. Please try again.');
+        setError('Không thể tải thông tin bài thi. Vui lòng thử lại sau.');
       } finally {
         setLoading(false);
       }
@@ -56,36 +114,75 @@ const EditExamPage = () => {
 
   const handleExamDataChange = (e) => {
     const { name, value, checked } = e.target;
-    const newValue = e.target.type === 'checkbox' ? checked : value;
-    setExamData({ ...examData, [name]: newValue });
+    let newValue = e.target.type === 'checkbox' ? checked : value;
+    
+    // Special handling for maxRetakes if allowRetakes is toggled off
+    if (name === 'allowRetakes' && !checked) {
+      setExamData({ 
+        ...examData, 
+        [name]: newValue,
+        maxRetakes: 0
+      });
+    } else {
+      setExamData({ ...examData, [name]: newValue });
+    }
   };
 
   const handleSaveExam = async () => {
     try {
-      setLoading(true);
+      setSaveLoading(true);
       setError(null);
       setSuccess(null);
       
-      await updateExam(examId, {
+      // Validate data before submission
+      if (!examData.title) {
+        setError('Vui lòng nhập tiêu đề bài thi');
+        setSaveLoading(false);
+        return;
+      }
+      
+      if (!examData.duration || examData.duration <= 0) {
+        setError('Thời gian làm bài phải lớn hơn 0');
+        setSaveLoading(false);
+        return;
+      }
+      
+      if (!examData.startTime || !examData.endTime) {
+        setError('Vui lòng nhập thời gian bắt đầu và kết thúc');
+        setSaveLoading(false);
+        return;
+      }
+      
+      // Format data for API
+      const payload = {
         title: examData.title,
         description: examData.description,
-        duration: examData.duration,
-        totalPoints: examData.totalPoints,
-        passingScore: examData.passingScore,
-        startTime: examData.startTime,
-        endTime: examData.endTime,
+        type: examData.type,
+        duration: parseInt(examData.duration, 10),
+        totalPoints: parseInt(examData.totalPoints, 10),
+        passingScore: parseInt(examData.passingScore, 10),
+        startTime: new Date(examData.startTime).toISOString(),
+        endTime: new Date(examData.endTime).toISOString(),
         instructions: examData.instructions,
         allowReview: examData.allowReview,
         shuffleQuestions: examData.shuffleQuestions,
-        status: examData.status
-      });
+        courseId: examData.courseId || null,
+        status: examData.status,
+        allowRetakes: examData.allowRetakes,
+        maxRetakes: examData.allowRetakes ? parseInt(examData.maxRetakes, 10) : 0
+      };
       
-      setSuccess('Exam updated successfully');
+      console.log('Updating exam with data:', payload);
+      
+      await updateExam(examId, payload);
+      
+      setSuccess('Cập nhật bài thi thành công');
+      message.success('Đã lưu thay đổi');
     } catch (err) {
       console.error('Error updating exam:', err);
-      setError('Failed to update exam. Please try again.');
+      setError('Không thể cập nhật bài thi. Vui lòng thử lại.');
     } finally {
-      setLoading(false);
+      setSaveLoading(false);
     }
   };
 
@@ -94,17 +191,17 @@ const EditExamPage = () => {
       setLoading(true);
       setError(null);
       
-      await deleteQuestion(examId, questionId);
+      await deleteQuestion(questionId);
       
       // Update questions list
-      const updatedQuestions = examData.questions.filter(q => q._id !== questionId);
+      const updatedQuestions = examData.questions.filter(q => q.QuestionID !== questionId);
       setExamData({ ...examData, questions: updatedQuestions });
       
-      setSuccess('Question deleted successfully');
+      setSuccess('Đã xóa câu hỏi thành công');
       setConfirmDelete({ open: false, questionIndex: null });
     } catch (err) {
       console.error('Error deleting question:', err);
-      setError('Failed to delete question. Please try again.');
+      setError('Không thể xóa câu hỏi. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -118,11 +215,12 @@ const EditExamPage = () => {
     setConfirmDelete({ open: false, questionIndex: null });
   };
 
-  if (loading && !examData.title) {
+  if (loading && !originalData) {
     return (
       <Container maxWidth="lg">
         <Box sx={{ display: 'flex', justifyContent: 'center', my: 10 }}>
           <CircularProgress />
+          <Typography sx={{ ml: 2 }}>Đang tải thông tin bài thi...</Typography>
         </Box>
       </Container>
     );
@@ -136,11 +234,11 @@ const EditExamPage = () => {
           onClick={() => navigate('/exams')}
           sx={{ mb: 2 }}
         >
-          Back to Exams
+          Quay lại danh sách bài thi
         </Button>
         
         <Typography variant="h4" gutterBottom>
-          Edit Exam
+          Chỉnh sửa bài thi
         </Typography>
         
         {error && (
@@ -158,13 +256,13 @@ const EditExamPage = () => {
         {/* Exam Details Form */}
         <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
           <Typography variant="h6" gutterBottom>
-            Exam Details
+            Thông tin bài thi
           </Typography>
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Title"
+                label="Tiêu đề"
                 name="title"
                 value={examData.title}
                 onChange={handleExamDataChange}
@@ -176,26 +274,79 @@ const EditExamPage = () => {
               <TextField
                 select
                 fullWidth
-                label="Status"
+                label="Trạng thái"
                 name="status"
                 value={examData.status}
                 onChange={handleExamDataChange}
                 margin="normal"
               >
-                <MenuItem value="draft">Draft</MenuItem>
-                <MenuItem value="published">Published</MenuItem>
-                <MenuItem value="upcoming">Upcoming</MenuItem>
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="draft">Nháp</MenuItem>
+                <MenuItem value="upcoming">Sắp diễn ra</MenuItem>
+                <MenuItem value="ongoing">Đang diễn ra</MenuItem>
+                <MenuItem value="completed">Đã kết thúc</MenuItem>
+                <MenuItem value="cancelled">Đã hủy</MenuItem>
               </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                fullWidth
+                label="Loại bài thi"
+                name="type"
+                value={examData.type}
+                onChange={handleExamDataChange}
+                margin="normal"
+              >
+                <MenuItem value="multiple_choice">Trắc nghiệm</MenuItem>
+                <MenuItem value="essay">Tự luận</MenuItem>
+                <MenuItem value="coding">Lập trình</MenuItem>
+                <MenuItem value="mixed">Kết hợp</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Thời gian làm bài (phút)"
+                name="duration"
+                type="number"
+                value={examData.duration}
+                onChange={handleExamDataChange}
+                margin="normal"
+                InputProps={{ inputProps: { min: 1 } }}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Thời gian bắt đầu"
+                name="startTime"
+                type="datetime-local"
+                value={examData.startTime}
+                onChange={handleExamDataChange}
+                margin="normal"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Thời gian kết thúc"
+                name="endTime"
+                type="datetime-local"
+                value={examData.endTime}
+                onChange={handleExamDataChange}
+                margin="normal"
+                required
+              />
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
-                label="Duration (minutes)"
-                name="duration"
+                label="Tổng điểm"
+                name="totalPoints"
                 type="number"
-                value={examData.duration}
+                value={examData.totalPoints}
                 onChange={handleExamDataChange}
                 margin="normal"
                 InputProps={{ inputProps: { min: 1 } }}
@@ -204,19 +355,7 @@ const EditExamPage = () => {
             <Grid item xs={12} sm={4}>
               <TextField
                 fullWidth
-                label="Total Points"
-                name="totalPoints"
-                type="number"
-                value={examData.totalPoints}
-                onChange={handleExamDataChange}
-                margin="normal"
-                InputProps={{ inputProps: { min: 0 } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                label="Passing Score"
+                label="Điểm đạt"
                 name="passingScore"
                 type="number"
                 value={examData.passingScore}
@@ -225,10 +364,66 @@ const EditExamPage = () => {
                 InputProps={{ inputProps: { min: 0, max: examData.totalPoints } }}
               />
             </Grid>
+            <Grid item xs={12} sm={4}>
+              <Box sx={{ mt: 3 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={examData.allowRetakes}
+                      onChange={handleExamDataChange}
+                      name="allowRetakes"
+                    />
+                  }
+                  label="Cho phép thi lại"
+                />
+              </Box>
+            </Grid>
+            {examData.allowRetakes && (
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Số lần thi lại tối đa (0 = không giới hạn)"
+                  name="maxRetakes"
+                  type="number"
+                  value={examData.maxRetakes}
+                  onChange={handleExamDataChange}
+                  margin="normal"
+                  InputProps={{ inputProps: { min: 0 } }}
+                />
+              </Grid>
+            )}
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ mt: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={examData.shuffleQuestions}
+                      onChange={handleExamDataChange}
+                      name="shuffleQuestions"
+                    />
+                  }
+                  label="Xáo trộn câu hỏi"
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ mt: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={examData.allowReview}
+                      onChange={handleExamDataChange}
+                      name="allowReview"
+                    />
+                  }
+                  label="Cho phép xem lại bài làm"
+                />
+              </Box>
+            </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Instructions"
+                label="Hướng dẫn làm bài"
                 name="instructions"
                 multiline
                 rows={3}
@@ -240,7 +435,7 @@ const EditExamPage = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Description"
+                label="Mô tả bài thi"
                 name="description"
                 multiline
                 rows={3}
@@ -257,9 +452,10 @@ const EditExamPage = () => {
               color="primary"
               startIcon={<Save />}
               onClick={handleSaveExam}
-              disabled={loading}
+              disabled={saveLoading}
+              sx={{ minWidth: 160 }}
             >
-              Save Exam Details
+              {saveLoading ? <CircularProgress size={24} /> : 'Lưu thay đổi'}
             </Button>
           </Box>
         </Paper>
@@ -267,39 +463,51 @@ const EditExamPage = () => {
         {/* Questions Section */}
         <Box mb={4}>
           <Divider sx={{ mb: 3 }}>
-            <Chip label="Questions" />
+            <Chip label="Danh sách câu hỏi" />
           </Divider>
           
           <Typography variant="subtitle1" gutterBottom>
-            Questions ({examData.questions?.length || 0})
+            Số câu hỏi: {examData.questions?.length || 0}
           </Typography>
           
           {examData.questions?.length > 0 ? (
             examData.questions.map((question, index) => (
-              <Accordion key={question._id || index}>
+              <Accordion key={question.QuestionID || index}>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography>
-                    {index + 1}. {question.type === 'essay' ? 'Essay' : 
-                        question.type === 'coding' ? 'Coding' : 'Multiple Choice'} Question 
-                    ({question.points} points)
+                    {index + 1}. {question.Type === 'essay' ? 'Tự luận' : 
+                        question.Type === 'coding' ? 'Lập trình' : 'Trắc nghiệm'} 
+                    ({question.Points} điểm)
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography gutterBottom><strong>Content:</strong> {question.text || question.content}</Typography>
+                  <Typography gutterBottom><strong>Nội dung:</strong> {question.Content}</Typography>
                   
-                  {question.description && (
-                    <Typography gutterBottom><strong>Description:</strong> {question.description}</Typography>
+                  {question.Explanation && (
+                    <Typography gutterBottom><strong>Giải thích:</strong> {question.Explanation}</Typography>
+                  )}
+                  
+                  {question.Type === 'multiple_choice' && question.Options && (
+                    <Box mt={2}>
+                      <Typography gutterBottom><strong>Các lựa chọn:</strong></Typography>
+                      <ul>
+                        {JSON.parse(question.Options).map((option, i) => (
+                          <li key={i}>{option}</li>
+                        ))}
+                      </ul>
+                      <Typography gutterBottom><strong>Đáp án:</strong> {question.CorrectAnswer}</Typography>
+                    </Box>
                   )}
                   
                   <Box mt={2} display="flex" justifyContent="flex-end" gap={1}>
-                    {question.type === 'essay' && (
+                    {question.Type === 'essay' && (
                       <Button
                         variant="outlined"
                         color="primary"
                         startIcon={<EditNote />}
-                        onClick={() => navigate(`/exams/${examId}/questions/${question._id}/essay-edit`)}
+                        onClick={() => navigate(`/exams/${examId}/questions/${question.QuestionID}/essay-edit`)}
                       >
-                        Edit Essay Content
+                        Chỉnh sửa đáp án mẫu
                       </Button>
                     )}
                     <Button
@@ -308,7 +516,7 @@ const EditExamPage = () => {
                       startIcon={<Delete />}
                       onClick={() => openDeleteConfirm(index)}
                     >
-                      Remove
+                      Xóa câu hỏi
                     </Button>
                   </Box>
                 </AccordionDetails>
@@ -316,7 +524,7 @@ const EditExamPage = () => {
             ))
           ) : (
             <Typography color="text.secondary">
-              No questions added to this exam yet.
+              Bài thi chưa có câu hỏi nào.
             </Typography>
           )}
           
@@ -326,7 +534,7 @@ const EditExamPage = () => {
               color="primary"
               onClick={() => navigate(`/exams/${examId}/add-question`)}
             >
-              Add New Question
+              Thêm câu hỏi mới
             </Button>
           </Box>
         </Box>
@@ -337,25 +545,28 @@ const EditExamPage = () => {
         open={confirmDelete.open}
         onClose={closeDeleteConfirm}
       >
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>Xác nhận xóa</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this question? This action cannot be undone.
+            Bạn có chắc chắn muốn xóa câu hỏi này? Hành động này không thể hoàn tác.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDeleteConfirm}>Cancel</Button>
+          <Button onClick={closeDeleteConfirm}>Hủy</Button>
           <Button 
             onClick={() => {
-              const questionId = examData.questions[confirmDelete.questionIndex]?._id;
+              const questionId = examData.questions[confirmDelete.questionIndex]?.QuestionID;
               if (questionId) {
                 handleDeleteQuestion(questionId);
+              } else {
+                closeDeleteConfirm();
+                setError('Không tìm thấy ID câu hỏi');
               }
             }} 
             color="error" 
             autoFocus
           >
-            Delete
+            Xóa
           </Button>
         </DialogActions>
       </Dialog>

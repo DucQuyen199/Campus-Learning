@@ -88,7 +88,7 @@ const examController = {
         .input('allowReview', sql.Bit, allowReview !== false)
         .input('shuffleQuestions', sql.Bit, shuffleQuestions !== false)
         .input('courseId', sql.BigInt, courseId)
-        .input('createdBy', sql.BigInt, req.user.userId)
+        .input('createdBy', sql.BigInt, req.user.UserID)
         .input('status', sql.VarChar(20), examStatus)
         .query(`
           INSERT INTO Exams (

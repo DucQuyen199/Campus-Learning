@@ -213,4 +213,19 @@ export const flagReportedContent = async (reportId, data = {}) => {
     }
     throw error;
   }
+};
+
+// Thêm API để lấy nội dung bài viết được báo cáo
+export const getReportedContent = async (reportId) => {
+  try {
+    const config = getAuthConfig();
+    const response = await axiosInstance.get(
+      `/reports/${reportId}/content`,
+      config
+    );
+    return response;
+  } catch (error) {
+    console.error(`Error fetching reported content ${reportId}:`, error);
+    throw error;
+  }
 }; 

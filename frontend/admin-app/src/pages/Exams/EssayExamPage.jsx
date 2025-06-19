@@ -12,6 +12,7 @@ import {
   ExpandMore, Description, NoteAdd
 } from '@mui/icons-material';
 import { createExam, addQuestionToExam, addEssayContent } from '../../api/exams';
+import { coursesAPI } from '../../api/courses';
 
 // Steps for exam creation
 const steps = ['Thông tin bài thi', 'Câu hỏi', 'Xem lại'];
@@ -60,13 +61,15 @@ const EssayExamPage = () => {
 
   // Fetch courses for dropdown
   useEffect(() => {
-    // This would typically fetch courses from an API
-    // For now we're setting dummy data
-    setCourses([
-      { CourseID: 1, Title: 'Introduction to Programming' },
-      { CourseID: 2, Title: 'Data Structures and Algorithms' },
-      { CourseID: 3, Title: 'Web Development Fundamentals' }
-    ]);
+    const fetchCourses = async () => {
+      try {
+        const data = await coursesAPI.getCourses();
+        setCourses(data.courses || []);
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+      }
+    };
+    fetchCourses();
   }, []);
 
   const handleExamDataChange = (e) => {

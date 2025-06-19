@@ -41,7 +41,8 @@ import {
   VisibilityOutlined,
   CheckCircleOutlineOutlined,
   CancelOutlined,
-  FileDownloadOutlined
+  FileDownloadOutlined,
+  ArticleOutlined
 } from '@mui/icons-material';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -80,6 +81,10 @@ const ReportList = () => {
   const [actionType, setActionType] = useState('');
   const [actionReason, setActionReason] = useState('');
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+  const [currentPost, setCurrentPost] = useState(null);
+  const [loadingPost, setLoadingPost] = useState(false);
+  const [postError, setPostError] = useState(null);
 
   // Fetch reports
   const fetchReports = async () => {
@@ -128,6 +133,28 @@ const ReportList = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch the reported post content
+  const handleViewPost = async (reportId) => {
+    setPostDialogOpen(true);
+    setLoadingPost(true);
+    setPostError(null);
+    try {
+      const response = await reportsAPI.getReportedContent(reportId);
+      setCurrentPost(response.data.post);
+    } catch (error) {
+      console.error('Error loading reported post:', error);
+      setPostError('Không thể tải nội dung bài viết');
+    } finally {
+      setLoadingPost(false);
+    }
+  };
+
+  const closePostDialog = () => {
+    setPostDialogOpen(false);
+    setCurrentPost(null);
+    setPostError(null);
   };
 
   // Open action dialog
@@ -369,7 +396,15 @@ const ReportList = () => {
                               <VisibilityOutlined fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          
+                          <Tooltip title="Xem bài viết">
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={() => handleViewPost(report.id)}
+                            >
+                              <ArticleOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           {report.status === 'pending' && (
                             <>
                               <Tooltip title="Chấp thuận">
@@ -390,6 +425,17 @@ const ReportList = () => {
                                   <CancelOutlined fontSize="small" />
                                 </IconButton>
                               </Tooltip>
+                              {report.targetType === 'CONTENT' && (
+                                <Tooltip title="Xóa nội dung">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleOpenActionDialog(report, 'delete-content')}
+                                  >
+                                    <DeleteOutline fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </>
                           )}
                         </Stack>
@@ -553,6 +599,28 @@ const ReportList = () => {
           }}
         />
       )}
+
+      {/* Dialog for viewing reported post */}
+      <Dialog open={postDialogOpen} onClose={closePostDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Nội dung bài viết</DialogTitle>
+        <DialogContent dividers>
+          {loadingPost ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', p: 2 }}>
+              <CircularProgress size={24} />
+              <Typography sx={{ ml: 2 }}>Đang tải bài viết...</Typography>
+            </Box>
+          ) : postError ? (
+            <Typography color="error" sx={{ p: 2 }}>{postError}</Typography>
+          ) : currentPost ? (
+            <Box sx={{ p: 2 }}>
+              <Typography variant="body1">{currentPost.content}</Typography>
+            </Box>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closePostDialog}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };

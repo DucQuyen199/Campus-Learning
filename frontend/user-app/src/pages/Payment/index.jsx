@@ -9,14 +9,15 @@ const Payment = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialMethod = location.state?.initialPaymentMethod || searchParams.get('method') || 'vnpay';
+  const [paymentMethod, setPaymentMethod] = useState(initialMethod);
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState('vnpay');
   const [processingPayment, setProcessingPayment] = useState(false);
   
-  // PayPal button container reference
-  const paypalButtonRef = useRef(null);
   // Store server-side PayPal transaction ID
   const paypalServerTransactionIdRef = useRef(null);
 
@@ -33,202 +34,6 @@ const Payment = () => {
     const numericPrice = parseFloat(price);
     return isNaN(numericPrice) ? 0 : numericPrice;
   };
-
-  const initializePaypal = () => {
-    if (window.paypal) {
-      // Clear existing PayPal buttons before rendering new ones
-      if (paypalButtonRef.current) {
-        paypalButtonRef.current.innerHTML = '';
-      }
-
-      try {
-        window.paypal.Buttons({
-          // Set up the transaction
-          createOrder: async () => {
-            setLoading(true);
-            try {
-              const response = await courseApi.createPayPalOrder(courseId);
-              setLoading(false);
-              if (response && response.data && response.data.orderId) {
-                // Save server transaction ID for later
-                paypalServerTransactionIdRef.current = response.data.transactionId;
-                return response.data.orderId;
-              } else {
-                toast.error('Không thể tạo đơn hàng PayPal');
-                throw new Error('Không thể tạo đơn hàng PayPal');
-              }
-            } catch (error) {
-              setLoading(false);
-              console.error('PayPal order creation error:', error);
-              
-              // Check if error is related to network or ad blocker
-              const errorMessage = error.message || '';
-              if (errorMessage.includes('ERR_BLOCKED') || 
-                  errorMessage.includes('Failed to fetch') ||
-                  errorMessage.includes('NetworkError')) {
-                toast.error('Có vẻ như trình duyệt đang chặn yêu cầu PayPal. Vui lòng kiểm tra trình chặn quảng cáo của bạn.');
-              } else {
-                toast.error(error.response?.data?.message || 'Không thể tạo đơn hàng PayPal');
-              }
-              throw error;
-            }
-          },
-          // Finalize the transaction
-          onApprove: async (data, actions) => {
-            setLoading(true);
-            try {
-              // Capture the PayPal order
-              const details = await actions.order.capture();
-              console.log('PayPal capture details:', details);
-              
-              // Process payment on backend using server transaction ID
-              const serverId = paypalServerTransactionIdRef.current;
-              await courseApi.processPayPalSuccess({
-                transactionId: serverId,
-                PayerID: data.payerID,
-                courseId
-              });
-              
-              setLoading(false);
-              // Navigate to the payment result page
-              navigate(`/payment-result?status=success&courseId=${courseId}&transactionId=${details.id}`);
-            } catch (error) {
-              setLoading(false);
-              console.error('PayPal approval error:', error);
-              toast.error(error.response?.data?.message || 'Xử lý thanh toán thất bại');
-              // Navigate to failure result
-              navigate(`/payment-result?status=error&message=${encodeURIComponent(error.message)}`);
-            }
-          },
-          onError: (err) => {
-            console.error('PayPal error:', err);
-            
-            // More user-friendly error messages
-            if (err.message && err.message.includes('blocked')) {
-              toast.error('PayPal bị chặn bởi trình duyệt. Vui lòng tạm thời tắt trình chặn quảng cáo và làm mới trang.');
-            } else if (err.message && err.message.includes('network')) {
-              toast.error('Lỗi kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.');
-            } else {
-              toast.error('PayPal gặp lỗi. Vui lòng thử lại sau hoặc chọn phương thức thanh toán khác.');
-            }
-          },
-          onCancel: () => {
-            console.log('PayPal payment cancelled');
-            toast.info('Đã hủy thanh toán qua PayPal');
-            // Navigate to cancellation result
-            navigate(`/payment-result?status=cancel&courseId=${courseId}`);
-          }
-        }).render(paypalButtonRef.current);
-      } catch (paypalError) {
-        console.error('Error rendering PayPal buttons:', paypalError);
-        
-        // Provide a fallback in case of rendering error
-        if (paypalButtonRef.current) {
-          paypalButtonRef.current.innerHTML = `
-            <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md mb-4">
-              <p class="font-medium">Không thể tải PayPal</p>
-              <p class="text-sm mt-1">Vui lòng thử lại sau hoặc chọn phương thức thanh toán khác.</p>
-            </div>
-            <button 
-              class="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition" 
-              onclick="window.location.reload()">
-              Thử lại
-            </button>
-          `;
-        }
-      }
-    } else {
-      // PayPal SDK not loaded
-      if (paypalButtonRef.current) {
-        paypalButtonRef.current.innerHTML = `
-          <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md">
-            <p class="text-sm">Không thể tải PayPal. Vui lòng kiểm tra kết nối mạng hoặc tạm thời tắt trình chặn quảng cáo.</p>
-          </div>
-        `;
-      }
-    }
-  };
-
-  useEffect(() => {
-    // Add PayPal script only when user selects PayPal as payment method
-    if (paymentMethod === 'paypal') {
-      // Remove any existing PayPal script
-      const existingScript = document.getElementById('paypal-script');
-      if (existingScript) {
-        existingScript.remove();
-      }
-      
-      try {
-        // Create new script element
-        const script = document.createElement('script');
-        script.id = 'paypal-script';
-        script.src = `https://www.paypal.com/sdk/js?client-id=${import.meta.env.VITE_PAYPAL_CLIENT_ID || 'test'}&currency=USD`;
-        script.async = true;
-        script.onload = initializePaypal;
-        script.onerror = (error) => {
-          console.warn('PayPal script loading failed, may be blocked by an ad blocker');
-          // Add a friendly message to the user
-          if (paypalButtonRef.current) {
-            paypalButtonRef.current.innerHTML = `
-              <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-md">
-                <p class="text-sm">Không thể tải PayPal. Vui lòng kiểm tra kết nối mạng hoặc tạm thời tắt trình chặn quảng cáo.</p>
-              </div>
-            `;
-          }
-        };
-        
-        // Append script to document
-        document.body.appendChild(script);
-      } catch (error) {
-        console.error('Error adding PayPal script:', error);
-      }
-      
-      // Clean up
-      return () => {
-        const scriptToRemove = document.getElementById('paypal-script');
-        if (scriptToRemove) {
-          scriptToRemove.remove();
-        }
-      };
-    }
-  }, [paymentMethod, courseId]);
-
-  useEffect(() => {
-    // Enhanced error handler for PayPal logger errors
-    const handlePayPalErrors = (event) => {
-      // Check if this is a PayPal related error
-      if (event.message && (
-        event.message.includes('net::ERR_BLOCKED_BY_CLIENT') || 
-        event.message.includes('Removing unpermitted intrinsics') ||
-        event.message.includes('www.paypal.com') ||
-        event.message.includes('www.sandbox.paypal.com') ||
-        event.message.includes('lockdown-install.js')
-      )) {
-        // Prevent the error from appearing in console
-        event.preventDefault();
-        event.stopPropagation();
-        return true;
-      }
-      return false;
-    };
-    
-    // Add both event listener types to catch different error scenarios
-    window.addEventListener('error', handlePayPalErrors, true);
-    window.addEventListener('unhandledrejection', (event) => {
-      if (event.reason && event.reason.message && (
-        event.reason.message.includes('www.paypal.com') ||
-        event.reason.message.includes('www.sandbox.paypal.com')
-      )) {
-        event.preventDefault();
-      }
-    }, true);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('error', handlePayPalErrors, true);
-      window.removeEventListener('unhandledrejection', handlePayPalErrors, true);
-    };
-  }, []);
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
@@ -312,6 +117,24 @@ const Payment = () => {
     } catch (error) {
       console.error('Payment error:', error);
       toast.error(error.response?.data?.message || 'Lỗi xử lý thanh toán');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handlePayPalRedirect = async () => {
+    setProcessingPayment(true);
+    try {
+      const resp = await courseApi.createPayPalOrder(courseId);
+      const approveUrl = resp.data.approveUrl;
+      if (approveUrl) {
+        window.location.href = approveUrl;
+      } else {
+        toast.error('Không nhận được đường dẫn xác nhận PayPal');
+      }
+    } catch (error) {
+      console.error('PayPal redirect error:', error);
+      toast.error(error.response?.data?.message || 'Không thể tạo đơn hàng PayPal');
     } finally {
       setProcessingPayment(false);
     }
@@ -597,9 +420,25 @@ const Payment = () => {
             
             {/* Specific payment method sections */}
             {paymentMethod === 'paypal' ? (
-              <div className="mt-4">
-                <div ref={paypalButtonRef} className="paypal-button-container"></div>
-              </div>
+              <button
+                onClick={handlePayPalRedirect}
+                disabled={processingPayment}
+                className={`w-full py-3 text-white rounded-lg ${
+                  processingPayment ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {processingPayment ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang chuyển hướng...
+                  </span>
+                ) : (
+                  'Thanh toán với PayPal'
+                )}
+              </button>
             ) : (
               <button
                 onClick={handlePayment}

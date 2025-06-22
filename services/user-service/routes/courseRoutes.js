@@ -84,4 +84,10 @@ router.post('/payment/paypal/cancel', courseController.processPayPalCancel);
 // Get VNPay transaction details
 router.get('/payment/vnpay/transaction/:transactionId', courseController.getVNPayTransaction);
 
+// Get PayPal approval URL for continuing a pending payment
+router.get('/payment/paypal/approval/:transactionId', authMiddleware, courseController.getPaypalApprovalUrl);
+
+// Test PayPal sandbox integration (only in development)
+router.get('/payment/paypal/test', authMiddleware, courseController.testPayPalSandbox);
+
 module.exports = router; 

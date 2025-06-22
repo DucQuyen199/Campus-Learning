@@ -243,8 +243,8 @@ const CourseDetail = () => {
           toast.error(result?.message || 'Đăng ký khóa học thất bại');
         }
       } else {
-        // Redirect to payment page
-        navigate(`/payment/${courseId}`);
+        // Redirect to payment page, defaulting to PayPal flow
+        navigate(`/payment/${courseId}`, { state: { initialPaymentMethod: 'paypal' } });
       }
     } catch (error) {
       console.error('Error enrolling in course:', error);

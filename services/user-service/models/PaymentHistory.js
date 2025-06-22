@@ -29,6 +29,14 @@ const PaymentHistory = sequelize.define('PaymentHistory', {
   CreatedAt: {
     type: DataTypes.STRING(30),
     defaultValue: sequelize.literal('CURRENT_TIMESTAMP')
+  },
+  UpdatedAt: {
+    type: DataTypes.STRING(30),
+    defaultValue: sequelize.literal('CURRENT_TIMESTAMP')
+  },
+  Notes: {
+    type: DataTypes.STRING(1000),
+    allowNull: true
   }
 }, {
   tableName: 'PaymentHistory',

@@ -22,9 +22,13 @@ const PaymentResult = () => {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
+    // Nếu chưa xác thực nhưng vẫn còn token, chờ checkAuth thay vì đẩy sang login
     if (!isAuthenticated) {
-      navigate('/login', { replace: true });
-      return;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login', { replace: true });
+        return;
+      }
     }
 
     const queryParams = new URLSearchParams(location.search);
@@ -32,6 +36,7 @@ const PaymentResult = () => {
     const messageParam = queryParams.get('message');
     const courseIdParam = queryParams.get('courseId');
     const transactionIdParam = queryParams.get('transactionId');
+    const payerIdParam = queryParams.get('PayerID') || queryParams.get('payerId');
     
     setStatus(statusParam);
     setMessage(messageParam || '');
@@ -42,8 +47,20 @@ const PaymentResult = () => {
       try {
         setLoading(true);
 
-        // Nếu thanh toán thành công
+        // Thanh toán thành công – xác thực & cập nhật giao dịch
         if (statusParam === 'success' && courseIdParam) {
+          try {
+            await courseApi.processPayPalSuccess({
+              transactionId: transactionIdParam,
+              PayerID: payerIdParam,
+              courseId: courseIdParam
+            });
+            console.log('Backend confirmed PayPal payment success');
+          } catch (apiErr) {
+            console.error('Backend confirmation for PayPal success failed:', apiErr);
+            toast.error('Không thể xác thực thanh toán. Vui lòng kiểm tra lại lịch sử giao dịch.');
+          }
+          
           // Làm mới danh sách khóa học đã đăng ký
           try {
             await dispatch(fetchEnrolledCourses()).unwrap();
@@ -78,6 +95,14 @@ const PaymentResult = () => {
           setTimeout(() => {
             dispatch(fetchEnrolledCourses());
           }, 2000);
+        } else if ((statusParam === 'cancel' || statusParam === 'error') && transactionIdParam) {
+          // Gọi API cập nhật huỷ thanh toán (nếu có)
+          try {
+            await courseApi.processPayPalCancel(transactionIdParam);
+            console.log('Backend recorded PayPal cancellation');
+          } catch (cancelErr) {
+            console.error('Failed to notify backend about cancellation:', cancelErr);
+          }
         }
       } catch (error) {
         console.error('Error processing payment result:', error);
@@ -93,22 +118,46 @@ const PaymentResult = () => {
     processPayment();
   }, [isAuthenticated, location.search, navigate, dispatch, queryClient]);
 
-  const goToCourses = () => {
-    navigate('/courses', { 
-      state: { 
-        activeTab: 'enrolled', 
-        paymentSuccess: true,
-        timestamp: Date.now() // Add timestamp to ensure state is always unique
+  // Navigate to the purchased course detail page
+  const goToCourseDetail = (success = false) => {
+    if (!courseId) return;
+    navigate(`/courses/${courseId}`, {
+      state: {
+        paymentSuccess: success,
+        timestamp: Date.now()
       },
-      replace: true // Replace current history entry to prevent back button issues
+      replace: true
     });
   };
 
-  const goToCourse = () => {
+  // Navigate directly to the learning page of the course
+  const goToCourseLearn = () => {
     if (courseId) {
       navigate(`/courses/${courseId}/learn`);
     }
   };
+
+  // Auto redirect after payment outcome (success or cancel/error)
+  useEffect(() => {
+    if (loading) return;
+
+    let timer;
+    if (status === 'success') {
+      // Redirect to course detail when payment completed
+      timer = setTimeout(() => goToCourseDetail(true), 5000);
+    } else if (status === 'cancel' || status === 'error' || message?.toLowerCase().includes('cancel')) {
+      // After cancellation / failure, still send learner back to course detail (or courses list)
+      timer = setTimeout(() => {
+        if (courseId) {
+          goToCourseDetail(false);
+        } else {
+          navigate('/courses');
+        }
+      }, 5000);
+    }
+
+    return () => clearTimeout(timer);
+  }, [loading, status, courseId, message]);
 
   if (loading) {
     return (
@@ -138,19 +187,22 @@ const PaymentResult = () => {
                 Mã giao dịch: {transactionId}
               </p>
             )}
+            <p className="mt-4 text-sm text-gray-500">
+              Bạn sẽ được chuyển hướng đến trang khóa học đã đăng ký sau 5 giây.
+            </p>
             <div className="mt-6 space-y-3">
               <button
-                onClick={goToCourse}
+                onClick={goToCourseLearn}
                 className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
               >
                 Học ngay
                 <MdArrowForward className="ml-2" />
               </button>
               <button
-                onClick={goToCourses}
+                onClick={() => goToCourseDetail(true)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50"
               >
-                Xem danh sách khóa học đã đăng ký
+                Xem chi tiết khóa học
               </button>
             </div>
           </div>
@@ -165,12 +217,15 @@ const PaymentResult = () => {
                 ? `Lỗi: ${message.replace(/_/g, ' ')}` 
                 : 'Đã xảy ra lỗi trong quá trình thanh toán'}
             </p>
+            <p className="mt-4 text-sm text-gray-500">
+              Bạn sẽ được chuyển hướng về trang khóa học trong 5 giây.
+            </p>
             <div className="mt-6">
               <button
-                onClick={goToCourses}
+                onClick={() => goToCourseDetail(false)}
                 className="w-full px-4 py-2 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
               >
-                Quay lại danh sách khóa học
+                Quay lại chi tiết khóa học
               </button>
             </div>
           </div>

@@ -53,6 +53,18 @@ const PaymentTransaction = sequelize.define('PaymentTransaction', {
   },
   PaymentDetails: {
     type: DataTypes.TEXT
+  },
+  ReturnURL: {
+    type: DataTypes.STRING(500),
+    allowNull: true
+  },
+  CancelURL: {
+    type: DataTypes.STRING(500),
+    allowNull: true
+  },
+  Notes: {
+    type: DataTypes.STRING(1000),
+    allowNull: true
   }
 }, {
   tableName: 'PaymentTransactions',

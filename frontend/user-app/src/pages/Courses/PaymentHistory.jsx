@@ -126,6 +126,9 @@ const PaymentHistory = () => {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ngày thanh toán
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Hành động
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -146,7 +149,10 @@ const PaymentHistory = () => {
                     {payment.Amount.toLocaleString()} {payment.Currency}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {payment.PaymentMethod === 'vnpay' ? 'VNPAY' : payment.PaymentMethod}
+                    {payment.PaymentMethod === 'vnpay' ? 'VNPAY'
+                      : payment.PaymentMethod === 'paypal' ? 'PayPal'
+                      : payment.PaymentMethod === 'free' ? 'Free'
+                      : payment.PaymentMethod}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(payment.PaymentStatus)}`}>
@@ -155,6 +161,13 @@ const PaymentHistory = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(payment.PaymentDate)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {payment.PaymentStatus === 'pending' && (
+                      <Link to={`/payment/${payment.Course?.CourseID}`} className="bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded">
+                        Tiếp tục thanh toán
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}

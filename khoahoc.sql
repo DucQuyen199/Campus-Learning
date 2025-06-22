@@ -181,6 +181,9 @@ BEGIN
         [CreatedAt]       DATETIME        DEFAULT (getdate()) NULL,
         [UpdatedAt]       DATETIME        DEFAULT (getdate()) NULL,
         [PaymentDetails]  NVARCHAR (MAX)  NULL,
+        [ReturnURL]       VARCHAR(500)    NULL,
+        [CancelURL]       VARCHAR(500)    NULL,
+        [Notes]           NVARCHAR(1000)  NULL,
         PRIMARY KEY CLUSTERED ([TransactionID] ASC),
         CONSTRAINT [CHK_Payment_Method] CHECK ([PaymentMethod]='paypal' OR [PaymentMethod]='free' OR [PaymentMethod]='momo' OR [PaymentMethod]='bank_transfer' OR [PaymentMethod]='credit_card' OR [PaymentMethod]='vnpay'),
         CONSTRAINT [CHK_Payment_Status] CHECK ([PaymentStatus]='cancelled' OR [PaymentStatus]='refunded' OR [PaymentStatus]='failed' OR [PaymentStatus]='completed' OR [PaymentStatus]='pending'),
@@ -189,7 +192,8 @@ BEGIN
         UNIQUE NONCLUSTERED ([TransactionCode] ASC)
     );
 END
-
+use campushubt;
+alter table PaymentTransactions add ReturnURL VARCHAR(500) NULL, CancelURL VARCHAR(500) NULL, Notes NVARCHAR(1000) NULL;
 -- Bảng PaymentHistory: Lưu lịch sử thanh toán
 IF OBJECT_ID('dbo.PaymentHistory', 'U') IS NULL
 BEGIN
@@ -208,6 +212,10 @@ BEGIN
 END
 
 use campushubt;
+-- Add Notes and UpdatedAt to PaymentHistory
+alter table PaymentHistory 
+  add Notes NVARCHAR(1000) NULL, UpdatedAt DATETIME DEFAULT (getdate()) NULL;
+
 -- Thêm khóa học với các bài thực hành đầy đủ
 -- Thêm khóa học với InstructorID là NULL
 INSERT INTO Courses (

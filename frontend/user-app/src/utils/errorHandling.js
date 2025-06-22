@@ -22,7 +22,22 @@ export const suppressConsoleErrors = (enabled = true) => {
     '/calls/active',
     'Removing unpermitted intrinsics',
     'Chrome is moving towards',
-    'third-party cookies'
+    'third-party cookies',
+    'paypalobjects.com',
+    'datadoghq.com',
+    'Access to XMLHttpRequest',
+    'preload but not used',
+    'blocked by CORS policy',
+    'Content Security Policy',
+    "'unsafe-eval' is not an allowed source",
+    'unsafe-eval',
+    'CSP',
+    'Datadog Browser SDK',
+    'datadog-rum.js',
+    'preload for',
+    'is found, but is not used because the request credentials mode does not match',
+    'Refused to create a worker',
+    'checkoutnow?token'
   ];
   
   // Override console.error

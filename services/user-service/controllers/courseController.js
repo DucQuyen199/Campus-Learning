@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const querystring = require('querystring');
 const { pool, sql } = require('../config/db');
-const { sequelize } = require('../config/db');
+const sequelize = require('../config/database');
 const jwt = require('jsonwebtoken');
 const paypalClient = require('../utils/paypalClient');
 const { formatDateForSqlServer, createSqlServerDate } = require('../utils/dateHelpers');
@@ -622,7 +622,11 @@ exports.paymentCallback = async (req, res) => {
     if (data.isSuccess) {
       // Success
       await PaymentTransaction.update(
-        { PaymentStatus: 'completed', UpdatedAt: new Date() },
+        {
+          PaymentStatus: 'completed',
+          PaymentDate: new Date().toISOString(),
+          UpdatedAt: new Date().toISOString()
+        },
         { where: { TransactionCode: data.vnp_TxnRef } }
       );
       await PaymentHistory.update(
@@ -836,6 +840,16 @@ exports.getUserEnrollments = async (req, res) => {
 // Get user's payment history
 exports.getPaymentHistory = async (req, res) => {
   try {
+    // Auto-cancel expired pending transactions older than 30 minutes
+    await sequelize.query(
+      `UPDATE PaymentTransactions
+       SET PaymentStatus='cancelled',
+           UpdatedAt=GETDATE(),
+           Notes='Expired after 30 minutes'
+       WHERE PaymentStatus='pending'
+         AND DATEDIFF(MINUTE, CreatedAt, GETDATE()) > 30`
+    );
+
     const userId = req.user.id;
     
     const payments = await PaymentTransaction.findAll({
@@ -1582,11 +1596,14 @@ exports.createPayPalOrder = async (req, res) => {
       UserID: userId,
       CourseID: courseId,
       Amount: amount,
-      PaymentMethod: 'credit_card',
+      PaymentMethod: 'paypal',
       TransactionCode: `PPL${Date.now()}`,
       PaymentStatus: 'pending',
       CreatedAt: createSqlServerDate(),
-      UpdatedAt: createSqlServerDate()
+      UpdatedAt: createSqlServerDate(),
+      // Include status and courseId in Return/Cancel URLs so frontend can handle redirects properly
+      ReturnURL: `${process.env.PAYPAL_RETURN_URL || `${req.protocol}://${req.get('host')}/payment/paypal/success`}?status=success&courseId=${courseId}`,
+      CancelURL: `${process.env.PAYPAL_CANCEL_URL || `${req.protocol}://${req.get('host')}/payment/paypal/cancel`}?status=cancel&courseId=${courseId}`
     });
 
     // Record in payment history
@@ -1599,36 +1616,122 @@ exports.createPayPalOrder = async (req, res) => {
       CreatedAt: createSqlServerDate()
     });
 
-    // Create PayPal order
-    const returnUrl = `${process.env.PAYPAL_RETURN_URL}?transactionId=${transaction.TransactionID}`;
-    const cancelUrl = `${process.env.PAYPAL_CANCEL_URL}?transactionId=${transaction.TransactionID}`;
-    const order = await paypalClient.createOrder(transaction, returnUrl, cancelUrl);
+    // Create PayPal order with retry logic
+    let order;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        const returnUrl = `${process.env.PAYPAL_RETURN_URL || req.headers.origin + '/payment/paypal/success'}?status=success&transactionId=${transaction.TransactionID}&courseId=${courseId}`;
+        const cancelUrl = `${process.env.PAYPAL_CANCEL_URL || req.headers.origin + '/payment/paypal/cancel'}?status=cancel&transactionId=${transaction.TransactionID}&courseId=${courseId}`;
+        
+        order = await paypalClient.createOrder(transaction, returnUrl, cancelUrl);
+        break; // If successful, exit the retry loop
+      } catch (paypalError) {
+        retryCount++;
+        console.error(`PayPal order creation failed (attempt ${retryCount}):`, paypalError);
+        
+        if (retryCount === maxRetries) {
+          // Update transaction as failed after max retries
+          await PaymentTransaction.update(
+            { 
+              PaymentStatus: 'failed',
+              PaymentDetails: JSON.stringify({ 
+                error: 'Failed to create PayPal order after multiple attempts',
+                details: paypalError.message 
+              }),
+              UpdatedAt: createSqlServerDate()
+            },
+            { where: { TransactionID: transaction.TransactionID } }
+          );
+          
+          // Update payment history
+          await PaymentHistory.create({
+            TransactionID: transaction.TransactionID,
+            Status: 'failed',
+            Message: 'Failed to create PayPal order',
+            IPAddress: req.ip,
+            Notes: paypalError.message,
+            CreatedAt: createSqlServerDate()
+          });
+          
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Payment service error. Please try again later.' 
+          });
+        }
+        
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
 
-    // Return the order ID to the client
+    // Extract the approval URL for redirecting the user
+    const approveLink = order.links.find(link => link.rel === 'approve')?.href;
+    
+    if (!approveLink) {
+      // Update transaction as failed if no approval link
+      await PaymentTransaction.update(
+        { 
+          PaymentStatus: 'failed',
+          PaymentDetails: JSON.stringify({ 
+            error: 'No approval URL found in PayPal response',
+            order: order
+          }),
+          UpdatedAt: createSqlServerDate()
+        },
+        { where: { TransactionID: transaction.TransactionID } }
+      );
+      
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Invalid PayPal response. Missing approval URL.' 
+      });
+    }
+    
+    // Update transaction with PayPal order ID
+    await PaymentTransaction.update(
+      { 
+        PaymentDetails: JSON.stringify({ 
+          paypalOrderId: order.id,
+          approvalUrl: approveLink
+        }),
+        UpdatedAt: createSqlServerDate()
+      },
+      { where: { TransactionID: transaction.TransactionID } }
+    );
+
+    // Return the PayPal order details to the client
     return res.status(200).json({
       success: true,
       orderId: order.id,
+      approveUrl: approveLink,
       transactionId: transaction.TransactionID
     });
   } catch (error) {
     console.error('Error creating PayPal order:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
 // Process PayPal payment success
 exports.processPayPalSuccess = async (req, res) => {
-  const { transactionId, PayerID, courseId } = req.body;
+  const { transactionId, PayerID, paymentId } = req.body;
   
-  if (!transactionId || !PayerID || !courseId) {
+  if (!transactionId) {
     return res.status(400).json({
       success: false,
-      message: 'Missing required parameters'
+      message: 'Missing transaction ID'
     });
   }
 
   try {
-    // Tìm transaction trong database
+    // Find transaction in database
     const transaction = await PaymentTransaction.findOne({
       where: { TransactionID: transactionId }
     });
@@ -1639,10 +1742,64 @@ exports.processPayPalSuccess = async (req, res) => {
         message: 'Transaction not found'
       });
     }
+    
+    // Check if payment is already completed to prevent double-processing
+    if (transaction.PaymentStatus === 'completed') {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment was already processed successfully',
+        data: {
+          courseId: transaction.CourseID,
+          transactionId: transaction.TransactionID
+        }
+      });
+    }
+    
+    // Verify the payment with PayPal if PayerID is provided
+    if (PayerID) {
+      try {
+        // Get PayPal order ID from transaction details
+        let paypalOrderId = null;
+        if (transaction.PaymentDetails) {
+          const details = JSON.parse(transaction.PaymentDetails);
+          paypalOrderId = details.paypalOrderId;
+        }
+        
+        if (!paypalOrderId && paymentId) {
+          paypalOrderId = paymentId;
+        }
+        
+        if (paypalOrderId) {
+          // Verify and capture the payment
+          const captureResult = await paypalClient.validateAndCapturePayment(paypalOrderId);
+          
+          if (captureResult.status !== 'COMPLETED') {
+            throw new Error('PayPal capture did not complete');
+          }
+        }
+      } catch (verifyError) {
+        console.error('Error verifying PayPal payment:', verifyError);
+        
+        await PaymentHistory.create({
+          TransactionID: transactionId,
+          Status: 'verification_failed',
+          Message: 'Failed to verify PayPal payment',
+          Notes: verifyError.message,
+          CreatedAt: createSqlServerDate()
+        });
+        
+        return res.status(400).json({
+          success: false,
+          message: 'Payment verification failed',
+          error: process.env.NODE_ENV === 'development' ? verifyError.message : undefined
+        });
+      }
+    }
 
     const userId = transaction.UserID;
+    const courseId = transaction.CourseID;
 
-    // Kiểm tra xem người dùng đã đăng ký khóa học này chưa
+    // Check if user is already enrolled
     const existingEnrollment = await CourseEnrollment.findOne({
       where: {
         UserID: userId,
@@ -1651,51 +1808,46 @@ exports.processPayPalSuccess = async (req, res) => {
       }
     });
 
-    if (existingEnrollment) {
-      return res.status(400).json({
-        success: false,
-        message: 'You are already enrolled in this course'
+    // If already enrolled, just update the payment status
+    if (!existingEnrollment) {
+      // Create a new enrollment
+      await CourseEnrollment.create({
+        UserID: userId,
+        CourseID: courseId,
+        Status: 'active',
+        Progress: 0,
+        LastAccessedAt: new Date(),
+        CreatedAt: new Date(),
+        UpdatedAt: new Date()
+      });
+
+      // Update course enrollment count
+      await Course.increment('EnrolledCount', {
+        by: 1,
+        where: { CourseID: courseId }
       });
     }
 
-    // Cập nhật trạng thái transaction - FIX: Use PaymentStatus not Status
+    // Update transaction status
     await PaymentTransaction.update(
       {
         PaymentStatus: 'completed',
-        UpdatedAt: new Date()
+        PaymentDate: createSqlServerDate(),
+        UpdatedAt: createSqlServerDate(),
+        Notes: PayerID ? `Verified with PayerID: ${PayerID}` : 'Marked as completed via success endpoint'
       },
       {
         where: { TransactionID: transactionId }
       }
     );
 
-    // Cập nhật lịch sử thanh toán
-    await PaymentHistory.update(
-      {
-        Status: 'completed',
-        Notes: 'PayPal payment completed successfully',
-        UpdatedAt: new Date()
-      },
-      {
-        where: { TransactionID: transactionId }
-      }
-    );
-
-    // Tạo mới enrollment
-    await CourseEnrollment.create({
-      UserID: userId,
-      CourseID: courseId,
-      Status: 'active',
-      Progress: 0,
-      LastAccessedAt: new Date(),
-      CreatedAt: new Date(),
-      UpdatedAt: new Date()
-    });
-
-    // Cập nhật số lượng học viên đã đăng ký cho khóa học
-    await Course.increment('EnrolledCount', {
-      by: 1,
-      where: { CourseID: courseId }
+    // Update payment history
+    await PaymentHistory.create({
+      TransactionID: transactionId,
+      Status: 'completed',
+      Message: 'PayPal payment completed successfully',
+      Notes: PayerID ? `Verified with PayerID: ${PayerID}` : 'Marked as completed via success endpoint',
+      CreatedAt: createSqlServerDate()
     });
 
     return res.status(200).json({
@@ -1708,10 +1860,24 @@ exports.processPayPalSuccess = async (req, res) => {
     });
   } catch (error) {
     console.error('Error processing PayPal payment:', error);
+    
+    // Record error in payment history
+    try {
+      await PaymentHistory.create({
+        TransactionID: transactionId,
+        Status: 'error',
+        Message: 'Error during payment processing',
+        Notes: error.message,
+        CreatedAt: createSqlServerDate()
+      });
+    } catch (historyError) {
+      console.error('Failed to record payment history:', historyError);
+    }
+    
     return res.status(500).json({
       success: false,
       message: 'Failed to process PayPal payment',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -1728,7 +1894,7 @@ exports.processPayPalCancel = async (req, res) => {
   }
 
   try {
-    // Tìm transaction trong database
+    // Find transaction in database
     const transaction = await PaymentTransaction.findOne({
       where: { TransactionID: transactionId }
     });
@@ -1739,23 +1905,32 @@ exports.processPayPalCancel = async (req, res) => {
         message: 'Transaction not found'
       });
     }
+    
+    // Only update if not already completed
+    if (transaction.PaymentStatus === 'completed') {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment was already completed and cannot be cancelled'
+      });
+    }
 
-    // Cập nhật trạng thái transaction
-    transaction.Status = 'cancelled';
-    transaction.UpdatedAt = new Date();
-    await transaction.save();
-
-    // Cập nhật lịch sử thanh toán
-    await PaymentHistory.update(
-      {
-        Status: 'cancelled',
-        Notes: 'PayPal payment cancelled by user',
-        UpdatedAt: new Date()
+    // Update transaction status
+    await PaymentTransaction.update(
+      { 
+        PaymentStatus: 'cancelled', 
+        UpdatedAt: createSqlServerDate(),
+        Notes: 'Payment cancelled by user'
       },
-      {
-        where: { TransactionID: transactionId }
-      }
+      { where: { TransactionID: transactionId } }
     );
+
+    // Update payment history
+    await PaymentHistory.create({
+      TransactionID: transactionId,
+      Status: 'cancelled',
+      Message: 'PayPal payment cancelled by user',
+      CreatedAt: createSqlServerDate()
+    });
 
     return res.status(200).json({
       success: true,
@@ -1766,7 +1941,7 @@ exports.processPayPalCancel = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to cancel PayPal payment',
-      error: error.message
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -1836,6 +2011,96 @@ exports.getVNPayTransaction = async (req, res) => {
   }
 };
 
+// Get PayPal approval URL for continuing a pending payment
+exports.getPaypalApprovalUrl = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    
+    if (!transactionId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Transaction ID is required' 
+      });
+    }
+    
+    // Check if the user owns this transaction
+    const transaction = await PaymentTransaction.findOne({ 
+      where: { 
+        TransactionID: transactionId,
+        UserID: req.user.id,
+        PaymentMethod: 'paypal',
+        PaymentStatus: 'pending'
+      } 
+    });
+    
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Pending PayPal transaction not found' 
+      });
+    }
+    
+    // Check if we already have the approval URL stored
+    let approvalUrl = null;
+    if (transaction.PaymentDetails) {
+      try {
+        const details = JSON.parse(transaction.PaymentDetails);
+        approvalUrl = details.approvalUrl;
+      } catch (parseError) {
+        console.error('Error parsing payment details:', parseError);
+      }
+    }
+    
+    // If we have a stored URL, return it
+    if (approvalUrl) {
+      return res.status(200).json({
+        success: true,
+        approveUrl: approvalUrl,
+        transactionId: transaction.TransactionID
+      });
+    }
+    
+    // If no URL stored, create a new PayPal order
+    const returnUrl = `${process.env.PAYPAL_RETURN_URL || req.headers.origin + '/payment/paypal/success'}?status=success&transactionId=${transaction.TransactionID}&courseId=${transaction.CourseID}`;
+    const cancelUrl = `${process.env.PAYPAL_CANCEL_URL || req.headers.origin + '/payment/paypal/cancel'}?status=cancel&transactionId=${transaction.TransactionID}&courseId=${transaction.CourseID}`;
+    
+    const order = await paypalClient.createOrder(transaction, returnUrl, cancelUrl);
+    const newApproveUrl = order.links.find(link => link.rel === 'approve')?.href;
+    
+    if (!newApproveUrl) {
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Could not generate PayPal approval URL' 
+      });
+    }
+    
+    // Store the new PayPal order details in the transaction
+    await PaymentTransaction.update(
+      { 
+        PaymentDetails: JSON.stringify({ 
+          paypalOrderId: order.id,
+          approvalUrl: newApproveUrl
+        }),
+        UpdatedAt: createSqlServerDate()
+      },
+      { where: { TransactionID: transaction.TransactionID } }
+    );
+    
+    return res.status(200).json({
+      success: true,
+      approveUrl: newApproveUrl,
+      transactionId: transaction.TransactionID
+    });
+  } catch (error) {
+    console.error('Error getting PayPal approval URL:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get PayPal approval URL',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Get list of banks from VNPay (sandbox or production) using vnpay library
 exports.getVNPayBankList = async (req, res) => {
   try {
@@ -1844,5 +2109,50 @@ exports.getVNPayBankList = async (req, res) => {
   } catch (error) {
     console.error('Error fetching VNPay bank list via library:', error);
     return res.status(500).json({ success: false, message: 'Could not fetch bank list' });
+  }
+};
+
+// Test PayPal sandbox integration (only available in development/sandbox mode)
+exports.testPayPalSandbox = async (req, res) => {
+  try {
+    // Only allow in development or when explicitly enabled
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_PAYPAL_TEST !== 'true') {
+      return res.status(403).json({
+        success: false,
+        message: 'PayPal test endpoint is not available in production'
+      });
+    }
+    
+    // Check if PayPal client is in sandbox mode
+    if (paypalClient.mode !== 'sandbox') {
+      return res.status(400).json({
+        success: false,
+        message: 'PayPal client is not in sandbox mode'
+      });
+    }
+    
+    // Create a test order
+    const testOrder = await paypalClient.createSandboxTestOrder();
+    
+    // Get the approval URL
+    const approvalUrl = testOrder.links.find(link => link.rel === 'approve')?.href;
+    
+    return res.status(200).json({
+      success: true,
+      message: 'PayPal sandbox test order created successfully',
+      data: {
+        orderId: testOrder.id,
+        status: testOrder.status,
+        approvalUrl: approvalUrl
+      },
+      links: testOrder.links
+    });
+  } catch (error) {
+    console.error('Error testing PayPal sandbox:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to test PayPal sandbox',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }; 

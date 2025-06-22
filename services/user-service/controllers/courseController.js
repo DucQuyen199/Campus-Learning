@@ -901,7 +901,12 @@ exports.getCoursePaymentHistory = async (req, res) => {
 // Mark a lesson as completed and update progress
 exports.saveLessonProgress = async (req, res) => {
   try {
-    const lessonId = req.params.lessonId;
+    // Ensure lessonId is numeric to avoid SQL conversion errors
+    const lessonIdRaw = req.params.lessonId;
+    const lessonId = parseInt(lessonIdRaw, 10);
+    if (isNaN(lessonId)) {
+      return res.status(400).json({ success: false, message: 'Invalid lesson ID' });
+    }
     const userId = req.user.id;
     
     if (!lessonId || !userId) {
@@ -930,7 +935,11 @@ exports.saveLessonProgress = async (req, res) => {
       });
     }
     
-    const courseId = lesson[0].CourseID;
+    const courseId = parseInt(lesson[0].CourseID, 10);
+
+    if (isNaN(courseId)) {
+      return res.status(500).json({ success: false, message: 'Invalid course ID retrieved from lesson' });
+    }
     
     // Find the user's enrollment
     const enrollment = await CourseEnrollment.findOne({
@@ -948,24 +957,28 @@ exports.saveLessonProgress = async (req, res) => {
       });
     }
     
-    // Check if progress record exists for this lesson
-    const [lessonProgress, created] = await LessonProgress.findOrCreate({
+    // Upsert lesson progress without using implicit transactions (avoid MSSQL COMMIT error)
+    let lessonProgress = await LessonProgress.findOne({
       where: {
         EnrollmentID: enrollment.EnrollmentID,
         LessonID: lessonId
-      },
-      defaults: {
-        Status: 'completed',
-        CompletedAt: new Date().toISOString(),
-        TimeSpent: req.body.timeSpent || 0,
-        LastPosition: req.body.lastPosition || 0
       }
     });
-    
-    // Update if it already exists
-    if (!created) {
+
+    if (!lessonProgress) {
+      // Create new progress row
+      lessonProgress = await LessonProgress.create({
+        EnrollmentID: enrollment.EnrollmentID,
+        LessonID: lessonId,
+        Status: 'completed',
+        CompletedAt: sequelize.literal('GETDATE()'),
+        TimeSpent: req.body.timeSpent || 0,
+        LastPosition: req.body.lastPosition || 0
+      });
+    } else {
+      // Update existing row
       lessonProgress.Status = 'completed';
-      lessonProgress.CompletedAt = new Date().toISOString();
+      lessonProgress.CompletedAt = sequelize.literal('GETDATE()');
       if (req.body.timeSpent) lessonProgress.TimeSpent = req.body.timeSpent;
       if (req.body.lastPosition) lessonProgress.LastPosition = req.body.lastPosition;
       await lessonProgress.save();
@@ -1014,7 +1027,7 @@ exports.saveLessonProgress = async (req, res) => {
     // If all lessons are completed, mark the enrollment as completed
     if (progressPercentage === 100 && enrollment.Status !== 'completed') {
       enrollment.Status = 'completed';
-      enrollment.CompletedAt = new Date().toISOString();
+      enrollment.CompletedAt = sequelize.literal('GETDATE()');
       await enrollment.save();
     }
     

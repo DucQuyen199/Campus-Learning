@@ -372,42 +372,17 @@ const courseApi = {
   
   // Mark a lesson as complete
   markLessonAsComplete: (courseId, lessonId) => {
-    if (!courseId || !lessonId) {
-      return Promise.reject(new Error('Course ID and Lesson ID are required'));
+    if (!lessonId) {
+      return Promise.reject(new Error('Lesson ID is required'));
     }
-    
-    return new Promise((resolve, reject) => {
-      const apiUrl = process.env.VITE_API_URL || 'http://localhost:5001';
-      const xhr = new XMLHttpRequest();
-      
-      xhr.open('POST', `${apiUrl}/api/courses/${courseId}/lessons/${lessonId}/complete`, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      
-      // Add token to header if available
-      const token = localStorage.getItem('token');
-      if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-      }
-      
-      xhr.onload = function() {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            resolve(response);
-          } catch (err) {
-            reject(new Error('Invalid response format'));
-          }
-        } else {
-          reject(new Error(`API returned error status: ${xhr.status}`));
-        }
-      };
-      
-      xhr.onerror = function() {
-        reject(new Error('Lỗi kết nối đến máy chủ'));
-      };
-      
-      xhr.send();
-    });
+
+    // Use axios client for simplicity
+    return axiosClient.post(`/lessons/${lessonId}/progress`, { status: 'completed' })
+      .then(res => res.data)
+      .catch(err => {
+        console.error('Error marking lesson as complete:', err);
+        throw err;
+      });
   },
   
   // Get code exercise data for a lesson

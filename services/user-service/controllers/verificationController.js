@@ -583,9 +583,20 @@ exports.resendAdditionalEmailVerification = async (req, res) => {
   try {
     await transaction.begin();
     
-    const { email } = req.body;
+    let { email, emailId } = req.body;
     const userId = req.user.userId;
     
+    // Nếu provide emailId thì tra cứu email
+    if (!email && emailId) {
+      const emailLookup = await transaction.request()
+        .input('userId', sql.BigInt, userId)
+        .input('emailId', sql.BigInt, emailId)
+        .query(`SELECT Email FROM UserEmails WHERE EmailID=@emailId AND UserID=@userId`);
+      if (emailLookup.recordset.length > 0) {
+        email = emailLookup.recordset[0].Email;
+      }
+    }
+
     if (!email) {
       await transaction.rollback();
       return res.status(400).json({ message: 'Vui lòng cung cấp địa chỉ email' });

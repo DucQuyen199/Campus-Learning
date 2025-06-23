@@ -8,10 +8,23 @@ exports.getUserEmails = async (req, res) => {
     await pool.connect();
     const request = pool.request();
     request.input('userId', sql.BigInt, userId);
+    // Lấy tất cả email phụ + email chính trong bảng Users (nếu chưa nằm trong UserEmails)
     const result = await request.query(`
       SELECT EmailID, Email, IsPrimary, IsVerified, Visibility
       FROM UserEmails
-      WHERE UserID = @userId;
+      WHERE UserID = @userId
+      UNION ALL
+      SELECT 
+        NULL AS EmailID,
+        u.Email,
+        1 AS IsPrimary,
+        CASE WHEN u.EmailVerified = 1 THEN 1 ELSE 0 END AS IsVerified,
+        'private' AS Visibility
+      FROM Users u
+      WHERE u.UserID = @userId
+        AND NOT EXISTS (
+          SELECT 1 FROM UserEmails ue WHERE ue.UserID = @userId AND ue.Email = u.Email
+        );
     `);
     return res.json({ emails: result.recordset, success: true });
   } catch (error) {

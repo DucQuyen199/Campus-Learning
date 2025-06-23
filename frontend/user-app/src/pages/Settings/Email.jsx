@@ -104,9 +104,15 @@ const Email = () => {
   };
   
   // Handle resend verification
-  const handleResendVerification = (emailId) => {
+  const handleResendVerification = (emailId, email) => {
     userServices.resendVerificationEmail(emailId)
-      .then(() => toast.info('Đã gửi lại email xác thực'))
+      .then(() => {
+        toast.info('Đã gửi lại email xác thực');
+        // Hiển thị form nhập OTP cho email này
+        setVerificationEmail(email);
+        setShowVerification(true);
+        setVerificationCode('');
+      })
       .catch(error => {
         console.error('Error resending verification:', error);
         toast.error(error.response?.data?.message || 'Có lỗi khi gửi lại email xác thực');
@@ -232,7 +238,7 @@ const Email = () => {
                   <div className="flex items-center space-x-2">
                     {!item.IsVerified && (
                       <button 
-                        onClick={() => handleResendVerification(item.EmailID)}
+                        onClick={() => handleResendVerification(item.EmailID, item.Email)}
                         className="text-xs text-blue-600 hover:text-blue-800"
                       >
                         Gửi lại xác thực

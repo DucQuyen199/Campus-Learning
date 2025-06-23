@@ -11,6 +11,7 @@ const Profile = () => {
   
   const [educationLoading, setEducationLoading] = useState(false);
   const [workExpLoading, setWorkExpLoading] = useState(false);
+  const [verifiedEmails, setVerifiedEmails] = useState([]);
   
   const [profileData, setProfileData] = useState({
     fullName: '',
@@ -95,6 +96,22 @@ const Profile = () => {
       }));
     }
   }, [extendedProfile, profileInfo]);
+
+  // Fetch verified email list for dropdown
+  useEffect(() => {
+    userServices.getEmails()
+      .then(res => {
+        const emails = res.data.emails || [];
+        const verified = emails.filter(e => e.IsVerified === 1 || e.IsVerified === true);
+        setVerifiedEmails(verified);
+        // if current public email not set yet, preselect primary verified email
+        if (!profileData.email && verified.length) {
+          const primary = verified.find(e => e.IsPrimary === 1 || e.IsPrimary === true) || verified[0];
+          setProfileData(prev => ({ ...prev, email: primary.Email }));
+        }
+      })
+      .catch(err => console.error('Error fetch verified emails', err));
+  }, []);
 
   // Handle profile field change
   const handleProfileChange = (field, value) => {
@@ -317,7 +334,9 @@ const Profile = () => {
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">Chọn email đã xác thực để hiển thị</option>
-              <option value={profileInfo?.email}>{profileInfo?.email}</option>
+              {verifiedEmails.map(item => (
+                <option key={item.Email} value={item.Email}>{item.Email}{item.IsPrimary ? ' (Chính)' : ''}</option>
+              ))}
             </select>
             <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
               <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

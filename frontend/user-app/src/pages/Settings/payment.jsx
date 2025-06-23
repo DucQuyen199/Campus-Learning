@@ -15,69 +15,17 @@ import {
   ArrowPathIcon,
   ArrowUpRightIcon
 } from '@heroicons/react/24/outline';
+import { billingServices } from '@/services/api';
 
 // Giả lập dữ liệu thanh toán và giấy phép
-const mockPaymentData = {
-  subscriptionPlan: 'pro',
-  nextBillingDate: '2023-12-15',
-  amount: '299000',
+const fallbackPaymentData = {
+  subscriptionPlan: 'basic',
+  nextBillingDate: null,
+  amount: null,
   currency: 'VND',
-  paymentMethods: [
-    {
-      id: 'pm_1',
-      type: 'credit_card',
-      brand: 'visa',
-      last4: '4242',
-      expiryMonth: 12,
-      expiryYear: 2024,
-      isDefault: true
-    },
-    {
-      id: 'pm_2',
-      type: 'credit_card',
-      brand: 'mastercard',
-      last4: '5678',
-      expiryMonth: 8,
-      expiryYear: 2025,
-      isDefault: false
-    }
-  ],
-  billingHistory: [
-    {
-      id: 'inv_1',
-      date: '2023-11-15',
-      amount: '299000',
-      currency: 'VND',
-      status: 'paid',
-      invoice_pdf: '#'
-    },
-    {
-      id: 'inv_2',
-      date: '2023-10-15',
-      amount: '299000',
-      currency: 'VND',
-      status: 'paid',
-      invoice_pdf: '#'
-    },
-    {
-      id: 'inv_3',
-      date: '2023-09-15',
-      amount: '299000',
-      currency: 'VND',
-      status: 'paid',
-      invoice_pdf: '#'
-    }
-  ],
-  licenses: [
-    {
-      id: 'lic_1',
-      name: 'Campus-T Pro',
-      seats: 1,
-      activationDate: '2023-06-15',
-      expirationDate: '2023-12-15',
-      status: 'active'
-    }
-  ]
+  paymentMethods: [],
+  billingHistory: [],
+  licenses: []
 };
 
 // Plans data
@@ -125,7 +73,7 @@ const subscriptionPlans = [
 const PaymentSettings = () => {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
-  const [paymentData, setPaymentData] = useState(mockPaymentData);
+  const [paymentData, setPaymentData] = useState(fallbackPaymentData);
   const [showAddCard, setShowAddCard] = useState(false);
   const [newCardData, setNewCardData] = useState({
     cardNumber: '',
@@ -142,12 +90,22 @@ const PaymentSettings = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 600));
-        setPaymentData(mockPaymentData);
+        const res = await billingServices.getOverview();
+        let apiData = res.data.data;
+        // If backend does not return any payment methods, fallback to localStorage
+        const storedMethodsRaw = localStorage.getItem('paymentMethods');
+        const storedMethods = storedMethodsRaw ? JSON.parse(storedMethodsRaw) : [];
+        if ((!apiData.paymentMethods || apiData.paymentMethods.length === 0) && storedMethods.length > 0) {
+          apiData = { ...apiData, paymentMethods: storedMethods };
+        }
+        setPaymentData(apiData);
       } catch (error) {
         console.error('Error fetching payment data:', error);
         toast.error('Không thể tải thông tin thanh toán');
+        // Fallback: try localStorage for payment methods as well
+        const storedMethodsRaw = localStorage.getItem('paymentMethods');
+        const storedMethods = storedMethodsRaw ? JSON.parse(storedMethodsRaw) : [];
+        setPaymentData({ ...fallbackPaymentData, paymentMethods: storedMethods });
       } finally {
         setLoading(false);
       }
@@ -155,6 +113,13 @@ const PaymentSettings = () => {
 
     fetchData();
   }, [dispatch]);
+
+  // Persist payment methods to localStorage whenever they change
+  useEffect(() => {
+    if (paymentData && paymentData.paymentMethods) {
+      localStorage.setItem('paymentMethods', JSON.stringify(paymentData.paymentMethods));
+    }
+  }, [paymentData.paymentMethods]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -239,25 +204,38 @@ const PaymentSettings = () => {
     return new Date(dateString).toLocaleDateString('vi-VN', options);
   };
 
-  const getCardIcon = (brand) => {
-    switch (brand) {
-      case 'visa':
-        return (
-          <div className="flex items-center justify-center w-8 h-6 bg-blue-700 text-white text-xs font-bold rounded">
-            VISA
-          </div>
-        );
-      case 'mastercard':
-        return (
-          <div className="flex items-center justify-center w-8 h-6 bg-gradient-to-r from-red-500 to-yellow-500 text-xs text-white font-bold rounded">
-            MC
-          </div>
-        );
-      default:
-        return (
-          <CreditCardIcon className="h-6 w-6 text-gray-500" />
-        );
+  const getCardIcon = (brandRaw) => {
+    if (!brandRaw) return <CreditCardIcon className="h-6 w-6 text-gray-500" />;
+    const brand = brandRaw.toLowerCase();
+    if (brand.includes('visa')) {
+      return (
+        <div className="flex items-center justify-center w-10 h-6 bg-blue-700 text-white text-[10px] font-bold rounded">
+          VISA
+        </div>
+      );
     }
+    if (brand.includes('master')) {
+      return (
+        <div className="flex items-center justify-center w-10 h-6 bg-gradient-to-r from-red-500 via-orange-400 to-yellow-400 text-[10px] text-white font-bold rounded">
+          MC
+        </div>
+      );
+    }
+    if (brand.includes('amex') || brand.includes('american')) {
+      return (
+        <div className="flex items-center justify-center w-10 h-6 bg-blue-500 text-white text-[10px] font-bold rounded">
+          AMEX
+        </div>
+      );
+    }
+    if (brand.includes('jcb')) {
+      return (
+        <div className="flex items-center justify-center w-10 h-6 bg-green-600 text-white text-[10px] font-bold rounded">
+          JCB
+        </div>
+      );
+    }
+    return <CreditCardIcon className="h-6 w-6 text-gray-500" />;
   };
 
   if (loading && !paymentData) {

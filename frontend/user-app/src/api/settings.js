@@ -51,6 +51,26 @@ const settingsServices = {
     password, 
     reason 
   }),
+
+  // Export user data
+  exportData: () => api.post('/export-data', {}, {
+    responseType: 'arraybuffer',
+    headers: {
+      'Accept': 'application/json, application/octet-stream'
+    }
+  }).then(response => {
+    // Check if the response is a JSON or a file
+    const contentType = response.headers['content-type'];
+    if (contentType && contentType.includes('application/json')) {
+      return response;
+    } else {
+      // Convert arraybuffer to blob
+      response.data = new Blob([response.data], {
+        type: contentType || 'application/json'
+      });
+      return response;
+    }
+  }),
 };
 
 export default settingsServices; 

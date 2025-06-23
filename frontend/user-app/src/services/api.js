@@ -264,6 +264,11 @@ const aiChatServices = {
   renameConversation: (conversationId, newTitle) => api.put(`/ai-chat/conversations/${conversationId}`, { title: newTitle })
 };
 
+// =================== BILLING SERVICES ===================
+const billingServices = {
+  getOverview: () => api.get('/api/payments/overview')
+};
+
 // Export all services and api instance
 export {
   authServices,
@@ -276,5 +281,6 @@ export {
   examServices,
   chatServices,
   aiChatServices,
+  billingServices,
   api
 };

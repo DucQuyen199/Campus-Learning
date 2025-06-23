@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
+import settingsServices from '@/api/settings';
 import { 
   EyeIcon, 
   EyeSlashIcon, 
@@ -11,10 +12,11 @@ import {
   DocumentDuplicateIcon,
   TrashIcon
 } from '@heroicons/react/24/outline';
+import { getUserSettings, updateUserSettings } from '@/store/slices/userSlice';
 
 const Privacy = () => {
   const dispatch = useDispatch();
-  const { profileInfo } = useSelector(state => state.user);
+  const { settings, profileInfo } = useSelector(state => state.user);
   
   // Privacy settings state
   const [privacySettings, setPrivacySettings] = useState({
@@ -33,6 +35,34 @@ const Privacy = () => {
       sensitiveContent: false
     }
   });
+  
+  const [exporting, setExporting] = useState(false);
+  
+  // Fetch settings on mount if not already loaded
+  useEffect(() => {
+    if (!settings) {
+      dispatch(getUserSettings());
+    }
+  }, [dispatch, settings]);
+  
+  // When settings arrive, populate local state
+  useEffect(() => {
+    if (settings && settings.privacy) {
+      setPrivacySettings(prev => ({
+        ...prev,
+        ...settings.privacy,
+        // Deep merge nested objects to keep defaults when backend missing keys
+        dataCollection: {
+          ...prev.dataCollection,
+          ...settings.privacy.dataCollection
+        },
+        contentPreferences: {
+          ...prev.contentPreferences,
+          ...settings.privacy.contentPreferences
+        }
+      }));
+    }
+  }, [settings]);
   
   // Handle toggle changes
   const handleToggle = (key) => {
@@ -62,16 +92,66 @@ const Privacy = () => {
   };
   
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // In a real app, we would dispatch an action to update privacy settings
-    toast.success('Cài đặt quyền riêng tư đã được cập nhật');
+
+    try {
+      // Compose new settings object preserving other sections (notifications, preferences, security)
+      const updatedSettings = {
+        ...settings,
+        privacy: {
+          ...settings?.privacy,
+          ...privacySettings
+        }
+      };
+
+      await dispatch(updateUserSettings(updatedSettings)).unwrap();
+      toast.success('Cài đặt quyền riêng tư đã được cập nhật');
+    } catch (error) {
+      console.error('Update privacy settings error:', error);
+      toast.error(error?.message || 'Không thể cập nhật cài đặt');
+    }
   };
   
   // Handle data export
-  const handleDataExport = () => {
-    toast.info('Yêu cầu xuất dữ liệu đã được gửi. Bạn sẽ nhận được email khi dữ liệu sẵn sàng để tải xuống.');
+  const handleDataExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const response = await settingsServices.exportData();
+      
+      // Check if we got a direct download response
+      if (response.data instanceof Blob) {
+        // Handle direct file download
+        const url = window.URL.createObjectURL(response.data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `user-data-${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Dữ liệu đã được tải xuống thành công.');
+      } else {
+        // Handle email notification
+        toast.success('Yêu cầu xuất dữ liệu đã được gửi. Vui lòng kiểm tra email của bạn.');
+      }
+    } catch (err) {
+      console.error('Export data error:', err);
+      
+      // More specific error handling
+      if (err.code === 'ERR_NETWORK') {
+        toast.error('Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau.');
+      } else if (err.response?.status === 500) {
+        toast.error('Lỗi máy chủ. Vui lòng liên hệ quản trị viên để được hỗ trợ.');
+      } else if (err.response?.status === 401) {
+        toast.error('Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        toast.error(err?.response?.data?.message || 'Không thể xuất dữ liệu. Vui lòng thử lại sau.');
+      }
+    } finally {
+      setExporting(false);
+    }
   };
   
   return (
@@ -346,10 +426,27 @@ const Privacy = () => {
               <button
                 type="button"
                 onClick={handleDataExport}
-                className="px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-200 flex items-center"
+                disabled={exporting}
+                className={`px-4 py-2 border rounded-md flex items-center ${
+                  exporting 
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                    : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-                <span>Xuất dữ liệu</span>
+                {exporting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+                    <span>Xuất dữ liệu</span>
+                  </>
+                )}
               </button>
             </div>
             

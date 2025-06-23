@@ -1,4 +1,5 @@
 const { sql, pool } = require('../config/db');
+const { sendEmailWithAttachment } = require('../utils/emailService');
 
 // Get user settings
 exports.getUserSettings = async (req, res) => {
@@ -36,8 +37,19 @@ exports.getUserSettings = async (req, res) => {
         },
         privacy: {
           profileVisibility: 'public',
+          searchEngineIndex: true,
+          activityVisibility: 'public',
           showOnlineStatus: true,
-          allowMessages: 'all'
+          allowMessages: 'all',
+          dataCollection: {
+            analytics: true,
+            personalization: true,
+            thirdParty: false
+          },
+          contentPreferences: {
+            adultContent: false,
+            sensitiveContent: false
+          }
         },
         preferences: {
           language: 'vi',
@@ -123,8 +135,19 @@ exports.getUserSettings = async (req, res) => {
         },
         privacy: {
           profileVisibility: 'public',
+          searchEngineIndex: true,
+          activityVisibility: 'public',
           showOnlineStatus: true,
-          allowMessages: 'all'
+          allowMessages: 'all',
+          dataCollection: {
+            analytics: true,
+            personalization: true,
+            thirdParty: false
+          },
+          contentPreferences: {
+            adultContent: false,
+            sensitiveContent: false
+          }
         },
         preferences: {
           language: userProfile.PreferredLanguage || 'vi',
@@ -522,5 +545,141 @@ exports.deleteAccount = async (req, res) => {
       message: 'Lỗi khi xóa tài khoản',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+};
+
+// Export user data and email JSON file attachment
+exports.exportUserData = async (req, res) => {
+  const path = require('path');
+  const fs = require('fs');
+
+  try {
+    await pool.connect();
+
+    const userId = req.user.userId || req.user.id || req.user.UserID;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy ID người dùng' });
+    }
+
+    // 1. Thu thập dữ liệu
+    const userQuery = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query('SELECT * FROM Users WHERE UserID = @UserID');
+
+    const profileQuery = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query('SELECT * FROM UserProfiles WHERE UserID = @UserID');
+
+    const paymentQuery = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query('SELECT * FROM PaymentTransactions WHERE UserID = @UserID');
+
+    const enrollQuery = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query('SELECT * FROM CourseEnrollments WHERE UserID = @UserID');
+
+    // Sanitize user data before exporting (remove sensitive fields)
+    let userData = userQuery.recordset[0] || {};
+    if (userData) {
+      // Remove sensitive fields
+      delete userData.Password;
+      delete userData.LastLoginIP;
+      delete userData.PasskeyCredentials;
+    }
+
+    const dataExport = {
+      generatedAt: new Date().toISOString(),
+      user: userData,
+      profile: profileQuery.recordset[0] || {},
+      payments: paymentQuery.recordset || [],
+      enrollments: enrollQuery.recordset || []
+    };
+
+    // 2. Ghi file tạm
+    const exportDir = path.join(__dirname, '../temp/exports');
+    
+    // Make sure export directory exists
+    try {
+      if (!fs.existsSync(exportDir)) {
+        fs.mkdirSync(exportDir, { recursive: true });
+      }
+    } catch (dirError) {
+      console.error('Error creating export directory:', dirError);
+      return res.status(500).json({ success: false, message: 'Không thể tạo thư mục xuất dữ liệu' });
+    }
+
+    const fileName = `userdata-${userId}-${Date.now()}.json`;
+    const filePath = path.join(exportDir, fileName);
+    
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(dataExport, null, 2), 'utf8');
+    } catch (fileError) {
+      console.error('Error writing export file:', fileError);
+      return res.status(500).json({ success: false, message: 'Không thể ghi file dữ liệu xuất' });
+    }
+
+    // 3. Gửi email với file đính kèm
+    // Lấy tất cả email đã xác thực
+    const emailsQuery = await pool.request()
+      .input('UserID', sql.BigInt, userId)
+      .query(`
+        SELECT Email FROM UserEmails WHERE UserID = @UserID AND IsVerified = 1
+        UNION ALL
+        SELECT Email FROM Users WHERE UserID = @UserID AND EmailVerified = 1
+      `);
+
+    const emailList = emailsQuery.recordset.map(r => r.Email).filter(Boolean);
+    // Nếu không có email nào được xác thực, fallback về email chính (dù chưa verified)
+    if (emailList.length === 0 && dataExport.user.Email) {
+      emailList.push(dataExport.user.Email);
+    }
+    
+    if (emailList.length === 0) {
+      return res.status(400).json({ success: false, message: 'Không tìm thấy email để gửi dữ liệu' });
+    }
+    
+    const toAddresses = emailList.join(',');
+    const fullName = dataExport.user.FullName || dataExport.user.Username || 'User';
+
+    try {
+      await sendEmailWithAttachment({
+        to: toAddresses,
+        subject: 'Bản sao dữ liệu cá nhân của bạn',
+        text: `Xin chào ${fullName},\n\nĐính kèm là bản sao dữ liệu cá nhân bạn đã yêu cầu từ Campust.\n\nTrân trọng,\nĐội ngũ Campust`,
+        attachments: [
+          {
+            filename: fileName,
+            content: Buffer.from(JSON.stringify(dataExport, null, 2), 'utf8'),
+            contentType: 'application/json',
+          }
+        ]
+      });
+
+      // Email sent – remove temp file
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (cleanupErr) {
+        console.warn('Cannot remove temporary export file:', cleanupErr.message);
+      }
+    } catch (mailErr) {
+      console.error('Send export email error:', mailErr);
+      // Trả file trực tiếp nếu gửi email thất bại
+      return res.download(filePath, fileName, (err) => {
+        if (err) {
+          console.error('Error downloading file:', err);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Không thể gửi email hoặc tải xuống dữ liệu. Vui lòng thử lại sau.' 
+          });
+        }
+      });
+    }
+
+    return res.json({ success: true, message: 'Dữ liệu đang được gửi tới email của bạn.' });
+  } catch (error) {
+    console.error('Export user data error:', error);
+    return res.status(500).json({ success: false, message: 'Lỗi khi xuất dữ liệu', error: error.message });
   }
 }; 

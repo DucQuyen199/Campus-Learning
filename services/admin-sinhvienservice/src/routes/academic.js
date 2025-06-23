@@ -1634,5 +1634,175 @@ router.put('/warnings/:id', async (req, res) => {
   }
 });
 
+/**
+ * Get students by program ID with entry year information
+ * GET /api/academic/programs/:id/students
+ */
+router.get('/programs/:id/students', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID is a number
+    const programId = parseInt(id, 10);
+    console.log('Parsed program ID:', programId, 'Original ID:', id, 'Type:', typeof programId);
+    
+    if (isNaN(programId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID chương trình không hợp lệ.'
+      });
+    }
+    
+    const query = `
+      SELECT 
+        u.UserID, u.Username, u.Email, u.FullName, u.DateOfBirth,
+        u.PhoneNumber, u.Address, u.City, u.Country,
+        u.Status, u.AccountStatus, u.CreatedAt, u.UpdatedAt, u.Avatar,
+        sd.StudentCode, sd.Class, sd.AcademicStatus, sd.Gender,
+        sp.EntryYear, sp.ExpectedGraduationYear, sp.Status AS ProgramStatus,
+        ap.ProgramName, ap.Faculty, ap.Department
+      FROM StudentPrograms sp
+      INNER JOIN Users u ON sp.UserID = u.UserID
+      INNER JOIN AcademicPrograms ap ON sp.ProgramID = ap.ProgramID
+      LEFT JOIN StudentDetails sd ON u.UserID = sd.UserID
+      WHERE sp.ProgramID = ${programId} AND u.Role = 'STUDENT'
+      ORDER BY sp.EntryYear DESC, u.FullName
+    `;
+    
+    console.log('Executing query with programId:', programId);
+    // Execute query directly without parameters
+    const pool = await require('../config/db').getPool();
+    const request = pool.request();
+    const result = await request.query(query);
+    
+    return res.status(200).json({
+      success: true,
+      data: result.recordset
+    });
+  } catch (error) {
+    console.error('Error fetching program students:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Đã xảy ra lỗi khi lấy danh sách sinh viên theo chương trình.'
+    });
+  }
+});
+
+/**
+ * Add an existing student to a program
+ * POST /api/academic/programs/:programId/addStudent
+ */
+router.post('/programs/:programId/addStudent', async (req, res) => {
+  try {
+    const { programId } = req.params;
+    const { studentId, entryYear, advisorId } = req.body;
+    
+    if (!programId || !studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID chương trình và ID sinh viên là bắt buộc.'
+      });
+    }
+    
+    // Check if the student exists
+    const checkStudentQuery = `
+      SELECT UserID FROM Users
+      WHERE UserID = @studentId AND Role = 'STUDENT'
+    `;
+    
+    const checkStudentResult = await executeQuery(checkStudentQuery, {
+      studentId: { type: sql.BigInt, value: studentId }
+    });
+    
+    if (checkStudentResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy sinh viên.'
+      });
+    }
+    
+    // Check if the program exists
+    const checkProgramQuery = `
+      SELECT ProgramID FROM AcademicPrograms
+      WHERE ProgramID = @programId
+    `;
+    
+    const checkProgramResult = await executeQuery(checkProgramQuery, {
+      programId: { type: sql.BigInt, value: programId }
+    });
+    
+    if (checkProgramResult.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy chương trình đào tạo.'
+      });
+    }
+    
+    // Check if the student is already in this program
+    const checkEnrollmentQuery = `
+      SELECT StudentProgramID FROM StudentPrograms
+      WHERE UserID = @studentId AND ProgramID = @programId
+    `;
+    
+    const checkEnrollmentResult = await executeQuery(checkEnrollmentQuery, {
+      studentId: { type: sql.BigInt, value: studentId },
+      programId: { type: sql.BigInt, value: programId }
+    });
+    
+    if (checkEnrollmentResult.recordset.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sinh viên đã được thêm vào chương trình này.'
+      });
+    }
+    
+    // Get program duration for calculating expected graduation year
+    const getProgramDurationQuery = `
+      SELECT ProgramDuration FROM AcademicPrograms
+      WHERE ProgramID = @programId
+    `;
+    
+    const durationResult = await executeQuery(getProgramDurationQuery, {
+      programId: { type: sql.BigInt, value: programId }
+    });
+    
+    const programDuration = durationResult.recordset[0]?.ProgramDuration || 4;
+    const currentYear = new Date().getFullYear();
+    const entryYearValue = entryYear || currentYear;
+    const expectedGraduationYear = entryYearValue + programDuration;
+    
+    // Add student to the program
+    const insertQuery = `
+      INSERT INTO StudentPrograms (
+        UserID, ProgramID, EntryYear, ExpectedGraduationYear,
+        AdvisorID, Status, IsPrimary
+      )
+      VALUES (
+        @studentId, @programId, @entryYear, @expectedGraduationYear,
+        @advisorId, 'Active', 0
+      );
+    `;
+    
+    await executeQuery(insertQuery, {
+      studentId: { type: sql.BigInt, value: studentId },
+      programId: { type: sql.BigInt, value: programId },
+      entryYear: { type: sql.Int, value: entryYearValue },
+      expectedGraduationYear: { type: sql.Int, value: expectedGraduationYear },
+      advisorId: { type: sql.BigInt, value: advisorId || null }
+    });
+    
+    return res.status(201).json({
+      success: true,
+      message: 'Thêm sinh viên vào chương trình đào tạo thành công.'
+    });
+  } catch (error) {
+    console.error('Error adding student to program:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Đã xảy ra lỗi khi thêm sinh viên vào chương trình đào tạo.'
+    });
+  }
+});
+
 // Export the router
 module.exports = router; 

@@ -554,6 +554,40 @@ export const academicService = {
   updateSemester: (id, semesterData) => {
     return apiClient.put(`/academic/semesters/${id}`, semesterData);
   },
+  
+  // Get students by program ID
+  getProgramStudents: async (programId) => {
+    try {
+      const response = await apiClient.get(`/academic/programs/${programId}/students`);
+      console.log('Program students response:', response);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching students for program ${programId}:`, error);
+      return { 
+        success: false, 
+        data: [], 
+        message: error.response?.data?.message || error.message 
+      };
+    }
+  },
+  
+  // Add existing student to program
+  addStudentToProgram: async (programId, studentId, entryYear) => {
+    try {
+      const response = await apiClient.post(`/academic/programs/${programId}/addStudent`, {
+        studentId,
+        entryYear
+      });
+      console.log('Add student to program response:', response);
+      return response;
+    } catch (error) {
+      console.error(`Error adding student to program ${programId}:`, error);
+      return { 
+        success: false, 
+        message: error.response?.data?.message || error.message 
+      };
+    }
+  },
 };
 
 // User service to fetch all users with optional role filter

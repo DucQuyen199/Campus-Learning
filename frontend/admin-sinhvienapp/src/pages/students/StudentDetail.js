@@ -70,10 +70,14 @@ const StudentDetail = () => {
       }
     };
 
-    if (id) {
-    fetchStudentDetails();
+    // Only fetch if id is provided and is not "new" or "add"
+    if (id && id !== 'new' && id !== 'add') {
+      fetchStudentDetails();
+    } else if (id === 'new' || id === 'add') {
+      // Redirect to the add student page if "new" or "add" is in the URL
+      navigate('/students/add');
     }
-  }, [id]);
+  }, [id, navigate]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);

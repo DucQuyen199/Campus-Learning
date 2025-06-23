@@ -380,6 +380,23 @@ const Students = () => {
 
   // Initial fetch on component mount
   useEffect(() => {
+    // Check for URL query parameters
+    const params = new URLSearchParams(location.search);
+    const action = params.get('action');
+    const programId = params.get('programId');
+    
+    // If the URL has action=new, navigate to the add student page
+    if (action === 'new') {
+      // If programId is provided, pass it as state to the AddStudent page
+      if (programId) {
+        navigate('/students/add', { state: { programId } });
+        return;
+      } else {
+        navigate('/students/add');
+        return;
+      }
+    }
+    
     const loadAllStudents = async () => {
       try {
         setLoading(true);

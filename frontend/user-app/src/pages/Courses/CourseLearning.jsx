@@ -254,53 +254,39 @@ const CourseLearning = () => {
   const determineContentType = (lesson) => {
     if (!lesson) return 'text';
     
-    console.log('Checking lesson content type:', lesson);
-    console.log('Has VideoUrl:', !!lesson.VideoUrl);
-    console.log('Has CodeExercise:', !!lesson.CodeExercise);
-    console.log('Has Quiz:', !!lesson.Quiz);
-    console.log('Lesson Type:', lesson.Type);
+    // Normalize type and properties
+    const lessonType = (lesson.Type || '').toString().toLowerCase();
+    const videoUrl = getLessonVideoUrl(lesson);
     
-    // Check different possible field names that might hold code exercise data
+    // Detect if lesson contains any code exercise data
     const hasCodeExercise = !!lesson.CodeExercise || !!lesson.codeExercise || !!lesson.Exercise;
-    console.log('Has any code exercise field:', hasCodeExercise);
+    // Consider lesson as coding practice if type indicates it OR exercise object exists with correct type
+    const practiceTypes = ['coding', 'exercise', 'practice', 'code'];
+    const isPracticeExercise = practiceTypes.includes(lessonType);
     
-    const isPracticeExercise = hasCodeExercise && (lesson.Type === 'coding' || lesson.Type === 'exercise');
-    console.log('Is Practice Exercise (CodeExercise + correct Type):', isPracticeExercise);
-    
-    if (hasCodeExercise && !(lesson.Type === 'coding' || lesson.Type === 'exercise')) {
-      console.log('Warning: Lesson has CodeExercise but Type is not "coding" or "exercise":', lesson.Type);
-      console.log('CodeExercise will not be displayed as interactive editor');
-    }
-    
-    // Log all possible code exercise objects to identify the correct property name
-    if (lesson.CodeExercise) {
-      console.log('CodeExercise details:', lesson.CodeExercise);
-    }
-    if (lesson.codeExercise) {
-      console.log('codeExercise details (lowercase):', lesson.codeExercise);
-    }
-    if (lesson.Exercise) {
-      console.log('Exercise details:', lesson.Exercise);
-    }
-    
-    // Only show code editor if lesson has CodeExercise AND type is coding or exercise
+    // If the lesson is explicitly marked as coding / exercise, show code editor
     if (isPracticeExercise) {
-      console.log('Setting content type to "code" for interactive editor');
-      return 'code';
-    }
-    
-    // If there's no video, redirect to the EditCode page
-    if (!lesson.VideoUrl) {
-      console.log('No video found, redirecting to EditCode page');
-      // Use setTimeout to allow the component to render first before navigation
+      // For practice exercises, redirect to the dedicated EditCode view that shows split layout
       setTimeout(() => {
         window.location.href = `/courses/${courseId}/edit-code/${lesson.LessonID}`;
       }, 100);
-      return 'loading'; // Return 'loading' temporarily while redirecting
+      return 'loading'; // temporary state while redirecting
     }
     
-    if (lesson.VideoUrl) return 'video';
-    if (lesson.Quiz) return 'quiz';
+    // Handle explicit video lessons
+    if (lessonType === 'video') {
+      // Show video if URL exists, otherwise fall back to text
+      return videoUrl ? 'video' : 'text';
+    }
+    
+    // Quiz lessons
+    if (lessonType === 'quiz') {
+      return 'quiz';
+    }
+    
+    // Default fallbacks based on available data
+    if (videoUrl) return 'video';
+    
     return 'text';
   };
 
@@ -555,6 +541,60 @@ const CourseLearning = () => {
     }
   };
 
+  // Helper to convert YouTube links to embed format
+  const toYouTubeEmbed = (url) => {
+    if (!url) return url;
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname;
+
+      // Playlist parameter (if any)
+      const listId = parsed.searchParams.get('list');
+
+      // 1. Short link youtu.be/{id}
+      if (host === 'youtu.be') {
+        const videoId = parsed.pathname.slice(1); // remove leading '/'
+        return listId
+          ? `https://www.youtube.com/embed/${videoId}?list=${listId}`
+          : `https://www.youtube.com/embed/${videoId}`;
+      }
+
+      // 2. Standard watch link youtube.com/watch?v={id}
+      const videoIdFromParam = parsed.searchParams.get('v');
+      if (videoIdFromParam) {
+        return listId
+          ? `https://www.youtube.com/embed/${videoIdFromParam}?list=${listId}`
+          : `https://www.youtube.com/embed/${videoIdFromParam}`;
+      }
+
+      // 3. Shorts link youtube.com/shorts/{id}
+      if (parsed.pathname.startsWith('/shorts/')) {
+        const videoId = parsed.pathname.split('/shorts/')[1].split(/[?&]/)[0];
+        return listId
+          ? `https://www.youtube.com/embed/${videoId}?list=${listId}`
+          : `https://www.youtube.com/embed/${videoId}`;
+      }
+
+      // 4. Already embed or other provider → return as is
+      return url;
+    } catch (e) {
+      return url;
+    }
+  };
+
+  // Extract video url from lesson fields or content
+  const getLessonVideoUrl = (lesson) => {
+    if (!lesson) return null;
+    const directUrl = lesson.VideoUrl || lesson.videoUrl || lesson.VideoURL;
+    if (directUrl) return directUrl;
+    // If URL is embedded inside content, extract first YouTube link
+    if (typeof lesson.Content === 'string') {
+      const match = lesson.Content.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/[\w\-?=&%#./]+|youtu\.be\/[\w\-?=&%#./]+)/i);
+      if (match) return match[0];
+    }
+    return null;
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -806,11 +846,11 @@ const CourseLearning = () => {
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                     <p className="ml-3 text-gray-600">Đang chuyển hướng...</p>
                   </div>
-                ) : contentType === 'video' && currentLesson?.VideoUrl ? (
+                ) : contentType === 'video' && getLessonVideoUrl(currentLesson) ? (
                   <div className={`${isFullScreen ? 'w-full h-full' : 'w-full aspect-video'} relative mx-auto`} ref={videoContainerRef}>
                     <iframe
                       title={currentLesson.Title}
-                      src={currentLesson.VideoUrl}
+                      src={toYouTubeEmbed(getLessonVideoUrl(currentLesson))}
                       className="w-full h-full rounded-lg"
                       frameBorder="0"
                       allowFullScreen
@@ -878,6 +918,7 @@ const CourseLearning = () => {
                           }
                         }
                       }}
+                      showControls={false}
                     />
                   </div>
                 ) : (currentLesson?.CodeExercise || currentLesson?.codeExercise || currentLesson?.Exercise) && 
@@ -1067,7 +1108,7 @@ const CourseLearning = () => {
 };
 
 // Add CodeExerciseEditor component within the same file
-const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) => {
+const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete, showControls = true }) => {
   console.log('CodeExerciseEditor initialized with:', { courseId, lessonId, codeExercise });
   
   // Map expected field names regardless of API response casing
@@ -1092,6 +1133,7 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) =>
   const [isRunning, setIsRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testResults, setTestResults] = useState(null);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
     // Reset code when exercise changes
@@ -1214,32 +1256,84 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) =>
     setCode(newCode);
   };
 
+  // Toggle fullscreen mode
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    
+    // If entering fullscreen, scroll editor into view
+    if (!isFullScreen) {
+      window.scrollTo(0, 0);
+    }
+  };
+  
+  // Apply fullscreen styles conditionally
+  const editorStyle = isFullScreen 
+    ? { 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0,
+        height: '100vh',
+        width: '100vw',
+        zIndex: 9999, 
+        margin: 0,
+        padding: 0,
+        border: 'none',
+        borderRadius: 0,
+      } 
+    : { height: '400px', border: '1px solid #ddd', borderRadius: '6px', overflow: 'hidden', marginBottom: '24px' };
+
+  const wrapperStyle = isFullScreen 
+    ? { backgroundColor: '#fff', padding: 0 } 
+    : { backgroundColor: 'white', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' };
+
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold mb-2">{codeExercise?.Title || 'Code Exercise'}</h3>
-        <p className="text-gray-700">{codeExercise?.Description || 'Complete the exercise below.'}</p>
-      </div>
+    <div style={wrapperStyle}>
+      { (codeExercise?.Title || codeExercise?.Description) && (
+        <div className="mb-4">
+          {codeExercise?.Title && (<h3 className="text-lg font-semibold mb-2">{codeExercise.Title}</h3>)}
+          {codeExercise?.Description && (<p className="text-gray-700">{codeExercise.Description}</p>)}
+        </div>
+      )}
 
-      <div className="mb-4">
-        <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">
-          Language
-        </label>
-        <select
-          id="language"
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        >
-          <option value="javascript">JavaScript</option>
-          <option value="python">Python</option>
-          <option value="java">Java</option>
-          <option value="csharp">C#</option>
-          <option value="cpp">C++</option>
-        </select>
-      </div>
+      {showControls && (
+        <div className="mb-4">
+          <label htmlFor="language" className="block text-sm font-medium text-gray-700 mb-1">
+            Language
+          </label>
+          <select
+            id="language"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          >
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="java">Java</option>
+            <option value="csharp">C#</option>
+            <option value="cpp">C++</option>
+          </select>
+        </div>
+      )}
 
-      <div className="mb-6 border rounded-md overflow-hidden" style={{ height: '400px' }}>
+      <div style={editorStyle}>
+        <div className="absolute top-2 right-2 z-[10000]">
+          <button
+            onClick={toggleFullScreen}
+            className="p-2 bg-black bg-opacity-50 rounded-lg text-white hover:bg-opacity-70 transition-opacity"
+          >
+            {isFullScreen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+              </svg>
+            )}
+          </button>
+        </div>
         <CodeServerEditor 
           code={code}
           language={language}
@@ -1247,32 +1341,34 @@ const CodeExerciseEditor = ({ courseId, lessonId, codeExercise, onComplete }) =>
         />
       </div>
 
-      <div className="flex justify-between mb-6">
-        <button
-          onClick={handleRunCode}
-          disabled={isRunning}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            isRunning
-              ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-        >
-          {isRunning ? 'Running...' : 'Run Code'}
-        </button>
-        <button
-          onClick={handleSubmitCode}
-          disabled={isSubmitting}
-          className={`px-4 py-2 rounded-md text-sm font-medium ${
-            isSubmitting
-              ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
-              : 'bg-green-600 text-white hover:bg-green-700'
-          }`}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Solution'}
-        </button>
-      </div>
+      {showControls && !isFullScreen && (
+        <div className="flex justify-between mb-6">
+          <button
+            onClick={handleRunCode}
+            disabled={isRunning}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              isRunning
+                ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {isRunning ? 'Running...' : 'Run Code'}
+          </button>
+          <button
+            onClick={handleSubmitCode}
+            disabled={isSubmitting}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              isSubmitting
+                ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Solution'}
+          </button>
+        </div>
+      )}
 
-      {testResults && (
+      {testResults && !isFullScreen && (
         <div className="mt-4 border-t pt-4">
           <h4 className="text-lg font-semibold mb-2">Test Results</h4>
           {testResults.error ? (

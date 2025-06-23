@@ -105,7 +105,24 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
   }
 };
 
+// Send general email with optional attachments (e.g., exported user data)
+const sendEmailWithAttachment = async ({ to, subject, text, attachments = [], from }) => {
+  try {
+    return await transporter.sendMail({
+      from: from || 'Campust <devquyen@gmail.com>',
+      to,
+      subject,
+      text,
+      attachments
+    });
+  } catch (error) {
+    console.error('Lỗi gửi email đính kèm:', error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   generateOTP,
-  sendVerificationEmail
+  sendVerificationEmail,
+  sendEmailWithAttachment
 };

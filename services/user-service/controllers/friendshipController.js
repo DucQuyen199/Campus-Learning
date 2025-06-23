@@ -6,13 +6,23 @@ const Friendship = db.Friendship;
 const User = db.User;
 const sequelize = db.sequelize; // Import sequelize instance
 
+// Helper to extract user ID regardless of field name variations from auth middleware
+function getCurrentUserId(user) {
+  if (!user) return null;
+  return user.id || user.userId || user.UserID || null;
+}
+
 // Get all friendships for the current user
 exports.getAllFriendships = async (req, res) => {
   console.log('getAllFriendships called');
   console.log('User object:', req.user);
   
   try {
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'User authentication required' });
+    }
 
     // Query all friendships directly from the database
     const result = await pool.request()
@@ -119,11 +129,14 @@ exports.getAllFriendships = async (req, res) => {
         CurrentUserID: currentUserId
       });
 
+      const requesterMatches = record.RequesterID?.toString() === currentUserId.toString();
+      const addresseeMatches = record.AddresseeID?.toString() === currentUserId.toString();
+
       if (record.Status === 'accepted') {
         friends.push(userData);
-      } else if (record.Status === 'pending' && record.AddresseeID === currentUserId) {
+      } else if (record.Status === 'pending' && addresseeMatches) {
         pendingRequests.push(userData);
-      } else if (record.Status === 'pending' && record.RequesterID === currentUserId) {
+      } else if (record.Status === 'pending' && requesterMatches) {
         console.log('Adding to sent requests:', userData);
         sentRequests.push(userData);
       }
@@ -152,7 +165,7 @@ exports.getAllFriendships = async (req, res) => {
 exports.getUserFriendships = async (req, res) => {
   try {
     const { userId } = req.params;
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
 
     if (!userId) {
       return res.status(400).json({
@@ -214,7 +227,7 @@ exports.getUserFriendships = async (req, res) => {
 exports.getFriendshipStatus = async (req, res) => {
   try {
     const { userId } = req.params;
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
 
     if (!userId || userId == currentUserId) {
       return res.status(400).json({
@@ -276,7 +289,11 @@ exports.sendFriendRequest = async (req, res) => {
   try {
     console.log('sendFriendRequest called with body:', req.body);
     const { addresseeId } = req.body;
-    const requesterId = req.user.userId;
+    const requesterId = getCurrentUserId(req.user);
+
+    if (!requesterId) {
+      return res.status(401).json({ message: 'User authentication required' });
+    }
 
     console.log(`Processing friend request: requester=${requesterId}, addressee=${addresseeId}`);
 
@@ -403,7 +420,11 @@ exports.acceptFriendRequest = async (req, res) => {
   
   try {
     const { userId } = req.params;
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'User authentication required' });
+    }
 
     await transaction.begin();
 
@@ -456,7 +477,11 @@ exports.rejectFriendRequest = async (req, res) => {
   
   try {
     const { userId } = req.params;
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'User authentication required' });
+    }
 
     await transaction.begin();
 
@@ -507,7 +532,11 @@ exports.removeFriend = async (req, res) => {
   
   try {
     const { userId } = req.params;
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
+
+    if (!currentUserId) {
+      return res.status(401).json({ message: 'User authentication required' });
+    }
 
     await transaction.begin();
 
@@ -555,7 +584,7 @@ exports.removeFriend = async (req, res) => {
 // Get friend suggestions for current user
 exports.getFriendSuggestions = async (req, res) => {
   try {
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
     const limit = req.query.limit || 10; // Default to 10 suggestions
     
     // Get suggestions based on:
@@ -729,7 +758,7 @@ exports.getFriendSuggestions = async (req, res) => {
 // Get random friend suggestions (users not already friends with current user)
 exports.getRandomSuggestions = async (req, res) => {
   try {
-    const currentUserId = req.user.userId;
+    const currentUserId = getCurrentUserId(req.user);
     const limit = req.query.limit || 20; // Default to 20 suggestions
     
     // Get random users that are not already friends with the current user

@@ -541,10 +541,52 @@ exports.createPaymentUrl = async (req, res) => {
     // Create VNPay payment URL using vnpay library
     try {
       const originUrl = req.headers.origin || `${req.protocol}://${req.get('host')}`;
+      // Ensure IPv4 for VNPay (avoid "::1" IPv6 localhost)
+      let clientIp = req.headers['x-forwarded-for'];
+      if (clientIp) {
+        clientIp = clientIp.split(',')[0].trim();
+      } else {
+        clientIp = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+      }
+      if (clientIp === '::1') clientIp = '127.0.0.1';
       console.log('Using originUrl for VNPay return:', originUrl);
-      // Determine bank code: use request body override or fallback to env
-      const bankCode = req.body.bankCode || process.env.VNP_BANK_CODE;
+      // Determine bank code: use request body override only (do NOT send unsupported params)
+      // Validate bank code robustly to avoid VNPay error "Ngân hàng thanh toán không được hỗ trợ" (code 76)
+      let bankCode = null;
+      if (req.body && typeof req.body.bankCode === 'string') {
+        const trimmedBankCode = req.body.bankCode.trim();
+        // Exclude empty string, undefined/null literals or placeholder text
+        if (
+          trimmedBankCode &&
+          trimmedBankCode.toLowerCase() !== 'undefined' &&
+          trimmedBankCode.toLowerCase() !== 'null'
+        ) {
+          bankCode = trimmedBankCode;
+        }
+      }
+      // If bankCode is still null, use universal QR code method to avoid 76
+      if (!bankCode) {
+        bankCode = 'VNBANK';
+      }
       console.log('Using bankCode for VNPay:', bankCode);
+      
+      // Validate against supported bank codes list
+      if (bankCode) {
+        try {
+          const bankList = await vnpayClient.getBankList();
+          const supportedCodes = (bankList || []).map(b =>
+            (b && (b.shortName || b.code || b.bankCode || b.BankCode))?.toString().trim().toUpperCase()
+          );
+          if (!supportedCodes.includes(bankCode.toUpperCase())) {
+            console.warn(`Bank code ${bankCode} is not supported by VNPay. Removing bank code param.`);
+            bankCode = null;
+          }
+        } catch (bankListErr) {
+          console.error('Could not validate bank code with VNPay bank list:', bankListErr.message || bankListErr);
+          // Proceed without bank code if validation fails to avoid payment errors
+          bankCode = null;
+        }
+      }
       
       // Determine return URL
       let returnUrl = process.env.VNP_RETURN_URL;
@@ -557,16 +599,29 @@ exports.createPaymentUrl = async (req, res) => {
       }
       console.log('Computed VNPay returnUrl:', returnUrl);
 
-      const paymentUrl = vnpayClient.buildPaymentUrl({
-        vnp_Amount: transaction.Amount,
-        vnp_IpAddr: req.ip,
+      const paymentParams = {
+        // Provide raw amount (VND); vnpay library will multiply by 100 when building URL
+        vnp_Amount: Math.round(Number(transaction.Amount)),
+        vnp_CurrCode: 'VND',
+        vnp_IpAddr: clientIp,
         vnp_TxnRef: transaction.TransactionCode,
         vnp_OrderInfo: `Thanh toán khóa học: ${transaction.CourseID}`,
         vnp_OrderType: 'billpayment',
         vnp_ReturnUrl: returnUrl,
-        vnp_Locale: 'vn',
-        vnp_BankCode: 'NCB'
-      });
+        vnp_Locale: 'vn'
+      };
+      // Chỉ thêm bankCode nếu được cung cấp rõ ràng – tránh lỗi "Ngân hàng không hỗ trợ" (code 76)
+      if (bankCode) {
+        paymentParams.vnp_BankCode = bankCode;
+      }
+      // Normalize IP: any IPv6 localhost or mapped IPv6 → 127.0.0.1
+      if (paymentParams.vnp_IpAddr.includes(':')) {
+        paymentParams.vnp_IpAddr = '127.0.0.1';
+      }
+
+      console.log('VNPay paymentParams:', paymentParams);
+
+      const paymentUrl = vnpayClient.buildPaymentUrl(paymentParams);
 
       console.log(`Generated VNPay URL for transaction ${transaction.TransactionID}`, paymentUrl);
       return res.status(200).json({

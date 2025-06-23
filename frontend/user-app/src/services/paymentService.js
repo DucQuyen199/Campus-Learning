@@ -128,71 +128,61 @@ const injectTimerFixToWindow = (targetWindow) => {
  */
 const paymentService = {
   /**
-   * Create a payment URL for the specified course
-   * @param {object} paymentData - Payment data
-   * @returns {Promise<string>} Payment URL
+   * Create VNPay payment URL for a specific course.
+   * @param {string|number} courseId - Course ID.
+   * @param {string|null} bankCode   - Optional VNPay bank code (e.g. "NCB", "VCB"). If null/undefined, VNPay will show bank selector.
+   * @returns {Promise<object>}      - Response from backend containing paymentUrl & transactionId.
    */
-  createPaymentUrl: async (paymentData) => {
+  createPaymentUrl: async (courseId, bankCode = null) => {
+    if (!courseId) throw new Error('courseId is required');
+
     try {
-      // Initialize VNPay timer fix
+      // Init VNPay timer fixes in advance (applies when page redirects)
       initializeVNPayTimer();
       initializeJQueryVNPayCompat();
-      
-      const response = await axios.post(`${API_URL}/payments/create-payment-url`, paymentData);
+
+      // Build payload – only send bankCode when provided
+      const payload = {};
+      if (bankCode) payload.bankCode = bankCode;
+
+      const response = await axios.post(`${API_URL}/courses/${courseId}/create-payment`, payload);
       return response.data;
     } catch (error) {
-      console.error('Error creating payment URL:', error);
+      console.error('Error creating VNPay payment URL:', error);
       throw error.response?.data || { message: 'Could not create payment URL' };
+    }
+  },
+
+  /**
+   * Fetch list of supported banks from VNPay via backend.
+   * @returns {Promise<Array>} List of banks (each object depends on VNPay spec).
+   */
+  getVNPayBankList: async () => {
+    try {
+      const response = await axios.get(`${API_URL}/vnpay/banks`);
+      return response.data?.data || [];
+    } catch (error) {
+      console.error('Error fetching VNPay bank list:', error);
+      throw error.response?.data || { message: 'Could not fetch bank list' };
     }
   },
   
   /**
-   * Process a course payment via VNPay
-   * @param {string} courseId - Course ID
-   * @param {number} amount - Payment amount
-   * @returns {Promise<object>} Payment result
+   * Deprecated API kept for backward-compat: now delegates to createPaymentUrl.
+   * @param {string|number} courseId
+   * @param {string|null} bankCode
    */
-  processPayment: async (courseId, amount) => {
+  processPayment: async (courseId, bankCode = null) => {
     try {
-      // Initialize VNPay timer fix
-      initializeVNPayTimer();
-      initializeJQueryVNPayCompat();
-      
-      const paymentData = {
-        courseId,
-        amount,
-        bankCode: 'NCB',
-        language: 'vn',
-        returnUrl: `${window.location.origin}/payment-callback?courseId=${courseId}`
-      };
-      
-      const response = await axios.post(`${API_URL}/payments/process`, paymentData);
-      
-      // Open payment URL in new window if provided
-      if (response.data && response.data.paymentUrl) {
-        window.location.href = response.data.paymentUrl;
-        
-        // This is a fix for redirection - can be uncommented if issues persist
-        /*
-        const paymentWindow = window.open(response.data.paymentUrl, '_blank');
-        
-        if (paymentWindow) {
-          // Try to inject timer fix
-          setTimeout(() => {
-            try {
-              injectTimerFixToWindow(paymentWindow);
-            } catch (error) {
-              // Silent catch for cross-origin issues
-            }
-          }, 1000);
-        }
-        */
+      // Generate payment URL via new endpoint
+      const { paymentUrl } = await paymentService.createPaymentUrl(courseId, bankCode);
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       }
-      
-      return response.data;
+      return { paymentUrl };
     } catch (error) {
       console.error('Error processing payment:', error);
-      throw error.response?.data || { message: 'Could not process payment' };
+      throw error;
     }
   },
   

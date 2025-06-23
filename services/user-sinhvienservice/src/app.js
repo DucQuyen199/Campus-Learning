@@ -18,6 +18,8 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const onlineServicesRoutes = require('./routes/onlineServicesRoutes');
 const courseRegistrationRoutes = require('./routes/courseRegistrationRoutes');
 const secondMajorRoutes = require('./routes/secondMajorRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
+const internshipRoutes = require('./routes/internshipRoutes');
 
 // Initialize Express app
 const app = express();
@@ -66,6 +68,8 @@ app.use(`${apiPrefix}/feedback`, feedbackRoutes);
 app.use(`${apiPrefix}/services`, onlineServicesRoutes);
 app.use(`${apiPrefix}/course-registration`, courseRegistrationRoutes);
 app.use(`${apiPrefix}/second-major`, secondMajorRoutes);
+app.use(`${apiPrefix}/attendance`, attendanceRoutes);
+app.use(`${apiPrefix}/internship`, internshipRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

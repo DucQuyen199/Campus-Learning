@@ -844,3 +844,127 @@ CREATE TABLE ProfileUpdates (
     Reason NVARCHAR(255),
     CONSTRAINT CHK_ProfileUpdate_Status CHECK (Status IN ('Pending', 'Approved', 'Rejected'))
 );go
+
+CREATE TABLE [dbo].[Exams] (
+    [ExamID]           BIGINT         IDENTITY (1, 1) NOT NULL,
+    [CourseID]         BIGINT         NULL,
+    [Title]            NVARCHAR (255) NOT NULL,
+    [Description]      NVARCHAR (MAX) NULL,
+    [Type]             VARCHAR (50)   NOT NULL,
+    [Duration]         INT            NOT NULL,
+    [TotalPoints]      INT            DEFAULT ((100)) NULL,
+    [PassingScore]     INT            DEFAULT ((60)) NULL,
+    [StartTime]        DATETIME       NOT NULL,
+    [EndTime]          DATETIME       NOT NULL,
+    [Instructions]     NVARCHAR (MAX) NULL,
+    [AllowReview]      BIT            DEFAULT ((1)) NULL,
+    [ShuffleQuestions] BIT            DEFAULT ((1)) NULL,
+    [Status]           VARCHAR (20)   DEFAULT ('upcoming') NULL,
+    [CreatedBy]        BIGINT         NULL,
+    [CreatedAt]        DATETIME       DEFAULT (getdate()) NULL,
+    [UpdatedAt]        DATETIME       DEFAULT (getdate()) NULL,
+    [AlternateId]      NVARCHAR (255) NULL,
+    [AllowRetakes]     BIT            DEFAULT ((0)) NULL,
+    [MaxRetakes]       INT            DEFAULT ((0)) NULL,
+    PRIMARY KEY CLUSTERED ([ExamID] ASC),
+    CONSTRAINT [CHK_Exam_Status] CHECK ([Status]='cancelled' OR [Status]='completed' OR [Status]='ongoing' OR [Status]='upcoming'),
+    CONSTRAINT [CHK_Exam_Type] CHECK ([Type]='mixed' OR [Type]='coding' OR [Type]='essay' OR [Type]='multiple_choice'),
+    FOREIGN KEY ([CourseID]) REFERENCES [dbo].[Courses] ([CourseID]),
+    FOREIGN KEY ([CreatedBy]) REFERENCES [dbo].[Users] ([UserID])
+);
+
+CREATE TABLE [dbo].[ExamQuestions] (
+    [QuestionID]    BIGINT         IDENTITY (1, 1) NOT NULL,
+    [ExamID]        BIGINT         NULL,
+    [Type]          VARCHAR (50)   NOT NULL,
+    [Content]       NVARCHAR (MAX) NULL,
+    [Points]        INT            DEFAULT ((1)) NULL,
+    [OrderIndex]    INT            NULL,
+    [Options]       NVARCHAR (MAX) NULL,
+    [CorrectAnswer] NVARCHAR (MAX) NULL,
+    [Explanation]   NVARCHAR (MAX) NULL,
+    [CreatedAt]     DATETIME       DEFAULT (getdate()) NULL,
+    [UpdatedAt]     DATETIME       DEFAULT (getdate()) NULL,
+    PRIMARY KEY CLUSTERED ([QuestionID] ASC),
+    CONSTRAINT [CHK_Question_Type] CHECK ([Type]='coding' OR [Type]='essay' OR [Type]='multiple_choice'),
+    FOREIGN KEY ([ExamID]) REFERENCES [dbo].[Exams] ([ExamID])
+);
+
+CREATE TABLE [dbo].[ExamMonitoringLogs] (
+    [LogID]         BIGINT         IDENTITY (1, 1) NOT NULL,
+    [ParticipantID] BIGINT         NULL,
+    [EventType]     VARCHAR (50)   NULL,
+    [EventData]     NVARCHAR (MAX) NULL,
+    [Timestamp]     DATETIME       DEFAULT (getdate()) NULL,
+    PRIMARY KEY CLUSTERED ([LogID] ASC),
+    CONSTRAINT [CHK_Event_Type] CHECK ([EventType]='exam_submit' OR [EventType]='exam_start' OR [EventType]='penalty_applied' OR [EventType]='suspicious_activity' OR [EventType]='no_face' OR [EventType]='multiple_faces' OR [EventType]='face_detection' OR [EventType]='copy_paste' OR [EventType]='full_screen_return' OR [EventType]='full_screen_exit' OR [EventType]='tab_switch'),
+    FOREIGN KEY ([ParticipantID]) REFERENCES [dbo].[ExamParticipants] ([ParticipantID])
+);
+
+CREATE TABLE [dbo].[EssayAnswerAnalysis] (
+    [AnalysisID]        BIGINT         IDENTITY (1, 1) NOT NULL,
+    [AnswerID]          BIGINT         NULL,
+    [MatchPercentage]   DECIMAL (5, 2) NULL,
+    [KeywordsMatched]   INT            NULL,
+    [TotalKeywords]     INT            NULL,
+    [ContentSimilarity] DECIMAL (5, 2) NULL,
+    [GrammarScore]      DECIMAL (5, 2) NULL,
+    [AnalyzedAt]        DATETIME       DEFAULT (getdate()) NULL,
+    [AutoGradedScore]   INT            NULL,
+    [FinalScore]        INT            NULL,
+    [ReviewerComments]  NVARCHAR (MAX) NULL,
+    PRIMARY KEY CLUSTERED ([AnalysisID] ASC),
+    FOREIGN KEY ([AnswerID]) REFERENCES [dbo].[ExamAnswers] ([AnswerID])
+);
+use campushubt;
+CREATE TABLE [dbo].[ExamParticipants] (
+    [ParticipantID]     BIGINT         IDENTITY (1, 1) NOT NULL,
+    [ExamID]            BIGINT         NULL,
+    [UserID]            BIGINT         NULL,
+    [StartedAt]         DATETIME       NULL,
+    [CompletedAt]       DATETIME       NULL,
+    [TimeSpent]         INT            NULL,
+    [Score]             INT            NULL,
+    [Status]            VARCHAR (20)   DEFAULT ('registered') NULL,
+    [Feedback]          NVARCHAR (MAX) NULL,
+    [ReviewedBy]        BIGINT         NULL,
+    [ReviewedAt]        DATETIME       NULL,
+    [PenaltyApplied]    BIT            DEFAULT ((0)) NOT NULL,
+    [PenaltyReason]     NVARCHAR (255) NULL,
+    [PenaltyPercentage] INT            DEFAULT ((0)) NOT NULL,
+    PRIMARY KEY CLUSTERED ([ParticipantID] ASC),
+    CONSTRAINT [CHK_Participant_Status] CHECK ([Status]='reviewed' OR [Status]='completed' OR [Status]='in_progress' OR [Status]='registered'),
+    FOREIGN KEY ([ExamID]) REFERENCES [dbo].[Exams] ([ExamID]),
+    FOREIGN KEY ([ReviewedBy]) REFERENCES [dbo].[Users] ([UserID]),
+    FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID])
+);
+
+CREATE TABLE [dbo].[ExamAnswers] (
+    [AnswerID]         BIGINT         IDENTITY (1, 1) NOT NULL,
+    [ParticipantID]    BIGINT         NULL,
+    [QuestionID]       BIGINT         NULL,
+    [Answer]           NVARCHAR (MAX) NULL,
+    [IsCorrect]        BIT            NULL,
+    [Score]            INT            NULL,
+    [ReviewerComments] NVARCHAR (MAX) NULL,
+    [SubmittedAt]      DATETIME       DEFAULT (getdate()) NULL,
+    PRIMARY KEY CLUSTERED ([AnswerID] ASC),
+    FOREIGN KEY ([ParticipantID]) REFERENCES [dbo].[ExamParticipants] ([ParticipantID]),
+    FOREIGN KEY ([QuestionID]) REFERENCES [dbo].[ExamQuestions] ([QuestionID])
+);
+
+CREATE TABLE [dbo].[ExamAnswerTemplates] (
+    [TemplateID]             BIGINT         IDENTITY (1, 1) NOT NULL,
+    [ExamID]                 BIGINT         NULL,
+    [Content]                NVARCHAR (MAX) NULL,
+    [Keywords]               NVARCHAR (MAX) NULL,
+    [MinimumMatchPercentage] DECIMAL (5, 2) NULL,
+    [CreatedBy]              BIGINT         NULL,
+    [CreatedAt]              DATETIME       DEFAULT (getdate()) NULL,
+    [UpdatedAt]              DATETIME       NULL,
+    [QuestionID]             BIGINT         NULL,
+    PRIMARY KEY CLUSTERED ([TemplateID] ASC),
+    FOREIGN KEY ([CreatedBy]) REFERENCES [dbo].[Users] ([UserID]),
+    FOREIGN KEY ([ExamID]) REFERENCES [dbo].[Exams] ([ExamID]),
+    CONSTRAINT [FK_ExamAnswerTemplates_ExamQuestions] FOREIGN KEY ([QuestionID]) REFERENCES [dbo].[ExamQuestions] ([QuestionID])
+);

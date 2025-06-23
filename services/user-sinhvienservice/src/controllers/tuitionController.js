@@ -22,9 +22,10 @@ const tuitionController = {
       });
     } catch (error) {
       console.error('Error in getCurrentTuition controller:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || 'Server error while fetching current tuition' 
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No tuition data found'
       });
     }
   },
@@ -49,9 +50,10 @@ const tuitionController = {
       });
     } catch (error) {
       console.error('Error in getTuitionHistory controller:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: error.message || 'Server error while fetching tuition history' 
+      return res.json({
+        success: true,
+        data: [],
+        message: 'No tuition history'
       });
     }
   },

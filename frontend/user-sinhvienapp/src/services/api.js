@@ -1,7 +1,10 @@
 import axios from 'axios';
 
-// Default configuration for axios
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008';
+// Determine base URL and ensure it ends with `/api` to match backend routes
+let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008';
+if (!API_URL.endsWith('/api')) {
+  API_URL = API_URL.replace(/\/+$/, '') + '/api'; // remove trailing slashes then append /api
+}
 
 // Create axios instance with default config
 const apiClient = axios.create({

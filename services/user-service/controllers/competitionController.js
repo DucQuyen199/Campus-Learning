@@ -147,13 +147,14 @@ exports.getProblemDetails = async (req, res) => {
     console.log(`Request params: competitionId=${competitionId}, problemId=${problemId}`);
     
     // Check if the competition is valid
-    const competitionResult = await pool.request()
-      .input('competitionId', sql.BigInt, competitionId)
-      .query(`
-        SELECT CompetitionID, Status, StartTime, EndTime
-        FROM Competitions
-        WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
-      `);
+    const competitionRequest = pool.request();
+    competitionRequest.input('competitionId', sql.BigInt, competitionId);
+    
+    const competitionResult = await competitionRequest.query(`
+      SELECT CompetitionID, Status, Duration, MaxParticipants, CurrentParticipants
+      FROM Competitions
+      WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
+    `);
     
     if (competitionResult.recordset.length === 0) {
       return res.status(404).json({
@@ -196,19 +197,20 @@ exports.getProblemDetails = async (req, res) => {
     }
     
     // Get problem details
-    const problemResult = await pool.request()
-      .input('competitionId', sql.BigInt, competitionId)
-      .input('problemId', sql.BigInt, problemId)
-      .query(`
-        SELECT 
-            p.ProblemID, p.Title, p.Description, p.Difficulty, 
-            p.Points, p.TimeLimit, p.MemoryLimit, 
-            p.InputFormat, p.OutputFormat, p.Constraints, p.SampleInput,
-            p.SampleOutput, p.Explanation, p.StarterCode, p.Tags,
-            p.TestCasesVisible, p.TestCasesHidden
-        FROM CompetitionProblems p
-        WHERE p.CompetitionID = @competitionId AND p.ProblemID = @problemId
-      `);
+    const problemRequest = pool.request();
+    problemRequest.input('competitionId', sql.BigInt, competitionId);
+    problemRequest.input('problemId', sql.BigInt, problemId);
+    
+    const problemResult = await problemRequest.query(`
+      SELECT 
+          p.ProblemID, p.Title, p.Description, p.Difficulty, 
+          p.Points, p.TimeLimit, p.MemoryLimit, 
+          p.InputFormat, p.OutputFormat, p.Constraints, p.SampleInput,
+          p.SampleOutput, p.Explanation, p.StarterCode, p.Tags,
+          p.TestCasesVisible, p.TestCasesHidden
+      FROM CompetitionProblems p
+      WHERE p.CompetitionID = @competitionId AND p.ProblemID = @problemId
+    `);
     
     if (problemResult.recordset.length === 0) {
       return res.status(404).json({
@@ -363,7 +365,7 @@ exports.registerForCompetition = async (req, res) => {
     competitionRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
     
     const competitionResult = await competitionRequest.query(`
-      SELECT CompetitionID, Status, Duration, StartTime, EndTime, MaxParticipants, CurrentParticipants
+      SELECT CompetitionID, Status, Duration, MaxParticipants, CurrentParticipants
       FROM Competitions
       WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
     `);
@@ -496,7 +498,7 @@ exports.startCompetition = async (req, res) => {
     competitionRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
     
     const competitionResult = await competitionRequest.query(`
-      SELECT CompetitionID, Status, Duration, StartTime, EndTime, MaxParticipants, CurrentParticipants
+      SELECT CompetitionID, Status, Duration, MaxParticipants, CurrentParticipants
       FROM Competitions
       WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
     `);
@@ -679,7 +681,7 @@ exports.submitSolution = async (req, res) => {
     competitionRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
     
     const competitionResult = await competitionRequest.query(`
-      SELECT CompetitionID, Status
+      SELECT CompetitionID, Status, Duration, MaxParticipants, CurrentParticipants
       FROM Competitions
       WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
     `);

@@ -4,15 +4,28 @@ import axios from 'axios';
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Synchronous init from localStorage to avoid flash before token load
+  const initialUser = (() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      if (savedUser && token && token.length > 10) {
+        const parsed = JSON.parse(savedUser);
+        return { ...parsed, token, id: parsed.id || parsed.UserID || parsed.userId };
+      }
+    } catch {}
+    return null;
+  })();
+
+  const [currentUser, setCurrentUser] = useState(initialUser);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!initialUser);
+  const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
 
   // Initial auth check - run only once at component mount
   useEffect(() => {
-    if (initialAuthCheckDone) return;
+    if (initialAuthCheckDone || initialUser) return;
 
     // Check for saved user and token on component mount
     const savedUser = localStorage.getItem('user');
@@ -47,6 +60,7 @@ export function AuthProvider({ children }) {
         
         setCurrentUser(userWithToken);
         setIsAuthenticated(true);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
         // Optional: Check auth status in the background, but don't block UI rendering
         checkAuth().catch(err => console.error('Background auth check failed:', err));
@@ -58,13 +72,14 @@ export function AuthProvider({ children }) {
     
     setLoading(false);
     setInitialAuthCheckDone(true);
-  }, [initialAuthCheckDone]);
+  }, [initialAuthCheckDone, initialUser]);
 
   // Helper function to clear all auth data
   const clearAuthData = useCallback(() => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    delete axios.defaults.headers.common['Authorization'];
     setCurrentUser(null);
     setIsAuthenticated(false);
   }, []);
@@ -115,6 +130,7 @@ export function AuthProvider({ children }) {
         localStorage.setItem('user', JSON.stringify(userWithToken));
         
         setCurrentUser(userWithToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setIsAuthenticated(true);
         
         return { success: true, user: userWithToken };
@@ -216,6 +232,7 @@ export function AuthProvider({ children }) {
           
           setCurrentUser(updatedUser);
           localStorage.setItem('user', JSON.stringify(updatedUser));
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         }
         setIsAuthenticated(true);
         return true;
@@ -276,6 +293,7 @@ export function AuthProvider({ children }) {
       if (error.response && (error.response.status === 400 || error.response.status === 401)) {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
+        delete axios.defaults.headers.common['Authorization'];
         setIsAuthenticated(false);
         setCurrentUser(null);
       }

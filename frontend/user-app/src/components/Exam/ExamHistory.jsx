@@ -253,17 +253,7 @@ const ExamHistory = () => {
                         Tiếp tục
                       </Button>
                     )}
-                    {(attempt.Status === 'completed' || attempt.Status === 'reviewed') && (
-                      <Button 
-                        variant="outlined" 
-                        color="info" 
-                        size="small" 
-                        component={Link} 
-                        to={`/exams/results/${attempt.ParticipantID}`}
-                      >
-                        Xem kết quả
-                      </Button>
-                    )}
+                    {/* Ẩn nút xem kết quả để không cho phép truy cập chi tiết bài làm */}
                   </TableCell>
                 </TableRow>
               ))}

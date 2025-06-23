@@ -176,12 +176,10 @@ export const completeExam = async (participantId, examId, penalties = null) => {
       },
       // Include score information if available
       score: penalties.finalScore !== undefined ? penalties.finalScore : undefined,
+      Score: penalties.finalScore !== undefined ? penalties.finalScore : undefined,
       originalScore: penalties.originalScore !== undefined ? penalties.originalScore : undefined,
       feedbacks: penalties.feedbacks
     } : {};
-    
-    // Try multiple endpoint formats to support different backend configurations
-    let error = null;
     
     // Try with both IDs first (preferred)
     if (examId) {
@@ -284,91 +282,88 @@ export const getAnswerTemplate = async (examId, questionId) => {
   }
 };
 
+// Vietnamese stop-words – minimal list to ignore very common terms.
+const VIETNAMESE_STOPWORDS = new Set([
+  'và','là','của','các','một','những','được','trong','để','với','khi','đã','có','cho','ra','như','về','sự','từ','cũng','này','đó','đây','thì','lại','mà','đến','nhưng','trên','hay','hoặc','vì','nên','do','bởi','tại','theo'
+]);
+
+/**
+ * Convert text to accent-less lower-case tokens & remove stop-words + punctuation.
+ */
+const normaliseAndTokenise = (text) => {
+  if (!text) return [];
+  // Remove accents
+  let processed = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Remove punctuation/symbols
+  processed = processed.replace(/[^a-z0-9\s]+/g, ' ');
+  // Split & filter
+  return processed.split(/\s+/).filter(t => t && !VIETNAMESE_STOPWORDS.has(t));
+};
+
+/** Count how many keywords appear in answer (accent-insensitive phrase search) */
+const countKeywordsMatchedLocally = (answer, keywords) => {
+  if (!answer || !Array.isArray(keywords) || keywords.length === 0) return 0;
+  const answerNorm = normaliseAndTokenise(answer).join(' ');
+  let hit = 0;
+  for (const kw of keywords) {
+    if (!kw) continue;
+    const kwNorm = normaliseAndTokenise(kw).join(' ');
+    if (kwNorm && answerNorm.includes(kwNorm)) hit++;
+  }
+  return hit;
+};
+
 /**
  * Compare user answer with template - helper function used by frontend grading
- * @param {string} userAnswer - The user's answer to compare
- * @param {string} templateContent - The template content
- * @param {Array} keywords - Keywords to check for
- * @returns {Object} - Similarity analysis results
+ * (UPDATED: improved Vietnamese text normalisation and stop-word filtering)
  */
-export const compareAnswerLocally = (userAnswer, templateContent, keywords) => {
+export const compareAnswerLocally = (userAnswer, templateContent, keywords = []) => {
+  // Early exit if missing data
   if (!userAnswer || !templateContent) {
     return {
       totalSimilarity: 0,
       keywordsMatched: 0,
-      totalKeywords: keywords?.length || 0,
+      totalKeywords: keywords.length,
       contentSimilarity: 0
     };
   }
-  
-  // Count matched keywords
-  const keywordsMatched = countKeywordsMatchedLocally(userAnswer, keywords || []);
-  const totalKeywords = keywords?.length || 0;
+
+  // Pre-normalise once to avoid duplicated work
+  const answerTokensArr = normaliseAndTokenise(userAnswer);
+  const templateTokensArr = normaliseAndTokenise(templateContent);
+  const answerTokenSet = new Set(answerTokensArr);
+  const templateTokenSet = new Set(templateTokensArr);
+
+  // --- Keyword score ----------------------------------------------------
+  const totalKeywords = keywords.length;
+  let keywordsMatched = 0;
+  if (totalKeywords > 0) {
+    for (const kw of keywords) {
+      if (!kw) continue;
+      const kwNorm = normaliseAndTokenise(kw).join(' ');
+      if (kwNorm && answerTokensArr.join(' ').includes(kwNorm)) {
+        keywordsMatched++;
+      }
+    }
+  }
   const keywordScore = totalKeywords > 0 ? (keywordsMatched / totalKeywords) * 100 : 0;
-  
-  // Calculate content similarity using word comparison
-  const contentSimilarity = calculateContentSimilarityLocally(userAnswer, templateContent);
-  
-  // Calculate total similarity (weighted average)
-  const totalSimilarity = (keywordScore * 0.7) + (contentSimilarity * 0.3);
-  
+
+  // --- Content similarity: proportion of template tokens present in answer (recall) ----
+  let common = 0;
+  templateTokenSet.forEach(tok => {
+    if (answerTokenSet.has(tok)) common++;
+  });
+  const contentSimilarity = templateTokenSet.size > 0 ? (common / templateTokenSet.size) * 100 : 0;
+
+  // Weighted average – emphasise keywords (60%) & content (40%)
+  const totalSimilarity = (keywordScore * 0.6) + (contentSimilarity * 0.4);
+
   return {
     totalSimilarity,
     keywordsMatched,
     totalKeywords,
     contentSimilarity
   };
-};
-
-/**
- * Helper function to count keywords in an answer
- * @private
- */
-const countKeywordsMatchedLocally = (answer, keywords) => {
-  if (!answer || !keywords || !Array.isArray(keywords) || keywords.length === 0) {
-    return 0;
-  }
-  
-  const lowerAnswer = answer.toLowerCase();
-  let count = 0;
-  
-  for (const keyword of keywords) {
-    if (keyword && lowerAnswer.includes(keyword.toLowerCase())) {
-      count++;
-    }
-  }
-  
-  return count;
-};
-
-/**
- * Helper function to calculate content similarity
- * @private
- */
-const calculateContentSimilarityLocally = (answer, template) => {
-  if (!answer || !template) {
-    return 0;
-  }
-  
-  // Simple Jaccard similarity for words
-  const answerWords = new Set(answer.toLowerCase().split(/\s+/).filter(Boolean));
-  const templateWords = new Set(template.toLowerCase().split(/\s+/).filter(Boolean));
-  
-  if (answerWords.size === 0 || templateWords.size === 0) {
-    return 0;
-  }
-  
-  let intersection = 0;
-  
-  for (const word of answerWords) {
-    if (templateWords.has(word)) {
-      intersection++;
-    }
-  }
-  
-  const union = answerWords.size + templateWords.size - intersection;
-  
-  return (union > 0) ? (intersection / union) * 100 : 0;
 };
 
 /**

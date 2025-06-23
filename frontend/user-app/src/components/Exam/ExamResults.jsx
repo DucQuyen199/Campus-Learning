@@ -110,7 +110,20 @@ const ExamResults = () => {
     );
   }
 
-  const { participant, answers } = results;
+  const { participant, answers = [] } = results;
+
+  // Deduplicate answers by QuestionID to ensure correct question count
+  const uniqueAnswerMap = new Map();
+  answers.forEach(ans => {
+    if (ans && ans.QuestionID) {
+      // Keep the first occurrence (or we could replace to keep latest)
+      if (!uniqueAnswerMap.has(ans.QuestionID)) {
+        uniqueAnswerMap.set(ans.QuestionID, ans);
+      }
+    }
+  });
+  const uniqueAnswers = Array.from(uniqueAnswerMap.values());
+
   // Calculate total score based on sum of all points instead of percentage
   const totalPoints = 10; // Total points is 10
   const passingPointValue = (participant.PassingScore / 100) * totalPoints; // Convert percentage to points
@@ -131,7 +144,16 @@ const ExamResults = () => {
   };
 
   return (
-    <Box sx={{ mt: 4, mb: 8, maxWidth: 1200, mx: 'auto' }}>
+    <Box
+      sx={{
+        mt: 4,
+        mb: 8,
+        px: { xs: 2, md: 5 }, // horizontal padding responsive
+        width: '100%',
+        maxWidth: { lg: '1400px', xl: '1800px' }, // allow wider screens to stretch
+        mx: 'auto',
+      }}
+    >
       <Paper elevation={3} sx={{ p: 3, mb: 4, position: 'relative', overflow: 'hidden' }}>
         {/* Background element for aesthetic */}
         <Box 
@@ -217,8 +239,8 @@ const ExamResults = () => {
         </Grid>
       </Paper>
       
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
+      <Grid container spacing={{ xs: 2, md: 4 }}>
+        <Grid item xs={12} md={5} lg={4}>
           {/* Information Section */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
@@ -238,21 +260,21 @@ const ExamResults = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <School sx={{ mr: 1, color: 'primary.main' }} />
                   <Typography variant="body2">
-                    <strong>Số câu:</strong> {answers?.length || 0}
+                    <strong>Số câu:</strong> {uniqueAnswers.length}
                   </Typography>
                 </Box>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <CheckCircle sx={{ mr: 1, color: 'success.main' }} />
                   <Typography variant="body2">
-                    <strong>Câu trả lời đúng:</strong> {answers?.filter(a => a.IsCorrect === 1).length || 0}
+                    <strong>Câu trả lời đúng:</strong> {uniqueAnswers.filter(a => a.IsCorrect === 1).length}
                   </Typography>
                 </Box>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Cancel sx={{ mr: 1, color: 'error.main' }} />
                   <Typography variant="body2">
-                    <strong>Câu trả lời sai:</strong> {answers?.filter(a => a.IsCorrect === 0).length || 0}
+                    <strong>Câu trả lời sai:</strong> {uniqueAnswers.filter(a => a.IsCorrect === 0).length}
                   </Typography>
                 </Box>
                 
@@ -287,207 +309,13 @@ const ExamResults = () => {
           </Card>
         </Grid>
         
-        <Grid item xs={12} md={8}>
-          {/* Detailed Answers Section */}
-          <Typography variant="h6" gutterBottom>
-            Chi tiết bài làm
-          </Typography>
+        <Grid item xs={12} md={7} lg={8} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          {/* Detailed answers have been disabled intentionally */}
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            Chi tiết bài làm đã được ẩn theo yêu cầu.
+          </Alert>
           
-          {answers && answers.length > 0 ? (
-            <Box>
-              {answers.map((answer, index) => {
-                // Get analysis data if available
-                const analysis = answer.Analysis ? answer.Analysis : null;
-                
-                return (
-                  <Accordion key={index} sx={{ mb: 2 }}>
-                    <AccordionSummary
-                      expandIcon={<ExpandMore />}
-                      aria-controls={`answer-${index}-content`}
-                      id={`answer-${index}-header`}
-                      sx={{
-                        backgroundColor: answer.IsCorrect === 1 
-                          ? 'rgba(76, 175, 80, 0.1)' 
-                          : 'rgba(244, 67, 54, 0.1)'
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
-                        <Typography>
-                          <strong>Câu {index + 1}:</strong> {answer.QuestionContent?.substring(0, 50)}...
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Chip 
-                            size="small" 
-                            label={`${answer.Score || 0} / ${answer.MaxScore || 0} điểm`}
-                            color={answer.IsCorrect === 1 ? "success" : "error"}
-                            sx={{ ml: 2 }}
-                          />
-                        </Box>
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                          Câu hỏi:
-                        </Typography>
-                        <Typography variant="body1" sx={{ mb: 2 }}>
-                          {answer.QuestionContent}
-                        </Typography>
-                        
-                        <Divider sx={{ my: 2 }} />
-                        
-                        <Grid container spacing={2}>
-                          <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                              Đáp án của bạn:
-                            </Typography>
-                            <Paper 
-                              variant="outlined" 
-                              sx={{ p: 2, backgroundColor: 'rgba(0, 0, 0, 0.02)' }}
-                            >
-                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                                {answer.Answer || 'Không có câu trả lời'}
-                              </Typography>
-                            </Paper>
-                          </Grid>
-                          
-                          <Grid item xs={12} md={6}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                              Đáp án mẫu:
-                            </Typography>
-                            <Paper 
-                              variant="outlined" 
-                              sx={{ p: 2, backgroundColor: 'rgba(25, 118, 210, 0.05)' }}
-                            >
-                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                                {answer.TemplateAnswer || 'Không có đáp án mẫu'}
-                              </Typography>
-                            </Paper>
-                          </Grid>
-                        </Grid>
-                        
-                        {/* Comparison Results */}
-                        {analysis && (
-                          <>
-                            <Divider sx={{ my: 2 }} />
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                              Kết quả phân tích:
-                            </Typography>
-                            
-                            <Grid container spacing={2}>
-                              <Grid item xs={12} md={6}>
-                                <Box sx={{ mb: 2 }}>
-                                  <Typography variant="body2" gutterBottom>
-                                    Độ tương đồng tổng thể:
-                                  </Typography>
-                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <Box sx={{ width: '100%', mr: 1 }}>
-                                      <LinearProgress 
-                                        variant="determinate" 
-                                        value={Math.min(100, Number(analysis.MatchPercentage) || 0)} 
-                                        sx={{ 
-                                          height: 10, 
-                                          borderRadius: 5,
-                                          backgroundColor: 'rgba(0,0,0,0.09)',
-                                          '& .MuiLinearProgress-bar': {
-                                            borderRadius: 5,
-                                            backgroundColor: (analysis.MatchPercentage >= 70) ? 'success.main' : 'warning.main',
-                                          }
-                                        }}
-                                      />
-                                    </Box>
-                                    <Box sx={{ minWidth: 35 }}>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {Math.round(Number(analysis.MatchPercentage) || 0)}%
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-                                </Box>
-                              </Grid>
-                              
-                              <Grid item xs={12} md={6}>
-                                <Typography variant="body2" gutterBottom>
-                                  Từ khóa khớp: {analysis.KeywordsMatched || 0}/{analysis.TotalKeywords || 0}
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                  <Box sx={{ width: '100%', mr: 1 }}>
-                                    <LinearProgress 
-                                      variant="determinate" 
-                                      value={analysis.TotalKeywords > 0 
-                                        ? Math.min(100, (analysis.KeywordsMatched / analysis.TotalKeywords) * 100) 
-                                        : 0} 
-                                      sx={{ 
-                                        height: 10, 
-                                        borderRadius: 5,
-                                        backgroundColor: 'rgba(0,0,0,0.09)',
-                                        '& .MuiLinearProgress-bar': {
-                                          borderRadius: 5,
-                                          backgroundColor: 'info.main'
-                                        }
-                                      }}
-                                    />
-                                  </Box>
-                                  <Box sx={{ minWidth: 35 }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                      {analysis.TotalKeywords > 0 
-                                        ? Math.round((analysis.KeywordsMatched / analysis.TotalKeywords) * 100) 
-                                        : 0}%
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              </Grid>
-                              
-                              {analysis.ContentSimilarity !== null && (
-                                <Grid item xs={12}>
-                                  <Typography variant="body2" gutterBottom>
-                                    Độ tương đồng nội dung:
-                                  </Typography>
-                                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <Box sx={{ width: '100%', mr: 1 }}>
-                                      <LinearProgress 
-                                        variant="determinate" 
-                                        value={Math.min(100, Number(analysis.ContentSimilarity) || 0)} 
-                                        sx={{ 
-                                          height: 10, 
-                                          borderRadius: 5,
-                                          backgroundColor: 'rgba(0,0,0,0.09)',
-                                          '& .MuiLinearProgress-bar': {
-                                            borderRadius: 5,
-                                            backgroundColor: 'secondary.main'
-                                          }
-                                        }}
-                                      />
-                                    </Box>
-                                    <Box sx={{ minWidth: 35 }}>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {Math.round(Number(analysis.ContentSimilarity) || 0)}%
-                                      </Typography>
-                                    </Box>
-                                  </Box>
-                                </Grid>
-                              )}
-                              
-                              <Grid item xs={12} sx={{ mt: 1 }}>
-                                <Typography variant="body2">
-                                  <strong>Điểm đánh giá:</strong> {analysis.FinalScore || 0} điểm
-                                </Typography>
-                              </Grid>
-                            </Grid>
-                          </>
-                        )}
-                      </Box>
-                    </AccordionDetails>
-                  </Accordion>
-                );
-              })}
-            </Box>
-          ) : (
-            <Alert severity="info">
-              Không có dữ liệu câu trả lời
-            </Alert>
-          )}
-          
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ mt: 'auto', display: 'flex', justifyContent: 'center' }}>
             <Button 
               variant="contained" 
               color="primary" 

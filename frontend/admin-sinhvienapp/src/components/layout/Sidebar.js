@@ -234,6 +234,7 @@ const Sidebar = ({ drawerWidth, open, handleDrawerToggle, isMobile, insideUnifie
               {renderSubMenuItem('Học kỳ', <CalendarMonth />, '/academic/semesters')}
               {renderSubMenuItem('Kết quả học tập', <Assessment />, '/academic/results')}
               {renderSubMenuItem('Cảnh báo học vụ', <Warning />, '/academic/warnings')}
+              {renderSubMenuItem('Lớp học', <Class />, '/academic/classes')}
             </List>
           </Collapse>
           

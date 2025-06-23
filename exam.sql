@@ -155,62 +155,6 @@ INSERT INTO [dbo].[ExamQuestions] (
     [OrderIndex], [Options], [CorrectAnswer], [Explanation]
 )
 VALUES 
--- Question 1
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Tư tưởng Hồ Chí Minh được hình thành trên cơ sở nào?',
-    5,
-    1,
-    N'["Chủ nghĩa Mác - Lênin", "Truyền thống văn hóa dân tộc Việt Nam", "Tinh hoa văn hóa nhân loại", "Tất cả các phương án trên"]',
-    N'Tất cả các phương án trên',
-    N'Tư tưởng Hồ Chí Minh được hình thành trên cơ sở chủ nghĩa Mác - Lênin, truyền thống văn hóa dân tộc Việt Nam và tinh hoa văn hóa nhân loại.'
-),
--- Question 2
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Tư tưởng Hồ Chí Minh về độc lập dân tộc gắn liền với yếu tố nào?',
-    5,
-    2,
-    N'["Chủ nghĩa xã hội", "Tư bản chủ nghĩa", "Phong kiến", "Thực dân mới"]',
-    N'Chủ nghĩa xã hội',
-    N'Theo tư tưởng Hồ Chí Minh, độc lập dân tộc phải gắn liền với chủ nghĩa xã hội mới có thể giải phóng hoàn toàn dân tộc và nhân dân lao động.'
-),
--- Question 3
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Hồ Chí Minh xác định động lực của cách mạng Việt Nam là gì?',
-    5,
-    3,
-    N'["Đại đoàn kết toàn dân", "Giai cấp công nhân", "Giai cấp nông dân", "Tầng lớp trí thức"]',
-    N'Đại đoàn kết toàn dân',
-    N'Theo Hồ Chí Minh, đại đoàn kết toàn dân dựa trên nền tảng liên minh công - nông - trí thức dưới sự lãnh đạo của Đảng là động lực to lớn của cách mạng Việt Nam.'
-),
--- Question 4
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Theo tư tưởng Hồ Chí Minh, nền văn hóa mới của Việt Nam có mấy tính chất?',
-    5,
-    4,
-    N'["2 tính chất", "3 tính chất", "4 tính chất", "5 tính chất"]',
-    N'3 tính chất',
-    N'Theo tư tưởng Hồ Chí Minh, nền văn hóa mới của Việt Nam có 3 tính chất: dân tộc, khoa học và đại chúng.'
-),
--- Question 5
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Hồ Chí Minh khẳng định "Đảng là đạo đức, là văn minh" vào thời gian nào?',
-    5,
-    5,
-    N'["Năm 1947", "Năm 1953", "Năm 1959", "Năm 1969"]',
-    N'Năm 1969',
-    N'Hồ Chí Minh khẳng định "Đảng là đạo đức, là văn minh" trong Di chúc được viết năm 1969.'
-),
--- Question 6
 (
     @ExamID, 
     'essay',
@@ -226,29 +170,7 @@ VALUES
 - Vận dụng linh hoạt nguyên tắc "dĩ bất biến, ứng vạn biến" trong quan hệ quốc tế',
     N'Câu trả lời cần phân tích rõ quan điểm của Hồ Chí Minh về tầm quan trọng của đoàn kết quốc tế và cách Người vận dụng trong thực tiễn cách mạng Việt Nam.'
 ),
--- Question 7
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Tư tưởng Hồ Chí Minh về xây dựng nhà nước của dân, do dân, vì dân được thể hiện qua yếu tố nào?',
-    5,
-    7,
-    N'["Nhà nước do nhân dân lao động làm chủ", "Nhà nước của giai cấp công nhân", "Nhà nước của giai cấp tư sản", "Nhà nước phong kiến"]',
-    N'Nhà nước do nhân dân lao động làm chủ',
-    N'Tư tưởng Hồ Chí Minh khẳng định nhà nước của dân, do dân, vì dân là nhà nước do nhân dân lao động làm chủ, thực hiện quyền làm chủ thông qua nhà nước do họ bầu ra và kiểm soát.'
-),
--- Question 8
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Theo tư tưởng Hồ Chí Minh, mục tiêu của chủ nghĩa xã hội ở Việt Nam là gì?',
-    5,
-    8,
-    N'["Xóa bỏ áp bức, bất công", "Nhân dân có ăn, có mặc, có chỗ ở và được học hành", "Ai cũng được học hành", "Cả B và C"]',
-    N'Cả B và C',
-    N'Theo Hồ Chí Minh, mục tiêu của chủ nghĩa xã hội ở Việt Nam là nhân dân có ăn, có mặc, có chỗ ở, ai cũng được học hành, người già yếu có người chăm sóc, làm cho dân giàu nước mạnh, mọi người đều được tự do, hạnh phúc.'
-),
--- Question 9
+
 (
     @ExamID, 
     'essay',
@@ -280,28 +202,7 @@ VALUES
 - Tạo động lực nội sinh cho sự phát triển bền vững của đất nước',
     N'Câu trả lời cần phân tích rõ nội dung tư tưởng Hồ Chí Minh về đạo đức cách mạng và liên hệ thực tiễn với việc xây dựng đạo đức con người Việt Nam trong giai đoạn hiện nay.'
 ),
--- Question 10
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Theo Hồ Chí Minh, đặc trưng bản chất của Đảng Cộng sản Việt Nam là gì?',
-    5,
-    10,
-    N'["Đảng của giai cấp công nhân", "Đảng của nhân dân lao động", "Đảng của dân tộc Việt Nam", "Cả A, B và C"]',
-    N'Cả A, B và C',
-    N'Theo tư tưởng Hồ Chí Minh, Đảng Cộng sản Việt Nam vừa là Đảng của giai cấp công nhân, vừa là Đảng của nhân dân lao động và của cả dân tộc Việt Nam.'
-),
--- Question 11
-(
-    @ExamID, 
-    'multiple_choice',
-    N'Hồ Chí Minh đánh giá thế nào về vai trò của thanh niên?',
-    5,
-    11,
-    N'["Người chủ tương lai của nước nhà", "Lực lượng xung kích cách mạng", "Người kế tục sự nghiệp cách mạng", "Tất cả các phương án trên"]',
-    N'Tất cả các phương án trên',
-    N'Hồ Chí Minh đánh giá thanh niên là người chủ tương lai của nước nhà, là lực lượng xung kích cách mạng và là người kế tục trung thành sự nghiệp cách mạng của Đảng và của dân tộc.'
-),
+
 -- Question 12
 (
     @ExamID, 
@@ -459,3 +360,127 @@ BEGIN
     ALTER TABLE [dbo].[Exams]
     ADD CONSTRAINT [DF_Exams_MaxRetakes] DEFAULT ((0)) FOR [MaxRetakes]
 END
+use campushubt;
+-- Insert Đường lối cách mạng Việt Nam Exam
+INSERT INTO [dbo].[Exams] (
+    [CourseID], [Title], [Description], [Type], 
+    [Duration], [TotalPoints], [PassingScore], 
+    [StartTime], [EndTime], [Instructions], 
+    [AllowReview], [ShuffleQuestions], [Status], [CreatedBy],
+    [AllowRetakes], [MaxRetakes]
+)
+VALUES (
+    1, -- Replace with actual CourseID
+    N'Đường lối cách mạng Việt Nam', 
+    N'Bài kiểm tra kiến thức về đường lối cách mạng và sự lãnh đạo của Đảng Cộng sản Việt Nam', 
+    'essay', 
+    120, -- 120 minutes duration
+    10, -- Total points
+    6, -- Passing score
+    DATEADD(DAY, 7, GETDATE()), -- Starts in 7 days
+    DATEADD(DAY, 7, DATEADD(HOUR, 2, GETDATE())), -- Ends 2 hours after start
+    N'Hãy trả lời đầy đủ các câu hỏi dựa trên kiến thức về đường lối cách mạng Việt Nam. Mỗi câu trả lời phải có đầy đủ luận điểm, dẫn chứng và liên hệ thực tiễn.',
+    1, -- Allow review
+    0, -- Don't shuffle questions (only 2 questions)
+    'upcoming',
+    1, -- Replace with actual CreatorID
+    1, -- Allow retakes
+    2  -- Maximum 2 retakes
+);
+
+DECLARE @NewExamID BIGINT;
+SET @NewExamID = SCOPE_IDENTITY();
+
+-- Insert Essay Questions
+INSERT INTO [dbo].[ExamQuestions] (
+    [ExamID], [Type], [Content], [Points], 
+    [OrderIndex], [CorrectAnswer], [Explanation]
+)
+VALUES 
+-- Question 1
+(
+    @NewExamID, 
+    'essay',
+    N'Phân tích đường lối đổi mới của Đảng Cộng sản Việt Nam từ Đại hội VI (1986) đến nay. Nêu những thành tựu và hạn chế trong quá trình thực hiện đường lối đổi mới.',
+    5,
+    1,
+    N'Đường lối đổi mới của Đảng Cộng sản Việt Nam từ Đại hội VI (1986):
+
+1. Nội dung cơ bản của đường lối đổi mới:
+- Đổi mới tư duy lý luận, nhận thức đúng về chủ nghĩa xã hội và con đường đi lên chủ nghĩa xã hội ở Việt Nam
+- Phát triển nền kinh tế thị trường định hướng xã hội chủ nghĩa
+- Đổi mới hệ thống chính trị, xây dựng nhà nước pháp quyền xã hội chủ nghĩa
+- Mở rộng quan hệ đối ngoại, hội nhập quốc tế
+- Xây dựng nền văn hóa tiên tiến, đậm đà bản sắc dân tộc
+
+2. Thành tựu:
+- Kinh tế: tăng trưởng nhanh, chuyển đổi cơ cấu kinh tế, GDP tăng, đời sống người dân cải thiện, thoát khỏi nước nghèo kém phát triển
+- Chính trị: ổn định chính trị - xã hội, dân chủ được mở rộng, vai trò lãnh đạo của Đảng được tăng cường
+- Đối ngoại: thoát khỏi bao vây cấm vận, hội nhập quốc tế, vị thế quốc tế được nâng cao
+- Văn hóa xã hội: giáo dục, y tế, văn hóa được phát triển
+
+3. Hạn chế:
+- Tăng trưởng kinh tế chưa bền vững, năng suất lao động và sức cạnh tranh còn thấp
+- Thể chế kinh tế thị trường định hướng xã hội chủ nghĩa còn nhiều bất cập
+- Tham nhũng, lãng phí còn nghiêm trọng
+- Khoảng cách giàu nghèo giữa các vùng miền còn lớn
+- Một số vấn đề xã hội phức tạp chưa được giải quyết triệt để',
+    N'Câu trả lời cần phân tích rõ đường lối đổi mới về kinh tế, chính trị, văn hóa, xã hội và đối ngoại. Cần đánh giá khách quan các thành tựu và hạn chế của công cuộc đổi mới từ 1986 đến nay.'
+),
+-- Question 2
+(
+    @NewExamID, 
+    'essay',
+    N'Phân tích đường lối kháng chiến chống thực dân Pháp và đế quốc Mỹ của Đảng Cộng sản Việt Nam. Rút ra bài học kinh nghiệm cho sự nghiệp xây dựng và bảo vệ Tổ quốc hiện nay.',
+    5,
+    2,
+    N'Đường lối kháng chiến chống Pháp và Mỹ của Đảng Cộng sản Việt Nam:
+
+1. Đường lối kháng chiến chống Pháp (1945-1954):
+- Toàn dân, toàn diện, trường kỳ, tự lực cánh sinh và tranh thủ sự ủng hộ quốc tế
+- Kết hợp đấu tranh quân sự, chính trị, ngoại giao
+- Vừa kháng chiến vừa kiến quốc
+- Từ phòng ngự sang tiến công với đỉnh cao là chiến thắng Điện Biên Phủ
+
+2. Đường lối kháng chiến chống Mỹ (1954-1975):
+- Đường lối cách mạng dân tộc dân chủ nhân dân ở miền Nam
+- Đường lối xây dựng chủ nghĩa xã hội ở miền Bắc
+- Kết hợp cách mạng hai miền Nam - Bắc
+- Đấu tranh trên ba mặt trận: quân sự, chính trị, ngoại giao
+- Kết hợp đấu tranh vũ trang với đấu tranh chính trị, binh vận
+- Chiến lược tiến công và nổi dậy, kết thúc bằng chiến dịch Hồ Chí Minh
+
+3. Bài học kinh nghiệm:
+- Độc lập, tự chủ, tự lực, tự cường
+- Phát huy sức mạnh đại đoàn kết toàn dân tộc
+- Kết hợp sức mạnh dân tộc với sức mạnh thời đại
+- Sự lãnh đạo đúng đắn của Đảng, vận dụng sáng tạo chủ nghĩa Mác-Lênin
+- Kết hợp sức mạnh truyền thống dân tộc với sức mạnh của thời đại
+- Xây dựng khối đại đoàn kết toàn dân
+- Nắm vững chiến lược phòng thủ, sẵn sàng đối phó với các mối đe dọa
+
+4. Vận dụng vào sự nghiệp xây dựng và bảo vệ Tổ quốc hiện nay:
+- Giữ vững độc lập, tự chủ trong hội nhập quốc tế
+- Kết hợp phát triển kinh tế với tăng cường quốc phòng - an ninh
+- Xây dựng thế trận quốc phòng toàn dân, an ninh nhân dân vững mạnh
+- Giải quyết tranh chấp biển đảo bằng biện pháp hòa bình trên cơ sở luật pháp quốc tế
+- Đối ngoại rộng mở, đa phương hóa, đa dạng hóa các mối quan hệ',
+    N'Câu trả lời cần phân tích rõ đường lối kháng chiến qua từng giai đoạn lịch sử, đánh giá thành công và rút ra các bài học kinh nghiệm có giá trị cho việc xây dựng và bảo vệ Tổ quốc trong giai đoạn hiện nay.'
+);
+
+-- Insert answer templates for both essay questions
+INSERT INTO [dbo].[ExamAnswerTemplates] (
+    [ExamID], [QuestionID], [Content], [Keywords], [MinimumMatchPercentage], [CreatedBy]
+)
+SELECT 
+    @NewExamID,
+    QuestionID,
+    CorrectAnswer,
+    CASE 
+        WHEN OrderIndex = 1 THEN JSON_QUERY(N'["đổi mới", "Đại hội VI", "kinh tế thị trường", "định hướng xã hội chủ nghĩa", "hội nhập quốc tế", "thành tựu", "hạn chế"]')
+        WHEN OrderIndex = 2 THEN JSON_QUERY(N'["kháng chiến", "thực dân Pháp", "đế quốc Mỹ", "toàn dân", "toàn diện", "trường kỳ", "Điện Biên Phủ", "bài học kinh nghiệm", "độc lập", "tự chủ"]')
+    END,
+    75,
+    1 -- Replace with actual CreatorID
+FROM [dbo].[ExamQuestions]
+WHERE ExamID = @NewExamID;

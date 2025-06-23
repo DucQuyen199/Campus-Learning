@@ -490,28 +490,28 @@ exports.startCompetition = async (req, res) => {
       });
     }
     
-    // Check if competition exists and is ongoing
+    // Check if competition exists - allow any competition that's not deleted
     const competitionRequest = pool.request();
     competitionRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
     
     const competitionResult = await competitionRequest.query(`
-      SELECT CompetitionID, Status, Duration, StartTime, EndTime
+      SELECT CompetitionID, Status, Duration, StartTime, EndTime, MaxParticipants, CurrentParticipants
       FROM Competitions
       WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
-            AND (Status = 'ongoing' OR Status = 'upcoming')
     `);
     
     if (competitionResult.recordset.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Competition not found or not currently available for participation'
+        message: 'Competition not found'
       });
     }
     
     const competition = competitionResult.recordset[0];
     
-    // If the competition was 'upcoming', update its status to 'ongoing'
-    if (competition.Status === 'upcoming') {
+    // Auto-promote competition to 'ongoing' status if needed
+    // This will allow users to start competitions in any state (except deleted)
+    if (competition.Status !== 'ongoing') {
       await pool.request()
         .input('competitionId', sql.BigInt, bigIntCompetitionId)
         .query(`
@@ -520,7 +520,8 @@ exports.startCompetition = async (req, res) => {
           WHERE CompetitionID = @competitionId
         `);
       
-      console.log(`Updated competition ${competitionId} status from 'upcoming' to 'ongoing'`);
+      console.log(`Updated competition ${competitionId} status from '${competition.Status}' to 'ongoing'`);
+      competition.Status = 'ongoing'; // Update local object too
     }
     
     // Check if user is registered
@@ -535,29 +536,58 @@ exports.startCompetition = async (req, res) => {
     `);
     
     if (participantResult.recordset.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'You are not registered for this competition'
+      // Auto-register the user if there is capacity
+      if (competition.CurrentParticipants >= competition.MaxParticipants) {
+        return res.status(400).json({
+          success: false,
+          message: 'Competition is full, cannot start.'
+        });
+      }
+
+      const now = new Date();
+      const endTimeAuto = new Date(now.getTime() + competition.Duration * 60000);
+
+      await pool.request()
+        .input('competitionId', sql.BigInt, bigIntCompetitionId)
+        .input('userId', sql.BigInt, bigIntUserId)
+        .input('now', sql.DateTime, now)
+        .input('endTime', sql.DateTime, endTimeAuto)
+        .query(`
+          INSERT INTO CompetitionParticipants
+            (CompetitionID, UserID, Status, RegistrationTime, StartTime, EndTime, CreatedAt, UpdatedAt)
+          VALUES
+            (@competitionId, @userId, 'active', @now, @now, @endTime, @now, @now);
+          UPDATE Competitions
+            SET CurrentParticipants = CurrentParticipants + 1, UpdatedAt = GETDATE()
+          WHERE CompetitionID = @competitionId;
+        `);
+
+      console.log(`Auto-registered and started competition ${competitionId} for user ${userId}`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Competition started successfully',
+        data: { startTime: now, endTime: endTimeAuto, duration: competition.Duration }
       });
     }
     
     const participant = participantResult.recordset[0];
     
-    // Check if the participant has already started or completed the competition
+    // If participant already started and active, return success instead of error
     if (participant.Status === 'active' && participant.StartTime) {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already started this competition'
+      console.log(`User ${userId} has already started competition ${competitionId}`);
+      return res.status(200).json({
+        success: true,
+        message: 'Competition is already started',
+        data: {
+          startTime: participant.StartTime,
+          endTime: participant.EndTime,
+          duration: competition.Duration
+        }
       });
     }
     
-    if (participant.Status === 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already completed this competition'
-      });
-    }
-    
+    // Even if the competition is completed, allow restart
     // Update participant status to active and set start/end times
     const now = new Date();
     const endTime = new Date(now.getTime() + competition.Duration * 60000); // Duration is in minutes

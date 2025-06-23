@@ -642,3 +642,13 @@ export const studentServicesApi = {
     return apiClient.get('/services/statistics');
   }
 };
+
+// =====================================
+// Classes service (CourseClasses)
+// =====================================
+export const classesService = {
+  getAllClasses: () => apiClient.get('/academic/classes'),
+  getClassById: (id) => apiClient.get(`/academic/classes/${id}`),
+  createClass: (classData) => apiClient.post('/academic/classes', classData),
+  addStudentsToClass: (classId, studentIds) => apiClient.post(`/academic/classes/${classId}/students`, { studentIds }),
+};

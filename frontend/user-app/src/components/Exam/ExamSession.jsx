@@ -149,7 +149,19 @@ const ExamSession = () => {
           throw new Error(examResponse.message || 'Failed to load exam');
         }
         
-        setExam(examResponse.data);
+        // Deduplicate questions (in case API returns duplicates)
+        const uniqueQuestionsMap = new Map();
+        examResponse.data.questions.forEach(q => {
+          if (!uniqueQuestionsMap.has(q.QuestionID)) {
+            uniqueQuestionsMap.set(q.QuestionID, q);
+          }
+        });
+        const uniqueExamData = {
+          ...examResponse.data,
+          questions: Array.from(uniqueQuestionsMap.values())
+        };
+
+        setExam(uniqueExamData);
         
         // Start exam session
         setStartingExam(true);
@@ -755,16 +767,30 @@ const ExamSession = () => {
           } catch (gradeError) {
             console.error(`Error grading via API, using fallback method:`, gradeError);
             
-            // Simple fallback grading if API fails
-            const estimatedScore = Math.min(10, Math.max(0, 5 + (Math.random() * 3 - 1.5)));
-            const estimatedSimilarity = Math.min(100, Math.max(0, 50 + (Math.random() * 40 - 20)));
-            
+            // Fallback: use local similarity comparison
+            const localSim = compareAnswerLocally(
+              answer,
+              question.CorrectAnswer || '',
+              (() => {
+                try {
+                  return Array.isArray(question.Keywords)
+                    ? question.Keywords
+                    : (typeof question.Keywords === 'string' ? JSON.parse(question.Keywords) : []);
+                } catch {
+                  return [];
+                }
+              })()
+            );
+
+            const maxPoints = Number(question.Points || 10);
+            const localScore = Number(((localSim.totalSimilarity / 100) * maxPoints).toFixed(2));
+
             return {
               question: question.Content,
               answer: answer,
-              score: estimatedScore,
-              feedback: 'Hệ thống đã phân tích nội dung dựa trên phương pháp so sánh với đáp án mẫu.',
-              similarity: estimatedSimilarity
+              score: localScore,
+              feedback: 'Điểm tạm tính dựa trên so sánh nội dung khi hệ thống gặp sự cố.',
+              similarity: localSim.totalSimilarity
             };
           }
         } catch (questionError) {
@@ -880,13 +906,32 @@ const ExamSession = () => {
         const questions = exam?.questions || [];
         if (questions.length > 0) {
           // Create estimated results
-          const estimatedFeedbacks = questions.map((q, i) => ({
-            question: q.Content || `Câu hỏi ${i+1}`,
-            answer: answers[q.QuestionID] || '',
-            score: Math.min(10, Math.max(0, 5 + (Math.random() * 3 - 1.5))),
-            feedback: 'Điểm ước tính do lỗi hệ thống khi chấm điểm.',
-            similarity: Math.min(100, Math.max(0, 50 + (Math.random() * 40 - 20)))
-          }));
+          const estimatedFeedbacks = questions.map((q, i) => {
+            const localSim = compareAnswerLocally(
+              answers[q.QuestionID] || '',
+              q.CorrectAnswer || '',
+              (() => {
+                try {
+                  return Array.isArray(q.Keywords)
+                    ? q.Keywords
+                    : (typeof q.Keywords === 'string' ? JSON.parse(q.Keywords) : []);
+                } catch {
+                  return [];
+                }
+              })()
+            );
+
+            const maxPts = Number(q.Points || 10);
+            const localScore = Number(((localSim.totalSimilarity / 100) * maxPts).toFixed(2));
+
+            return {
+              question: q.Content || `Câu hỏi ${i+1}`,
+              answer: answers[q.QuestionID] || '',
+              score: localScore,
+              feedback: 'Điểm tạm tính dựa trên so sánh nội dung khi hệ thống gặp sự cố.',
+              similarity: localSim.totalSimilarity
+            };
+          });
           
           const avgScore = estimatedFeedbacks.reduce((sum, f) => sum + f.score, 0) / estimatedFeedbacks.length;
           
@@ -1112,10 +1157,19 @@ const ExamSession = () => {
         <Typography variant="h5">Kết quả bài thi</Typography>
         <IconButton 
           onClick={() => {
-            setShowResults(false);
-            // Exit fullscreen if needed
+            // Always exit fullscreen before leaving the session page
             if (isFullscreen && document.exitFullscreen) {
-              document.exitFullscreen();
+              try {
+                document.exitFullscreen();
+              } catch(e) {}
+            }
+
+            // Navigate to dedicated results page
+            if (participantId) {
+              navigate(`/exams/results/${participantId}`);
+            } else {
+              // Fallback: just close overlay
+              setShowResults(false);
             }
           }}
           sx={{ color: 'white' }}
@@ -1239,10 +1293,19 @@ const ExamSession = () => {
       <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
         <Button
           onClick={() => {
-            setShowResults(false);
-            // Exit fullscreen if needed
+            // Always exit fullscreen before leaving the session page
             if (isFullscreen && document.exitFullscreen) {
-              document.exitFullscreen();
+              try {
+                document.exitFullscreen();
+              } catch(e) {}
+            }
+
+            // Navigate to dedicated results page
+            if (participantId) {
+              navigate(`/exams/results/${participantId}`);
+            } else {
+              // Fallback: just close overlay
+              setShowResults(false);
             }
           }}
           variant="contained"

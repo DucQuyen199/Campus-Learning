@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getProblemDetails, submitSolution, getSubmissionDetails, getCompetitionDetails } from '@/api/competitionService';
+import { getProblemDetails, submitSolution, getSubmissionDetails, getCompetitionDetails, startCompetition } from '@/api/competitionService';
 import { toast } from 'react-toastify';
 import Editor from '@monaco-editor/react';
 import { format } from 'date-fns';
@@ -20,6 +20,11 @@ const ProblemDetail = () => {
   const [results, setResults] = useState(null);
   const [viewingSubmission, setViewingSubmission] = useState(null);
   const editorRef = useRef(null);
+  // Whether we are currently inspecting a past submission
+  const isViewingSubmission = viewingSubmission !== null;
+
+  // Dynamic editor height: larger when no results displayed to avoid empty blank area
+  const editorHeight = results ? '500px' : '700px';
 
   // Language options
   const languages = [
@@ -179,7 +184,19 @@ public class Main {
       setSubmitting(true);
       setResults(null);
       
-      const response = await submitSolution(competitionId, problemId, code, language);
+      let response = await submitSolution(competitionId, problemId, code, language);
+      
+      // If backend indicates competition hasn't started, attempt to start automatically then retry ONCE
+      if (!response.success && response.message && response.message.toLowerCase().includes('not started')) {
+        console.warn('Detected "not started" error, attempting to start competition automatically...');
+        const startRes = await startCompetition(competitionId);
+        if (startRes.success) {
+          console.log('Competition started programmatically. Retrying submission...');
+          response = await submitSolution(competitionId, problemId, code, language);
+        } else {
+          toast.error(startRes.message || 'Không thể bắt đầu cuộc thi.');
+        }
+      }
       
       if (response.success) {
         toast.success('Nộp bài thành công');
@@ -564,22 +581,6 @@ public class Main {
                         </pre>
                       </div>
                     )}
-                    
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium mb-2">Code của bạn:</h4>
-                      <div className="border rounded-md overflow-hidden">
-                        <Editor
-                          height="300px"
-                          language={viewingSubmission.Language}
-                          value={viewingSubmission.SourceCode}
-                          options={{
-                            readOnly: true,
-                            minimap: { enabled: false },
-                            scrollBeyondLastLine: false
-                          }}
-                        />
-                      </div>
-                    </div>
                   </div>
                 ) : submissions.length === 0 ? (
                   <div className="text-center py-8">
@@ -660,9 +661,10 @@ public class Main {
               <label htmlFor="language" className="text-sm font-medium text-gray-700">Ngôn ngữ:</label>
               <select
                 id="language"
-                value={language}
+                value={isViewingSubmission ? viewingSubmission.Language : language}
                 onChange={handleLanguageChange}
-                className="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                disabled={isViewingSubmission}
+                className="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 {languages.map((lang) => (
                   <option key={lang.id} value={lang.id}>
@@ -674,7 +676,7 @@ public class Main {
             
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || isViewingSubmission}
               className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
                 submitting
                   ? 'bg-blue-400 cursor-not-allowed'
@@ -697,12 +699,13 @@ public class Main {
           
           <div className="border-b">
             <Editor
-              height="500px"
-              language={language}
-              value={code}
-              onChange={setCode}
+              height={editorHeight}
+              language={isViewingSubmission ? viewingSubmission.Language : language}
+              value={isViewingSubmission ? viewingSubmission.SourceCode : code}
+              onChange={isViewingSubmission ? undefined : setCode}
               onMount={handleEditorDidMount}
               options={{
+                readOnly: isViewingSubmission,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 fontSize: 14,
@@ -712,7 +715,7 @@ public class Main {
           
           {/* Results */}
           {results && (
-            <div className="p-4">
+            <div className="p-4" style={{ marginTop: '-10px' }}>
               <h3 className="text-lg font-semibold mb-2">Kết quả</h3>
               <div className="space-y-3">
                 <div className="flex items-center">

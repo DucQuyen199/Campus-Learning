@@ -1804,5 +1804,237 @@ router.post('/programs/:programId/addStudent', async (req, res) => {
   }
 });
 
+/**
+ * ============================================
+ * Class Management (CourseClasses & Registrations)
+ * ============================================
+ */
+
+/**
+ * Get all classes
+ * GET /api/academic/classes
+ */
+router.get('/classes', async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+        cc.ClassID, cc.ClassCode, cc.Status, cc.Type, cc.IsOnline, cc.MaxStudents, cc.CurrentStudents,
+        cc.StartDate, cc.EndDate, cc.Location,
+        s.SubjectID, s.SubjectName, s.SubjectCode,
+        sem.SemesterID, sem.SemesterName, sem.SemesterCode,
+        u.UserID   AS TeacherID,
+        u.FullName AS TeacherName,
+        (SELECT COUNT(*) FROM CourseRegistrations cr WHERE cr.ClassID = cc.ClassID AND cr.Status = 'Approved') AS EnrolledStudents
+      FROM CourseClasses cc
+      INNER JOIN Subjects s   ON s.SubjectID   = cc.SubjectID
+      INNER JOIN Semesters sem ON sem.SemesterID = cc.SemesterID
+      LEFT  JOIN Users u      ON u.UserID      = cc.TeacherID
+      ORDER BY sem.StartDate DESC, s.SubjectName, cc.ClassCode;
+    `;
+
+    const result = await executeQuery(query);
+
+    return res.status(200).json({
+      success: true,
+      data: result.recordset
+    });
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Đã xảy ra lỗi khi lấy danh sách lớp học.'
+    });
+  }
+});
+
+/**
+ * Get a specific class with enrolled students
+ * GET /api/academic/classes/:id
+ */
+router.get('/classes/:id', async (req, res) => {
+  try {
+    const classId = parseInt(req.params.id, 10);
+    if (isNaN(classId)) {
+      return res.status(400).json({ success: false, message: 'ID lớp học không hợp lệ.' });
+    }
+
+    // Query class information
+    const classQuery = `
+      SELECT 
+        cc.ClassID, cc.ClassCode, cc.Status, cc.Type, cc.IsOnline, cc.MaxStudents, cc.CurrentStudents,
+        cc.StartDate, cc.EndDate, cc.Location, cc.Schedule,
+        s.SubjectID, s.SubjectName, s.SubjectCode,
+        sem.SemesterID, sem.SemesterName, sem.SemesterCode,
+        u.UserID   AS TeacherID,
+        u.FullName AS TeacherName
+      FROM CourseClasses cc
+      INNER JOIN Subjects s   ON s.SubjectID   = cc.SubjectID
+      INNER JOIN Semesters sem ON sem.SemesterID = cc.SemesterID
+      LEFT  JOIN Users u      ON u.UserID      = cc.TeacherID
+      WHERE cc.ClassID = @classId;
+    `;
+
+    const classResult = await executeQuery(classQuery, { classId: { type: sql.BigInt, value: classId } });
+
+    if (classResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy lớp học.' });
+    }
+
+    // Query enrolled students
+    const studentsQuery = `
+      SELECT 
+        u.UserID, u.FullName, u.Email, u.Username, u.Status, u.AccountStatus,
+        sd.StudentCode, sd.Class, sd.AcademicStatus
+      FROM CourseRegistrations cr
+      INNER JOIN Users u       ON u.UserID = cr.UserID
+      LEFT  JOIN StudentDetails sd ON sd.UserID = u.UserID
+      WHERE cr.ClassID = @classId AND cr.Status = 'Approved';
+    `;
+
+    const studentsResult = await executeQuery(studentsQuery, { classId: { type: sql.BigInt, value: classId } });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        class: classResult.recordset[0],
+        students: studentsResult.recordset
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching class:', error);
+    return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi lấy thông tin lớp học.' });
+  }
+});
+
+/**
+ * Create a new class
+ * POST /api/academic/classes
+ */
+router.post('/classes', async (req, res) => {
+  try {
+    const {
+      classCode,
+      subjectId,
+      semesterId,
+      teacherId,
+      maxStudents,
+      startDate,
+      endDate,
+      schedule,
+      location,
+      status = 'Planned',
+      type = 'Regular',
+      isOnline = false
+    } = req.body;
+
+    // Basic validation
+    if (!classCode || !subjectId || !semesterId) {
+      return res.status(400).json({ success: false, message: 'Mã lớp, môn học và học kỳ là bắt buộc.' });
+    }
+
+    // Check duplicate classCode
+    const checkQuery = 'SELECT ClassID FROM CourseClasses WHERE ClassCode = @classCode';
+    const checkResult = await executeQuery(checkQuery, { classCode: { type: sql.VarChar, value: classCode } });
+    if (checkResult.recordset.length > 0) {
+      return res.status(400).json({ success: false, message: 'Mã lớp đã tồn tại.' });
+    }
+
+    const insertQuery = `
+      INSERT INTO CourseClasses (
+        ClassCode, SubjectID, SemesterID, TeacherID, MaxStudents, CurrentStudents,
+        StartDate, EndDate, Schedule, Location, Status, Type, IsOnline, CreatedAt, UpdatedAt
+      )
+      VALUES (
+        @classCode, @subjectId, @semesterId, @teacherId, @maxStudents, 0,
+        @startDate, @endDate, @schedule, @location, @status, @type, @isOnline, GETDATE(), GETDATE()
+      );
+      SELECT SCOPE_IDENTITY() AS ClassID;
+    `;
+
+    const insertResult = await executeQuery(insertQuery, {
+      classCode: { type: sql.VarChar, value: classCode },
+      subjectId: { type: sql.BigInt, value: subjectId },
+      semesterId: { type: sql.BigInt, value: semesterId },
+      teacherId: { type: sql.BigInt, value: teacherId || null },
+      maxStudents: { type: sql.Int, value: maxStudents || null },
+      startDate: { type: sql.Date, value: startDate || null },
+      endDate: { type: sql.Date, value: endDate || null },
+      schedule: { type: sql.NVarChar, value: schedule || null },
+      location: { type: sql.NVarChar, value: location || null },
+      status: { type: sql.VarChar, value: status },
+      type: { type: sql.VarChar, value: type },
+      isOnline: { type: sql.Bit, value: isOnline }
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Tạo lớp học thành công.',
+      classId: insertResult.recordset[0].ClassID
+    });
+  } catch (error) {
+    console.error('Error creating class:', error);
+    return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi tạo lớp học.' });
+  }
+});
+
+/**
+ * Bulk add students to a class
+ * POST /api/academic/classes/:id/students
+ * Body: { studentIds: [1,2,3] }
+ */
+router.post('/classes/:id/students', async (req, res) => {
+  try {
+    const classId = parseInt(req.params.id, 10);
+    const { studentIds } = req.body;
+
+    if (isNaN(classId)) {
+      return res.status(400).json({ success: false, message: 'ID lớp học không hợp lệ.' });
+    }
+
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Danh sách sinh viên không hợp lệ.' });
+    }
+
+    // Build bulk insert query using table-valued parameters is complex, instead iterate
+    for (const studentId of studentIds) {
+      // Skip if invalid
+      if (!studentId) continue;
+
+      // Insert registration if not exists
+      const insertQuery = `
+        IF NOT EXISTS (
+          SELECT 1 FROM CourseRegistrations WHERE UserID = @studentId AND ClassID = @classId
+        )
+        BEGIN
+          INSERT INTO CourseRegistrations (
+            UserID, ClassID, RegistrationType, RegistrationTime, Status, AdminApproval, ApprovedBy, ApprovedAt
+          ) VALUES (
+            @studentId, @classId, 'Regular', GETDATE(), 'Approved', 1, NULL, GETDATE()
+          );
+        END
+      `;
+
+      await executeQuery(insertQuery, {
+        studentId: { type: sql.BigInt, value: studentId },
+        classId: { type: sql.BigInt, value: classId }
+      });
+    }
+
+    // Update current student count
+    const updateCountQuery = `
+      UPDATE CourseClasses
+      SET CurrentStudents = (SELECT COUNT(*) FROM CourseRegistrations WHERE ClassID = @classId AND Status = 'Approved'),
+          UpdatedAt = GETDATE()
+      WHERE ClassID = @classId;
+    `;
+    await executeQuery(updateCountQuery, { classId: { type: sql.BigInt, value: classId } });
+
+    return res.status(200).json({ success: true, message: 'Thêm sinh viên vào lớp thành công.' });
+  } catch (error) {
+    console.error('Error adding students to class:', error);
+    return res.status(500).json({ success: false, message: 'Đã xảy ra lỗi khi thêm sinh viên vào lớp.' });
+  }
+});
+
 // Export the router
 module.exports = router; 

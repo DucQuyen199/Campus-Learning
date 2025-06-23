@@ -52,6 +52,9 @@ import ServiceForm from './pages/services/ServiceForm';
 import ServiceRequests from './pages/services/ServiceRequests';
 import RequestDetail from './pages/services/RequestDetail';
 
+// Classes Pages
+import Classes from './pages/academic/Classes';
+
 // Loading component
 const LoadingScreen = () => (
   <Box
@@ -131,6 +134,7 @@ function App() {
         <Route path="/academic/semesters/add" element={<SemesterEdit />} />
         <Route path="/academic/semesters/:id" element={<SemesterDetail />} />
         <Route path="/academic/semesters/:id/edit" element={<SemesterEdit />} />
+        <Route path="/academic/classes" element={<Classes />} />
         
         {/* Academic Warnings */}
         <Route path="/academic/warnings" element={<AcademicWarnings />} />

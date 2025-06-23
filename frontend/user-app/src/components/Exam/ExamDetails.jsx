@@ -832,10 +832,13 @@ const ExamDetails = () => {
                               <TableCell>{attempt.AttemptNumber || (exam.attempts.length - index)}</TableCell>
                               <TableCell>{format(new Date(attempt.StartedAt || attempt.CreatedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
                               <TableCell>
-                                {attempt.Score !== null ? 
-                                  `${attempt.Score}/${exam.TotalPoints} (${Math.round(attempt.Score / exam.TotalPoints * 100)}%)` : 
-                                  'Chưa có điểm'
-                                }
+                                {attempt.Score !== null && attempt.Score !== undefined ? (
+                                  `${attempt.Score}/${exam.TotalPoints} (${Math.round(attempt.Score / exam.TotalPoints * 100)}%)`
+                                ) : attempt.score !== undefined && attempt.score !== null ? (
+                                  `${attempt.score}/${exam.TotalPoints} (${Math.round(attempt.score / exam.TotalPoints * 100)}%)`
+                                ) : attempt.Score === undefined && attempt.score === undefined && attempt['score'] !== undefined ? (
+                                  `${attempt['score']}/${exam.TotalPoints}`
+                                ) : 'Chưa có điểm'}
                               </TableCell>
                               <TableCell>
                                 {attempt.Status === 'completed' && 'Đã hoàn thành'}

@@ -306,6 +306,7 @@ const Chat = () => {
         const newConversation = await chatApi.createConversation({
           title: null, // No title for direct messages
           type: 'private',
+          createdBy: currentUserId,
           participants: [Number(userId)] // Add the target user
         });
         

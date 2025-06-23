@@ -548,6 +548,180 @@ const examController = {
       console.error('Error creating/updating essay template:', error);
       res.status(500).json({ message: error.message });
     }
+  },
+
+  // Get participants for a specific exam (including attempt stats)
+  getExamParticipants: async (req, res) => {
+    try {
+      const { examId } = req.params;
+      const pool = await poolPromise;
+
+      // Build a result that numbers each user's attempts so that
+      // the latest attempt can be distinguished from the previous ones.
+      const result = await pool.request()
+        .input('examId', sql.BigInt, examId)
+        .query(`
+          WITH UserAttempts AS (
+            SELECT 
+              ep.*,                                      -- All participant fields
+              u.FullName,
+              u.Email,
+              u.Image,
+              ROW_NUMBER() OVER (PARTITION BY ep.UserID ORDER BY ep.StartedAt)        AS AttemptNumber,
+              COUNT(*)    OVER (PARTITION BY ep.UserID)                               AS TotalAttempts
+            FROM ExamParticipants ep
+            JOIN Users u ON ep.UserID = u.UserID
+            WHERE ep.ExamID = @examId
+          )
+          SELECT *
+          FROM UserAttempts
+          ORDER BY UserID, StartedAt DESC;
+        `);
+
+      return res.status(200).json({ participants: result.recordset });
+    } catch (error) {
+      console.error('[getExamParticipants] Error:', error);
+      return res.status(500).json({ message: 'Server error while getting exam participants' });
+    }
+  },
+
+  // Get all answers (and essay analysis, if any) for a participant
+  getParticipantAnswers: async (req, res) => {
+    try {
+      const { participantId } = req.params;
+      const pool = await poolPromise;
+
+      // 1. Basic participant info
+      const participantRs = await pool.request()
+        .input('participantId', sql.BigInt, participantId)
+        .query(`
+          SELECT ep.*, e.Title AS ExamTitle, u.FullName, u.Email
+          FROM ExamParticipants ep
+          JOIN Exams e ON ep.ExamID = e.ExamID
+          JOIN Users u  ON ep.UserID = u.UserID
+          WHERE ep.ParticipantID = @participantId;
+        `);
+
+      if (participantRs.recordset.length === 0) {
+        return res.status(404).json({ message: 'Participant not found' });
+      }
+
+      // 2. Answers list
+      const answersRs = await pool.request()
+        .input('participantId', sql.BigInt, participantId)
+        .query(`
+          SELECT ea.*, 
+                 eq.Content          AS QuestionContent, 
+                 eq.Type             AS QuestionType, 
+                 eq.Options          AS QuestionOptions, 
+                 eq.CorrectAnswer, 
+                 eq.Points           AS QuestionPoints
+          FROM ExamAnswers ea
+          JOIN ExamQuestions eq ON ea.QuestionID = eq.QuestionID
+          WHERE ea.ParticipantID = @participantId
+          ORDER BY eq.OrderIndex;
+        `);
+
+      // 3. Essay analysis (if exists)
+      const analysisRs = await pool.request()
+        .input('participantId', sql.BigInt, participantId)
+        .query(`
+          SELECT esa.*
+          FROM EssayAnswerAnalysis esa
+          JOIN ExamAnswers ea ON esa.AnswerID = ea.AnswerID
+          WHERE ea.ParticipantID = @participantId;
+        `);
+
+      return res.status(200).json({
+        participant: participantRs.recordset[0],
+        answers: answersRs.recordset,
+        analysis: analysisRs.recordset,
+      });
+    } catch (error) {
+      console.error('[getParticipantAnswers] Error:', error);
+      return res.status(500).json({ message: 'Server error while getting participant answers' });
+    }
+  },
+
+  // Grade an essay answer for a participant (manual review)
+  gradeEssayAnswer: async (req, res) => {
+    try {
+      const { answerId } = req.params;
+      const { score, reviewerComments, isCorrect } = req.body;
+      const reviewerId = req.user?.UserID;
+
+      const pool = await poolPromise;
+
+      // Ensure the answer exists & collect some meta.
+      const answerCheckRs = await pool.request()
+        .input('answerId', sql.BigInt, answerId)
+        .query(`
+          SELECT ea.*, ep.ParticipantID, eq.ExamID
+          FROM ExamAnswers ea
+          JOIN ExamParticipants ep ON ea.ParticipantID = ep.ParticipantID
+          JOIN ExamQuestions   eq ON ea.QuestionID     = eq.QuestionID
+          WHERE ea.AnswerID = @answerId;
+        `);
+
+      if (answerCheckRs.recordset.length === 0) {
+        return res.status(404).json({ message: 'Answer not found' });
+      }
+
+      const participantId = answerCheckRs.recordset[0].ParticipantID;
+
+      // 1. Update answer
+      await pool.request()
+        .input('answerId', sql.BigInt, answerId)
+        .input('score', sql.Int, score)
+        .input('isCorrect', sql.Bit, isCorrect)
+        .input('reviewerComments', sql.NVarChar(sql.MAX), reviewerComments)
+        .query(`
+          UPDATE ExamAnswers
+          SET Score = @score,
+              IsCorrect = @isCorrect,
+              ReviewerComments = @reviewerComments,
+              UpdatedAt = GETDATE()
+          WHERE AnswerID = @answerId;
+        `);
+
+      // 2. Update essay analysis table if entry exists
+      const hasAnalysisRs = await pool.request()
+        .input('answerId', sql.BigInt, answerId)
+        .query('SELECT 1 FROM EssayAnswerAnalysis WHERE AnswerID = @answerId');
+
+      if (hasAnalysisRs.recordset.length > 0) {
+        await pool.request()
+          .input('answerId', sql.BigInt, answerId)
+          .input('finalScore', sql.Int, score)
+          .input('reviewerComments', sql.NVarChar(sql.MAX), reviewerComments)
+          .query(`
+            UPDATE EssayAnswerAnalysis
+            SET FinalScore = @finalScore,
+                ReviewerComments = @reviewerComments,
+                UpdatedAt = GETDATE()
+            WHERE AnswerID = @answerId;
+          `);
+      }
+
+      // 3. Refresh participant aggregate score & status
+      await pool.request()
+        .input('participantId', sql.BigInt, participantId)
+        .input('reviewedBy', sql.BigInt, reviewerId)
+        .query(`
+          UPDATE ep
+          SET Score = (SELECT AVG(Score) FROM ExamAnswers WHERE ParticipantID = @participantId),
+              Status = 'reviewed',
+              ReviewedBy = @reviewedBy,
+              ReviewedAt = GETDATE()
+          FROM ExamParticipants ep
+          WHERE ep.ParticipantID = @participantId;
+        `);
+
+      return res.status(200).json({ message: 'Answer reviewed successfully' });
+    } catch (error) {
+      console.error('[gradeEssayAnswer] Error:', error);
+      return res.status(500).json({ message: 'Server error while grading essay answer' });
+    }
   }
 };
 

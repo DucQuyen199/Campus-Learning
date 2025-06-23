@@ -274,9 +274,9 @@ export const chatApi = {
       // Ensure proper data types for SQL Server
       const formattedData = {
         type: data.type,
-        createdBy: parseInt(data.createdBy, 10), // Convert to number
         participants: data.participants.map(id => parseInt(id, 10)), // Convert all participant IDs to numbers
-        ...(data.title && { title: data.title }) // Only include title if it exists
+        ...(data.title && { title: data.title }),
+        ...(data.createdBy !== undefined ? { createdBy: parseInt(data.createdBy, 10) } : {})
       };
       
       console.log('API createConversation - Sending data:', formattedData);

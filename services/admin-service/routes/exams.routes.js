@@ -20,4 +20,9 @@ router.delete('/:examId/questions/:questionId', authenticateToken, isAdmin, exam
 router.post('/:examId/templates', authenticateToken, isAdmin, examController.createAnswerTemplate);
 router.put('/:examId/templates/:templateId', authenticateToken, isAdmin, examController.updateAnswerTemplate);
 
+// ---------------- Participant management ----------------
+router.get('/:examId/participants', authenticateToken, isAdmin, examController.getExamParticipants);
+router.get('/participants/:participantId/answers', authenticateToken, isAdmin, examController.getParticipantAnswers);
+router.post('/:examId/participants/:participantId/questions/:questionId/grade-essay', authenticateToken, isAdmin, examController.gradeEssayAnswer);
+
 module.exports = router; 

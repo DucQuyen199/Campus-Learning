@@ -92,6 +92,65 @@ Chat.createConversation = async function(title, participants, createdBy, type = 
   const participantIds = Array.isArray(participants) ? participants.map(id => Number(id)) : [];
   const creatorId = Number(createdBy);
 
+  // If this is a private chat (exactly one other participant), check if a conversation already exists
+  if (type === 'private' && participantIds.length === 1) {
+    try {
+      // A private conversation always has exactly 2 distinct participants: creator and the other user
+      const otherUserId = participantIds[0];
+
+      // Get all private conversations that the creator is currently a participant of
+      const creatorConversations = await sequelize.models.ConversationParticipant.findAll({
+        where: {
+          UserID: creatorId,
+          LeftAt: null
+        },
+        attributes: ['ConversationID'],
+        raw: true
+      });
+
+      const conversationIds = creatorConversations.map(c => c.ConversationID);
+
+      if (conversationIds.length > 0) {
+        // Find a conversation that:
+        // • is private
+        // • has exactly 2 active participants (creator + other)
+        // • includes the other participant
+        const existingConversation = await Chat.findOne({
+          where: {
+            ConversationID: conversationIds,
+            Type: 'private',
+            IsActive: true
+          },
+          include: [{
+            model: sequelize.models.ConversationParticipant,
+            where: { LeftAt: null },
+            attributes: ['UserID']
+          }]
+        });
+
+        if (existingConversation) {
+          // Extract participant user IDs
+          const existingIds = existingConversation.ConversationParticipants.map(p => Number(p.UserID));
+          // Check if participants match exactly creator + other
+          if (existingIds.length === 2 && existingIds.includes(creatorId) && existingIds.includes(otherUserId)) {
+            // Return the existing conversation with full participants populated
+            return await Chat.findByPk(existingConversation.ConversationID, {
+              include: [{
+                model: sequelize.models.User,
+                as: 'Participants',
+                attributes: ['UserID', 'Username', 'FullName', 'Image'],
+                through: { attributes: ['Role'] }
+              }]
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.log('Private conversation duplicate check error:', err);
+      // Ignore and continue with creation
+    }
+  }
+
   // For group chats, check if a group with exact same participants already exists
   if (type === 'group' && participantIds.length > 0) {
     try {

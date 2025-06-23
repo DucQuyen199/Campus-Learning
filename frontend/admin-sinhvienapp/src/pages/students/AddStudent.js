@@ -15,7 +15,7 @@ import {
   ArrowBack, Save, Upload, Download, Person, PersonAdd,
   School, Description, Help
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 // eslint-disable-next-line no-unused-vars
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
@@ -89,6 +89,7 @@ function TabPanel(props) {
 
 const AddStudent = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [programs, setPrograms] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [csvFile, setCsvFile] = useState(null);
@@ -97,6 +98,9 @@ const AddStudent = () => {
   const [loading, setLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmDialogMessage, setConfirmDialogMessage] = useState('');
+
+  // Get programId from location state if available
+  const preselectedProgramId = location.state?.programId;
 
   // Fetch academic programs on component mount
   useEffect(() => {
@@ -131,7 +135,7 @@ const AddStudent = () => {
     dateOfBirth: null,
     gender: '',
     address: '',
-    programId: '',
+    programId: preselectedProgramId || '',
     studentCode: '',
     isActive: true
   };

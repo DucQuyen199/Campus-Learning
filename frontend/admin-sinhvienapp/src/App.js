@@ -113,9 +113,9 @@ function App() {
         
         {/* Student Management */}
         <Route path="/students" element={<Students />} />
-        <Route path="/students/:id" element={<StudentDetail />} />
-        <Route path="/students/edit/:id" element={<StudentEdit />} />
         <Route path="/students/add" element={<AddStudent />} />
+        <Route path="/students/edit/:id" element={<StudentEdit />} />
+        <Route path="/students/:id" element={<StudentDetail />} />
         
         {/* Academic Management */}
         <Route path="/academic/programs" element={<Programs />} />

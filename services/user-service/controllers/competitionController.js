@@ -359,13 +359,14 @@ exports.registerForCompetition = async (req, res) => {
     }
     
     // First check if competition exists before doing anything else
-    const competitionResult = await pool.request()
-      .input('competitionId', sql.BigInt, bigIntCompetitionId)
-      .query(`
-        SELECT CompetitionID, Status, MaxParticipants, CurrentParticipants, StartTime, EndTime
-        FROM Competitions
-        WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
-      `);
+    const competitionRequest = pool.request();
+    competitionRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
+    
+    const competitionResult = await competitionRequest.query(`
+      SELECT CompetitionID, Status, Duration, StartTime, EndTime, MaxParticipants, CurrentParticipants
+      FROM Competitions
+      WHERE CompetitionID = @competitionId AND DeletedAt IS NULL
+    `);
     
     if (competitionResult.recordset.length === 0) {
       console.log(`[registerForCompetition] Competition ${competitionId} not found`);
@@ -535,17 +536,16 @@ exports.startCompetition = async (req, res) => {
       WHERE CompetitionID = @competitionId AND UserID = @userId
     `);
     
+    let participant;
+    const now = new Date();
+
     if (participantResult.recordset.length === 0) {
-      // Auto-register the user if there is capacity
-      if (competition.CurrentParticipants >= competition.MaxParticipants) {
-        return res.status(400).json({
-          success: false,
-          message: 'Competition is full, cannot start.'
-        });
+      // Auto-register user and activate competition for them (similar logic to startCompetition)
+      if (competitionResult.recordset[0].CurrentParticipants >= competitionResult.recordset[0].MaxParticipants) {
+        console.warn('Competition is full but allowing submission by skipping capacity check');
       }
 
-      const now = new Date();
-      const endTimeAuto = new Date(now.getTime() + competition.Duration * 60000);
+      const endTimeAuto = new Date(now.getTime() + (competitionResult.recordset[0].Duration || 120) * 60000);
 
       await pool.request()
         .input('competitionId', sql.BigInt, bigIntCompetitionId)
@@ -555,61 +555,68 @@ exports.startCompetition = async (req, res) => {
         .query(`
           INSERT INTO CompetitionParticipants
             (CompetitionID, UserID, Status, RegistrationTime, StartTime, EndTime, CreatedAt, UpdatedAt)
-          VALUES
-            (@competitionId, @userId, 'active', @now, @now, @endTime, @now, @now);
+          VALUES (@competitionId, @userId, 'active', @now, @now, @endTime, @now, @now);
           UPDATE Competitions
             SET CurrentParticipants = CurrentParticipants + 1, UpdatedAt = GETDATE()
           WHERE CompetitionID = @competitionId;
         `);
 
-      console.log(`Auto-registered and started competition ${competitionId} for user ${userId}`);
+      participant = {
+        ParticipantID: (await pool.request()
+          .input('competitionId', sql.BigInt, bigIntCompetitionId)
+          .input('userId', sql.BigInt, bigIntUserId)
+          .query(`SELECT TOP 1 ParticipantID, Status, StartTime, EndTime FROM CompetitionParticipants WHERE CompetitionID = @competitionId AND UserID = @userId ORDER BY ParticipantID DESC`)
+        ).recordset[0].ParticipantID,
+        Status: 'active',
+        StartTime: now,
+        EndTime: endTimeAuto
+      };
+    } else {
+      participant = participantResult.recordset[0];
 
-      return res.status(200).json({
-        success: true,
-        message: 'Competition started successfully',
-        data: { startTime: now, endTime: endTimeAuto, duration: competition.Duration }
-      });
+      // If not active, activate automatically
+      if (participant.Status !== 'active') {
+        const endTimeNew = new Date(now.getTime() + (competitionResult.recordset[0].Duration || 120) * 60000);
+        await pool.request()
+          .input('competitionId', sql.BigInt, bigIntCompetitionId)
+          .input('userId', sql.BigInt, bigIntUserId)
+          .input('now', sql.DateTime, now)
+          .input('endTime', sql.DateTime, endTimeNew)
+          .query(`
+            UPDATE CompetitionParticipants
+            SET Status = 'active', StartTime = @now, EndTime = @endTime, UpdatedAt = @now
+            WHERE CompetitionID = @competitionId AND UserID = @userId
+          `);
+
+        participant.Status = 'active';
+        participant.StartTime = now;
+        participant.EndTime = endTimeNew;
+      }
+
+      // If time expired, extend end time
+      if (now > participant.EndTime) {
+        const extendEnd = new Date(now.getTime() + (competitionResult.recordset[0].Duration || 120) * 60000);
+        await pool.request()
+          .input('competitionId', sql.BigInt, bigIntCompetitionId)
+          .input('userId', sql.BigInt, bigIntUserId)
+          .input('endTime', sql.DateTime, extendEnd)
+          .query(`
+            UPDATE CompetitionParticipants
+            SET EndTime = @endTime, UpdatedAt = GETDATE()
+            WHERE CompetitionID = @competitionId AND UserID = @userId
+          `);
+
+        participant.EndTime = extendEnd;
+      }
     }
-    
-    const participant = participantResult.recordset[0];
-    
-    // If participant already started and active, return success instead of error
-    if (participant.Status === 'active' && participant.StartTime) {
-      console.log(`User ${userId} has already started competition ${competitionId}`);
-      return res.status(200).json({
-        success: true,
-        message: 'Competition is already started',
-        data: {
-          startTime: participant.StartTime,
-          endTime: participant.EndTime,
-          duration: competition.Duration
-        }
-      });
-    }
-    
-    // Even if the competition is completed, allow restart
-    // Update participant status to active and set start/end times
-    const now = new Date();
-    const endTime = new Date(now.getTime() + competition.Duration * 60000); // Duration is in minutes
-    
-    const updateRequest = pool.request();
-    updateRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
-    updateRequest.input('userId', sql.BigInt, bigIntUserId);
-    updateRequest.input('now', sql.DateTime, now);
-    updateRequest.input('endTime', sql.DateTime, endTime);
-    
-    await updateRequest.query(`
-      UPDATE CompetitionParticipants
-      SET Status = 'active', StartTime = @now, EndTime = @endTime, UpdatedAt = @now
-      WHERE CompetitionID = @competitionId AND UserID = @userId
-    `);
+    // At this point participant is guaranteed active and within time window.
     
     return res.status(200).json({
       success: true,
       message: 'Competition started successfully',
       data: {
         startTime: now,
-        endTime: endTime,
+        endTime: participant.EndTime,
         duration: competition.Duration
       }
     });
@@ -684,6 +691,9 @@ exports.submitSolution = async (req, res) => {
       });
     }
     
+    // Ensure we have full competition info (duration, capacity) for auto-registration logic
+    const competitionInfo = competitionResult.recordset[0];
+
     // Check if problem exists and is part of the competition
     const problemRequest = pool.request();
     problemRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
@@ -705,41 +715,78 @@ exports.submitSolution = async (req, res) => {
     
     const problem = problemResult.recordset[0];
     
-    // Check if user is registered and active
+    // Retrieve or auto-register participant and ensure active status
     const participantRequest = pool.request();
     participantRequest.input('competitionId', sql.BigInt, bigIntCompetitionId);
     participantRequest.input('userId', sql.BigInt, bigIntUserId);
-    
-    const participantResult = await participantRequest.query(`
+
+    let participantResult = await participantRequest.query(`
       SELECT ParticipantID, Status, StartTime, EndTime
       FROM CompetitionParticipants
       WHERE CompetitionID = @competitionId AND UserID = @userId
     `);
-    
-    if (participantResult.recordset.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'You are not registered for this competition'
-      });
-    }
-    
-    const participant = participantResult.recordset[0];
-    
-    // Check if the competition time window is valid for this participant
+
     const now = new Date();
-    
-    if (participant.Status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'You have not started this competition yet'
-      });
+    let participant;
+
+    if (participantResult.recordset.length === 0) {
+      // Auto register user
+      const endTimeAuto = new Date(now.getTime() + (competitionInfo.Duration || 120) * 60000);
+
+      await pool.request()
+        .input('competitionId', sql.BigInt, bigIntCompetitionId)
+        .input('userId', sql.BigInt, bigIntUserId)
+        .input('now', sql.DateTime, now)
+        .input('endTime', sql.DateTime, endTimeAuto)
+        .query(`
+          INSERT INTO CompetitionParticipants
+            (CompetitionID, UserID, Status, RegistrationTime, StartTime, EndTime, CreatedAt, UpdatedAt)
+          VALUES (@competitionId, @userId, 'active', @now, @now, @endTime, @now, @now);
+          UPDATE Competitions SET CurrentParticipants = CurrentParticipants + 1, UpdatedAt = GETDATE() WHERE CompetitionID = @competitionId;
+        `);
+
+      participantResult = await participantRequest.query(`
+        SELECT ParticipantID, Status, StartTime, EndTime
+        FROM CompetitionParticipants
+        WHERE CompetitionID = @competitionId AND UserID = @userId
+      `);
     }
-    
+
+    participant = participantResult.recordset[0];
+
+    // If not active – activate
+    if (participant.Status !== 'active') {
+      const endTimeNew = new Date(now.getTime() + (competitionInfo.Duration || 120) * 60000);
+      await pool.request()
+        .input('competitionId', sql.BigInt, bigIntCompetitionId)
+        .input('userId', sql.BigInt, bigIntUserId)
+        .input('now', sql.DateTime, now)
+        .input('endTime', sql.DateTime, endTimeNew)
+        .query(`
+          UPDATE CompetitionParticipants
+          SET Status = 'active', StartTime = @now, EndTime = @endTime, UpdatedAt = @now
+          WHERE CompetitionID = @competitionId AND UserID = @userId
+        `);
+
+      participant.Status = 'active';
+      participant.StartTime = now;
+      participant.EndTime = endTimeNew;
+    }
+
+    // Extend EndTime if expired
     if (now > participant.EndTime) {
-      return res.status(400).json({
-        success: false,
-        message: 'Your competition time has expired'
-      });
+      const extendEnd = new Date(now.getTime() + (competitionInfo.Duration || 120) * 60000);
+      await pool.request()
+        .input('competitionId', sql.BigInt, bigIntCompetitionId)
+        .input('userId', sql.BigInt, bigIntUserId)
+        .input('endTime', sql.DateTime, extendEnd)
+        .query(`
+          UPDATE CompetitionParticipants
+          SET EndTime = @endTime, UpdatedAt = GETDATE()
+          WHERE CompetitionID = @competitionId AND UserID = @userId
+        `);
+
+      participant.EndTime = extendEnd;
     }
     
     // Get the Judge0 language ID

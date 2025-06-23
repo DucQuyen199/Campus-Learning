@@ -72,14 +72,13 @@ const ScheduleModel = {
         SELECT e.ExamID, e.ExamName, e.ExamType, e.ExamDate, e.StartTime, e.EndTime, e.Location,
                e.Status as ExamStatus, e.ClassID,
                cc.ClassCode, s.SubjectCode, s.SubjectName, s.Credits,
-               sem.SemesterName, sem.AcademicYear, u.FullName as SupervisorName,
+               sem.SemesterName, sem.AcademicYear,
                er.ExamRegistrationID, er.Status as RegistrationStatus
         FROM CourseRegistrations cr
         JOIN CourseClasses cc ON cr.ClassID = cc.ClassID
         JOIN Subjects s ON cc.SubjectID = s.SubjectID
         JOIN Semesters sem ON cc.SemesterID = sem.SemesterID
         JOIN Exams e ON cc.ClassID = e.ClassID
-        LEFT JOIN Users u ON e.SupervisorID = u.UserID
         LEFT JOIN ExamRegistrations er ON e.ExamID = er.ExamID AND er.UserID = cr.UserID
         WHERE cr.UserID = @userId
       `;

@@ -22,35 +22,53 @@ const authController = {
       // Check if this is a social login
       const isSocialLogin = provider === 'google' || provider === 'facebook';
       
-      // For social login, email is required
-      if (isSocialLogin && !email) {
+      // Only allow Gmail login; reject other login types
+      if (!isSocialLogin) {
         return res.status(400).json({
           success: false,
-          message: 'Email is required for social login'
+          message: 'Chỉ hỗ trợ đăng nhập bằng Gmail (Google)'
         });
       }
       
-      // For regular login, username/email and password are required
-      if (!isSocialLogin && (!username && !email) || !password) {
+      // For Gmail login, email is required
+      if (!email) {
         return res.status(400).json({
           success: false,
-          message: 'Username/email and password are required'
+          message: 'Email là bắt buộc khi đăng nhập bằng Gmail'
         });
       }
       
-      // For demo mode, we'll create a mock user
-      // In production, you would validate against the database
-      const userId = 1;
-      const fullName = isSocialLogin ? email.split('@')[0] : (username || email.split('@')[0]);
-      const userRole = 'STUDENT';
+      // Fetch user from database
+      const { sqlConnection } = require('../config/database');
+      const pool = await sqlConnection.connect();
+      
+      // Build query: Gmail login uses email only
+      let query = `SELECT TOP 1 * FROM Users WHERE Email = @email`;
+      
+      const request = pool.request();
+      request.input('email', sqlConnection.sql.VarChar(100), email);
+      
+      const result = await request.query(query);
+      
+      if (result.recordset.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: 'Tài khoản hoặc mật khẩu không đúng'
+        });
+      }
+      
+      const dbUser = result.recordset[0];
+      const userId = dbUser.UserID;
+      const fullName = dbUser.FullName;
+      const userRole = dbUser.Role || 'STUDENT';
       
       // Create JWT payload
       const payload = {
         user: {
           id: userId,
           UserID: userId,
-          username: username || email,
-          email: email || (username + '@example.com'),
+          username: dbUser.Username,
+          email: dbUser.Email,
           role: userRole
         }
       };
@@ -75,14 +93,14 @@ const authController = {
         token,
         refreshToken,
         user: {
-          UserID: userId,
-          Username: username || email,
-          Email: email || (username + '@example.com'),
-          FullName: fullName,
-          Role: userRole,
-          Status: 'ONLINE',
-          PhoneNumber: null,
-          Avatar: null,
+          UserID: dbUser.UserID,
+          Username: dbUser.Username,
+          Email: dbUser.Email,
+          FullName: dbUser.FullName,
+          Role: dbUser.Role,
+          Status: dbUser.Status,
+          PhoneNumber: dbUser.PhoneNumber,
+          Avatar: dbUser.Avatar,
           Provider: isSocialLogin ? provider : 'local'
         }
       });

@@ -24,47 +24,15 @@ import {
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 import { Check, Close, Warning } from '@mui/icons-material';
-
-// Sample courses
-const courses = [
-  { id: 1, code: 'CS101', name: 'Introduction to Computer Science' },
-  { id: 2, code: 'MATH201', name: 'Calculus II' },
-  { id: 3, code: 'PHY102', name: 'Physics for Engineers' }
-];
-
-// Sample semesters
-const semesters = ['HK1-2023-2024', 'HK2-2022-2023', 'HK1-2022-2023'];
-
-// Sample attendance data
-const attendanceData = {
-  'CS101': [
-    { id: 1, date: '06/11/2023', time: '09:00 - 10:30', room: 'A301', status: 'Present' },
-    { id: 2, date: '08/11/2023', time: '09:00 - 10:30', room: 'A301', status: 'Present' },
-    { id: 3, date: '13/11/2023', time: '09:00 - 10:30', room: 'A301', status: 'Absent' },
-    { id: 4, date: '15/11/2023', time: '09:00 - 10:30', room: 'A301', status: 'Present' },
-    { id: 5, date: '20/11/2023', time: '09:00 - 10:30', room: 'A301', status: 'Late' }
-  ],
-  'MATH201': [
-    { id: 6, date: '07/11/2023', time: '13:00 - 14:30', room: 'B205', status: 'Present' },
-    { id: 7, date: '09/11/2023', time: '13:00 - 14:30', room: 'B205', status: 'Present' },
-    { id: 8, date: '14/11/2023', time: '13:00 - 14:30', room: 'B205', status: 'Present' },
-    { id: 9, date: '16/11/2023', time: '13:00 - 14:30', room: 'B205', status: 'Present' },
-    { id: 10, date: '21/11/2023', time: '13:00 - 14:30', room: 'B205', status: 'Present' }
-  ],
-  'PHY102': [
-    { id: 11, date: '07/11/2023', time: '15:00 - 16:30', room: 'C105', status: 'Present' },
-    { id: 12, date: '09/11/2023', time: '15:00 - 16:30', room: 'C105', status: 'Absent' },
-    { id: 13, date: '14/11/2023', time: '15:00 - 16:30', room: 'C105', status: 'Present' },
-    { id: 14, date: '16/11/2023', time: '15:00 - 16:30', room: 'C105', status: 'Late' },
-    { id: 15, date: '21/11/2023', time: '15:00 - 16:30', room: 'C105', status: 'Present' }
-  ]
-};
+import { attendanceService } from '../../services/attendanceService';
 
 const Attendance = () => {
   const theme = useTheme();
   const { currentUser } = useAuth();
+  const [semesters, setSemesters] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState('');
-  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [attendanceStats, setAttendanceStats] = useState({
     present: 0,
@@ -105,52 +73,79 @@ const Attendance = () => {
   };
 
   useEffect(() => {
-    // Set default values
-    if (semesters.length > 0) {
-      setSelectedSemester(semesters[0]);
-    }
-    
-    if (courses.length > 0) {
-      setSelectedCourse(courses[0].code);
-      updateAttendance(courses[0].code);
-    }
-  }, []);
+    const fetchInitial = async () => {
+      try {
+        const uid = currentUser?.UserID;
+        if (!uid) return;
 
-  const updateAttendance = (courseCode) => {
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const data = attendanceData[courseCode] || [];
-      setAttendance(data);
-      
-      // Calculate statistics
-      const present = data.filter(item => item.status === 'Present').length;
-      const absent = data.filter(item => item.status === 'Absent').length;
-      const late = data.filter(item => item.status === 'Late').length;
-      const total = data.length;
-      const percentage = total > 0 ? Math.round(((present + (late * 0.5)) / total) * 100) : 0;
-      
-      setAttendanceStats({
-        present,
-        absent,
-        late,
-        total,
-        percentage
-      });
-      
+        // Load semesters having attendance data
+        const sems = await attendanceService.getSemesters(uid);
+        setSemesters(sems);
+
+        if (sems.length > 0) {
+          setSelectedSemester(sems[0].SemesterID);
+        }
+      } catch (err) {
+        console.error('Error loading semesters:', err);
+      }
+    };
+    fetchInitial();
+  }, [currentUser]);
+
+  // Load courses when semester changes
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!selectedSemester || !currentUser) return;
+      try {
+        const list = await attendanceService.getCourses(currentUser.UserID, selectedSemester);
+        setCourses(list);
+        if (list.length > 0) {
+          setSelectedCourse(list[0]);
+        }
+      } catch (err) {
+        console.error('Error loading courses:', err);
+      }
+    };
+    fetchCourses();
+  }, [selectedSemester, currentUser]);
+
+  // Load attendance when course changes
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      if (!selectedCourse || !currentUser) return;
+      setLoading(true);
+      try {
+        const records = await attendanceService.getAttendance(currentUser.UserID, selectedCourse.ClassID);
+        updateAttendanceState(records);
+      } catch (err) {
+        console.error('Error loading attendance:', err);
+        setAttendance([]);
+        setAttendanceStats({present:0,absent:0,late:0,total:0,percentage:0});
+      }
       setLoading(false);
-    }, 500);
+    };
+    fetchAttendance();
+  }, [selectedCourse, currentUser]);
+
+  const updateAttendanceState = (data) => {
+    setAttendance(data);
+    // stats
+    const present = data.filter(i => i.Status === 'Present').length;
+    const absent = data.filter(i => i.Status === 'Absent').length;
+    const late = data.filter(i => i.Status === 'Late').length;
+    const total = data.length;
+    const percentage = total ? Math.round(((present + late*0.5)/total)*100) : 0;
+    setAttendanceStats({present, absent, late, total, percentage});
   };
 
-  const handleSemesterChange = (event) => {
+  const handleSemesterChange = async(event) => {
     setSelectedSemester(event.target.value);
   };
 
-  const handleCourseChange = (event) => {
-    const courseCode = event.target.value;
-    setSelectedCourse(courseCode);
-    updateAttendance(courseCode);
+  const handleCourseChange = async (event) => {
+    const classId = event.target.value;
+    const courseObj = courses.find(c=>c.ClassID===classId);
+    setSelectedCourse(courseObj);
   };
 
   const getStatusChip = (status) => {
@@ -231,9 +226,9 @@ const Attendance = () => {
                 onChange={handleSemesterChange}
                 label="Học kỳ"
               >
-                {semesters.map((semester) => (
-                  <MenuItem key={semester} value={semester}>
-                    {semester}
+                {semesters.map((sem) => (
+                  <MenuItem key={sem.SemesterID} value={sem.SemesterID}>
+                    {sem.SemesterName} - {sem.AcademicYear}
                   </MenuItem>
                 ))}
               </Select>
@@ -243,13 +238,13 @@ const Attendance = () => {
             <FormControl sx={styles.formControl}>
               <InputLabel>Môn học</InputLabel>
               <Select
-                value={selectedCourse}
+                value={selectedCourse?.ClassID}
                 onChange={handleCourseChange}
                 label="Môn học"
               >
                 {courses.map((course) => (
-                  <MenuItem key={course.id} value={course.code}>
-                    {course.code} - {course.name}
+                  <MenuItem key={course.ClassID} value={course.ClassID}>
+                    {course.SubjectCode || course.ClassCode} - {course.SubjectName}
                   </MenuItem>
                 ))}
               </Select>
@@ -260,7 +255,7 @@ const Attendance = () => {
         <Card sx={styles.summaryCard}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Thống kê điểm danh {selectedCourse && `- ${courses.find(c => c.code === selectedCourse)?.name}`}
+              Thống kê điểm danh {selectedCourse && `- ${selectedCourse.SubjectName}`}
             </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>
@@ -326,11 +321,11 @@ const Attendance = () => {
                 </TableHead>
                 <TableBody>
                   {attendance.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.date}</TableCell>
-                      <TableCell>{item.time}</TableCell>
-                      <TableCell>{item.room}</TableCell>
-                      <TableCell>{getStatusChip(item.status)}</TableCell>
+                    <TableRow key={item.AttendanceID}>
+                      <TableCell>{new Date(item.SessionDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{`${item.CheckInTime || ''} - ${item.CheckOutTime || ''}`}</TableCell>
+                      <TableCell>{item.Location || '-'}</TableCell>
+                      <TableCell>{getStatusChip(item.Status)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -340,7 +335,7 @@ const Attendance = () => {
             <Card>
               <CardContent>
                 <Typography variant="body1" align="center">
-                  Không có dữ liệu điểm danh cho môn học này.
+                  Không có dữ liệu điểm danh.
                 </Typography>
               </CardContent>
             </Card>

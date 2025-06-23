@@ -24,6 +24,7 @@ import {
   useTheme
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
+import { internshipService } from '../../services/internshipService';
 
 const Internship = () => {
   const theme = useTheme();
@@ -51,36 +52,19 @@ const Internship = () => {
     }
   };
 
-  // Sample internship data
-  const sampleInternships = [
-    {
-      id: 1,
-      company: 'FPT Software',
-      position: 'Software Engineer Intern',
-      duration: '3 months',
-      startDate: '01/06/2023',
-      endDate: '31/08/2023',
-      status: 'Completed',
-      supervisor: 'Nguyễn Văn A',
-      credits: 3
-    },
-    {
-      id: 2,
-      company: 'Viettel',
-      position: 'IT Support Intern',
-      duration: '2 months',
-      startDate: '01/07/2023',
-      endDate: '31/08/2023',
-      status: 'In Progress',
-      supervisor: 'Trần Thị B',
-      credits: 2
-    }
-  ];
-
   useEffect(() => {
-    // In a real app, this would fetch data from an API
-    setInternships(sampleInternships);
-  }, []);
+    const fetchInternships = async () => {
+      try {
+        if (!currentUser) return;
+        const data = await internshipService.getInternships(currentUser.UserID);
+        setInternships(data);
+      } catch (err) {
+        console.error('Error loading internships:', err);
+        setInternships([]);
+      }
+    };
+    fetchInternships();
+  }, [currentUser]);
 
   return (
     <div style={styles.root}>
@@ -114,21 +98,21 @@ const Internship = () => {
                   </TableHead>
                   <TableBody>
                     {internships.map((internship) => (
-                      <TableRow key={internship.id}>
-                        <TableCell>{internship.company}</TableCell>
-                        <TableCell>{internship.position}</TableCell>
-                        <TableCell>{internship.duration}</TableCell>
-                        <TableCell>{internship.startDate}</TableCell>
-                        <TableCell>{internship.endDate}</TableCell>
+                      <TableRow key={internship.InternshipID}>
+                        <TableCell>{internship.CompanyName}</TableCell>
+                        <TableCell>{internship.Position}</TableCell>
+                        <TableCell>{internship.DurationMonths || '-'} tháng</TableCell>
+                        <TableCell>{new Date(internship.StartDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(internship.EndDate).toLocaleDateString()}</TableCell>
                         <TableCell>
                           <Chip 
-                            label={internship.status} 
-                            color={internship.status === 'Completed' ? 'success' : 'primary'}
+                            label={internship.Status}
+                            color={internship.Status === 'Completed' ? 'success' : (internship.Status==='Ongoing'?'warning':'primary')} 
                             size="small"
                           />
                         </TableCell>
-                        <TableCell>{internship.supervisor}</TableCell>
-                        <TableCell>{internship.credits}</TableCell>
+                        <TableCell>{internship.Supervisor || '-'}</TableCell>
+                        <TableCell>{internship.WeeklyHours || '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -52,7 +52,8 @@ const TuitionModel = {
         `);
       
       if (tuitionResult.recordset.length === 0) {
-        throw new Error('No tuition data found for this semester');
+        // No tuition data for this semester; gracefully return null
+        return null;
       }
       
       // Get tuition detail items
@@ -93,10 +94,7 @@ const TuitionModel = {
           ORDER BY sem.StartDate DESC
         `);
       
-      if (result.recordset.length === 0) {
-        throw new Error('No tuition history found');
-      }
-      
+      // Even if no history, return empty array to avoid throwing
       return result.recordset;
     } catch (error) {
       console.error('Error in getTuitionHistory model:', error);

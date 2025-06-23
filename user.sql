@@ -31,7 +31,7 @@ CREATE TABLE Users (
     CONSTRAINT CHK_Account_Status CHECK (AccountStatus IN ('ACTIVE', 'LOCKED', 'SUSPENDED', 'DELETED')) -- Kiểm tra trạng thái tài khoản hợp lệ
 );
 GO
-
+update Users set Role = 'ADMIN' where userid = 1;
 -- Bảng UserProfiles: Lưu thông tin bổ sung của người dùng như học vấn, kinh nghiệm làm việc
 CREATE TABLE UserProfiles (
     ProfileID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của profile

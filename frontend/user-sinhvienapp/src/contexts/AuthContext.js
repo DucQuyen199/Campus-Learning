@@ -44,12 +44,11 @@ export const AuthProvider = ({ children }) => {
         // For demo purposes, just set the user from localStorage
         let user = JSON.parse(localStorage.getItem('user'));
         if (user) {
-          // Ensure the user has a UserID property, defaulting to 1 if not present
-          if (!user.UserID && user.id) {
-            user.UserID = user.id;
-          } else if (!user.UserID && !user.id) {
-            user.UserID = 1; // Default UserID if neither is present
-            user.id = 1;
+          // Ensure the user has a UserID property; if not, treat as invalid session
+          if (!user.UserID) {
+            console.warn('Stored user data missing UserID. Clearing stale session.');
+            clearAuthData();
+            return;
           }
           
           // Store the updated user data
@@ -82,7 +81,10 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       setLoading(true);
       
-      // If this is a Gmail login
+      // Auto-detect Gmail login by email pattern
+      if (provider === 'local' && username && username.toLowerCase().includes('@gmail.com')) {
+        provider = 'google';
+      }
       const isGmailLogin = provider === 'google' || provider === 'gmail';
       
       console.log(`Attempting ${isGmailLogin ? 'Gmail' : 'regular'} login for: ${username}`);
@@ -113,12 +115,9 @@ export const AuthProvider = ({ children }) => {
         const refreshToken = response.data.refreshToken || '';
         const userData = response.data.user || {};
         
-        // Ensure userData has a UserID
+        // Map id to UserID if needed
         if (!userData.UserID && userData.id) {
           userData.UserID = userData.id;
-        } else if (!userData.UserID && !userData.id) {
-          userData.UserID = 1; // Default UserID
-          userData.id = 1;
         }
         
         // Create a user object with token
@@ -226,17 +225,11 @@ export const AuthProvider = ({ children }) => {
         console.log('Logout API error (non-critical):', err);
       }
       
-      // Remove token and user from localStorage
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+      // Clear all local & state data
+      clearAuthData();
       
-      // Clear auth header
-      delete axios.defaults.headers.common['Authorization'];
-      
-      // Update state
-      setIsAuthenticated(false);
-      setCurrentUser(null);
+      // Optional: force redirect to login page so UI fully resets
+      window.location.href = '/login';
       
       toast.success('Đăng xuất thành công');
     } catch (err) {

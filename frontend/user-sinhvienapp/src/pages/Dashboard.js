@@ -55,8 +55,11 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
-// API base URL
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008/api';
+// API base URL helper to ensure /api suffix
+let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008';
+if (!API_URL.endsWith('/api')) {
+  API_URL = API_URL.replace(/\/+$/, '') + '/api';
+}
 
 // Fallback academic data for when API fails
 const fallbackAcademicData = {

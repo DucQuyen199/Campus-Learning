@@ -1,5 +1,9 @@
 // API base URL
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008/api';
+let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008';
+if (!API_BASE_URL.endsWith('/api')) {
+  API_BASE_URL = API_BASE_URL.replace(/\/+$/, '') + '/api';
+}
+export { API_BASE_URL };
 
 // Other constants
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB

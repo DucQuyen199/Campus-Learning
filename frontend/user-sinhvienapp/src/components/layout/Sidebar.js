@@ -453,18 +453,6 @@ const Sidebar = ({
           </IconButton>
         )}
         
-        <Avatar
-          src={profileData?.Avatar || currentUser?.Avatar}
-          alt={profileData?.FullName || currentUser?.FullName || 'User'}
-          sx={{
-            width: 80,
-            height: 80,
-            mb: 1,
-            border: `3px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-            boxShadow: `0 0 10px ${alpha(theme.palette.primary.main, 0.15)}`
-          }}
-        />
-        
         <Typography 
           variant="h6" 
           sx={{ 
@@ -474,14 +462,6 @@ const Sidebar = ({
           }}
         >
           {profileData?.FullName || currentUser?.FullName || 'Chưa cập nhật'}
-        </Typography>
-        
-        <Typography 
-          variant="body2" 
-          color="text.secondary"
-          sx={{ mb: 1 }}
-        >
-          {currentUser?.UserID ? `MSSV: ${currentUser.UserID}` : 'MSSV: -'}
         </Typography>
       </Box>
       

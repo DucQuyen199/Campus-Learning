@@ -342,6 +342,7 @@ public class Main {
 
   const formatDateTime = (dateTime) => {
     try {
+      if (!dateTime) return '-';
       return format(new Date(dateTime), 'HH:mm:ss dd/MM/yyyy');
     } catch (error) {
       return 'Ngày không hợp lệ';
@@ -557,11 +558,11 @@ public class Main {
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Thời gian:</span>
-                        <div className="mt-1">{viewingSubmission.ExecutionTime || 0} giây</div>
+                        <div className="mt-1">{viewingSubmission.ExecutionTime ? `${viewingSubmission.ExecutionTime} giây` : '-'}</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Bộ nhớ:</span>
-                        <div className="mt-1">{viewingSubmission.MemoryUsed || 0} KB</div>
+                        <div className="mt-1">{viewingSubmission.MemoryUsed ? `${viewingSubmission.MemoryUsed} KB` : '-'}</div>
                       </div>
                       <div>
                         <span className="text-sm text-gray-500">Ngôn ngữ:</span>
@@ -607,6 +608,9 @@ public class Main {
                             Thời gian
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Bộ nhớ
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Đã nộp
                           </th>
                         </tr>
@@ -638,7 +642,10 @@ public class Main {
                               {submission.Language}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {submission.ExecutionTime || '-'} s
+                              {submission.ExecutionTime ? `${submission.ExecutionTime} s` : '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {submission.MemoryUsed ? `${submission.MemoryUsed} KB` : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {formatDateTime(submission.SubmittedAt)}

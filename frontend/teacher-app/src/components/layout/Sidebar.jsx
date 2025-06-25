@@ -42,9 +42,9 @@ const Sidebar = () => {
     } fixed left-0 top-0 z-40`}>
       <div className="flex items-center justify-between h-16 border-b border-primary-700 px-4">
         {isOpen ? (
-          <h1 className="text-xl font-bold">Cổng Nhà Giáo</h1>
+          <h1 className="text-xl font-bold">Teacher Portal</h1>
         ) : (
-          <h1 className="text-xl font-bold mx-auto">CNG</h1>
+          <h1 className="text-xl font-bold mx-auto">TP</h1>
         )}
         {isOpen && (
           <button

@@ -16,6 +16,8 @@ const EditCode = () => {
   const [exercise, setExercise] = useState(null);
   const [moduleTitle, setModuleTitle] = useState('');
   const [codeServerUrl, setCodeServerUrl] = useState('');
+  const [nextLessonId, setNextLessonId] = useState(null);
+  const [firstLessonId, setFirstLessonId] = useState(null);
   
   useEffect(() => {
     const initializeEnvironment = async () => {
@@ -64,6 +66,46 @@ const EditCode = () => {
           } catch (error) {
             console.error('Failed to create README.md in workspace:', error);
           }
+        }
+        
+        // Fetch course structure to determine next lesson ID
+        try {
+          const courseResp = await courseApi.getCourseDetails(courseId);
+          if (courseResp && courseResp.success) {
+            const course = courseResp.data;
+            let found = false;
+            let nextId = null;
+            if (course && Array.isArray(course.Modules)) {
+              // store first lesson id for later redirect
+              if (course.Modules.length > 0 && course.Modules[0].Lessons && course.Modules[0].Lessons.length > 0) {
+                setFirstLessonId(course.Modules[0].Lessons[0].LessonID);
+              }
+              for (let mIndex = 0; mIndex < course.Modules.length && !found; mIndex++) {
+                const module = course.Modules[mIndex];
+                if (!module || !Array.isArray(module.Lessons)) continue;
+                for (let lIndex = 0; lIndex < module.Lessons.length; lIndex++) {
+                  const l = module.Lessons[lIndex];
+                  if (String(l.LessonID) === String(lessonId)) {
+                    // determine next lesson within same module
+                    if (lIndex < module.Lessons.length - 1) {
+                      nextId = module.Lessons[lIndex + 1].LessonID;
+                    } else if (mIndex < course.Modules.length - 1) {
+                      // take first lesson of next module
+                      const nextModule = course.Modules[mIndex + 1];
+                      if (nextModule && Array.isArray(nextModule.Lessons) && nextModule.Lessons.length > 0) {
+                        nextId = nextModule.Lessons[0].LessonID;
+                      }
+                    }
+                    found = true;
+                    break;
+                  }
+                }
+              }
+            }
+            setNextLessonId(nextId);
+          }
+        } catch(e) {
+          console.error('Error determining next lesson:', e);
         }
         
         setLoading(false);
@@ -125,6 +167,50 @@ const EditCode = () => {
         {/* Exercise description in left panel - giữ tỷ lệ 20% */}
         {exercise && (
           <div className="w-1/5 border-r border-gray-200 p-2 h-full flex flex-col max-h-full">
+            {/* Navigation buttons */}
+            <div className="mb-2 flex space-x-1">
+              <Link
+                to={`/courses/${courseId}/learn?lessonId=${lessonId}`}
+                className="flex-1 px-2 py-1 bg-gray-600 text-white rounded text-xs flex items-center justify-center"
+              >
+                ◀ Bài trước
+              </Link>
+              {nextLessonId ? (
+                <button
+                  onClick={async () => {
+                    try {
+                      await courseApi.markLessonAsComplete(courseId, lessonId);
+                      toast.success('Đã đánh dấu hoàn thành bài học');
+                    } catch (err) {
+                      console.error('Error marking complete:', err);
+                    } finally {
+                      navigate(`/courses/${courseId}/learn?lessonId=${nextLessonId}`);
+                    }
+                  }}
+                  className="flex-1 px-2 py-1 bg-blue-600 text-white rounded text-xs flex items-center justify-center"
+                >
+                  Bài tiếp ▶
+                </button>
+              ) : (
+                <button
+                  onClick={async () => {
+                    try {
+                      await courseApi.markLessonAsComplete(courseId, lessonId);
+                      toast.success('Bạn đã hoàn thành khóa học!');
+                    } catch (err) {
+                      console.error('Error marking complete:', err);
+                    } finally {
+                      const navTarget = firstLessonId ? `/courses/${courseId}/learn?lessonId=${firstLessonId}` : `/courses/${courseId}/learn`;
+                      navigate(navTarget, { state: { finishedCourse: true }});
+                    }
+                  }}
+                  className="flex-1 px-2 py-1 bg-green-600 text-white rounded text-xs flex items-center justify-center"
+                >
+                  Kết thúc khóa học
+                </button>
+              )}
+            </div>
+            
             {/* Phần nội dung đề bài - thu nhỏ */}
             <div className="flex-1 overflow-y-auto pr-1 text-xs">
               {/* Tiêu đề bài tập và module - thu nhỏ */}
@@ -187,18 +273,7 @@ const EditCode = () => {
                           )}
                         </div>
             
-            {/* Nút quay lại bài học đặt ở dưới cùng */}
-            <div className="mt-2">
-              <Link 
-                to={`/courses/${courseId}/learn`} 
-                className="w-full px-2 py-1 bg-blue-600 text-white rounded text-xs flex items-center justify-center"
-              >
-                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-                </svg>
-                Quay lại bài học
-              </Link>
-            </div>
+            {/* Nút quay lại đã di chuyển lên đầu, phần này bỏ */}
           </div>
         )}
         

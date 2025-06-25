@@ -47,7 +47,10 @@ const CourseLearning = () => {
   const [course, setCourse] = useState(null);
   const [currentModule, setCurrentModule] = useState(null);
   const [currentLesson, setCurrentLesson] = useState(null);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(() => {
+    const loc = window.history.state && window.history.state.usr ? window.history.state.usr : null;
+    return loc && loc.finishedCourse ? 100 : 0;
+  });
   const [completedLessons, setCompletedLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,6 +75,12 @@ const CourseLearning = () => {
 
   // Check authentication and redirect if needed
   useEffect(() => {
+    // Reset finishedCourse flag after first render
+    if (location.state && location.state.finishedCourse) {
+      // remove the state so navigating again doesn't keep flag
+      navigate(location.pathname + location.search, { replace: true, state: {} });
+    }
+
     if (!isAuthenticated) {
       toast.error('Vui lòng đăng nhập để truy cập khóa học');
       navigate('/login', { state: { from: `/courses/${courseId}/learn` } });

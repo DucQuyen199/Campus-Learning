@@ -14,6 +14,7 @@ const paypalClient = require('../utils/paypalClient');
 const { formatDateForSqlServer, createSqlServerDate } = require('../utils/dateHelpers');
 const LessonProgress = require('../models/LessonProgress');
 const { VNPay, ignoreLogger } = require('vnpay');
+const { Op } = require('sequelize');
 
 // Initialize VNPAY client
 const vnpayHost = new URL(process.env.VNP_URL).origin;
@@ -1001,7 +1002,7 @@ exports.saveLessonProgress = async (req, res) => {
       where: {
         UserID: userId,
         CourseID: courseId,
-        Status: 'active'
+        Status: { [Op.in]: ['active', 'completed'] }
       }
     });
     
@@ -2222,5 +2223,87 @@ exports.testPayPalSandbox = async (req, res) => {
       message: 'Failed to test PayPal sandbox',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+  }
+};
+
+// -----------------------------------------------------------------------------
+// NEW: Get overall progress and completed lessons for a user in a course
+// -----------------------------------------------------------------------------
+exports.getCourseProgress = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    // Auth middleware may store user info in various ways
+    const user = req.user || {};
+    const userId = user.id || user.userId || user.UserID;
+
+    if (!courseId) {
+      return res.status(400).json({ success: false, message: 'Course ID is required' });
+    }
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: User not found' });
+    }
+
+    // For demo courses (ID 1 & 2) return mock data so that frontend can test easily
+    if (courseId === '1') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          overallProgress: 30,
+          completedLessons: []
+        }
+      });
+    }
+    if (courseId === '2') {
+      return res.status(200).json({
+        success: true,
+        data: {
+          overallProgress: 0,
+          completedLessons: []
+        }
+      });
+    }
+
+    // --------------------------------------------
+    // Query enrollment progress from database
+    // --------------------------------------------
+    const enrollmentResult = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('courseId', sql.BigInt, courseId)
+      .query(`
+        SELECT EnrollmentID, Progress
+        FROM CourseEnrollments
+        WHERE UserID = @userId AND CourseID = @courseId AND Status = 'active'
+      `);
+
+    if (enrollmentResult.recordset.length === 0) {
+      // No enrollment found – return 404 so that frontend falls back gracefully
+      return res.status(404).json({ success: false, message: 'No progress data found' });
+    }
+
+    const { EnrollmentID, Progress } = enrollmentResult.recordset[0];
+
+    // --------------------------------------------
+    // Query completed lessons for this enrollment
+    // --------------------------------------------
+    const completedResult = await pool.request()
+      .input('enrollmentId', sql.BigInt, EnrollmentID)
+      .query(`
+        SELECT LessonID
+        FROM LessonProgress
+        WHERE EnrollmentID = @enrollmentId AND Status = 'completed'
+      `);
+
+    const completedLessons = completedResult.recordset.map(row => row.LessonID);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        overallProgress: Progress || 0,
+        completedLessons
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching course progress:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }; 

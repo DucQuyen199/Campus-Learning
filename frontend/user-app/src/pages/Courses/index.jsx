@@ -139,14 +139,14 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
     if (isFreeCourse) {
       try {
         const response = await courseApi.enrollFreeCourse(courseId);
-        if (response.data && response.data.success) {
+        if (response && (response.success || response.alreadyEnrolled)) {
           toast.success('Đăng ký khóa học thành công!');
           dispatch(addEnrolledCourse(course));
           setTimeout(() => {
             navigate(`/courses/${courseId}/learn`);
           }, 1000);
         } else {
-          toast.error(response.data?.message || 'Không thể đăng ký khóa học');
+          toast.error(response?.message || 'Không thể đăng ký khóa học');
         }
       } catch (error) {
         toast.error('Đã xảy ra lỗi khi đăng ký khóa học');

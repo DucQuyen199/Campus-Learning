@@ -50,6 +50,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { userService } from '../../services/api';
+import courseService from '../../services/courseService';
 
 const Sidebar = ({ 
   drawerWidth = 240, 
@@ -62,6 +63,7 @@ const Sidebar = ({
   const theme = useTheme();
   const { currentUser } = useAuth();
   const [profileData, setProfileData] = useState(null);
+  const [currentSemester, setCurrentSemester] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -107,6 +109,25 @@ const Sidebar = ({
         .then(data => setProfileData(data))
         .catch(err => console.error('Error loading profile for sidebar:', err));
     }
+    // Fetch current semester
+    const fetchSemester = async () => {
+      try {
+        const res = await courseService.getSemesters();
+        if (res?.success && Array.isArray(res.data)) {
+          // Prefer semester marked as current, else fallback to ongoing
+          let sem = res.data.find(s => s.IsCurrent === true || s.IsCurrent === 1);
+          if (!sem) {
+            sem = res.data.find(s => s.Status === 'Ongoing');
+          }
+          if (sem) {
+            setCurrentSemester(sem);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching semesters for sidebar:', err);
+      }
+    };
+    fetchSemester();
   }, [currentUser]);
   
   // Toggle collapse menu
@@ -511,7 +532,9 @@ const Sidebar = ({
           color="text.secondary"
           sx={{ fontSize: '0.75rem' }}
         >
-          Học kỳ 1 năm học 2023-2024
+          {currentSemester
+            ? `${currentSemester.SemesterName} năm học ${currentSemester.AcademicYear}`
+            : 'Không có học kỳ hiện tại'}
         </Typography>
         <Typography
           variant="caption"

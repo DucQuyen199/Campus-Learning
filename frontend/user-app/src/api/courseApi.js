@@ -144,12 +144,17 @@ const courseApi = {
           }
         } else {
           console.error('HTTP error status:', xhr.status);
-          // Cố gắng trích xuất thông báo lỗi từ phản hồi
           try {
             const errorResponse = JSON.parse(xhr.responseText);
             const errorMessage = errorResponse.message || `Lỗi đăng ký khóa học (${xhr.status})`;
-            console.error('Error details:', errorResponse);
-            reject(new Error(errorMessage));
+            // Nếu người dùng đã đăng ký, coi như thành công và trả về phản hồi để frontend xử lý
+            if (xhr.status === 400 && errorMessage.toLowerCase().includes('already enrolled')) {
+              console.warn('User already enrolled – treating as success');
+              resolve({ ...errorResponse, alreadyEnrolled: true });
+            } else {
+              console.error('Error details:', errorResponse);
+              reject(new Error(errorMessage));
+            }
           } catch (e) {
             // Nếu không thể phân tích phản hồi, trả về mã lỗi HTTP
             reject(new Error(`Lỗi đăng ký khóa học: Mã lỗi ${xhr.status}`));

@@ -152,7 +152,7 @@ const CourseDetail = () => {
                 
                 if (enrollResponse.success && enrollResponse.isEnrolled) {
                   setIsEnrolled(true);
-                  setEnrollmentData(enrollResponse.enrollmentData);
+                  setEnrollmentData(enrollResponse.enrollmentData || enrollResponse.data?.enrollment || null);
                 }
               }
             } catch (enrollErr) {
@@ -184,7 +184,7 @@ const CourseDetail = () => {
           .then(res => {
             if (res.success && res.isEnrolled) {
               setIsEnrolled(true);
-              setEnrollmentData(res.enrollmentData);
+              setEnrollmentData(res.enrollmentData || res.data?.enrollment || null);
               // Refresh the enrolled courses list in Redux store
               dispatch(fetchEnrolledCourses({ forceRefresh: true }));
               // Show success toast again to confirm
@@ -231,9 +231,22 @@ const CourseDetail = () => {
       
       if (isFreeCourse) {
         const result = await dispatch(enrollFreeCourse(courseId)).unwrap();
-        if (result && result.success) {
+        if (result && (result.success || result.alreadyEnrolled)) {
           setIsEnrolled(true);
-          setEnrollmentData(result.enrollmentData);
+          // Nếu đã có dữ liệu enrollment trong phản hồi, sử dụng; nếu chưa, gọi API kiểm tra để lấy
+          if (result.data?.enrollment) {
+            setEnrollmentData(result.data.enrollment);
+          } else {
+            // Lấy thông tin enrollment từ API để đảm bảo có dữ liệu mới nhất
+            try {
+              const enrollStatus = await courseApi.checkEnrollment(courseId);
+              if (enrollStatus.success && enrollStatus.isEnrolled) {
+                setEnrollmentData(enrollStatus.enrollmentData || enrollStatus.data?.enrollment || null);
+              }
+            } catch (e) {
+              console.warn('Unable to fetch enrollment after alreadyEnrolled response');
+            }
+          }
           toast.success('Đăng ký khóa học thành công!');
           // Update UI to reflect enrolled status
           dispatch(fetchEnrolledCourses());

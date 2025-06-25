@@ -57,6 +57,9 @@ router.get('/courses/:courseId/check-enrollment', authMiddleware, courseControll
 // Course content requires authentication to access user-specific data
 router.get('/courses/:courseId/content', authMiddleware, courseController.getCourseContent);
 
+// NEW: Get course progress for the authenticated user
+router.get('/courses/:courseId/progress', authMiddleware, courseController.getCourseProgress);
+
 // Enroll in free course (protected)
 router.post('/courses/:courseId/enroll/free', authMiddleware, courseController.enrollFreeCourse);
 

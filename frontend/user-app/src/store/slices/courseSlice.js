@@ -125,8 +125,12 @@ export const enrollFreeCourse = createAsyncThunk(
   'courses/enrollFreeCourse',
   async (courseId, { rejectWithValue }) => {
     try {
+      // Gọi API đăng ký khóa học miễn phí
+      // Phần phản hồi từ courseApi đã được parse thành JSON
+      // nên chúng ta trả về trực tiếp đối tượng response để giữ nguyên
+      // structure { success, message, data }
       const response = await courseApi.enrollFreeCourse(courseId);
-      return response.data;
+      return response; // Trả về toàn bộ phản hồi thay vì response.data (vốn là undefined)
     } catch (error) {
       return rejectWithValue(error.response?.data || { message: 'Không thể đăng ký khóa học' });
     }

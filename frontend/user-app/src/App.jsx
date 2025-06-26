@@ -43,6 +43,7 @@ import AiTestLocal from './pages/AiTestLocal';
 import CompetitionsPage from './pages/Competitions';
 import CompetitionDetail from './pages/Competitions/CompetitionDetail';
 import ProblemDetail from './pages/Competitions/ProblemDetail';
+import PaymentVietQR from './pages/Payment/VietQRPayment';
 
 // Custom CSS for toast notifications
 import './toast-custom.css';
@@ -116,6 +117,7 @@ function App() {
               { path: '/courses/:courseId/learn', element: <CourseLearning /> },
               { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
               { path: '/payment/:courseId', element: <Payment /> },
+              { path: '/payment/vietqr/:transactionCode', element: <PaymentVietQR /> },
               { path: '/payment-history', element: <PaymentHistory /> }
             ].map(({ path, element }) => (
               <Route

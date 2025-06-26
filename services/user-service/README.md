@@ -234,4 +234,47 @@ To test if Docker execution is working correctly:
 
 1. Start the service
 2. Visit `/api/code-execution/health` endpoint to check Docker status
-3. Try the test endpoint: `/api/code-execution/test?language=python` 
+3. Try the test endpoint: `/api/code-execution/test?language=python`
+
+## Payment Methods
+
+The platform supports the following payment methods:
+
+- VNPAY - Vietnamese payment gateway for ATM/Visa/Mastercard
+- PayPal - International payments and credit cards
+- VietQR - Bank transfer using QR code
+- Momo - Vietnamese e-wallet payments
+- Credit Cards - Direct payment with Visa/Mastercard/JCB (Coming soon)
+
+### VietQR Integration
+
+VietQR enables payments via bank transfer using QR codes that are compatible with most Vietnamese banking apps.
+
+#### Environment Variables
+
+To configure VietQR, set the following environment variables:
+
+```
+VIETQR_ACCOUNT_NUMBER=123456789012  # Your bank account number
+VIETQR_BANK_NAME=TPBank             # Your bank name
+VIETQR_ACCOUNT_NAME=CAMPUST EDUCATION    # Account holder name
+VIETQR_BANK_CODE=TPB                # Bank code
+```
+
+#### Implementation
+
+1. The system generates a VietQR payment code when a user initiates a payment
+2. The user scans the QR code with their banking app and completes the payment
+3. User clicks "I have paid" to verify the payment
+4. The system verifies the payment and enrolls the user in the course
+
+#### API Endpoints
+
+- `POST /api/courses/:courseId/create-vietqr` - Create a VietQR payment
+- `POST /api/payments/verify-vietqr` - Verify a VietQR payment
+
+To apply database changes for VietQR support, run:
+
+```
+mysql -u username -p dbname < update-vietqr-payment-method.sql
+``` 

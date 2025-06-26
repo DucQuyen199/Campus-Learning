@@ -205,6 +205,40 @@ const paymentService = {
   },
   
   /**
+   * Create VietQR payment for a specific course.
+   * @param {string|number} courseId - Course ID.
+   * @returns {Promise<object>} - Response from backend containing payment details.
+   */
+  createVietQRPayment: async (courseId) => {
+    if (!courseId) throw new Error('courseId is required');
+
+    try {
+      const response = await axios.post(`${API_URL}/courses/${courseId}/create-vietqr`);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating VietQR payment:', error);
+      throw error.response?.data || { message: 'Could not create VietQR payment' };
+    }
+  },
+
+  /**
+   * Verify a VietQR payment transaction.
+   * @param {string} transactionCode - Transaction code to verify.
+   * @returns {Promise<object>} - Response from backend with verification result.
+   */
+  verifyVietQRPayment: async (transactionCode) => {
+    if (!transactionCode) throw new Error('transactionCode is required');
+
+    try {
+      const response = await axios.post(`${API_URL}/payments/verify-vietqr`, { transactionCode });
+      return response.data;
+    } catch (error) {
+      console.error('Error verifying VietQR payment:', error);
+      throw error.response?.data || { message: 'Could not verify VietQR payment' };
+    }
+  },
+  
+  /**
    * Fix VNPay iframe or popup timer issues
    * Call this when opening a VNPay payment page
    * @param {string} paymentUrl - VNPay payment URL

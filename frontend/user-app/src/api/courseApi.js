@@ -183,6 +183,16 @@ const courseApi = {
     return axiosClient.post(`/courses/${courseId}/create-payment`, { bankCode });
   },
   
+  // Create VietQR payment
+  createVietQRPayment: (courseId) => {
+    return axiosClient.post(`/courses/${courseId}/create-vietqr`);
+  },
+  
+  // Verify VietQR payment status
+  verifyVietQRPayment: (transactionCode) => {
+    return axiosClient.post('/payments/verify-vietqr', { transactionCode });
+  },
+  
   // Process VNPay transaction details
   processVNPayTransaction: (transactionId) => {
     if (!transactionId) {

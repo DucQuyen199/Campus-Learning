@@ -24,6 +24,12 @@ const Payment = () => {
   // Selected bank code for VNPay
   const [selectedBank, setSelectedBank] = useState('');
 
+  // For VietQR
+  const [vietQRData, setVietQRData] = useState(null);
+  const [vietQRTransactionCode, setVietQRTransactionCode] = useState(null);
+  const [verifyingVietQR, setVerifyingVietQR] = useState(false);
+  const [verificationInterval, setVerificationInterval] = useState(null);
+
   // Fetch VNPay bank list for sandbox
   const [bankList, setBankList] = useState([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
@@ -110,6 +116,26 @@ const Payment = () => {
         } else {
           toast.error('Không thể tạo liên kết thanh toán');
         }
+      } else if (paymentMethod === 'vietqr') {
+        const response = await courseApi.createVietQRPayment(courseId);
+        if (
+          response &&
+          response.data &&
+          response.data.success &&
+          response.data.data &&
+          response.data.data.vietQRData
+        ) {
+          const { vietQRData: qrData, transactionCode } = response.data.data;
+          navigate(`/payment/vietqr/${transactionCode}`, {
+            state: {
+              vietQRData: qrData,
+              courseId,
+              transactionCode
+            }
+          });
+        } else {
+          toast.error('Không thể tạo thông tin thanh toán VietQR');
+        }
       } else if (paymentMethod !== 'paypal') {
         // For other methods that aren't implemented yet
         toast.info('Phương thức thanh toán này sẽ được hỗ trợ trong thời gian tới');
@@ -137,6 +163,39 @@ const Payment = () => {
       toast.error(error.response?.data?.message || 'Không thể tạo đơn hàng PayPal');
     } finally {
       setProcessingPayment(false);
+    }
+  };
+
+  // Clear verification interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (verificationInterval) {
+        clearInterval(verificationInterval);
+      }
+    };
+  }, [verificationInterval]);
+
+  // Manual verification function for VietQR
+  const verifyVietQRPayment = async () => {
+    if (!vietQRTransactionCode) {
+      toast.error('Không có mã giao dịch để xác minh');
+      return;
+    }
+    
+    try {
+      setVerifyingVietQR(true);
+      const response = await courseApi.verifyVietQRPayment(vietQRTransactionCode);
+      if (response.data && response.data.success && response.data.data && response.data.data.status === 'completed') {
+        toast.success('Thanh toán thành công!');
+        navigate(`/courses/${courseId}`);
+      } else {
+        toast.info('Chưa nhận được thanh toán. Vui lòng thử lại sau.');
+      }
+    } catch (error) {
+      console.error('Error verifying VietQR payment:', error);
+      toast.error('Lỗi xác nhận thanh toán. Vui lòng thử lại.');
+    } finally {
+      setVerifyingVietQR(false);
     }
   };
 
@@ -297,6 +356,37 @@ const Payment = () => {
                 )}
               </div>
               
+              {/* VietQR payment option */}
+              <div 
+                className={`relative cursor-pointer p-3 rounded-lg transition-all flex items-center justify-center w-20 h-20 ${
+                  paymentMethod === 'vietqr' 
+                    ? 'bg-blue-50 border-2 border-blue-500 shadow-md' 
+                    : 'bg-white border hover:bg-gray-50'
+                }`}
+                onClick={() => setPaymentMethod('vietqr')}
+              >
+                <img 
+                  src="https://play-lh.googleusercontent.com/22cJzF0otG-EmmQgILMRTWFPnx0wTCSDY9aFaAmOhHs30oNHxi63KcGwUwmbR76Msko" 
+                  alt="VietQR" 
+                  className="max-h-12 max-w-12 object-contain"
+                />
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="vietqr"
+                  checked={paymentMethod === 'vietqr'}
+                  onChange={() => setPaymentMethod('vietqr')}
+                  className="sr-only"
+                />
+                {paymentMethod === 'vietqr' && (
+                  <div className="absolute -top-2 -right-2 bg-blue-500 rounded-full p-1">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </div>
+                )}
+              </div>
+              
               {/* PayPal payment option */}
               <div 
                 className={`relative cursor-pointer p-3 rounded-lg transition-all flex items-center justify-center w-20 h-20 ${
@@ -399,6 +489,12 @@ const Payment = () => {
                 </div>
               )}
               
+              {paymentMethod === 'vietqr' && (
+                <div className="text-sm text-gray-600">
+                  <p>Thanh toán chuyển khoản ngân hàng bằng mã QR của VietQR</p>
+                </div>
+              )}
+              
               {paymentMethod === 'paypal' && (
                 <div className="text-sm text-gray-600">
                   <p>Thanh toán an toàn với PayPal hoặc thẻ tín dụng quốc tế thông qua PayPal</p>
@@ -418,8 +514,70 @@ const Payment = () => {
               )}
             </div>
             
-            {/* Specific payment method sections */}
-            {paymentMethod === 'paypal' ? (
+            {/* VietQR Payment Section */}
+            {paymentMethod === 'vietqr' && vietQRData ? (
+              <div className="flex flex-col items-center">
+                <div className="mb-4 text-center">
+                  <h3 className="font-semibold mb-2">Quét mã QR để thanh toán</h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Sử dụng ứng dụng ngân hàng để quét mã QR và thanh toán
+                  </p>
+                  <div className="p-4 bg-white border rounded-lg shadow-sm">
+                    <img 
+                      src={vietQRData.qrImageUrl} 
+                      alt="VietQR Payment" 
+                      className="max-w-full h-auto"
+                    />
+                  </div>
+                </div>
+                
+                <div className="w-full bg-gray-100 p-4 rounded-md mb-4">
+                  <h4 className="font-medium mb-2">Thông tin chuyển khoản</h4>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Ngân hàng:</span>
+                      <span className="font-medium">{vietQRData.bankName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Số tài khoản:</span>
+                      <span className="font-medium">{vietQRData.bankAccount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Tên tài khoản:</span>
+                      <span className="font-medium">{vietQRData.accountName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Số tiền:</span>
+                      <span className="font-medium">{vietQRData.amount?.toLocaleString()} VND</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Nội dung chuyển khoản:</span>
+                      <span className="font-medium">{vietQRData.description}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={verifyVietQRPayment}
+                  disabled={verifyingVietQR}
+                  className={`w-full py-3 text-white rounded-lg ${
+                    verifyingVietQR ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {verifyingVietQR ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang xác minh thanh toán...
+                    </span>
+                  ) : (
+                    'Tôi đã thanh toán'
+                  )}
+                </button>
+              </div>
+            ) : paymentMethod === 'paypal' ? (
               <button
                 onClick={handlePayPalRedirect}
                 disabled={processingPayment}
@@ -437,6 +595,26 @@ const Payment = () => {
                   </span>
                 ) : (
                   'Thanh toán với PayPal'
+                )}
+              </button>
+            ) : paymentMethod === 'vietqr' && !vietQRData ? (
+              <button
+                onClick={handlePayment}
+                disabled={processingPayment}
+                className={`w-full py-3 text-white rounded-lg ${
+                  processingPayment ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {processingPayment ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Đang tạo mã thanh toán...
+                  </span>
+                ) : (
+                  'Tạo mã QR để thanh toán'
                 )}
               </button>
             ) : (

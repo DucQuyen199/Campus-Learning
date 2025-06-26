@@ -658,6 +658,267 @@ exports.createPaymentUrl = async (req, res) => {
   }
 };
 
+// Create VietQR payment information
+exports.createVietQRPayment = async (req, res) => {
+  try {
+    console.log('Creating VietQR payment, params:', req.params);
+    const { courseId } = req.params;
+    const userId = req.user.id;
+    
+    // Validate input
+    if (!courseId) {
+      console.error('Missing courseId in request params');
+      return res.status(400).json({ success: false, message: 'Course ID is required' });
+    }
+    
+    if (!userId) {
+      console.error('User ID not found in request');
+      return res.status(401).json({ success: false, message: 'User authentication required' });
+    }
+    
+    // Get course details
+    const course = await Course.findOne({
+      where: {
+        CourseID: courseId,
+        IsPublished: true,
+        Status: 'published'
+      }
+    });
+
+    if (!course) {
+      console.error(`Course not found with ID: ${courseId}`);
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await CourseEnrollment.findOne({
+      where: {
+        CourseID: courseId,
+        UserID: userId
+      }
+    });
+
+    if (existingEnrollment) {
+      console.log(`User ${userId} already enrolled in course ${courseId}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'You are already enrolled in this course' 
+      });
+    }
+
+    // Determine payment amount (use discount price if available)
+    let amount = course.DiscountPrice || course.Price;
+    
+    if (amount <= 0) {
+      console.log(`Course ${courseId} is free, should use free enrollment endpoint`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Free courses should use the free enrollment endpoint' 
+      });
+    }
+
+    // Ensure amount is a number
+    if (typeof amount === 'string') {
+      amount = parseFloat(amount);
+    }
+    
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid course price' 
+      });
+    }
+    
+    console.log('Course price:', amount);
+
+    // Format dates as ISO strings for database compatibility
+    const currentTime = new Date();
+    const createdAtStr = currentTime.toISOString();
+    const updatedAtStr = createdAtStr;
+    
+    // Generate a unique transaction code
+    const transactionCode = `VQR${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+    // Create a pending transaction
+    const transaction = await PaymentTransaction.create({
+      UserID: userId,
+      CourseID: courseId,
+      Amount: amount,
+      PaymentMethod: 'vietqr',
+      TransactionCode: transactionCode,
+      PaymentStatus: 'pending',
+      CreatedAt: createdAtStr,
+      UpdatedAt: updatedAtStr
+    });
+
+    console.log(`Created VietQR transaction: ${transaction.TransactionID} for course ${courseId}`);
+
+    // Record in payment history
+    await PaymentHistory.create({
+      TransactionID: transaction.TransactionID,
+      Status: 'initiated',
+      Message: 'VietQR payment initiated',
+      IPAddress: req.ip,
+      UserAgent: req.headers['user-agent'],
+      CreatedAt: createdAtStr
+    });
+
+    // Get bank account information from environment variables
+    const bankAccount = process.env.VIETQR_ACCOUNT_NUMBER || '9999991909';
+    const bankName = process.env.VIETQR_BANK_NAME || 'MBBANK';
+    const accountName = process.env.VIETQR_ACCOUNT_NAME || 'CAMPUST EDUCATION';
+    const bankCode = process.env.VIETQR_BANK_CODE || 'MB';
+
+    // Create VietQR data
+    const vietQRData = {
+      transactionCode,
+      bankAccount,
+      bankName,
+      accountName,
+      amount,
+      description: `CAMPUST-${transactionCode}`,
+      qrImageUrl: `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact.png?amount=${amount}&addInfo=CAMPUST-${transactionCode}`
+    };
+
+    // Update transaction with payment details
+    await PaymentTransaction.update({
+      PaymentDetails: JSON.stringify(vietQRData),
+      UpdatedAt: new Date().toISOString()
+    }, {
+      where: { TransactionID: transaction.TransactionID }
+    });
+
+    res.json({
+      success: true,
+      message: 'VietQR payment information created',
+      data: {
+        transactionId: transaction.TransactionID,
+        transactionCode,
+        vietQRData
+      }
+    });
+  } catch (err) {
+    console.error('Error creating VietQR payment:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create VietQR payment',
+      error: err.message
+    });
+  }
+};
+
+// Verify VietQR payment
+exports.verifyVietQRPayment = async (req, res) => {
+  try {
+    const { transactionCode } = req.body;
+    
+    if (!transactionCode) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Transaction code is required' 
+      });
+    }
+    
+    // Find the transaction
+    const transaction = await PaymentTransaction.findOne({
+      where: {
+        TransactionCode: transactionCode,
+        PaymentMethod: 'vietqr'
+      }
+    });
+    
+    if (!transaction) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Transaction not found' 
+      });
+    }
+    
+    if (transaction.PaymentStatus === 'completed') {
+      return res.json({
+        success: true,
+        message: 'Payment already verified',
+        data: { 
+          status: 'completed',
+          courseId: transaction.CourseID
+        }
+      });
+    }
+    
+    // In a real implementation, we would check the bank's API or database
+    // to confirm that the payment was received. Here, we'll simulate a check.
+    
+    // This is where you would integrate with your banking API to verify payment
+    // For demonstration, we'll assume the payment has been received
+    
+    // Update transaction status
+    await PaymentTransaction.update({
+      PaymentStatus: 'completed',
+      PaymentDate: new Date().toISOString(),
+      UpdatedAt: new Date().toISOString()
+    }, {
+      where: { TransactionID: transaction.TransactionID }
+    });
+    
+    // Add payment history record
+    await PaymentHistory.create({
+      TransactionID: transaction.TransactionID,
+      Status: 'completed',
+      Message: 'Payment verified successfully',
+      IPAddress: req.ip,
+      UserAgent: req.headers['user-agent'],
+      CreatedAt: new Date().toISOString()
+    });
+    
+    // Enroll user in course
+    await enrollUserInCourse(transaction.UserID, transaction.CourseID, transaction.TransactionID);
+    
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      data: { 
+        status: 'completed',
+        courseId: transaction.CourseID
+      }
+    });
+  } catch (err) {
+    console.error('Error verifying VietQR payment:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to verify payment',
+      error: err.message
+    });
+  }
+};
+
+// Helper function to enroll user in course
+async function enrollUserInCourse(userId, courseId, transactionId) {
+  // Check if already enrolled
+  const existingEnrollment = await CourseEnrollment.findOne({
+    where: {
+      CourseID: courseId,
+      UserID: userId
+    }
+  });
+  
+  if (existingEnrollment) {
+    console.log(`User ${userId} already enrolled in course ${courseId}`);
+    return existingEnrollment;
+  }
+  
+  // Create enrollment
+  const enrollment = await CourseEnrollment.create({
+    CourseID: courseId,
+    UserID: userId,
+    EnrolledAt: new Date().toISOString(),
+    Status: 'active',
+    Progress: 0
+  });
+  
+  console.log(`User ${userId} enrolled in course ${courseId} successfully`);
+  return enrollment;
+}
+
 // Handle VNPay payment callback using vnpay library
 exports.paymentCallback = async (req, res) => {
   try {

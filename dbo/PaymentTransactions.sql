@@ -15,7 +15,7 @@ CREATE TABLE [dbo].[PaymentTransactions] (
     [CancelURL]       VARCHAR (500)   NULL,
     [Notes]           NVARCHAR (1000) NULL,
     PRIMARY KEY CLUSTERED ([TransactionID] ASC),
-    CONSTRAINT [CHK_Payment_Method] CHECK ([PaymentMethod]='paypal' OR [PaymentMethod]='free' OR [PaymentMethod]='momo' OR [PaymentMethod]='bank_transfer' OR [PaymentMethod]='credit_card' OR [PaymentMethod]='vnpay'),
+    CONSTRAINT [CHK_Payment_Method] CHECK ([PaymentMethod]='paypal' OR [PaymentMethod]='free' OR [PaymentMethod]='momo' OR [PaymentMethod]='bank_transfer' OR [PaymentMethod]='credit_card' OR [PaymentMethod]='vnpay' OR [PaymentMethod]='vietqr'),
     CONSTRAINT [CHK_Payment_Status] CHECK ([PaymentStatus]='cancelled' OR [PaymentStatus]='refunded' OR [PaymentStatus]='failed' OR [PaymentStatus]='completed' OR [PaymentStatus]='pending'),
     FOREIGN KEY ([CourseID]) REFERENCES [dbo].[Courses] ([CourseID]),
     FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID]),

@@ -23,7 +23,7 @@ import { logout } from '@/store/slices/authSlice';
 import Profile from './Profile';
 
 // Import Payment Settings component
-import PaymentSettings from './payment';
+import PaymentSettings from './package';
 import LoginSession from './Loginsession';
 import Email from './Email';
 

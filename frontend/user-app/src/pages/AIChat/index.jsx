@@ -14,7 +14,8 @@ import {
   SparklesIcon,
   MicrophoneIcon,
   TrashIcon,
-  StopIcon
+  StopIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { initChat, sendMessage } from '../../services/aiService';
 
@@ -29,9 +30,12 @@ const AIChat = () => {
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [isTemporaryChat, setIsTemporaryChat] = useState(true);
   const [isListening, setIsListening] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showImagePreview, setShowImagePreview] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
   
   // Suggested questions by category
   const suggestedQuestions = [
@@ -264,7 +268,7 @@ const AIChat = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!input.trim()) return;
+    if ((!input.trim() && !selectedImage)) return;
     if (!chat) {
       setError('Chưa kết nối được với AI. Vui lòng tải lại trang.');
       return;
@@ -273,29 +277,50 @@ const AIChat = () => {
     const userMessage = input.trim();
     setInput('');
     
-    // Create new messages array with the user's message
-    const updatedMessages = [...messages, { role: 'user', content: userMessage }];
+    // Chuẩn bị message content dựa trên loại tin nhắn
+    let userContent = userMessage;
+    let hasImage = false;
     
-    // Update messages state
+    // Nếu có ảnh, hiển thị ảnh trong tin nhắn
+    if (selectedImage) {
+      hasImage = true;
+      // Nếu không có text, chỉ hiển thị ảnh
+      userContent = userMessage || "Phân tích ảnh này";
+    }
+    
+    // Tạo message object với ảnh nếu có
+    const userMessageObj = { 
+      role: 'user', 
+      content: userContent,
+      image: selectedImage
+    };
+    
+    // Cập nhật messages state với tin nhắn người dùng
+    const updatedMessages = [...messages, userMessageObj];
     setMessages(updatedMessages);
     
     // Hiển thị trạng thái đang tải
     setLoading(true);
     
+    // Reset trạng thái ảnh
+    const imageToSend = selectedImage;
+    setSelectedImage(null);
+    setShowImagePreview(false);
+    
     try {
-      // If this is the first user message in a temporary chat, save it to history
+      // Nếu là tin nhắn đầu tiên trong chat tạm thời, lưu vào lịch sử
       if (isTemporaryChat) {
         saveTemporaryChat(updatedMessages);
       }
       
-      // Gửi tin nhắn đến AI
-      const response = await sendMessage(chat, userMessage);
+      // Gửi tin nhắn đến AI (kèm ảnh nếu có)
+      const response = await sendMessage(chat, userMessage, imageToSend);
       
       // Thêm phản hồi từ AI vào state
       const messagesWithResponse = [...updatedMessages, { role: 'assistant', content: response }];
       setMessages(messagesWithResponse);
       
-      // Update the conversation in localStorage
+      // Cập nhật cuộc hội thoại trong localStorage
       if (!isTemporaryChat) {
         setConversations(prevConversations => {
           const updatedConversations = prevConversations.map(conv => {
@@ -310,7 +335,7 @@ const AIChat = () => {
             return conv;
           });
           
-          // Ensure we persist to localStorage immediately for any page navigation
+          // Đảm bảo lưu vào localStorage ngay lập tức để tránh mất dữ liệu khi điều hướng
           localStorage.setItem('chatConversations', JSON.stringify(updatedConversations));
           
           return updatedConversations;
@@ -440,8 +465,91 @@ const AIChat = () => {
     handleReset();
   };
 
+  // Xử lý sự kiện chọn file ảnh
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Kiểm tra kích thước file (giới hạn 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Kích thước ảnh không được vượt quá 5MB');
+      return;
+    }
+    
+    // Chỉ chấp nhận hình ảnh
+    if (!file.type.startsWith('image/')) {
+      setError('Chỉ chấp nhận file hình ảnh');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSelectedImage(reader.result);
+      setShowImagePreview(true);
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  // Xóa ảnh đã chọn
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setShowImagePreview(false);
+    fileInputRef.current.value = '';
+  };
+
   return (
     <div className="h-[calc(100vh-84px)] bg-white text-gray-950 overflow-hidden flex">
+      {/* Chat History Panel */}
+      <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="p-3 h-full flex flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">Lịch sử</h3>
+            <div className="flex items-center gap-2">
+              {conversations.length > 0 && (
+                <button
+                  onClick={clearAllHistory}
+                  className="text-xs text-red-500 hover:text-red-600"
+                >
+                  Xóa tất cả
+                </button>
+              )}
+              <button
+                onClick={handleNewChat}
+                className="flex items-center justify-center w-7 h-7 text-white bg-theme-primary hover:bg-theme-hover rounded-full transition-colors"
+                title="Tạo cuộc trò chuyện mới"
+              >
+                <PlusIcon className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto space-y-0.5">
+            {conversations.length === 0 ? (
+              <p className="text-sm text-gray-500">Chưa có cuộc trò chuyện</p>
+            ) : (
+              conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={`flex items-center justify-between p-2 rounded hover:bg-gray-50 ${conv.id === activeConversationId ? 'bg-gray-100' : ''}`}
+                >
+                  <button
+                    className={`truncate text-left flex-1 text-sm ${conv.id === activeConversationId ? 'font-medium text-theme-primary' : 'text-gray-700 dark:text-gray-300'}`}
+                    onClick={() => switchConversation(conv.id)}
+                  >
+                    {conv.title}
+                  </button>
+                  <button
+                    onClick={() => deleteConversation(conv.id)}
+                    className="p-0.5 text-gray-400 hover:text-gray-600"
+                  >
+                    <TrashIcon className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-full relative bg-gray-50 overflow-hidden">
         {error && (
@@ -471,23 +579,55 @@ const AIChat = () => {
                     >
                       <div className={`max-w-[90%] ${message.role === 'assistant' ? 'whitespace-pre-wrap' : ''}`}>
                         <div className="flex items-start gap-2">
-                          {message.role === 'assistant' && (
+                          {message.role === 'assistant' ? (
                             <div className="w-5 h-5 rounded-full bg-gray-700 text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs">
                               <span>AI</span>
                             </div>
+                          ) : (
+                            <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs">
+                              <span>U</span>
+                            </div>
                           )}
-                          <div className={`text-sm`}>
-                            {message.role === 'assistant' ? (
-                              <ReactMarkdown>
+                          <div className={`text-sm ${message.role === 'user' ? '' : 'prose prose-sm max-w-none dark:prose-invert prose-headings:font-medium prose-headings:text-gray-900 dark:prose-headings:text-white prose-h1:text-lg prose-h2:text-base prose-h3:text-sm prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-pre:bg-gray-50 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-700 prose-code:text-gray-800 dark:prose-code:text-gray-200 prose-strong:text-gray-900 dark:prose-strong:text-white prose-ul:my-1 prose-li:my-0.5 prose-li:marker:text-gray-400 prose-a:text-theme-primary hover:prose-a:text-theme-hover'}`}>
+                            {/* Hiển thị ảnh nếu có */}
+                            {message.image && message.role === 'user' && (
+                              <div className="mb-2">
+                                <img 
+                                  src={message.image} 
+                                  alt="Uploaded content" 
+                                  className="max-h-48 rounded-lg shadow-sm border border-gray-200"
+                                />
+                              </div>
+                            )}
+                            
+                            {message.role === 'user' ? (
+                              <p>{message.content}</p>
+                            ) : (
+                              <ReactMarkdown
+                                components={{
+                                  pre: ({ node, ...props }) => (
+                                    <div className="relative group">
+                                      <pre {...props} className="rounded-lg p-3 overflow-x-auto" />
+                                    </div>
+                                  ),
+                                  code: ({ node, inline, ...props }) => (
+                                    inline ? 
+                                    <code {...props} className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm" /> :
+                                    <code {...props} />
+                                  ),
+                                  ul: ({ node, ...props }) => (
+                                    <ul {...props} className="list-disc pl-4" />
+                                  ),
+                                  ol: ({ node, ...props }) => (
+                                    <ol {...props} className="list-decimal pl-4" />
+                                  ),
+                                  li: ({ node, ...props }) => (
+                                    <li {...props} className="marker:text-gray-400" />
+                                  )
+                                }}
+                              >
                                 {message.content}
                               </ReactMarkdown>
-                            ) : (
-                              <div className="flex items-start gap-2">
-                                <p>{message.content}</p>
-                                <div className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center flex-shrink-0 mt-1 text-xs">
-                                  <span>U</span>
-                                </div>
-                              </div>
                             )}
                           </div>
                         </div>
@@ -540,16 +680,55 @@ const AIChat = () => {
                   >
                     <PlusIcon className="h-4 w-4" />
                   </button>
+                  
+                  {/* Hiển thị preview ảnh nếu có */}
+                  {showImagePreview && selectedImage && (
+                    <div className="absolute bottom-full left-0 p-2 mb-2 bg-white rounded-lg shadow-md border border-gray-200 flex items-start gap-2">
+                      <img 
+                        src={selectedImage} 
+                        alt="Preview" 
+                        className="h-16 rounded-md" 
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="p-1 bg-red-50 rounded-full text-red-500 hover:bg-red-100"
+                      >
+                        <XMarkIcon className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                  
                   <input
                     ref={inputRef}
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Hỏi bất cứ điều gì về IT..."
-                    className="w-full py-2 pl-10 pr-16 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:border-gray-300 focus:ring-0 text-sm bg-white"
+                    className="w-full py-2 pl-10 pr-24 border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:border-gray-300 focus:ring-0 text-sm bg-white"
                     disabled={loading || initializing}
                   />
                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center">
+                    {/* Nút upload ảnh */}
+                    <input 
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                      id="image-upload"
+                      ref={fileInputRef}
+                      disabled={loading || initializing}
+                    />
+                    <label
+                      htmlFor="image-upload"
+                      className={`p-1 text-gray-400 hover:text-gray-600 cursor-pointer mr-1 ${selectedImage ? 'text-theme-primary' : ''}`}
+                      title="Tải lên hình ảnh"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                      </svg>
+                    </label>
+                    
                     <button
                       type="button"
                       onClick={handleMicClick}
@@ -560,7 +739,7 @@ const AIChat = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || initializing || !input.trim()}
+                      disabled={loading || initializing || (!input.trim() && !selectedImage)}
                       className="p-1 text-gray-400 hover:text-gray-600 disabled:text-gray-300 disabled:hover:text-gray-300"
                     >
                       <PaperAirplaneIcon className="h-4 w-4" />
@@ -576,20 +755,20 @@ const AIChat = () => {
       {/* Suggested Questions Panel */}
       <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
         <div className="p-3">
-          <div className="flex items-center mb-2">
-            <LightBulbIcon className="h-4 w-4 text-yellow-500 mr-2" />
-            <h3 className="text-sm font-medium">Câu hỏi gợi ý</h3>
+          <div className="flex items-center mb-3">
+            <LightBulbIcon className="h-5 w-5 text-yellow-500 mr-2" />
+            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">Câu hỏi gợi ý</h3>
           </div>
 
           {suggestedQuestions.map((category, idx) => (
-            <div key={idx} className="mb-3">
-              <h4 className="text-xs font-medium text-gray-500 mb-1">{category.category}</h4>
-              <div className="space-y-1">
+            <div key={idx} className="mb-4">
+              <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{category.category}</h4>
+              <div className="space-y-2">
                 {category.questions.map((question, qIdx) => (
                   <button
                     key={qIdx}
                     onClick={() => handleSuggestedQuestion(question)}
-                    className="w-full text-left p-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-md transition"
+                    className="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-md transition-colors text-gray-700 dark:text-gray-300"
                   >
                     {question}
                   </button>
@@ -597,41 +776,6 @@ const AIChat = () => {
               </div>
             </div>
           ))}
-          
-          {conversations.length > 0 && (
-            <div className="mt-4 pt-3 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-medium text-gray-500">Lịch sử cuộc hội thoại</h3>
-                <button 
-                  onClick={clearAllHistory}
-                  className="text-xs text-red-500 hover:text-red-600"
-                >
-                  Xóa tất cả
-                </button>
-              </div>
-              <div className="space-y-0 max-h-36 overflow-y-auto">
-                {conversations.slice(0, 5).map((conv) => (
-                  <div 
-                    key={conv.id} 
-                    className="flex items-center justify-between text-xs p-1 hover:bg-gray-50 rounded"
-                  >
-                    <button 
-                      className="truncate text-left"
-                      onClick={() => switchConversation(conv.id)}
-                    >
-                      {conv.title}
-                    </button>
-                    <button 
-                      onClick={() => deleteConversation(conv.id)}
-                      className="p-0.5 text-gray-400 hover:text-gray-600"
-                    >
-                      <TrashIcon className="h-2.5 w-2.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

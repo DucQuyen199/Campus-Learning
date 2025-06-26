@@ -184,8 +184,44 @@ export const initChat = async () => {
 /**
  * Gửi tin nhắn đến AI và nhận phản hồi
  */
-export const sendMessage = async (chat, message) => {
+export const sendMessage = async (chat, message, imageData = null) => {
   try {
+    // Nếu có hình ảnh -> dùng mô hình vision riêng
+    if (imageData) {
+      try {
+        const visionModel = genAI.getGenerativeModel({
+          model: "gemini-pro-vision",
+          generationConfig,
+          safetySettings,
+          systemInstruction: systemPrompt,
+        });
+
+        // Tách header và data
+        const [header, data] = imageData.split(',');
+        const mimeTypeMatch = header.match(/:(.*?);/);
+        const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+
+        const imagePart = {
+          inlineData: {
+            data, // chỉ phần base64 không gồm header
+            mimeType,
+          },
+        };
+
+        const textPart = message || "Phân tích hình ảnh này và giải thích nội dung liên quan đến IT";
+
+        const result = await visionModel.generateContent([textPart, imagePart]);
+        return result.response.text();
+      } catch (visionErr) {
+        console.error('Vision model error:', visionErr);
+        if (String(visionErr).includes('429')) {
+          return 'Dịch vụ AI đang quá tải hoặc vượt quá giới hạn miễn phí. Vui lòng thử lại sau ít phút hoặc nâng cấp gói dịch vụ.';
+        }
+        return 'Xin lỗi, tôi không thể xử lý hình ảnh này. Vui lòng thử lại sau.';
+      }
+    }
+
+    // Trường hợp chỉ có văn bản, giữ nguyên logic cũ
     // Nếu câu hỏi không liên quan đến IT, trả về thông báo
     if (!isITRelatedQuestion(message)) {
       return "Xin lỗi, tôi chỉ có thể trả lời các câu hỏi liên quan đến IT và công nghệ. Vui lòng đặt câu hỏi về lập trình, phát triển phần mềm, cơ sở dữ liệu, mạng máy tính, bảo mật hoặc các chủ đề IT khác.";
@@ -212,6 +248,29 @@ export const sendMessage = async (chat, message) => {
     }
     return "Xin lỗi, tôi không thể trả lời câu hỏi này. Có lỗi xảy ra: " + (error.message || "Không xác định");
   }
+};
+
+// Hàm chuyển đổi Base64 thành FileObject cho Gemini
+const getFileObjectFromBase64 = async (base64Data) => {
+  // Tách phần header và data từ chuỗi base64
+  const [header, data] = base64Data.split(',');
+  const mimeType = header.match(/:(.*?);/)[1];
+  
+  // Chuyển base64 thành binary
+  const binaryStr = atob(data);
+  const len = binaryStr.length;
+  const arr = new Uint8Array(len);
+  
+  for (let i = 0; i < len; i++) {
+    arr[i] = binaryStr.charCodeAt(i);
+  }
+  
+  // Tạo Blob
+  const blob = new Blob([arr], { type: mimeType });
+  
+  // Tạo File Object từ Google Generative AI
+  const { GoogleGenerativeAI, FileObject } = window.googleGenerativeAI;
+  return FileObject.fromBlob(blob);
 };
 
 export default {

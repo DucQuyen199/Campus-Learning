@@ -10,8 +10,8 @@ import {
   ExclamationTriangleIcon, UserCircleIcon, Cog6ToothIcon,
   SparklesIcon, ChatBubbleBottomCenterTextIcon,
   MagnifyingGlassIcon, XMarkIcon, HeartIcon,
-  Bars3Icon, ChevronLeftIcon, ChevronRightIcon, CodeBracketIcon,
-  BeakerIcon
+  Bars3Icon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, CodeBracketIcon,
+  BeakerIcon, ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid, HeartIcon as HeartIconSolid, CalendarIcon as CalendarIconSolid } from '@heroicons/react/24/solid';
 import { Avatar } from '../index';
@@ -27,7 +27,9 @@ const MainLayout = ({ children }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchRef = useRef(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const { logout } = useAuth();
@@ -69,7 +71,7 @@ const MainLayout = ({ children }) => {
   // Check window size on mount and resize
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) { // Mobile
+      if (window.innerWidth < 640) { // Small mobile screens
         setSidebarOpen(false);
       } else {
         setSidebarOpen(true);
@@ -151,7 +153,11 @@ const MainLayout = ({ children }) => {
   
   // Toggle sidebar
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+    if (window.innerWidth < 640) {
+      setMobileMenuOpen(!mobileMenuOpen);
+    } else {
+      setSidebarOpen(!sidebarOpen);
+    }
   };
   
   // Hàm tìm kiếm người dùng khi nhập
@@ -310,6 +316,7 @@ const MainLayout = ({ children }) => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowResults(false);
+        setSearchExpanded(false);
       }
       
       if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
@@ -483,59 +490,142 @@ const MainLayout = ({ children }) => {
         <div className="flex flex-col w-full h-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Header */}
           <div className="border-b border-gray-200 dark:border-gray-700 z-10 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900 shadow-sm">
-            <div className="flex items-center justify-between h-16 px-6">
+            <div className="flex items-center justify-between h-16 px-4 md:px-6">
               {/* Logo and Toggle Button */}
-              <div className="flex items-center space-x-4 flex-1">
-                <button
-                  onClick={toggleSidebar}
-                  className="p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-theme-accent hover:text-theme-primary dark:hover:bg-gray-700 focus:outline-none transition-all duration-200"
-                >
-                  {sidebarOpen ? <ChevronLeftIcon className="h-5 w-5" /> : <Bars3Icon className="h-5 w-5" />}
-                </button>
-                
+              <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                 <div className="flex-shrink-0 flex items-center gap-2">
                   <CodeBracketIcon className="h-8 w-8 text-theme-primary" />
                   <Link to="/home" className="hover:opacity-95 transition-all">
                     <span className="font-extrabold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-theme-primary via-theme-secondary to-theme-hover">
-                      Learn
                     </span>
                   </Link>
                 </div>
 
                 {/* Main Nav Links */}
-                <nav className="hidden lg:flex items-center flex-nowrap space-x-6 ml-6">
-                  {navigation.filter(nav => !['/profile','/settings'].includes(nav.href)).map((item) => {
+                <nav className="hidden sm:flex items-center flex-nowrap space-x-3 md:space-x-4 lg:space-x-6 ml-2 md:ml-4 max-w-full">
+                  {navigation.filter(nav => !['/profile','/settings','/exams','/competitions','/chat','/friends','/reports','/ai-chat','/ai-test-local'].includes(nav.href)).map((item) => {
                     const isActive = location.pathname === item.href || (item.href !== '/home' && location.pathname.startsWith(item.href));
+                    const Icon = item.icon;
                     return (
                       <Link
                         key={item.name}
                         to={item.href}
                         onClick={item.onClick}
-                        className={`whitespace-nowrap text-sm font-medium hover:text-theme-primary transition-colors ${isActive ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
+                        className={`flex items-center space-x-1 whitespace-nowrap text-sm font-medium hover:text-theme-primary transition-colors ${isActive ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
                       >
-                        {item.name}
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="hidden lg:inline">{item.name}</span>
                       </Link>
                     );
                   })}
+
+                  {/* Exams & Competitions Dropdown */}
+                  <div className="relative group">
+                    <button className={`flex items-center space-x-1 whitespace-nowrap text-sm font-medium transition-colors hover:text-theme-primary ${['/exams','/competitions'].some(p => location.pathname.startsWith(p)) ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
+                    >
+                      <AcademicCapIcon className="h-5 w-5 flex-shrink-0" />
+                      <span className="hidden lg:inline">Thi</span>
+                      <ChevronDownIcon className="h-4 w-4 hidden lg:inline" />
+                    </button>
+                    <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 border border-gray-100 dark:border-gray-700 hidden group-hover:block">
+                      <div className="py-1">
+                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                          Thi & Kiểm tra
+                        </h3>
+                        <Link to="/exams" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <AcademicCapIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          Bài Thi
+                        </Link>
+                        <Link to="/competitions" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <TrophyIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          Thi Lập Trình
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chat & Friends Dropdown */}
+                  <div className="relative group">
+                    <button className={`flex items-center space-x-1 whitespace-nowrap text-sm font-medium transition-colors hover:text-theme-primary ${['/chat','/friends'].some(p => location.pathname.startsWith(p)) ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
+                      onClick={(e) => e.preventDefault() /* prevent nav */}
+                    >
+                      <ChatBubbleBottomCenterTextIcon className="h-5 w-5 flex-shrink-0" />
+                      <span className="hidden lg:inline">Cộng đồng</span>
+                      <ChevronDownIcon className="h-4 w-4 hidden lg:inline" />
+                    </button>
+                    <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 border border-gray-100 dark:border-gray-700 hidden group-hover:block">
+                      <div className="py-1">
+                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                          Cộng đồng
+                        </h3>
+                        <Link to="/chat" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <ChatBubbleBottomCenterTextIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          Chat
+                        </Link>
+                        <Link to="/friends" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <UserGroupIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          Bạn Bè
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI Tools Dropdown */}
+                  <div className="relative group">
+                    <button className={`flex items-center space-x-1 whitespace-nowrap text-sm font-medium transition-colors hover:text-theme-primary ${['/ai-chat','/ai-test-local'].some(p => location.pathname.startsWith(p)) ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}>
+                      <SparklesIcon className="h-5 w-5 flex-shrink-0" />
+                      <span className="hidden lg:inline">AI</span>
+                      <ChevronDownIcon className="h-4 w-4 hidden lg:inline" />
+                    </button>
+                    <div className="absolute left-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 border border-gray-100 dark:border-gray-700 hidden group-hover:block">
+                      <div className="py-1">
+                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                          Công cụ AI
+                        </h3>
+                        <Link to="/ai-chat" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <SparklesIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          AI Chat
+                        </Link>
+                        <Link to="/ai-test-local" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <BeakerIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          AI TestCase
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </nav>
               </div>
 
               {/* Right side navigation items */}
-              <div className="flex items-center justify-end space-x-4 flex-1">
+              <div className="flex items-center justify-end space-x-3 sm:space-x-4">
+                {/* Mobile Menu Button - Only visible on mobile */}
+                <button
+                  onClick={toggleSidebar}
+                  className="sm:hidden p-2 rounded-md text-gray-500 dark:text-gray-400 hover:bg-theme-accent hover:text-theme-primary dark:hover:bg-gray-700 focus:outline-none transition-all duration-200"
+                >
+                  <Bars3Icon className="h-6 w-6" />
+                </button>
                 {/* Search Bar */}
-                <div className="hidden md:block w-64" ref={searchRef}>
-                  <form onSubmit={handleSearch} className="relative w-full group">
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <MagnifyingGlassIcon className="h-5 w-5 text-theme-secondary" />
-                      </div>
-                      <input
-                        type="text"
-                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-full leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm shadow-md text-gray-900 dark:text-gray-100 opacity-60 group-focus-within:opacity-100 transition-opacity"
-                        placeholder="Tìm kiếm người dùng..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
+                <div ref={searchRef} className="hidden md:block relative">
+                  <form onSubmit={handleSearch} className="relative group">
+                    <div className={`flex items-center transition-all duration-300 ${searchExpanded ? 'w-56 lg:w-64 xl:w-72' : 'w-10'}`}>
+                      <button 
+                        type="button" 
+                        className={`absolute left-0 p-2.5 text-theme-secondary hover:text-theme-primary z-10 ${searchExpanded ? 'bg-transparent' : 'bg-white dark:bg-gray-700 rounded-full shadow-md'}`}
+                        onClick={() => setSearchExpanded(true)}
+                      >
+                        <MagnifyingGlassIcon className="h-5 w-5" />
+                      </button>
+                      {searchExpanded && (
+                        <input
+                          type="text"
+                          className="w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-full leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm shadow-md text-gray-900 dark:text-gray-100 transition-all"
+                          placeholder="Tìm kiếm người dùng..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          autoFocus
+                        />
+                      )}
                     </div>
                     {showResults && searchResults.length > 0 && (
                       <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-700">
@@ -712,13 +802,35 @@ const MainLayout = ({ children }) => {
                   {/* Dropdown */}
                   {showUserMenu && (
                     <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-100 dark:border-gray-700 z-30">
-                      <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => setShowUserMenu(false)}>
+                      <Link 
+                        to="/profile" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" 
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <UserCircleIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
                         Hồ sơ
                       </Link>
-                      <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => setShowUserMenu(false)}>
+                      <Link 
+                        to="/settings" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" 
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <Cog6ToothIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
                         Cài đặt
                       </Link>
-                      <button onClick={() => { setShowUserMenu(false); handleLogout(); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <Link 
+                        to="/reports" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" 
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        <ExclamationTriangleIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                        Báo cáo
+                      </Link>
+                      <button 
+                        onClick={() => { setShowUserMenu(false); handleLogout(); }} 
+                        className="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        <ArrowRightOnRectangleIcon className="h-5 w-5 mr-3" />
                         Đăng xuất
                       </button>
                     </div>
@@ -736,6 +848,83 @@ const MainLayout = ({ children }) => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sidebar Navigation */}
+      {mobileMenuOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 sm:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className={`fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-xl z-40 transform transition-all duration-300 ease-in-out sm:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="flex flex-col h-full">
+              {/* Mobile Menu Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center">
+                  <CodeBracketIcon className="h-8 w-8 text-theme-primary mr-2" />
+                  <span className="font-bold text-xl">Menu</span>
+                </div>
+                <button 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                </button>
+              </div>
+              
+              {/* Mobile Menu Items */}
+              <div className="flex-1 overflow-y-auto p-2">
+                <div className="space-y-1">
+                  {navigation.filter(nav => !['/profile','/settings','/reports'].includes(nav.href)).map((item) => {
+                    const isActive = location.pathname === item.href || 
+                      (item.href !== '/home' && location.pathname.startsWith(item.href));
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
+                          isActive 
+                            ? 'bg-theme-accent/70 text-theme-primary dark:bg-theme-accent/20' 
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="font-medium">{item.name}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Mobile Menu Footer */}
+              <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex items-center space-x-3">
+                  <Avatar
+                    src={currentUser?.avatar || currentUser?.profileImage}
+                    name={currentUser?.fullName || currentUser?.username || 'User'}
+                    alt={currentUser?.fullName || currentUser?.username || 'User'}
+                    size="small"
+                    className="ring-2 ring-theme-accent"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white truncate">
+                      {currentUser?.fullName || currentUser?.username || 'User'}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="p-1.5 rounded-full text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

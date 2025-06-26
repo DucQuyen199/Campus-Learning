@@ -385,7 +385,7 @@ const Events = () => {
         {/* Đã loại bỏ secondary filter bar */}
   
         {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {loading ? renderSkeletons() : filteredEvents.map((event, index) => (
             <motion.div
               key={event.EventID}
@@ -395,36 +395,35 @@ const Events = () => {
               className={`group cursor-pointer ${viewMode === "list" ? "flex" : ""}`}
               onClick={() => handleViewDetail(event.EventID)}
             >
-              {/* Event Card - Coursera Style */}
-              <div className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow h-full flex flex-col">
-                {/* Image Container */}
+              {/* Event Card – Google Events style */}
+              <div className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full flex flex-col">
+                {/* Image */}
                 <div className="relative overflow-hidden">
                   <img
-                    src={event.ImageUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87"}
+                    src={event.ImageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=60'}
                     alt={event.Title}
-                    className="w-full h-52 object-cover"
+                    className="w-full aspect-video object-cover object-center group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 </div>
 
                 {/* Content section */}
-                <div className="p-5 flex-1 flex flex-col">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-xl font-semibold line-clamp-2">
+                <div className="p-6 flex-1 flex flex-col">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 leading-snug line-clamp-2">
                       {event.Title}
                     </h3>
                     <StatusBadge status={event.Status} />
                   </div>
                   
                   {/* Event short description */}
-                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                     {event.Description || "Tham gia sự kiện này để có cơ hội giao lưu học hỏi và mở rộng kiến thức trong lĩnh vực này."}
                   </p>
                   
                   {/* Event stats - style giống competitions */}
-                  <div className="text-sm text-gray-500 mt-auto">
-                    <div className="flex items-center mb-1">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="text-xs text-gray-500 mt-auto space-y-1">
+                    <div className="flex items-center">
+                      <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                       </svg>
                       <span>
@@ -433,7 +432,7 @@ const Events = () => {
                     </div>
 
                     <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
                       </svg>
                       <span>{event.Difficulty || 'Trung Bình'}</span>

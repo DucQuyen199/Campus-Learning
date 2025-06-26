@@ -32,6 +32,8 @@ const MainLayout = ({ children }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { logout } = useAuth();
   const { theme, themeColor, colors } = useTheme();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef(null);
   
   // Cập nhật thời gian hiện tại mỗi phút
   useEffect(() => {
@@ -313,6 +315,10 @@ const MainLayout = ({ children }) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
         setShowNotifications(false);
       }
+
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -487,73 +493,81 @@ const MainLayout = ({ children }) => {
                   {sidebarOpen ? <ChevronLeftIcon className="h-5 w-5" /> : <Bars3Icon className="h-5 w-5" />}
                 </button>
                 
-                <div className="flex-shrink-0">
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  <CodeBracketIcon className="h-8 w-8 text-theme-primary" />
                   <Link to="/home" className="hover:opacity-95 transition-all">
-                    <span className="font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-theme-primary via-theme-secondary to-theme-hover">
-                      Campust HUBT
+                    <span className="font-extrabold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-theme-primary via-theme-secondary to-theme-hover">
+                      Learn
                     </span>
                   </Link>
                 </div>
-              </div>
 
-              {/* Search Bar */}
-              <div className="flex-1 max-w-2xl mx-8" ref={searchRef}>
-                <form onSubmit={handleSearch} className="relative w-full">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <MagnifyingGlassIcon className="h-5 w-5 text-theme-secondary" />
-                    </div>
-                    <input
-                      type="text"
-                      className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm shadow-md text-gray-900 dark:text-gray-100"
-                      placeholder="Tìm kiếm người dùng..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  
-                  {/* User search results dropdown */}
-                  {showResults && searchResults.length > 0 && (
-                    <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-700">
-                      <div className="py-1">
-                        <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
-                          Người dùng
-                        </h3>
-                        
-                        {searchResults.map((user) => (
-                          <div 
-                            key={user.id} 
-                            className="px-4 py-2.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-center transition-colors duration-150"
-                            onClick={() => handleUserClick(user.id)}
-                          >
-                            <Avatar
-                              src={user.avatar}
-                              name={user.fullName}
-                              alt={user.fullName || 'User'}
-                              size="small"
-                              className="mr-3"
-                            />
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {isSearching && (
-                    <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 py-3 text-center border border-gray-100 dark:border-gray-700">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-theme-primary mx-auto"></div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Đang tìm kiếm...</p>
-                    </div>
-                  )}
-                </form>
+                {/* Main Nav Links */}
+                <nav className="hidden lg:flex items-center flex-nowrap space-x-6 ml-6">
+                  {navigation.filter(nav => !['/profile','/settings'].includes(nav.href)).map((item) => {
+                    const isActive = location.pathname === item.href || (item.href !== '/home' && location.pathname.startsWith(item.href));
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={item.onClick}
+                        className={`whitespace-nowrap text-sm font-medium hover:text-theme-primary transition-colors ${isActive ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
+                      >
+                        {item.name}
+                      </Link>
+                    );
+                  })}
+                </nav>
               </div>
 
               {/* Right side navigation items */}
               <div className="flex items-center justify-end space-x-4 flex-1">
+                {/* Search Bar */}
+                <div className="hidden md:block w-64" ref={searchRef}>
+                  <form onSubmit={handleSearch} className="relative w-full group">
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MagnifyingGlassIcon className="h-5 w-5 text-theme-secondary" />
+                      </div>
+                      <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-full leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm shadow-md text-gray-900 dark:text-gray-100 opacity-60 group-focus-within:opacity-100 transition-opacity"
+                        placeholder="Tìm kiếm người dùng..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    {showResults && searchResults.length > 0 && (
+                      <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-700">
+                        <div className="py-1">
+                          <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
+                            Người dùng
+                          </h3>
+                          {searchResults.map((user) => (
+                            <div
+                              key={user.id}
+                              className="px-4 py-2.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-center transition-colors duration-150"
+                              onClick={() => handleUserClick(user.id)}
+                            >
+                              <Avatar
+                                src={user.avatar}
+                                name={user.fullName}
+                                alt={user.fullName || 'User'}
+                                size="small"
+                                className="mr-3"
+                              />
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </form>
+                </div>
+                
                 {/* Notifications */}
                 <div className="relative" ref={notificationsRef}>
                   <button 
@@ -678,9 +692,9 @@ const MainLayout = ({ children }) => {
                 )}
                 
                 {/* User Menu */}
-                <div className="relative">
+                <div className="relative" ref={userMenuRef}>
                   <button 
-                    onClick={handleLogout}
+                    onClick={() => setShowUserMenu(prev => !prev)}
                     className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 transition-all duration-200 hover:text-theme-primary dark:hover:text-theme-secondary"
                   >
                     <Avatar
@@ -694,77 +708,31 @@ const MainLayout = ({ children }) => {
                       {currentUser?.fullName || currentUser?.username || 'User'}
                     </span>
                   </button>
+
+                  {/* Dropdown */}
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-100 dark:border-gray-700 z-30">
+                      <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => setShowUserMenu(false)}>
+                        Hồ sơ
+                      </Link>
+                      <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700" onClick={() => setShowUserMenu(false)}>
+                        Cài đặt
+                      </Link>
+                      <button onClick={() => { setShowUserMenu(false); handleLogout(); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 dark:hover:bg-gray-700">
+                        Đăng xuất
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
           
-          {/* Container for sidebar and content */}
-          <div className="flex flex-row flex-1 h-full overflow-hidden">
-            {/* Sidebar */}
-            <div 
-              className={`h-full border-r border-gray-200 bg-gradient-to-b from-gray-50 to-white transition-all duration-300 drop-shadow-sm ${
-                sidebarOpen ? 'w-[250px]' : 'w-[70px]'
-              } dark:from-gray-800 dark:to-gray-900 dark:border-gray-700`}
-            >
-              {/* Navigation Links */}
-              <div className="h-full flex flex-col overflow-hidden">
-                <nav className="flex-1 px-2 py-4 overflow-y-auto">
-                  {navigation.map((item) => {
-                    const isActive = location.pathname === item.href || 
-                                  (item.href !== '/home' && location.pathname.startsWith(item.href));
-                    return (
-                      <Link
-                        key={item.name}
-                        to={item.href}
-                        onClick={item.onClick}
-                        className={`relative flex items-center ${!sidebarOpen ? 'justify-center py-5 px-2' : 'px-4 py-3.5'} mb-1.5 rounded-lg transition-all duration-200 group 
-                          ${isActive 
-                            ? 'bg-gradient-to-r from-theme-accent to-theme-accent/50 text-theme-primary shadow-sm' 
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gradient-to-r hover:from-gray-50 hover:to-theme-accent/30 hover:text-theme-primary dark:hover:from-gray-800 dark:hover:to-theme-accent/20'
-                          }`}
-                      >
-                        {/* Active indicator */}
-                        {isActive && (
-                          <span className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-7 bg-gradient-to-b from-theme-primary to-theme-secondary rounded-r-full"></span>
-                        )}
-                        
-                        {/* Icon container */}
-                        <div className={`flex-shrink-0 ${isActive ? 'text-theme-primary' : 'text-gray-400 dark:text-gray-500 group-hover:text-theme-primary'}`}>
-                          <item.icon className={`${!sidebarOpen ? 'h-6 w-6 transition-transform duration-200 group-hover:scale-110' : 'h-5 w-5'}`} />
-                        </div>
-                        
-                        {/* Text with slide-in effect */}
-                        {sidebarOpen && (
-                          <span className={`font-medium ml-3 transition-all duration-200 ${isActive ? 'text-theme-primary font-semibold' : ''} text-sm`}>
-                            {item.name}
-                          </span>
-                        )}
-
-                        {/* Tooltip for collapsed sidebar */}
-                        {!sidebarOpen && (
-                          <div className="absolute left-full ml-6 -translate-x-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 invisible group-hover:visible transition-all duration-300 z-50">
-                            <div className="bg-gray-800 text-white text-xs font-medium px-2.5 py-1.5 rounded-md shadow-lg whitespace-nowrap dark:bg-gray-700">
-                              {item.name}
-                            </div>
-                            <div className="absolute top-1/2 -left-1 transform -translate-y-1/2 border-t-2 border-r-2 border-transparent border-r-gray-800 border-t-gray-800 h-2 w-2 rotate-45 dark:border-r-gray-700 dark:border-t-gray-700"></div>
-                          </div>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </nav>
-
-                {/* User Profile Section - Removed completely */}
-              </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
-              <main className="h-full w-full">
-                {children}
-              </main>
-            </div>
+          {/* Main Content */}
+          <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
+            <main className="h-full w-full">
+              {children}
+            </main>
           </div>
         </div>
       </div>

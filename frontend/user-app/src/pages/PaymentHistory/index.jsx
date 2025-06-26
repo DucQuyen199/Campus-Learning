@@ -380,6 +380,7 @@ const PaymentHistory = () => {
                           {payment.PaymentMethod === 'credit_card' && 'Thẻ tín dụng'}
                           {payment.PaymentMethod === 'paypal' && 'PayPal'}
                           {payment.PaymentMethod === 'free' && 'Miễn phí'}
+                          {payment.PaymentMethod === 'vietqr' && 'VietQR'}
                           {!payment.PaymentMethod && 'Không xác định'}
                         </div>
                       </td>

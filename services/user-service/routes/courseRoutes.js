@@ -68,6 +68,8 @@ router.post('/lessons/:lessonId/progress', authMiddleware, courseController.save
 
 // Create payment URL (protected)
 router.post('/courses/:courseId/create-payment', authMiddleware, courseController.createPaymentUrl);
+router.post('/courses/:courseId/create-vietqr', authMiddleware, courseController.createVietQRPayment);
+router.post('/payments/verify-vietqr', authMiddleware, courseController.verifyVietQRPayment);
 
 // Payment history (protected)
 router.get('/user/payment-history', authMiddleware, courseController.getPaymentHistory);

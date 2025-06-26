@@ -25,7 +25,7 @@ const PaymentTransaction = sequelize.define('PaymentTransaction', {
     type: DataTypes.STRING(50),
     allowNull: false,
     validate: {
-      isIn: [['vnpay', 'credit_card', 'bank_transfer', 'momo', 'free', 'paypal']]
+      isIn: [['vnpay', 'credit_card', 'bank_transfer', 'momo', 'free', 'paypal', 'vietqr']]
     }
   },
   TransactionCode: {

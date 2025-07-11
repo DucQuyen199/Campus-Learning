@@ -127,15 +127,11 @@ const Login = () => {
         </div>
         
         {successMessage && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-            <span className="block sm:inline">{successMessage}</span>
-          </div>
+          <p className="text-green-600">{successMessage}</p>
         )}
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <span className="block sm:inline">{error}</span>
-          </div>
+          <p className="text-red-600">{error}</p>
         )}
 
         {isLoading && (
@@ -251,15 +247,11 @@ const Login = () => {
                     </div>
 
                     {forgotPasswordError && (
-                      <div className="mt-3 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                        <span className="block sm:inline">{forgotPasswordError}</span>
-                      </div>
+                      <p className="mt-3 text-red-600">{forgotPasswordError}</p>
                     )}
 
                     {forgotPasswordSuccess && (
-                      <div className="mt-3 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                        <span className="block sm:inline">{forgotPasswordSuccess}</span>
-                      </div>
+                      <p className="mt-3 text-green-600">{forgotPasswordSuccess}</p>
                     )}
 
                     <form onSubmit={handleForgotPasswordSubmit} className="mt-4">

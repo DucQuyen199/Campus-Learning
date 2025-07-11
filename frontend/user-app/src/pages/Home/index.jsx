@@ -134,7 +134,7 @@ const Home = () => {
       title: "Front-end Development",
       description: "HTML, CSS, JavaScript, React, Vue và nhiều công nghệ khác",
       icon: CodeBracketIcon,
-      color: "bg-rose-500",
+      color: "bg-blue-500",
       students: "5,234",
       level: "Cơ bản đến nâng cao",
     },
@@ -142,7 +142,7 @@ const Home = () => {
       title: "Back-end Development",
       description: "Node.js, Python, Java, PHP, SQL và các framework phổ biến",
       icon: ServerIcon,
-      color: "bg-violet-500",
+      color: "bg-purple-600",
       students: "4,129",
       level: "Cơ bản đến nâng cao",
     },
@@ -150,7 +150,7 @@ const Home = () => {
       title: "Mobile Development",
       description: "React Native, Flutter, Swift, Kotlin cho phát triển ứng dụng di động",
       icon: DevicePhoneMobileIcon,
-      color: "bg-sky-500",
+      color: "bg-green-600",
       students: "3,876",
       level: "Trung cấp",
     },
@@ -158,7 +158,7 @@ const Home = () => {
       title: "DevOps & Cloud",
       description: "Docker, Kubernetes, AWS, Azure, CI/CD và quản lý hạ tầng",
       icon: GlobeAltIcon,
-      color: "bg-amber-500",
+      color: "bg-orange-500",
       students: "2,543",
       level: "Nâng cao",
     },
@@ -215,7 +215,7 @@ const Home = () => {
               className="text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight mb-6 leading-none"
             >
               Thành thạo công nghệ.<br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-700">
                 Tạo dựng tương lai.
               </span>
             </motion.h1>
@@ -240,7 +240,7 @@ const Home = () => {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate("/courses")}
-                className="px-8 py-4 bg-black text-white rounded-full font-medium text-lg shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
+                className="px-8 py-4 bg-blue-600 text-white rounded-full font-medium text-lg shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:bg-blue-700"
               >
                 Khám phá ngay
                 <ChevronRightIcon className="w-5 h-5" />
@@ -249,7 +249,7 @@ const Home = () => {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate("/roadmaps")}
-                className="px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 flex items-center justify-center gap-2 text-blue-600"
+                className="px-8 py-4 rounded-full font-medium text-lg transition-all duration-300 flex items-center justify-center gap-2 text-purple-600 hover:text-purple-800"
               >
                 Xem lộ trình
                 <ArrowRightIcon className="w-5 h-5" />
@@ -283,15 +283,15 @@ const Home = () => {
             className="grid grid-cols-3 gap-16"
           >
             <div>
-              <div className="text-5xl font-medium text-gray-900 mb-4">10K+</div>
+              <div className="text-5xl font-medium text-blue-600 mb-4">10K+</div>
               <div className="text-gray-500 text-lg">Học viên</div>
             </div>
             <div>
-              <div className="text-5xl font-medium text-gray-900 mb-4">500+</div>
+              <div className="text-5xl font-medium text-green-600 mb-4">500+</div>
               <div className="text-gray-500 text-lg">Khóa học</div>
             </div>
             <div>
-              <div className="text-5xl font-medium text-gray-900 mb-4">98%</div>
+              <div className="text-5xl font-medium text-purple-600 mb-4">98%</div>
               <div className="text-gray-500 text-lg">Hài lòng</div>
             </div>
           </motion.div>
@@ -310,11 +310,11 @@ const Home = () => {
               transition={{ duration: 0.8 }}
               className="text-center"
             >
-              <blockquote className="text-3xl md:text-4xl text-gray-900 mb-8 font-light leading-tight">
+              <blockquote className="text-3xl md:text-4xl text-blue-900 mb-8 font-light leading-tight">
                 "{famousQuotes[currentQuoteIndex].quote}"
               </blockquote>
               <div>
-                <p className="text-xl font-medium text-gray-900">{famousQuotes[currentQuoteIndex].author}</p>
+                <p className="text-xl font-medium text-purple-800">{famousQuotes[currentQuoteIndex].author}</p>
                 <p className="text-gray-500">{famousQuotes[currentQuoteIndex].role}</p>
               </div>
             </motion.div>
@@ -346,7 +346,7 @@ const Home = () => {
             viewport={{ once: true }}
             className="text-center"
           >
-            <h2 className="text-4xl md:text-5xl font-semibold text-gray-900 mb-6 tracking-tight">
+            <h2 className="text-4xl md:text-5xl font-semibold mb-6 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-700">
               Khóa học phổ biến
             </h2>
             <p className="text-xl text-gray-500 max-w-2xl mx-auto font-light">
@@ -436,7 +436,7 @@ const Home = () => {
           >
             <button
               onClick={() => navigate("/courses")}
-              className="inline-flex items-center px-8 py-4 bg-black text-white font-medium rounded-full transition-all duration-300 hover:opacity-80"
+              className="inline-flex items-center px-8 py-4 bg-blue-600 text-white font-medium rounded-full transition-all duration-300 hover:bg-blue-700"
             >
               Xem tất cả khóa học
               <ChevronRightIcon className="w-5 h-5 ml-2" />
@@ -455,7 +455,7 @@ const Home = () => {
             viewport={{ once: true }}
             className="text-center mb-24"
           >
-            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900 mb-6">
+            <h2 className="text-4xl md:text-5xl font-semibold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-purple-700 to-green-700">
               Tại sao chọn Campus Learning?
             </h2>
             <p className="text-xl text-gray-500 max-w-2xl mx-auto font-light">
@@ -474,11 +474,11 @@ const Home = () => {
                 className="group"
               >
                 <div className="mb-6">
-                  <feature.icon className="h-12 w-12 text-gray-900" />
+                  <feature.icon className="h-12 w-12 text-blue-600" />
                 </div>
-                <h3 className="text-2xl font-medium text-gray-900 mb-3">{feature.title}</h3>
+                <h3 className="text-2xl font-medium text-blue-900 mb-3">{feature.title}</h3>
                 <p className="text-gray-500 leading-relaxed font-light">{feature.description}</p>
-                <div className="mt-6 w-12 h-0.5 bg-gray-200 group-hover:bg-gray-900 transition-colors duration-300"></div>
+                <div className="mt-6 w-12 h-0.5 bg-gray-200 group-hover:bg-blue-600 transition-colors duration-300"></div>
               </motion.div>
             ))}
           </div>
@@ -501,7 +501,7 @@ const Home = () => {
               whileInView={{ opacity: 1 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
-              className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight text-gray-900 mb-8 leading-tight"
+              className="text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight mb-8 leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600"
             >
               Sẵn sàng bắt đầu hành trình học tập?
             </motion.h2>
@@ -527,7 +527,7 @@ const Home = () => {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate("/register")}
-                className="px-8 py-4 bg-black text-white rounded-full font-medium text-lg transition-all duration-300 hover:opacity-80"
+                className="px-8 py-4 bg-blue-600 text-white rounded-full font-medium text-lg transition-all duration-300 hover:bg-blue-700"
               >
                 Đăng ký ngay
               </motion.button>
@@ -535,7 +535,7 @@ const Home = () => {
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => navigate("/courses")}
-                className="px-8 py-4 text-blue-600 rounded-full font-medium text-lg transition-all duration-300"
+                className="px-8 py-4 text-purple-600 rounded-full font-medium text-lg transition-all duration-300 hover:text-purple-800"
               >
                 Xem khóa học
               </motion.button>

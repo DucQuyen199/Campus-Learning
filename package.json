@@ -15,6 +15,9 @@
     "start:all": "concurrently \"npm run start:user-service\" \"npm run start:admin-service\" \"npm run start:teacher-service\" \"npm run start:user-app\" \"npm run start:admin-app\" \"npm run start:teacher-app\""
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@mui/styles": "^6.4.11",
     "@wasmer/wasi": "^1.2.2",

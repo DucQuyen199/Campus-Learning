@@ -21,7 +21,12 @@ CREATE TABLE [dbo].[PaymentTransactions] (
     FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID]),
     UNIQUE NONCLUSTERED ([TransactionCode] ASC)
 );
+use campushubt;
+-- Bước 1: Xóa constraint cũ
+ALTER TABLE [dbo].[PaymentTransactions] DROP CONSTRAINT [CHK_Payment_Method];
 
-
-GO
-
+-- Bước 2: Tạo lại constraint với vietqr
+ALTER TABLE [dbo].[PaymentTransactions]
+ADD CONSTRAINT [CHK_Payment_Method] CHECK (
+  [PaymentMethod] IN ('paypal', 'free', 'momo', 'bank_transfer', 'credit_card', 'vnpay', 'vietqr')
+);

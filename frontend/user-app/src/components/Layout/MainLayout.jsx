@@ -483,13 +483,13 @@ const MainLayout = ({ children }) => {
   const sidebarWidth = sidebarOpen ? '250px' : '70px';
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="flex flex-col h-screen w-screen overflow-hidden text-gray-900 dark:text-gray-100">
       {/* Main container with padding */}
-      <div className="p-3 h-full w-full flex flex-col">
+      <div className="h-full w-full flex flex-col">
         {/* Unified form containing all layout elements */}
-        <div className="flex flex-col w-full h-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="flex flex-col w-full h-full bg-white dark:bg-gray-800 overflow-hidden">
           {/* Header */}
-          <div className="border-b border-gray-200 dark:border-gray-700 z-10 bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-gray-900 shadow-sm">
+          <div className="border-b border-gray-200 dark:border-gray-700 z-10 bg-white dark:bg-gray-800 shadow-sm">
             <div className="flex items-center justify-between h-16 px-4 md:px-6">
               {/* Logo and Toggle Button */}
               <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
@@ -841,7 +841,7 @@ const MainLayout = ({ children }) => {
           </div>
           
           {/* Main Content */}
-          <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
+          <div className="flex-1 overflow-auto bg-white dark:bg-gray-800">
             <main className="h-full w-full">
               {children}
             </main>
@@ -856,7 +856,7 @@ const MainLayout = ({ children }) => {
             className="fixed inset-0 bg-black bg-opacity-50 z-30 sm:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className={`fixed inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-xl z-40 transform transition-all duration-300 ease-in-out sm:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className={`fixed inset-y-0 left-0 w-72 bg-white dark:bg-gray-800 shadow-xl z-40 transform transition-all duration-300 ease-in-out sm:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             <div className="flex flex-col h-full">
               {/* Mobile Menu Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">

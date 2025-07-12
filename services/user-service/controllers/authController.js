@@ -372,31 +372,24 @@ exports.refreshToken = async (req, res) => {
       });
     }
     
-    // Generate new tokens
+    // Generate new access token (unchanged)
     const newToken = jwt.sign(
       { 
         userId: user.UserID,
         username: user.Username,
         role: user.Role,
         tokenType: 'access'
-      }, 
-      process.env.JWT_SECRET, 
+      },
+      process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-    
-    const newRefreshToken = jwt.sign(
-      { 
-        userId: user.UserID,
-        tokenType: 'refresh'
-      }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '7d' }
-    );
-    
-    // Return new tokens
+
+    // Removed rotating refresh token generation to keep original refreshToken
+
+    // Return new tokens, reusing existing refreshToken
     res.json({
       token: newToken,
-      refreshToken: newRefreshToken,
+      refreshToken, // reuse original refresh token
       user: {
         id: user.UserID,
         username: user.Username,

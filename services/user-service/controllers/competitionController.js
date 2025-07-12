@@ -4,6 +4,7 @@ const { sequelize } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 const judgeConfig = require('../config/judge0Config');
 const executionConfig = require('../config/executionConfig');
+const jwt = require('jsonwebtoken');
 
 // Judge0 API configuration
 const JUDGE0_API_URL = judgeConfig.JUDGE0_API_URL;
@@ -59,7 +60,22 @@ exports.getCompetitionDetails = async (req, res) => {
     
     console.log(`[getCompetitionDetails] Fetching details for competition ${id}`);
     
-    const result = await pool.request()
+    // Optional authentication: decode token if provided to check registration status
+    let userId = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId || decoded.id;
+        console.log(`[getCompetitionDetails] Authenticated user ${userId}`);
+      } catch (err) {
+        console.log('[getCompetitionDetails] Invalid token, proceeding as guest');
+      }
+    }
+    
+    // Fetch competition details
+    const compResult = await pool.request()
       .input('competitionId', sql.BigInt, id)
       .query(`
         SELECT 
@@ -71,21 +87,11 @@ exports.getCompetitionDetails = async (req, res) => {
         LEFT JOIN Users u ON c.OrganizedBy = u.UserID
         WHERE c.CompetitionID = @competitionId AND c.DeletedAt IS NULL
       `);
-    
-    if (result.recordset.length === 0) {
-      console.log(`[getCompetitionDetails] Competition ${id} not found`);
-      return res.status(404).json({
-        success: false,
-        message: 'Competition not found'
-      });
+    if (compResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Competition not found' });
     }
-    
-    // Get competition data and explicitly log participant count
-    const competition = result.recordset[0];
-    const participantCount = competition.CurrentParticipants;
-    console.log(`[getCompetitionDetails] Competition ${id} has ${participantCount}/${competition.MaxParticipants} participants`);
-    
-    // Get competition problems
+    const competition = compResult.recordset[0];
+    // Fetch competition problems
     const problemsResult = await pool.request()
       .input('competitionId', sql.BigInt, id)
       .query(`
@@ -99,8 +105,6 @@ exports.getCompetitionDetails = async (req, res) => {
         ORDER BY Points ASC
       `);
     
-    // Check if user is registered for this competition
-    const userId = req.user?.id;
     let isRegistered = false;
     let participantStatus = null;
     
@@ -108,21 +112,50 @@ exports.getCompetitionDetails = async (req, res) => {
       const participantResult = await pool.request()
         .input('competitionId', sql.BigInt, id)
         .input('userId', sql.BigInt, userId)
-        .query(`
-          SELECT ParticipantID, Status, StartTime, EndTime, Score
-          FROM CompetitionParticipants
-          WHERE CompetitionID = @competitionId AND UserID = @userId
-        `);
+        .query(
+          `SELECT ParticipantID, Status, StartTime, EndTime, Score
+           FROM CompetitionParticipants
+           WHERE CompetitionID = @competitionId AND UserID = @userId`
+        );
       
       isRegistered = participantResult.recordset.length > 0;
       participantStatus = isRegistered ? participantResult.recordset[0] : null;
     }
+
+    // Fetch user submissions stats for each problem
+    let submissionStats = {};
+    if (isRegistered && participantStatus) {
+      const subsResult = await pool.request()
+        .input('participantId', sql.BigInt, participantStatus.ParticipantID)
+        .query(
+          `SELECT ProblemID,
+                  COUNT(*) AS Attempts,
+                  MAX(CASE WHEN Status = 'accepted' THEN 1 ELSE 0 END) AS Accepted,
+                  MAX(Score) AS BestScore
+           FROM CompetitionSubmissions
+           WHERE ParticipantID = @participantId
+           GROUP BY ProblemID`
+        );
+      subsResult.recordset.forEach(r => {
+        submissionStats[r.ProblemID] = {
+          attempts: r.Attempts,
+          accepted: r.Accepted === 1,
+          bestScore: r.BestScore
+        };
+      });
+    }
+
+    // Enrich problem list with user's submission data
+    const enrichedProblems = problemsResult.recordset.map(p => ({
+      ...p,
+      submission: submissionStats[p.ProblemID] || null
+    }));
     
     return res.status(200).json({
       success: true,
       data: {
         ...competition,
-        problems: problemsResult.recordset,
+        problems: enrichedProblems,
         isRegistered,
         participantStatus
       }
@@ -392,10 +425,12 @@ exports.registerForCompetition = async (req, res) => {
     
     if (participantResult.recordset.length > 0) {
       console.log(`[registerForCompetition] User ${userId} is already registered for competition ${competitionId}`);
-      return res.status(400).json({
-        success: false,
+      // User already registered - treat as successful idempotent operation
+      return res.status(200).json({
+        success: true,
         message: 'You are already registered for this competition',
-        code: 'ALREADY_REGISTERED'
+        code: 'ALREADY_REGISTERED',
+        alreadyRegistered: true
       });
     }
     

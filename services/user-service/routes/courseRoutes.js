@@ -60,6 +60,9 @@ router.get('/courses/:courseId/content', authMiddleware, courseController.getCou
 // NEW: Get course progress for the authenticated user
 router.get('/courses/:courseId/progress', authMiddleware, courseController.getCourseProgress);
 
+// NEW: Get course details for printing
+router.get('/courses/:courseId/print-details', authMiddleware, courseController.getCoursePrintDetails);
+
 // Enroll in free course (protected)
 router.post('/courses/:courseId/enroll/free', authMiddleware, courseController.enrollFreeCourse);
 
@@ -73,6 +76,12 @@ router.post('/payments/verify-vietqr', authMiddleware, courseController.verifyVi
 
 // Payment history (protected)
 router.get('/user/payment-history', authMiddleware, courseController.getPaymentHistory);
+
+// Delete cancelled payment (protected)
+router.delete('/payments/:paymentId', authMiddleware, courseController.deletePayment);
+
+// Delete multiple cancelled payments (protected)
+router.post('/payments/delete-many', authMiddleware, courseController.deleteManyPayments);
 
 // Get payment history for a specific course
 router.get('/courses/:courseId/payment-history', authMiddleware, courseController.getCoursePaymentHistory);

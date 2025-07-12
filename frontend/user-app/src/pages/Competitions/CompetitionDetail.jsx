@@ -279,7 +279,19 @@ const CompetitionDetail = () => {
 
   const renderActionButton = () => {
     if (!competition) return null;
-    
+
+    // Show ended state if competition has completed
+    if (getCompetitionStatus() === 'completed') {
+      return (
+        <button
+          disabled
+          className="w-full bg-gray-300 text-gray-600 font-medium py-2 px-4 rounded-md cursor-not-allowed"
+        >
+          Cuộc thi đã kết thúc
+        </button>
+      );
+    }
+
     // If user is not logged in, show login to register button
     if (!isAuthenticated) {
       return (
@@ -522,8 +534,16 @@ const CompetitionDetail = () => {
                           {problem.Points}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {/* Here you would show the user's progress */}
-                          <span className="text-sm text-gray-500">Chưa nộp bài</span>
+                          {/* Show user's submission status */}
+                          {problem.submission ? (
+                            problem.submission.accepted ? (
+                              <span className="text-sm text-green-600">Đã chấp nhận</span>
+                            ) : (
+                              <span className="text-sm text-yellow-600">Đã nộp ({problem.submission.attempts} lượt)</span>
+                            )
+                          ) : (
+                            <span className="text-sm text-gray-500">Chưa nộp bài</span>
+                          )}
                         </td>
                       </tr>
                     ))}

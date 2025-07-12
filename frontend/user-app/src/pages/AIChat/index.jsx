@@ -498,9 +498,9 @@ const AIChat = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-84px)] bg-white text-gray-950 overflow-hidden flex">
+    <div className="h-[calc(100vh-84px)] bg-white text-gray-950 overflow-hidden flex flex-col md:flex-row">
       {/* Chat History Panel */}
-      <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+      <div className="hidden md:block md:w-80 bg-white border-r border-gray-200 overflow-y-auto">
         <div className="p-3 h-full flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">Lịch sử</h3>
@@ -753,7 +753,7 @@ const AIChat = () => {
       </div>
 
       {/* Suggested Questions Panel */}
-      <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
+      <div className="hidden md:block md:w-80 bg-white border-l border-gray-200 overflow-y-auto">
         <div className="p-3">
           <div className="flex items-center mb-3">
             <LightBulbIcon className="h-5 w-5 text-yellow-500 mr-2" />

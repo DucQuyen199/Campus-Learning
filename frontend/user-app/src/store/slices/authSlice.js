@@ -10,8 +10,13 @@ export const login = createAsyncThunk(
       
       // Store token consistently in both locations for compatibility
       const token = response.data.token || response.data.accessToken;
+      const refreshToken = response.data.refreshToken; // <-- NEW
       localStorage.setItem('token', token);
       localStorage.setItem('authToken', token); // For compatibility
+      if (refreshToken) {
+        // Persist refresh token for silent re-authentication
+        localStorage.setItem('refreshToken', refreshToken);
+      }
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
       return response.data;
@@ -54,6 +59,9 @@ export const register = createAsyncThunk(
       
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
       }
       
       return response.data;
@@ -103,6 +111,8 @@ const authSlice = createSlice({
   reducers: {
     logout: (state) => {
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('authToken');
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;

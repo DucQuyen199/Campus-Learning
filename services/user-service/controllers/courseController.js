@@ -15,6 +15,7 @@ const { formatDateForSqlServer, createSqlServerDate } = require('../utils/dateHe
 const LessonProgress = require('../models/LessonProgress');
 const { VNPay, ignoreLogger } = require('vnpay');
 const { Op } = require('sequelize');
+const { Sequelize } = require('sequelize');
 
 // Initialize VNPAY client
 const vnpayHost = new URL(process.env.VNP_URL).origin;
@@ -1189,6 +1190,194 @@ exports.getPaymentHistory = async (req, res) => {
   }
 };
 
+// Delete payment transaction (only cancelled payments can be deleted)
+exports.deletePayment = async (req, res) => {
+  const t = await sequelize.transaction();
+  
+  try {
+    const userId = req.user.id;
+    const paymentId = req.params.paymentId;
+    
+    if (!paymentId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Mã giao dịch không được cung cấp' 
+      });
+    }
+
+    // First check if payment exists and belongs to user
+    const payment = await PaymentTransaction.findOne({
+      where: {
+        TransactionID: paymentId,
+        UserID: userId
+      }
+    });
+
+    if (!payment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Giao dịch không tồn tại hoặc không thuộc về người dùng hiện tại' 
+      });
+    }
+
+    // Check if payment status is cancelled
+    if (payment.PaymentStatus.toLowerCase() !== 'cancelled') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Chỉ có thể xóa các giao dịch đã hủy' 
+      });
+    }
+
+    // Check if payment has related records in PaymentHistory
+    const paymentHistoryCount = await sequelize.query(
+      `SELECT COUNT(*) AS count FROM PaymentHistory WHERE TransactionID = :transactionId`,
+      {
+        replacements: { transactionId: paymentId },
+        type: sequelize.QueryTypes.SELECT,
+        transaction: t
+      }
+    );
+
+    if (paymentHistoryCount[0].count > 0) {
+      // Delete related records in PaymentHistory
+      await sequelize.query(
+        `DELETE FROM PaymentHistory WHERE TransactionID = :transactionId`,
+        {
+          replacements: { transactionId: paymentId },
+          transaction: t
+        }
+      );
+    }
+
+    // Then delete the payment transaction
+    await payment.destroy({ transaction: t });
+    
+    // Commit transaction
+    await t.commit();
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Giao dịch đã được xóa thành công' 
+    });
+  } catch (error) {
+    // Rollback transaction in case of error
+    await t.rollback();
+    
+    console.error('Error deleting payment:', error);
+    
+    // Provide more specific error messages based on error type
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Không thể xóa giao dịch do ràng buộc dữ liệu. Vui lòng liên hệ quản trị viên.',
+        error: 'ForeignKeyConstraintError'
+      });
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Đã xảy ra lỗi khi xóa giao dịch. Vui lòng thử lại sau.',
+      error: error.message
+    });
+  }
+};
+
+// Delete multiple cancelled payments
+exports.deleteManyPayments = async (req, res) => {
+  const t = await sequelize.transaction();
+  
+  try {
+    const userId = req.user.id;
+    const { paymentIds } = req.body;
+    
+    if (!paymentIds || !Array.isArray(paymentIds) || paymentIds.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Danh sách giao dịch cần xóa không hợp lệ' 
+      });
+    }
+
+    // First check if payments exist, belong to user, and are cancelled
+    const payments = await PaymentTransaction.findAll({
+      where: {
+        TransactionID: { [Op.in]: paymentIds },
+        UserID: userId,
+        PaymentStatus: 'cancelled'
+      }
+    });
+
+    if (payments.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Không tìm thấy giao dịch đã hủy nào hợp lệ để xóa' 
+      });
+    }
+
+    // Get the IDs of found payments
+    const validPaymentIds = payments.map(payment => payment.TransactionID);
+    
+    // Check which payments have related records in PaymentHistory
+    const paymentHistoryResult = await sequelize.query(
+      `SELECT TransactionID FROM PaymentHistory WHERE TransactionID IN (:transactionIds)`,
+      {
+        replacements: { transactionIds: validPaymentIds },
+        type: sequelize.QueryTypes.SELECT,
+        transaction: t
+      }
+    );
+    
+    if (paymentHistoryResult.length > 0) {
+      const historyTransactionIds = paymentHistoryResult.map(record => record.TransactionID);
+      
+      // Delete related records in PaymentHistory
+      await sequelize.query(
+        `DELETE FROM PaymentHistory WHERE TransactionID IN (:transactionIds)`,
+        {
+          replacements: { transactionIds: historyTransactionIds },
+          transaction: t
+        }
+      );
+    }
+
+    // Then delete the payment transactions
+    const deleteCount = await PaymentTransaction.destroy({
+      where: {
+        TransactionID: { [Op.in]: validPaymentIds }
+      },
+      transaction: t
+    });
+    
+    // Commit transaction
+    await t.commit();
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: `${deleteCount} giao dịch đã được xóa thành công`,
+      deletedCount: deleteCount
+    });
+  } catch (error) {
+    // Rollback transaction in case of error
+    await t.rollback();
+    
+    console.error('Error deleting multiple payments:', error);
+    
+    // Provide more specific error messages based on error type
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Không thể xóa một số giao dịch do ràng buộc dữ liệu. Vui lòng liên hệ quản trị viên.',
+        error: 'ForeignKeyConstraintError'
+      });
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Đã xảy ra lỗi khi xóa nhiều giao dịch. Vui lòng thử lại sau.',
+      error: error.message
+    });
+  }
+};
+
 // Get course payment history for a specific course
 exports.getCoursePaymentHistory = async (req, res) => {
   try {
@@ -1819,7 +2008,7 @@ exports.getDailySchedule = async (req, res) => {
     // Query để lấy lịch học trong ngày của người dùng
     const query = `
       SELECT 
-        c.CourseName,
+        c.Title as CourseName,
         cs.Title as SessionTitle,
         cs.StartTime,
         cs.EndTime,
@@ -2566,5 +2755,220 @@ exports.getCourseProgress = async (req, res) => {
   } catch (error) {
     console.error('Error fetching course progress:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get course details for printing
+exports.getCoursePrintDetails = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id || req.user.userId || req.user.UserID;
+
+    if (!courseId) {
+      return res.status(400).json({ success: false, message: 'Course ID is required' });
+    }
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized: User not found' });
+    }
+
+    // Special handling for course 7 or any course that might have been deleted
+    if (courseId === '7') {
+      console.log(`Special handling for course ID ${courseId} which may not exist`);
+      
+      // Check if the course exists first
+      const courseExistsResult = await pool.request()
+        .input('courseId', sql.BigInt, courseId)
+        .query(`SELECT COUNT(*) as count FROM Courses WHERE CourseID = @courseId AND IsPublished = 1`);
+      
+      if (courseExistsResult.recordset[0].count === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Course not found or not published'
+        });
+      }
+    }
+
+    // Use the existing connection pool (already imported from ../config/db)
+
+    // Check if user is enrolled in this course
+    const enrollmentResult = await pool.request()
+      .input('courseId', sql.BigInt, courseId)
+      .input('userId', sql.BigInt, userId)
+      .query(`
+        SELECT e.EnrollmentID, e.CourseID, e.UserID, e.Progress, 
+               e.LastAccessedLessonID, e.EnrolledAt, e.CompletedAt, 
+               e.CertificateIssued, e.Status
+        FROM CourseEnrollments e
+        WHERE e.CourseID = @courseId AND e.UserID = @userId AND e.Status = 'active'
+      `);
+
+    if (enrollmentResult.recordset.length === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'You are not enrolled in this course' 
+      });
+    }
+
+    const enrollment = enrollmentResult.recordset[0];
+
+    // Get course details
+    const courseResult = await pool.request()
+      .input('courseId', sql.BigInt, courseId)
+      .query(`
+        SELECT 
+               c.CourseID,
+               COALESCE(c.Title, N'Không có tiêu đề') as Title,
+               COALESCE(c.Description, N'') as Description,
+               COALESCE(c.ShortDescription, N'') as ShortDescription,
+               COALESCE(c.Level, 'beginner') as Level,
+               COALESCE(c.Category, N'') as Category,
+               COALESCE(c.SubCategory, N'') as SubCategory,
+               COALESCE(c.Duration, 0) as Duration,
+               COALESCE(c.Price, 0) as Price,
+               COALESCE(c.DiscountPrice, 0) as DiscountPrice,
+               COALESCE(c.ImageUrl, '') as ImageUrl,
+               COALESCE(c.VideoUrl, '') as VideoUrl,
+               COALESCE(c.Requirements, N'[]') as Requirements,
+               COALESCE(c.Objectives, N'[]') as Objectives,
+               COALESCE(c.Syllabus, N'') as Syllabus,
+               c.CreatedAt,
+               c.UpdatedAt,
+               COALESCE(c.IsPublished, 0) as IsPublished,
+               u.UserID as InstructorID,
+               COALESCE(u.FullName, N'') as InstructorName,
+               COALESCE(u.FullName, N'') as InstructorTitle,
+               COALESCE(u.Bio, N'') as InstructorBio,
+               COALESCE(u.Image, N'') as InstructorAvatar
+        FROM Courses c
+        LEFT JOIN Users u ON c.InstructorID = u.UserID
+        WHERE c.CourseID = @courseId AND c.IsPublished = 1
+      `);
+
+    if (courseResult.recordset.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Course not found or not published' 
+      });
+    }
+
+    const course = courseResult.recordset[0];
+
+    // Get payment information
+    const paymentResult = await pool.request()
+      .input('courseId', sql.BigInt, courseId)
+      .input('userId', sql.BigInt, userId)
+      .query(`
+        SELECT TOP 1 TransactionID, Amount, PaymentMethod, PaymentStatus, 
+               TransactionCode, CreatedAt
+        FROM PaymentTransactions
+        WHERE CourseID = @courseId AND UserID = @userId AND PaymentStatus = 'completed'
+        ORDER BY CreatedAt DESC
+      `);
+
+    // Get module count and total lessons
+    const moduleStatsResult = await pool.request()
+      .input('courseId', sql.BigInt, courseId)
+      .query(`
+        SELECT 
+          COUNT(DISTINCT m.ModuleID) as ModuleCount,
+          COUNT(l.LessonID) as LessonCount
+        FROM CourseModules m
+        LEFT JOIN CourseLessons l ON m.ModuleID = l.ModuleID
+        WHERE m.CourseID = @courseId AND m.IsPublished = 1
+      `);
+
+    // Get completed lessons count
+    const completedLessonsResult = await pool.request()
+      .input('enrollmentId', sql.BigInt, enrollment.EnrollmentID)
+      .query(`
+        SELECT COUNT(*) as CompletedCount
+        FROM LessonProgress
+        WHERE EnrollmentID = @enrollmentId AND Status = 'completed'
+      `);
+
+    // Format the course requirements and objectives
+    let requirements = [];
+    let objectives = [];
+
+    try {
+      if (course.Requirements) {
+        requirements = JSON.parse(course.Requirements);
+      }
+    } catch (err) {
+      console.warn('Error parsing course requirements:', err);
+    }
+
+    try {
+      if (course.Objectives) {
+        objectives = JSON.parse(course.Objectives);
+      }
+    } catch (err) {
+      console.warn('Error parsing course objectives:', err);
+    }
+
+    // Prepare the response data
+    const printData = {
+      courseDetails: {
+        id: course.CourseID,
+        title: course.Title,
+        description: course.ShortDescription,
+        fullDescription: course.Description,
+        level: course.Level,
+        category: course.Category,
+        subCategory: course.SubCategory,
+        duration: course.Duration,
+        price: course.Price,
+        discountPrice: course.DiscountPrice,
+        imageUrl: course.ImageUrl,  // Ensure imageUrl is included for course image
+        courseThumbnail: course.ImageUrl, // Additional field to emphasize image availability
+        requirements: requirements,
+        objectives: objectives,
+        instructor: {
+          id: course.InstructorID,
+          name: course.InstructorName,
+          title: course.InstructorTitle,
+          bio: course.InstructorBio,
+          avatar: course.InstructorAvatar
+        }
+      },
+      enrollmentDetails: {
+        enrollmentId: enrollment.EnrollmentID,
+        enrolledAt: enrollment.EnrolledAt,
+        completedAt: enrollment.CompletedAt,
+        progress: enrollment.Progress,
+        status: enrollment.Status
+      },
+      courseStats: {
+        moduleCount: moduleStatsResult.recordset[0]?.ModuleCount || 0,
+        lessonCount: moduleStatsResult.recordset[0]?.LessonCount || 0,
+        completedLessons: completedLessonsResult.recordset[0]?.CompletedCount || 0
+      }
+    };
+
+    // Add payment info if available
+    if (paymentResult.recordset.length > 0) {
+      const payment = paymentResult.recordset[0];
+      printData.paymentInfo = {
+        transactionId: payment.TransactionID,
+        transactionCode: payment.TransactionCode,
+        amount: payment.Amount,
+        method: payment.PaymentMethod,
+        status: payment.PaymentStatus,
+        date: payment.CreatedAt,
+        courseImage: course.ImageUrl // Include course image with payment info as well
+      };
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: printData
+    });
+  } catch (error) {
+    console.error('Error fetching course print details:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error retrieving course print details',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }; 

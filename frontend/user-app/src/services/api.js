@@ -29,29 +29,39 @@ api.interceptors.request.use(
   }
 );
 
-// Add response interceptor to handle common errors
+// Replace default response interceptor with one that auto-refreshes expired tokens
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    console.error('API Error:', error.response || error);
-    
-    // Handle token expiration
-    if (error.response && error.response.status === 401) {
-      // Check if the error is not from the login endpoint
-      if (!error.config.url.includes('/login') && !error.config.url.includes('/register')) {
-        console.log('Session expired, redirecting to login');
-        // Clear user data with consistent key names
-        localStorage.removeItem('token');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        
-        // Dispatch auth error event
-        window.dispatchEvent(new CustomEvent('auth_error', { detail: error }));
+  response => response,
+  async error => {
+    const originalRequest = error.config;
+    // Attempt a single retry on 401 to refresh token
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        try {
+          const { data } = await api.post('/auth/refresh-token', { refreshToken });
+          if (data.token) {
+            // Update stored token and headers
+            localStorage.setItem('token', data.token);
+            api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+            originalRequest.headers['Authorization'] = `Bearer ${data.token}`;
+            // Retry original request with new token
+            return api(originalRequest);
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
       }
     }
-    
+    // If still unauthorized, clear all auth data and emit event
+    if (error.response && error.response.status === 401) {
+      console.log('Clearing auth data due to 401');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      window.dispatchEvent(new CustomEvent('auth_error', { detail: error }));
+    }
     return Promise.reject(error);
   }
 );

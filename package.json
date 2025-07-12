@@ -34,6 +34,8 @@
     "framer-motion": "^12.16.0",
     "helmet": "^4.6.0",
     "jsonwebtoken": "^8.5.1",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "morgan": "^1.10.0",
     "mssql": "^7.3.5",
     "multer": "^1.4.4",

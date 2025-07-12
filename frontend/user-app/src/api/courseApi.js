@@ -226,12 +226,36 @@ const courseApi = {
     return axiosClient.get('/user/payment-history');
   },
   
+  // Delete payment transaction
+  deletePayment: (paymentId) => {
+    if (!paymentId) {
+      return Promise.reject(new Error('Payment ID is required'));
+    }
+    return axiosClient.delete(`/payments/${paymentId}`);
+  },
+  
+  // Delete multiple payment transactions
+  deleteManyPayments: (paymentIds) => {
+    if (!paymentIds || !Array.isArray(paymentIds) || paymentIds.length === 0) {
+      return Promise.reject(new Error('Valid payment IDs array is required'));
+    }
+    return axiosClient.post('/payments/delete-many', { paymentIds });
+  },
+  
   // Get payment history for a specific course
   getCoursePaymentHistory: (courseId) => {
     if (!courseId) {
       return Promise.reject(new Error('Course ID is required'));
     }
     return axiosClient.get(`/courses/${courseId}/payment-history`);
+  },
+  
+  // Get course print details
+  getCoursePrintDetails: (courseId) => {
+    if (!courseId) {
+      return Promise.reject(new Error('Course ID is required'));
+    }
+    return axiosClient.get(`/courses/${courseId}/print-details`);
   },
   
   // Get course content (lectures and materials)

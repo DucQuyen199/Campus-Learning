@@ -9,6 +9,7 @@ import Avatar from '../../components/common/Avatar';
 const ProblemDetail = () => {
   const { competitionId, problemId } = useParams();
   const navigate = useNavigate();
+  const [competitionData, setCompetitionData] = useState(null);
   const [problem, setProblem] = useState(null);
   const [problemList, setProblemList] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -65,12 +66,14 @@ public class Main {
 `
   };
 
+  // Fetch competition details for problem list and data
   useEffect(() => {
     const fetchCompetitionDetails = async () => {
       try {
         const response = await getCompetitionDetails(competitionId);
         if (response.success && response.data.problems) {
           setProblemList(response.data.problems);
+          setCompetitionData(response.data);
         } else {
           console.error('Không thể tải danh sách bài tập');
         }
@@ -81,6 +84,9 @@ public class Main {
 
     fetchCompetitionDetails();
   }, [competitionId]);
+
+  // Determine if competition has ended
+  const isCompetitionEnded = competitionData && new Date() > new Date(competitionData.EndTime);
 
   useEffect(() => {
     const fetchProblemDetails = async () => {
@@ -670,7 +676,7 @@ public class Main {
                 id="language"
                 value={isViewingSubmission ? viewingSubmission.Language : language}
                 onChange={handleLanguageChange}
-                disabled={isViewingSubmission}
+                disabled={isViewingSubmission || isCompetitionEnded}
                 className="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md disabled:bg-gray-100 disabled:cursor-not-allowed"
               >
                 {languages.map((lang) => (
@@ -683,7 +689,7 @@ public class Main {
             
             <button
               onClick={handleSubmit}
-              disabled={submitting || isViewingSubmission}
+              disabled={submitting || isViewingSubmission || isCompetitionEnded}
               className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
                 submitting
                   ? 'bg-blue-400 cursor-not-allowed'
@@ -709,10 +715,10 @@ public class Main {
               height={editorHeight}
               language={isViewingSubmission ? viewingSubmission.Language : language}
               value={isViewingSubmission ? viewingSubmission.SourceCode : code}
-              onChange={isViewingSubmission ? undefined : setCode}
+              onChange={isViewingSubmission || isCompetitionEnded ? undefined : setCode}
               onMount={handleEditorDidMount}
               options={{
-                readOnly: isViewingSubmission,
+                readOnly: isViewingSubmission || isCompetitionEnded,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 fontSize: 14,

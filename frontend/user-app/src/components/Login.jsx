@@ -127,11 +127,9 @@ const Login = () => {
         </div>
         
         {successMessage && (
-          <p className="text-green-600">{successMessage}</p>
-        )}
-
-        {error && (
-          <p className="text-red-600">{error}</p>
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <span className="block sm:inline">{successMessage}</span>
+          </div>
         )}
 
         {isLoading && (
@@ -206,6 +204,10 @@ const Login = () => {
             </button>
           </div>
 
+          {error && (
+            <p className="text-red-600 text-center text-sm sm:text-base">{error}</p>
+          )}
+
           <div className="text-sm text-center">
             <a href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
               Chưa có tài khoản? Đăng ký ngay
@@ -247,11 +249,13 @@ const Login = () => {
                     </div>
 
                     {forgotPasswordError && (
-                      <p className="mt-3 text-red-600">{forgotPasswordError}</p>
+                      <p className="mt-3 text-sm text-red-600">{forgotPasswordError}</p>
                     )}
 
                     {forgotPasswordSuccess && (
-                      <p className="mt-3 text-green-600">{forgotPasswordSuccess}</p>
+                      <div className="mt-3 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                        <span className="block sm:inline">{forgotPasswordSuccess}</span>
+                      </div>
                     )}
 
                     <form onSubmit={handleForgotPasswordSubmit} className="mt-4">

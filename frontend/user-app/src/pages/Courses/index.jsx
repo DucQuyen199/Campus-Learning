@@ -598,82 +598,130 @@ const Courses = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
-      {/* Header section - Cập nhật để thêm ô tìm kiếm */}
-      <div className="bg-white border-b border-gray-200 mb-6">
+      {/* Redesigned Header section */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Khám phá khóa học</h1>
+          {/* Main header with title and payment history button */}
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">Khám phá khóa học</h1>
+              <span className="bg-blue-100 text-blue-800 text-xs font-medium ml-3 px-2.5 py-1 rounded-full">
+                {filteredCourses.length} khóa học
+              </span>
+            </div>
             
-            {/* Add Payment History button for authenticated users */}
-            {isAuthenticated && (
-              <button
-                onClick={() => navigate('/payment-history')}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <div className="flex items-center gap-3">
+              {/* Search box */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  placeholder="Tìm kiếm khóa học..."
+                  className="w-full md:w-64 px-4 py-2 pl-10 rounded-lg text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <svg 
+                  className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" 
+                  fill="none" 
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
-                Lịch sử thanh toán
-              </button>
-            )}
+              </div>
+              
+              {/* Payment History button for authenticated users */}
+              {isAuthenticated && (
+                <button
+                  onClick={() => navigate('/payment-history')}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Lịch sử thanh toán
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex justify-between items-center mt-6">
-            <div className="flex space-x-6 overflow-x-auto">
+          
+          {/* Filter tabs with improved visual design */}
+          <div className="bg-gray-50 p-2 rounded-lg flex flex-wrap gap-2">
+            {/* Course type filters */}
+            <div className="flex rounded-md bg-white shadow-sm border border-gray-200 overflow-hidden">
               <button
                 onClick={() => setCourseCategory('it')}
-                className={`px-4 py-2 font-medium rounded-md ${
+                className={`px-4 py-2 font-medium transition-colors ${
                   courseCategory === 'it' 
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                Khóa học IT & Công nghệ
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Khóa học IT & Công nghệ
+                </span>
               </button>
               
               <button
                 onClick={() => setCourseCategory('regular')}
-                className={`px-4 py-2 font-medium rounded-md ${
+                className={`px-4 py-2 font-medium transition-colors ${
                   courseCategory === 'regular'
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                Khóa học Thường
+                <span className="flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  Khóa học Thường
+                </span>
               </button>
-
-              {isAuthenticated && (
-                <button
-                  onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
-                  className={`px-4 py-2 font-medium rounded-md ${
-                    enrollmentFilter === 'enrolled'
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                  }`}
-                >
-                  Đã đăng ký ({enrolledCourses.filter(course => 
-                    courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
-                  ).length})
-                </button>
-              )}
             </div>
             
-            <div className="relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={handleSearchChange}
-                placeholder="Tìm kiếm khóa học..."
-                className="w-64 px-4 py-2 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <svg 
-                className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" 
-                fill="none" 
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {/* Enrollment filter */}
+            {isAuthenticated && (
+              <button
+                onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
+                className={`px-4 py-2 font-medium rounded-md flex items-center gap-2 transition-colors ${
+                  enrollmentFilter === 'enrolled'
+                    ? 'bg-green-600 text-white shadow-sm'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm'
+                }`}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-            </div>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                  Đã đăng ký
+                  <span className="ml-1 bg-white bg-opacity-20 text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {enrolledCourses.filter(course => 
+                      courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
+                    ).length}
+                  </span>
+                </span>
+              </button>
+            )}
+            
+            {/* Reset filters button - only show when filters are applied */}
+            {(courseCategory !== 'it' || enrollmentFilter !== 'all' || searchTerm) && (
+              <button
+                onClick={() => {
+                  setCourseCategory('it');
+                  setEnrollmentFilter('all');
+                  setSearchTerm('');
+                }}
+                className="px-4 py-2 font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm flex items-center gap-2 ml-auto"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Đặt lại bộ lọc
+              </button>
+            )}
           </div>
         </div>
       </div>

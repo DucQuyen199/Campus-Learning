@@ -13,6 +13,7 @@ import EditCode from './pages/Courses/EditCode';
 import Payment from './pages/Payment';
 import PaymentResult from './pages/PaymentResult';
 import PaymentHistory from './pages/PaymentHistory';
+import CoursePrint from './pages/PaymentHistory/print';
 import Events from './pages/Events';
 import EventDetail from './pages/Events/EventDetail';
 import Posts from './pages/Posts';
@@ -118,7 +119,8 @@ function App() {
               { path: '/courses/:courseId/edit-code/:lessonId', element: <EditCode /> },
               { path: '/payment/:courseId', element: <Payment /> },
               { path: '/payment/vietqr/:transactionCode', element: <PaymentVietQR /> },
-              { path: '/payment-history', element: <PaymentHistory /> }
+              { path: '/payment-history', element: <PaymentHistory /> },
+              { path: '/payment-history/print-course', element: <CoursePrint /> }
             ].map(({ path, element }) => (
               <Route
                 key={path}

@@ -178,7 +178,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
         <img
           src={course.ImageUrl || course.thumbnail || 'https://placehold.co/600x400?text=No+Image'}
           alt={course.Title || course.title}
-          className="w-full h-52 object-cover"
+          className="w-full h-40 sm:h-48 md:h-52 object-cover"
         />
         
         {/* Course provider badge - positioned on top of the image */}
@@ -204,14 +204,14 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
       </div>
 
       {/* Course Info */}
-      <div className="p-5 flex-1 flex flex-col">
+      <div className="p-3 sm:p-4 md:p-5 flex-1 flex flex-col">
         {/* Course category */}
         <div className="text-xs font-medium text-blue-600 mb-1">
           {courseType === 'it' ? 'Khoa học máy tính' : 'Kiến thức xã hội'}
         </div>
         
         {/* Course title */}
-        <h3 className="font-medium text-gray-900 line-clamp-2 mb-2 text-base hover:text-blue-700 transition-colors">
+        <h3 className="font-medium text-gray-900 line-clamp-2 mb-2 text-sm sm:text-base hover:text-blue-700 transition-colors">
           {course.Title || course.title}
         </h3>
         
@@ -221,7 +221,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
         </p>
         
         {/* Course stats */}
-        <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-wrap mb-auto">
+        <div className="flex items-center gap-2 sm:gap-3 text-[10px] text-gray-500 flex-wrap mb-auto">
           <div className="flex items-center gap-1">
             <svg className="w-3 h-3 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -249,7 +249,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
         </div>
         
         {/* Footer with price and button */}
-        <div className="flex items-center justify-between pt-4 mt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-3 sm:pt-4 mt-2 sm:mt-3 border-t border-gray-100">
           <div>
             {isFreeCourse ? (
               <span className="text-sm font-semibold text-green-600">
@@ -265,7 +265,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
           {!enrolled ? (
             <button
               onClick={handleEnrollFreeCourse}
-              className={`px-4 py-2 rounded-md text-sm font-medium ${
+              className={`px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium ${
                 isFreeCourse ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
               } transition-shadow shadow-sm`}
             >
@@ -277,7 +277,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
                 e.stopPropagation();
                 navigate(`/courses/${courseId}/learn`);
               }}
-              className="px-4 py-2 rounded-md text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-shadow shadow-sm"
+              className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-shadow shadow-sm"
             >
               Học tiếp
             </button>
@@ -598,27 +598,84 @@ const Courses = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
+      {/* Thêm CSS cho phần header */}
+      <style jsx>{`
+        @media (max-width: 400px) {
+          .xs\\:hidden {
+            display: none;
+          }
+          .xs\\:inline {
+            display: inline;
+          }
+        }
+        @media (min-width: 401px) {
+          .xs\\:hidden {
+            display: none;
+          }
+          .xs\\:inline {
+            display: inline;
+          }
+        }
+      `}</style>
+      
       {/* Redesigned Header section */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-4 md:py-6">
           {/* Main header with title and payment history button */}
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Khám phá khóa học</h1>
-              <span className="bg-blue-100 text-blue-800 text-xs font-medium ml-3 px-2.5 py-1 rounded-full">
-                {filteredCourses.length} khóa học
-              </span>
+          <div className="mb-5">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex items-center">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mr-2">Khám phá khóa học</h1>
+                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                  {filteredCourses.length} khóa học
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Search box */}
+                <div className="relative hidden sm:block w-60 lg:w-72">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    placeholder="Tìm kiếm khóa học..."
+                    className="w-full px-4 py-1.5 pl-8 rounded-lg text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <svg 
+                    className="w-4 h-4 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2" 
+                    fill="none" 
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                </div>
+                
+                {/* Payment History button for authenticated users */}
+                {isAuthenticated && (
+                  <button
+                    onClick={() => navigate('/payment-history')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="hidden sm:inline">Lịch sử thanh toán</span>
+                  </button>
+                )}
+              </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              {/* Search box */}
-              <div className="relative">
+            {/* Search and filter row */}
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+              {/* Mobile search box */}
+              <div className="relative flex-1 sm:hidden">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={handleSearchChange}
                   placeholder="Tìm kiếm khóa học..."
-                  className="w-full md:w-64 px-4 py-2 pl-10 rounded-lg text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2.5 pl-10 rounded-lg text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <svg 
                   className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" 
@@ -630,105 +687,94 @@ const Courses = () => {
                 </svg>
               </div>
               
-              {/* Payment History button for authenticated users */}
-              {isAuthenticated && (
-                <button
-                  onClick={() => navigate('/payment-history')}
-                  className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Lịch sử thanh toán
-                </button>
-              )}
+              {/* Filter tabs */}
+              <div className="flex items-center gap-2 whitespace-nowrap">
+                {/* Course type filters */}
+                <div className="flex rounded-md bg-white shadow-sm border border-gray-200 overflow-hidden w-[70%] h-9">
+                  <button
+                    onClick={() => setCourseCategory('it')}
+                    className={`px-2.5 h-full text-xs font-medium transition-colors flex-1 ${
+                      courseCategory === 'it' 
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 justify-center h-full">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>Công nghệ</span>
+                    </span>
+                  </button>
+                  
+                  <button
+                    onClick={() => setCourseCategory('regular')}
+                    className={`px-2.5 h-full text-xs font-medium transition-colors flex-1 ${
+                      courseCategory === 'regular'
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 justify-center h-full">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                      <span>Thường</span>
+                    </span>
+                  </button>
+                </div>
+                
+                <div className="flex gap-2 w-[30%] h-9">
+                  {/* Enrollment filter */}
+                  {isAuthenticated && (
+                    <button
+                      onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
+                      className={`px-2.5 h-full text-xs font-medium rounded-md flex items-center justify-center gap-1.5 transition-colors flex-1 ${
+                        enrollmentFilter === 'enrolled'
+                          ? 'bg-green-600 text-white shadow-sm'
+                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm'
+                      }`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="hidden sm:inline">
+                        Đã đăng ký
+                      </span>
+                      <span className="sm:inline ml-1 bg-white bg-opacity-20 text-xs font-semibold px-1.5 py-0.5 rounded-full">
+                        {enrolledCourses.filter(course => 
+                          courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
+                        ).length}
+                      </span>
+                    </button>
+                  )}
+                  
+                  {/* Reset filters button - only show when filters are applied */}
+                  {(courseCategory !== 'it' || enrollmentFilter !== 'all' || searchTerm) && (
+                    <button
+                      onClick={() => {
+                        setCourseCategory('it');
+                        setEnrollmentFilter('all');
+                        setSearchTerm('');
+                      }}
+                      className="px-2.5 h-full text-xs font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center gap-1.5 flex-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="hidden sm:inline">Đặt lại bộ lọc</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-          
-          {/* Filter tabs with improved visual design */}
-          <div className="bg-gray-50 p-2 rounded-lg flex flex-wrap gap-2">
-            {/* Course type filters */}
-            <div className="flex rounded-md bg-white shadow-sm border border-gray-200 overflow-hidden">
-              <button
-                onClick={() => setCourseCategory('it')}
-                className={`px-4 py-2 font-medium transition-colors ${
-                  courseCategory === 'it' 
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Khóa học IT & Công nghệ
-                </span>
-              </button>
-              
-              <button
-                onClick={() => setCourseCategory('regular')}
-                className={`px-4 py-2 font-medium transition-colors ${
-                  courseCategory === 'regular'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                  </svg>
-                  Khóa học Thường
-                </span>
-              </button>
-            </div>
-            
-            {/* Enrollment filter */}
-            {isAuthenticated && (
-              <button
-                onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
-                className={`px-4 py-2 font-medium rounded-md flex items-center gap-2 transition-colors ${
-                  enrollmentFilter === 'enrolled'
-                    ? 'bg-green-600 text-white shadow-sm'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>
-                  Đã đăng ký
-                  <span className="ml-1 bg-white bg-opacity-20 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {enrolledCourses.filter(course => 
-                      courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
-                    ).length}
-                  </span>
-                </span>
-              </button>
-            )}
-            
-            {/* Reset filters button - only show when filters are applied */}
-            {(courseCategory !== 'it' || enrollmentFilter !== 'all' || searchTerm) && (
-              <button
-                onClick={() => {
-                  setCourseCategory('it');
-                  setEnrollmentFilter('all');
-                  setSearchTerm('');
-                }}
-                className="px-4 py-2 font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm flex items-center gap-2 ml-auto"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Đặt lại bộ lọc
-              </button>
-            )}
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-5 md:py-8">
         {/* Course Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {isLoading ? (
             renderSkeletons()
           ) : filteredCourses.length > 0 ? (

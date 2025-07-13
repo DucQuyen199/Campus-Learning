@@ -21,6 +21,7 @@ const CompetitionDetail = () => {
   const [scoreboardLoading, setScoreboardLoading] = useState(false);
   const [justRegistered, setJustRegistered] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0); // Add a refresh key state
+  const [isMobile, setIsMobile] = useState(false);
 
   // Function to refresh competition data
   const refreshCompetitionData = async () => {
@@ -52,6 +53,20 @@ const CompetitionDetail = () => {
 
   useEffect(() => {
     refreshCompetitionData();
+    
+    // Kiểm tra thiết bị di động
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      setIsMobile(mobileRegex.test(userAgent));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
   }, [id, refreshKey]);
 
   const fetchScoreboard = async () => {
@@ -310,6 +325,28 @@ const CompetitionDetail = () => {
 
     // User is registered and has started the competition
     if (isRegistered && participantStatus && participantStatus.Status === 'active') {
+      if (isMobile) {
+        return (
+          <div>
+            <div className="bg-yellow-100 border border-yellow-200 p-4 rounded-md mb-4">
+              <div className="flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <h3 className="text-sm font-medium text-yellow-800">Không thể thi trên thiết bị di động</h3>
+                  <p className="mt-1 text-sm text-yellow-700">
+                    Vui lòng sử dụng máy tính với trình duyệt Chrome để tiếp tục cuộc thi.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500 text-center">
+              Cuộc thi kết thúc vào: {formatDateTime(participantStatus.EndTime)}
+            </div>
+          </div>
+        );
+      }
       return (
         <div>
           <Link
@@ -328,6 +365,38 @@ const CompetitionDetail = () => {
     // User is registered but hasn't started yet (or just registered)
     if (isRegistered && (!participantStatus || participantStatus.Status === 'registered' || justRegistered)) {
       if (status === 'ongoing' || justRegistered) {
+        if (isMobile) {
+          return (
+            <div>
+              {justRegistered && (
+                <div className="bg-green-50 border border-green-100 rounded-md p-3 mb-4">
+                  <div className="flex items-center text-green-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="font-medium">Đăng ký thành công!</span>
+                  </div>
+                  <p className="mt-1 text-sm text-green-600">
+                    Bạn đã đăng ký tham gia cuộc thi thành công.
+                  </p>
+                </div>
+              )}
+              <div className="bg-yellow-100 border border-yellow-200 p-4 rounded-md">
+                <div className="flex items-start">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <h3 className="text-sm font-medium text-yellow-800">Không thể thi trên thiết bị di động</h3>
+                    <p className="mt-1 text-sm text-yellow-700">
+                      Vui lòng sử dụng máy tính với trình duyệt Chrome để tham gia cuộc thi.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
         return (
           <div>
             {justRegistered && (
@@ -490,6 +559,21 @@ const CompetitionDetail = () => {
             ) : competition.participantStatus?.Status !== 'active' ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">Bạn cần vào thi đấu để xem chi tiết</p>
+                {isMobile ? (
+                  <div className="bg-yellow-100 border border-yellow-200 p-4 rounded-md max-w-md mx-auto">
+                    <div className="flex items-start">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <h3 className="text-sm font-medium text-yellow-800">Không thể thi trên thiết bị di động</h3>
+                        <p className="mt-1 text-sm text-yellow-700">
+                          Vui lòng sử dụng máy tính với trình duyệt Chrome để tham gia cuộc thi.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
                 <button
                   onClick={handleStart}
                   disabled={starting || getCompetitionStatus() !== 'ongoing'}
@@ -497,6 +581,7 @@ const CompetitionDetail = () => {
                 >
                   {starting ? 'Đang khởi tạo...' : 'Vào thi đấu ngay'}
                 </button>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -519,7 +604,13 @@ const CompetitionDetail = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {competition.problems.map((problem) => (
-                      <tr key={problem.ProblemID} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/competitions/${id}/problems/${problem.ProblemID}`)}>
+                      <tr key={problem.ProblemID} className="hover:bg-gray-50 cursor-pointer" onClick={() => {
+                        if (isMobile) {
+                          toast.warning("Không thể làm bài trên thiết bị di động. Vui lòng sử dụng máy tính với trình duyệt Chrome.");
+                        } else {
+                          navigate(`/competitions/${id}/problems/${problem.ProblemID}`);
+                        }
+                      }}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-blue-600 hover:text-blue-800">
                             {problem.Title}

@@ -483,7 +483,15 @@ const MainLayout = ({ children }) => {
   const sidebarWidth = sidebarOpen ? '250px' : '70px';
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden text-gray-900 dark:text-gray-100">
+    <div
+      className="flex flex-col h-screen w-screen overflow-hidden text-gray-900 dark:text-gray-100"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)'
+      }}
+    >
       {/* Main container with padding */}
       <div className="h-full w-full flex flex-col">
         {/* Unified form containing all layout elements */}
@@ -678,9 +686,17 @@ const MainLayout = ({ children }) => {
                   
                   {/* Notifications panel */}
                   {showNotifications && (
-                    <div className={`fixed top-0 right-0 w-80 h-full bg-white dark:bg-gray-800 shadow-xl z-30 transform transition-transform duration-300 ease-in-out overflow-hidden ${
-                      isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
-                    }`}>
+                    <div
+                      className={`fixed top-0 right-0 w-80 h-full bg-white dark:bg-gray-800 shadow-xl z-30 transform transition-transform duration-300 ease-in-out overflow-hidden ${
+                        isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
+                      }`}
+                      style={{
+                        paddingTop: 'env(safe-area-inset-top, 0px)',
+                        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+                        paddingLeft: 'env(safe-area-inset-left, 0px)',
+                        paddingRight: 'env(safe-area-inset-right, 0px)'
+                      }}
+                    >
                       <div className="flex flex-col h-full">
                         {/* Header */}
                         <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-theme-accent/50 to-white dark:from-gray-700 dark:to-gray-800">
@@ -856,7 +872,15 @@ const MainLayout = ({ children }) => {
             className="fixed inset-0 bg-black bg-opacity-50 z-30 sm:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className={`fixed inset-y-0 left-0 w-72 bg-white dark:bg-gray-800 shadow-xl z-40 transform transition-all duration-300 ease-in-out sm:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div
+            className={`fixed inset-y-0 left-0 w-72 bg-white dark:bg-gray-800 shadow-xl z-40 transform transition-all duration-300 ease-in-out sm:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            style={{
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              paddingLeft: 'env(safe-area-inset-left, 0px)',
+              paddingRight: 'env(safe-area-inset-right, 0px)'
+            }}
+          >
             <div className="flex flex-col h-full">
               {/* Mobile Menu Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">

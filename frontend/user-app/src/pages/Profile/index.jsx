@@ -916,11 +916,11 @@ const Profile = () => {
         </div>
       )}
       
-      {/* Main content grid */}
-      <div className="flex w-full">
-        {/* Left column - Profile Info - Fixed */}
-        <div className="w-[35%] h-screen p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden h-fit sticky top-4">
+      {/* Main content grid - Modified for responsive layout */}
+      <div className="flex flex-col md:flex-row w-full">
+        {/* Left column - Profile Info */}
+        <div className="w-full md:w-[35%] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden h-fit md:sticky md:top-4">
             {/* Header Section */}
             <div className="bg-blue-600 h-32 md:h-40 relative">
               <div className="absolute -bottom-16 md:-bottom-20 left-8">
@@ -1309,8 +1309,8 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Right column - Posts - Scrollable */}
-        <div className="w-[65%] h-screen p-4 overflow-y-auto">
+        {/* Right column - Posts - Now positioned below on mobile */}
+        <div className="w-full md:w-[65%] p-4 overflow-y-auto mt-4 md:mt-0">
           <div className="bg-white rounded-lg shadow-lg p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center sticky top-4 bg-white py-4 z-10">
               <DocumentTextIcon className="h-6 w-6 text-blue-600 mr-2" />

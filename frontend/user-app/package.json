@@ -96,6 +96,7 @@
     "remark-gfm": "^4.0.1",
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.7.5",
+    "speakeasy": "^2.0.0",
     "typescript": "^4.9.5"
   },
   "devDependencies": {

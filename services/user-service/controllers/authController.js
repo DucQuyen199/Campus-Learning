@@ -2,6 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool, sql } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
+const { generateOTP, sendLoginOtpEmail } = require('../utils/emailService');
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
 
 exports.register = async (req, res) => {
   try {
@@ -135,7 +138,7 @@ exports.login = async (req, res) => {
     let result = await transaction.request()
       .input('email', sql.VarChar, email)
       .query(`
-        SELECT UserID, Username, Email, Password, FullName, Role, Status, AccountStatus, HasPasskey
+        SELECT UserID, Username, Email, Password, FullName, Role, Status, AccountStatus, HasPasskey, TwoFAEnabled
         FROM Users
         WHERE Email = @email
         AND DeletedAt IS NULL
@@ -149,7 +152,7 @@ exports.login = async (req, res) => {
       const secondaryEmailResult = await transaction.request()
         .input('email', sql.VarChar, email)
         .query(`
-          SELECT u.UserID, u.Username, u.Email AS PrimaryEmail, u.Password, u.FullName, u.Role, u.Status, u.AccountStatus, u.HasPasskey
+          SELECT u.UserID, u.Username, u.Email AS PrimaryEmail, u.Password, u.FullName, u.Role, u.Status, u.AccountStatus, u.HasPasskey, u.TwoFAEnabled
           FROM Users u
           JOIN UserEmails ue ON u.UserID = ue.UserID
           WHERE ue.Email = @email
@@ -174,6 +177,21 @@ exports.login = async (req, res) => {
       await transaction.rollback();
       return res.status(401).json({
         message: 'Email hoặc mật khẩu không chính xác'
+      });
+    }
+
+    // If user has 2FA enabled, issue a temporary token for 2FA verification
+    if (user.TwoFAEnabled) {
+      await transaction.rollback();
+      const tempToken = jwt.sign(
+        { userId: user.UserID, twoFaAllowed: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '5m' }
+      );
+      return res.json({
+        message: 'Yêu cầu 2FA',
+        twoFaRequired: true,
+        tempToken
       });
     }
 
@@ -617,5 +635,279 @@ exports.verifyOTP = async (req, res) => {
   } catch (error) {
     console.error('VerifyOTP Error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+}; 
+
+/**
+ * Request login OTP via email
+ */
+exports.requestLoginOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    const userResult = await pool.request()
+      .input('email', sql.VarChar, email)
+      .query('SELECT UserID, FullName, AccountStatus FROM Users WHERE Email = @email AND DeletedAt IS NULL');
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Email not found' });
+    }
+    const user = userResult.recordset[0];
+    if (user.AccountStatus !== 'ACTIVE') {
+      return res.status(403).json({ message: 'Tài khoản không hoạt động' });
+    }
+    const userId = user.UserID;
+    const fullName = user.FullName;
+    const otp = generateOTP(6);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 phút
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query('DELETE FROM OTPLogins WHERE UserID = @userId AND IsUsed = 0');
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('otp', sql.VarChar, otp)
+      .input('expiresAt', sql.DateTime, expiresAt)
+      .query('INSERT INTO OTPLogins (UserID, OTP, ExpiresAt) VALUES (@userId, @otp, @expiresAt)');
+    await sendLoginOtpEmail(email, fullName, otp);
+    res.json({ message: 'OTP đã được gửi đến email của bạn' });
+  } catch (error) {
+    console.error('RequestLoginOtp Error:', error);
+    res.status(500).json({ message: 'Đã có lỗi xảy ra khi gửi OTP', error: error.message });
+  }
+};
+
+/**
+ * Verify login OTP and generate JWT tokens
+ */
+exports.verifyLoginOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email và OTP là bắt buộc' });
+    }
+    const userResult = await pool.request()
+      .input('email', sql.VarChar, email)
+      .query('SELECT UserID, Username, FullName, Role, HasPasskey, AccountStatus FROM Users WHERE Email = @email AND DeletedAt IS NULL');
+    if (userResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Email không tồn tại' });
+    }
+    const user = userResult.recordset[0];
+    if (user.AccountStatus !== 'ACTIVE') {
+      return res.status(403).json({ message: 'Tài khoản không hoạt động' });
+    }
+    const userId = user.UserID;
+    const otpResult = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .input('otp', sql.VarChar, otp)
+      .query('SELECT LoginOtpID, ExpiresAt, AttemptCount, IsUsed FROM OTPLogins WHERE UserID = @userId AND OTP = @otp');
+    if (otpResult.recordset.length === 0) {
+      await pool.request()
+        .input('userId', sql.BigInt, userId)
+        .query('UPDATE OTPLogins SET AttemptCount = AttemptCount + 1 WHERE UserID = @userId AND IsUsed = 0');
+      return res.status(400).json({ message: 'OTP không hợp lệ' });
+    }
+    const entry = otpResult.recordset[0];
+    if (new Date(entry.ExpiresAt) < new Date()) {
+      return res.status(400).json({ message: 'OTP đã hết hạn' });
+    }
+    if (entry.IsUsed) {
+      return res.status(400).json({ message: 'OTP đã được sử dụng' });
+    }
+    if (entry.AttemptCount >= 5) {
+      return res.status(400).json({ message: 'Quá nhiều lượt thử. Vui lòng yêu cầu OTP mới.' });
+    }
+    await pool.request()
+      .input('loginOtpId', sql.BigInt, entry.LoginOtpID)
+      .query('UPDATE OTPLogins SET IsUsed = 1 WHERE LoginOtpID = @loginOtpId');
+    const token = jwt.sign({ userId, role: user.Role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+    const refreshToken = jwt.sign({ userId, role: user.Role, tokenType: 'refresh' }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    res.json({
+      message: 'Đăng nhập thành công',
+      token,
+      refreshToken,
+      user: {
+        id: userId,
+        username: user.Username,
+        email,
+        fullName: user.FullName,
+        role: user.Role,
+        hasPasskey: user.HasPasskey
+      },
+      requirePasskeySetup: !user.HasPasskey
+    });
+  } catch (error) {
+    console.error('VerifyLoginOtp Error:', error);
+    res.status(500).json({ message: 'Đã có lỗi xảy ra khi xác thực OTP', error: error.message });
+  }
+}; 
+
+// Add 2FA handlers
+/** Get 2FA status for current user */
+exports.getTwoFaStatus = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const result = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query('SELECT TwoFAEnabled FROM Users WHERE UserID = @userId');
+    const twoFaEnabled = result.recordset[0]?.TwoFAEnabled || false;
+    res.json({ twoFaEnabled });
+  } catch (error) {
+    console.error('GetTwoFaStatus Error:', error);
+    res.status(500).json({ message: 'Không thể lấy trạng thái 2FA' });
+  }
+};
+
+/** Setup 2FA - generate secret and QR code */
+exports.setup2Fa = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const email = req.user.Email || req.user.email;
+    // Check existing secret
+    const result = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query('SELECT TwoFASecret, TwoFAEnabled FROM Users WHERE UserID = @userId');
+    const row = result.recordset[0] || {};
+    let secretBase32;
+    let otpauthUrl;
+    if (row.TwoFASecret && !row.TwoFAEnabled) {
+      // Reuse existing secret
+      secretBase32 = row.TwoFASecret;
+      otpauthUrl = speakeasy.otpauthURL({
+        secret: secretBase32,
+        label: `Campust (${email})`,
+        issuer: 'Campust',
+        encoding: 'base32'
+      });
+    } else {
+      // Generate new secret
+      const secretObj = speakeasy.generateSecret({
+        name: `Campust (${email})`,
+        issuer: 'Campust',
+        length: 20
+      });
+      secretBase32 = secretObj.base32;
+      otpauthUrl = secretObj.otpauth_url;
+      // Store new secret only; enabling will occur upon verification
+      await pool.request()
+        .input('userId', sql.BigInt, userId)
+        .input('secret', sql.VarChar, secretBase32)
+        .query('UPDATE Users SET TwoFASecret = @secret WHERE UserID = @userId');
+    }
+    // Tạo QR code trực tiếp từ server thay vì dùng Google Chart API
+    const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl, {
+      errorCorrectionLevel: 'H',
+      type: 'image/png',
+      margin: 1,
+      width: 300,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+    
+    res.json({ qrCodeUrl: qrCodeDataUrl, secret: secretBase32 });
+  } catch (error) {
+    console.error('Setup2Fa Error:', error);
+    res.status(500).json({ message: 'Không thể khởi tạo 2FA' });
+  }
+};
+
+/** Verify 2FA OTP and enable 2FA */
+exports.verify2Fa = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    const { otp } = req.body;
+    const result = await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query('SELECT TwoFASecret FROM Users WHERE UserID = @userId');
+    const secret = result.recordset[0]?.TwoFASecret;
+    const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token: otp });
+    if (!verified) {
+      return res.status(400).json({ message: 'Mã 2FA không hợp lệ' });
+    }
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query('UPDATE Users SET TwoFAEnabled = 1 WHERE UserID = @userId');
+    res.json({ message: '2FA đã được kích hoạt' });
+  } catch (error) {
+    console.error('Verify2Fa Error:', error);
+    res.status(500).json({ message: 'Xác thực 2FA không thành công' });
+  }
+};
+
+/** Disable 2FA */
+exports.disable2Fa = async (req, res) => {
+  try {
+    const userId = req.user.UserID;
+    await pool.request()
+      .input('userId', sql.BigInt, userId)
+      .query('UPDATE Users SET TwoFAEnabled = 0, TwoFASecret = NULL WHERE UserID = @userId');
+    res.json({ message: '2FA đã được vô hiệu hóa' });
+  } catch (error) {
+    console.error('Disable2Fa Error:', error);
+    res.status(500).json({ message: 'Không thể vô hiệu hóa 2FA' });
+  }
+}; 
+
+/**
+ * Complete login after 2FA verification
+ */
+exports.login2Fa = async (req, res) => {
+  try {
+    const tempToken = req.headers.authorization?.split(' ')[1];
+    if (!tempToken) {
+      return res.status(401).json({ message: 'Temp token is required for 2FA login' });
+    }
+    // Verify tempToken (signed with JWT_SECRET, includes userId and twoFaAllowed)
+    let decoded;
+    try {
+      decoded = jwt.verify(tempToken, process.env.JWT_SECRET);
+      if (!decoded.twoFaAllowed || !decoded.userId) {
+        return res.status(401).json({ message: 'Invalid temporary token for 2FA' });
+      }
+    } catch (err) {
+      return res.status(401).json({ message: 'Invalid or expired temporary token' });
+    }
+    const { otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ message: 'OTP is required' });
+    }
+    // Get user's secret
+    const result = await pool.request()
+      .input('userId', sql.BigInt, decoded.userId)
+      .query('SELECT TwoFASecret, Role, Username, Email, FullName, HasPasskey FROM Users WHERE UserID = @userId');
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const user = result.recordset[0];
+    const secret = user.TwoFASecret;
+    // Verify OTP
+    const verified = speakeasy.totp.verify({ secret, encoding: 'base32', token: otp });
+    if (!verified) {
+      return res.status(400).json({ message: 'Invalid 2FA code' });
+    }
+    // Generate access and refresh tokens
+    const token = jwt.sign({ userId: decoded.userId, role: user.Role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+    const refreshToken = jwt.sign({ userId: decoded.userId, role: user.Role, tokenType: 'refresh' }, process.env.JWT_SECRET, { expiresIn: '30d' });
+    // Return same response format as login
+    const responseEmail = user.Email;
+    res.json({
+      message: 'Đăng nhập thành công',
+      token,
+      refreshToken,
+      user: {
+        id: decoded.userId,
+        username: user.Username,
+        email: responseEmail,
+        fullName: user.FullName,
+        role: user.Role,
+        hasPasskey: user.HasPasskey
+      },
+      requirePasskeySetup: user.HasPasskey ? false : true
+    });
+  } catch (error) {
+    console.error('Login2Fa Error:', error);
+    res.status(500).json({ message: 'Error during 2FA login', error: error.message });
   }
 }; 

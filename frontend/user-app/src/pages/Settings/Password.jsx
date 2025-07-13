@@ -198,6 +198,83 @@ const Password = () => {
     });
   };
 
+  // Handle 2FA (Time-based One-Time Password) setup and verification
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [twoFaStage, setTwoFaStage] = useState(0);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [secret, setSecret] = useState('');
+  const [otp2fa, setOtp2fa] = useState('');
+
+  useEffect(() => {
+    if (token) {
+      fetchTwoFaStatus();
+    }
+  }, [token]);
+
+  const fetchTwoFaStatus = async () => {
+    try {
+      const res = await axios.get('/api/auth/2fa/status', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTwoFaEnabled(res.data.twoFaEnabled);
+    } catch (err) {
+      console.error('Fetch 2FA status error:', err);
+    }
+  };
+
+  const handleToggle2FA = async () => {
+    if (twoFaEnabled) {
+      // Disable 2FA
+      try {
+        console.log('Disabling 2FA...');
+        await axios.post('/api/auth/2fa/disable', {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('2FA đã được vô hiệu hóa');
+        setTwoFaEnabled(false);
+        setQrCodeUrl(''); // Clear QR code
+      } catch (err) {
+        console.error('Disable 2FA error:', err);
+        toast.error(err.response?.data?.message || 'Không thể vô hiệu hóa 2FA');
+      }
+    } else {
+      // Initialize 2FA setup
+      try {
+        console.log('Setting up 2FA...');
+        const res = await axios.post('/api/auth/2fa/setup', {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        console.log('2FA setup response:', res.data);
+        setQrCodeUrl(res.data.qrCodeUrl);
+        setSecret(res.data.secret);
+        setTwoFaStage(1);
+        setTwoFaEnabled(true);
+      } catch (err) {
+        console.error('Setup 2FA error:', err);
+        toast.error(err.response?.data?.message || 'Không thể khởi tạo 2FA');
+      }
+    }
+  };
+
+  const handleVerifyTwoFa = async (e) => {
+    e.preventDefault();
+    if (!otp2fa) {
+      toast.error('Vui lòng nhập mã 2FA');
+      return;
+    }
+    try {
+      await axios.post('/api/auth/2fa/verify', { otp: otp2fa }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('2FA đã được kích hoạt');
+      setTwoFaEnabled(true);
+      setTwoFaStage(0);
+    } catch (err) {
+      console.error('Verify 2FA error:', err);
+      toast.error(err.response?.data?.message || 'Xác thực 2FA không thành công');
+    }
+  };
+
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
     
@@ -420,24 +497,28 @@ const Password = () => {
           
         {/* 2FA Authentication */}
         <div className="mt-10 pt-10 border-t border-gray-200">
-          <h3 className="text-lg font-medium mb-5 text-gray-800">
+          <h3 className="text-lg font-medium mb-5 text-gray-800 flex items-center">
+            <ShieldCheckIcon className="h-6 w-6 mr-2 text-blue-500" />
             Xác thực hai lớp (2FA)
           </h3>
           
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium text-gray-900">
-                  Bảo vệ tài khoản của bạn
+                  {twoFaEnabled ? 'Xác thực hai lớp đang hoạt động' : 'Bảo vệ tài khoản của bạn'}
                 </h4>
                 <p className="text-sm mt-1 text-gray-600">
-                  Thêm lớp bảo mật bổ sung để ngăn chặn truy cập trái phép vào tài khoản của bạn
+                  {twoFaEnabled 
+                    ? 'Bạn đã bật xác thực hai lớp bằng ứng dụng Authenticator' 
+                    : 'Thêm lớp bảo mật bổ sung để ngăn chặn truy cập trái phép vào tài khoản của bạn'}
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer">
                 <input
                   type="checkbox"
-                  defaultChecked={true}
+                  checked={twoFaEnabled}
+                  onChange={handleToggle2FA}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
@@ -447,6 +528,79 @@ const Password = () => {
                       after:transition-all peer-checked:after:translate-x-5"></div>
               </label>
             </div>
+            {/* 2FA setup and verify flow */}
+            {twoFaStage === 1 && (
+              <div className="mt-6 p-6 bg-blue-50 border border-blue-100 rounded-lg">
+                <div className="flex flex-col md:flex-row items-center">
+                  <div className="md:w-1/2 mb-4 md:mb-0 md:pr-6">
+                    <h5 className="font-medium text-gray-900 mb-2">Quét mã QR bằng ứng dụng Authenticator</h5>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Sử dụng Google Authenticator, Microsoft Authenticator hoặc ứng dụng 2FA khác để quét mã QR này.
+                      Mỗi lần đăng nhập, bạn sẽ cần nhập mã từ ứng dụng này.
+                    </p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Google Authenticator</span>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Microsoft Authenticator</span>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Authy</span>
+                    </div>
+                    <form onSubmit={handleVerifyTwoFa} className="space-y-3">
+                      <input
+                        type="text"
+                        value={otp2fa}
+                        onChange={(e) => setOtp2fa(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Nhập mã 2FA"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                      >
+                        Hoàn tất thiết lập
+                      </button>
+                    </form>
+                  </div>
+                  <div className="md:w-1/2 flex justify-center">
+                    {qrCodeUrl ? (
+                      <div className="p-3 bg-white rounded-lg shadow-md relative">
+                        <img 
+                          src={qrCodeUrl} 
+                          alt="2FA QR Code" 
+                          className="w-48 h-48" 
+                          onError={(e) => {
+                            console.error('QR code image failed to load:', e);
+                            console.log('QR code URL:', qrCodeUrl);
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2YwZjBmMCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBhbGlnbm1lbnQtYmFzZWxpbmU9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5OTk5Ij5RUiBDb2RlIEVycm9yPC90ZXh0Pjwvc3ZnPg==';
+                          }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => window.open(qrCodeUrl, '_blank')}
+                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                          >
+                            Mở QR lớn
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-48 h-48 flex items-center justify-center bg-gray-100 rounded-lg">
+                        <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {twoFaEnabled && twoFaStage === 0 && (
+              <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-100">
+                <div className="flex items-start">
+                  <ShieldCheckIcon className="h-5 w-5 text-green-500 mt-0.5 mr-2" />
+                  <p className="text-sm text-green-700">
+                    Xác thực hai lớp đã được kích hoạt. Khi đăng nhập, bạn sẽ cần nhập mã từ ứng dụng Authenticator.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

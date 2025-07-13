@@ -121,8 +121,31 @@ const sendEmailWithAttachment = async ({ to, subject, text, attachments = [], fr
   }
 };
 
+const sendLoginOtpEmail = async (to, fullName, otp) => {
+  const subject = 'Mã OTP đăng nhập vào tài khoản Campust của bạn';
+  const html = `
+    <p>Xin chào ${fullName},</p>
+    <p>Bạn đang yêu cầu đăng nhập không cần mật khẩu cho tài khoản Campust. Mã OTP của bạn là:</p>
+    <div style="margin: 20px 0; text-align: center;">
+      <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; font-size: 24px; letter-spacing: 5px; font-weight: bold;">${otp}</div>
+    </div>
+    <p>Mã OTP có hiệu lực trong 15 phút.</p>
+    <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
+    <p>Trân trọng,<br/>Đội ngũ CAMPUST</p>
+  `;
+  // Hiển thị mã OTP trong console cho việc test
+  console.log(`Gửi OTP đăng nhập cho ${to}: ${otp}`);
+  return await transporter.sendMail({
+    from: '"Campust" <devquyen@gmail.com>',
+    to,
+    subject,
+    html
+  });
+};
+
 module.exports = {
   generateOTP,
   sendVerificationEmail,
-  sendEmailWithAttachment
+  sendEmailWithAttachment,
+  sendLoginOtpEmail
 };

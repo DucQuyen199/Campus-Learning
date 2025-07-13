@@ -28,6 +28,7 @@ import Profile from './pages/Profile';
 import Friends from './pages/Friends';
 import Settings from './pages/Settings';
 import Login from './pages/Auth/Login';
+import OtpLogin from './pages/Auth/OtpLogin';
 import Register from './pages/Auth/Register';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
@@ -80,6 +81,7 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
+            <Route path="/login-otp" element={<OtpLogin />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />

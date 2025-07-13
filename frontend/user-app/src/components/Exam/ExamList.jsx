@@ -12,10 +12,25 @@ const ExamList = () => {
   const [registering, setRegistering] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'upcoming', 'ongoing', 'completed', 'registered'
+  const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchExams();
+    
+    // Kiểm tra thiết bị di động
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+      setIsMobile(mobileRegex.test(userAgent));
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   useEffect(() => {
@@ -364,13 +379,20 @@ const ExamList = () => {
                             )}
                           </div>
                         ) : (
-                          <Link 
-                            to={`/exams/${exam.ExamID}/session`}
-                            className="inline-block bg-green-500 text-white py-2 px-4 rounded-md w-full text-center hover:bg-green-600 transition-colors"
-                            onClick={(e) => e.stopPropagation()} // Prevent the parent onClick from triggering
-                          >
-                            Vào thi ngay
-                          </Link>
+                          isMobile ? (
+                            <div className="bg-yellow-100 p-3 rounded-md text-sm text-yellow-800">
+                              <p className="font-medium">Không thể thi trên thiết bị di động</p>
+                              <p className="mt-1">Vui lòng sử dụng máy tính với trình duyệt Chrome để tham gia kỳ thi.</p>
+                            </div>
+                          ) : (
+                            <Link 
+                              to={`/exams/${exam.ExamID}/session`}
+                              className="inline-block bg-green-500 text-white py-2 px-4 rounded-md w-full text-center hover:bg-green-600 transition-colors"
+                              onClick={(e) => e.stopPropagation()} // Prevent the parent onClick from triggering
+                            >
+                              Vào thi ngay
+                            </Link>
+                          )
                         )}
                         {exam.attemptsUsed && exam.maxAttempts && (
                           <div className="mt-2 text-xs text-gray-500">

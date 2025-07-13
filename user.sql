@@ -210,4 +210,52 @@ END;
 
 use campushubt;
 
+-- Create OTPLogins table for email-based OTP login if not exists
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'OTPLogins')
+BEGIN
+    CREATE TABLE OTPLogins (
+        LoginOtpID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+        OTP VARCHAR(6) NOT NULL,
+        ExpiresAt DATETIME NOT NULL,
+        IsUsed BIT DEFAULT 0,
+        AttemptCount INT DEFAULT 0,
+        CreatedAt DATETIME DEFAULT GETDATE()
+    );
+    PRINT 'OTPLogins table created';
+END
+ELSE
+BEGIN
+    PRINT 'OTPLogins table already exists';
+END;
+
+-- Add 2FA columns to Users table if not exist
+IF NOT EXISTS (
+    SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Users' AND COLUMN_NAME = 'TwoFASecret'
+)
+BEGIN
+    ALTER TABLE Users
+    ADD TwoFASecret NVARCHAR(500) NULL;
+    PRINT 'TwoFASecret column added to Users';
+END
+ELSE
+BEGIN
+    PRINT 'TwoFASecret column already exists';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'Users' AND COLUMN_NAME = 'TwoFAEnabled'
+)
+BEGIN
+    ALTER TABLE Users
+    ADD TwoFAEnabled BIT DEFAULT 0;
+    PRINT 'TwoFAEnabled column added to Users';
+END
+ELSE
+BEGIN
+    PRINT 'TwoFAEnabled column already exists';
+END;
+
 SELECT * from users;

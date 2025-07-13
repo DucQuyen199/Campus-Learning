@@ -90,10 +90,13 @@ export function AuthProvider({ children }) {
       setAuthError(null);
       setLoading(true);
       
-      const response = await axios.post('http://localhost:5001/api/auth/login', {
-        email,
-        password
-      });
+      const response = await axios.post('http://localhost:5001/api/auth/login', { email, password });
+      
+      // Handle 2FA challenge from server
+      if (response.data.twoFaRequired) {
+        setAuthError(null);
+        return { success: true, twoFaRequired: true, tempToken: response.data.tempToken };
+      }
       
       if (response.data && response.data.token) {
         const token = response.data.token;
@@ -140,6 +143,52 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add login2Fa function for verifying 2FA OTP
+  const login2Fa = async (tempToken, otp) => {
+    try {
+      setAuthError(null);
+      setLoading(true);
+      const response = await axios.post('http://localhost:5001/api/auth/login-2fa', { otp }, {
+        headers: { Authorization: `Bearer ${tempToken}` }
+      });
+      
+      if (response.data.token) {
+        const token = response.data.token;
+        // Persist tokens
+        localStorage.setItem('token', token);
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
+        
+        const userData = response.data.user || {};
+        const id = userData.id || userData.UserID || userData.userId;
+        const userWithToken = {
+          ...userData,
+          token,
+          id,
+          UserID: id,
+          userId: id
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userWithToken));
+        setCurrentUser(userWithToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setIsAuthenticated(true);
+        
+        return { success: true, user: userWithToken };
+      } else {
+        throw new Error(response.data?.message || '2FA login failed');
+      }
+    } catch (error) {
+      console.error('2FA login error:', error);
+      const errorMessage = error.response?.data?.message || error.message || '2FA login failed';
       setAuthError(errorMessage);
       return { success: false, error: errorMessage };
     } finally {
@@ -307,6 +356,7 @@ export function AuthProvider({ children }) {
     loading,
     authError,
     login,
+    login2Fa,
     register,
     logout,
     checkAuth,

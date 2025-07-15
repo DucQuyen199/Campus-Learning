@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import axios from 'axios';
@@ -18,43 +18,18 @@ const OtpLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSendOtp = async (e) => {
-    e.preventDefault();
-    if (!email) {
-      setError('Email là bắt buộc');
-      toast.error('Vui lòng nhập email');
-      return;
-    }
+  // Refs and handlers for OTP input boxes
+  const inputsRef = useRef([]);
+  const verifyOtp = async (code) => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
-      await axios.post(`${API_BASE_URL}/api/auth/login-otp`, { email });
-      toast.success('OTP đã được gửi đến email của bạn');
-      setStage(2);
-    } catch (err) {
-      console.error('Send OTP Error:', err);
-      toast.error(err.response?.data?.message || 'Không thể gửi OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    if (!otp) {
-      setError('OTP là bắt buộc');
-      toast.error('Vui lòng nhập OTP');
-      return;
-    }
-    try {
-      setLoading(true);
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
       const response = await axios.post(
         `${API_BASE_URL}/api/auth/login-otp/verify`,
-        { email, otp }
+        { email, otp: code }
       );
       const { token, refreshToken, user } = response.data;
-      // Xử lý đăng nhập thành công
       const processedUser = {
         ...user,
         token,
@@ -71,6 +46,55 @@ const OtpLogin = () => {
     } catch (err) {
       console.error('Verify OTP Error:', err);
       toast.error(err.response?.data?.message || 'Không thể xác thực OTP');
+      // Clear OTP inputs on invalid
+      setOtp('');
+      if (inputsRef.current[0]) inputsRef.current[0].focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleOtpInput = (e, idx) => {
+    const raw = e.target.value;
+    const val = raw.replace(/\D/g, '');
+    const codeArr = otp.split('');
+    if (!val) {
+      // Clear this box on invalid entry
+      codeArr[idx] = '';
+      setOtp(codeArr.join(''));
+      return;
+    }
+    codeArr[idx] = val;
+    const newOtp = codeArr.join('').slice(0, 6);
+    setOtp(newOtp);
+    if (inputsRef.current[idx + 1]) inputsRef.current[idx + 1].focus();
+    if (newOtp.length === 6) verifyOtp(newOtp);
+  };
+  const handleVerifyOtp = (e) => {
+    e.preventDefault();
+    if (!otp) {
+      setError('OTP là bắt buộc');
+      toast.error('Vui lòng nhập OTP');
+      return;
+    }
+    verifyOtp(otp);
+  };
+
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    if (!email) {
+      setError('Email là bắt buộc');
+      toast.error('Vui lòng nhập email');
+      return;
+    }
+    try {
+      setLoading(true);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      await axios.post(`${API_BASE_URL}/api/auth/login-otp`, { email });
+      toast.success('OTP đã được gửi đến email của bạn');
+      setStage(2);
+    } catch (err) {
+      console.error('Send OTP Error:', err);
+      toast.error(err.response?.data?.message || 'Không thể gửi OTP');
     } finally {
       setLoading(false);
     }
@@ -114,28 +138,37 @@ const OtpLogin = () => {
                 </button>
               </form>
             ) : (
-              <form className="space-y-6" onSubmit={handleVerifyOtp}>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">OTP</label>
-                  <input
-                    type="text"
-                    required
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Nhập OTP"
-                  />
+              <div className="mt-8">
+                <label className="block text-sm font-semibold text-gray-700 text-center">OTP</label>
+                <div className="mt-2 flex justify-center space-x-2">
+                  {Array.from({ length: 6 }).map((_, idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={otp[idx] || ''}
+                      onChange={(e) => handleOtpInput(e, idx)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+                          inputsRef.current[idx - 1].focus();
+                        }
+                      }}
+                      ref={(el) => (inputsRef.current[idx] = el)}
+                      className="w-10 h-10 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ))}
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-white font-medium transition duration-200 ${
-                    loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                  }`}
-                >
-                  {loading ? 'Đang xác thực...' : 'Đăng nhập'}
-                </button>
-              </form>
+                <div className="text-center mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setStage(1)}
+                    className="text-sm text-gray-600 hover:underline"
+                  >
+                    Quay lại nhập email
+                  </button>
+                </div>
+              </div>
             )}
             <div className="mt-4 text-center">
               <Link to="/login" className="text-sm text-blue-600 hover:underline">

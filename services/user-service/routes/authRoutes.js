@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const oauthController = require('../controllers/oauthController');
 const { authenticateToken } = require('../middleware/auth');
 
 // Public routes
@@ -17,6 +18,14 @@ router.post('/2fa/setup', authenticateToken, authController.setup2Fa);
 router.post('/2fa/verify', authenticateToken, authController.verify2Fa);
 router.post('/2fa/disable', authenticateToken, authController.disable2Fa);
 router.post('/refresh-token', authController.refreshToken);
+
+// OAuth routes
+router.post('/google', oauthController.googleAuth);
+router.post('/facebook', oauthController.facebookAuth);
+router.get('/oauth/connections', authenticateToken, oauthController.getConnections);
+router.post('/oauth/connect/google', authenticateToken, oauthController.connectGoogle);
+router.post('/oauth/connect/facebook', authenticateToken, oauthController.connectFacebook);
+router.delete('/oauth/disconnect/:provider', authenticateToken, oauthController.disconnectProvider);
 
 // Forgot and reset password routes
 router.post('/forgot-password', authController.forgotPassword);

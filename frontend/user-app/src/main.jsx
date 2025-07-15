@@ -28,6 +28,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { SocketProvider } from './contexts/SocketContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import store from './store'
 import App from './App'
 import './index.css'
@@ -115,13 +116,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         v7_relativeSplatPath: true 
       }}>
         <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <SocketProvider>
-              <ThemeProvider>
-                <App />
-              </ThemeProvider>
-            </SocketProvider>
-          </AuthProvider>
+          <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || '890586528678-d33nj5dfqbptc5j5773g9mgkfsd45413.apps.googleusercontent.com'}>
+            <AuthProvider>
+              <SocketProvider>
+                <ThemeProvider>
+                  <App />
+                </ThemeProvider>
+              </SocketProvider>
+            </AuthProvider>
+          </GoogleOAuthProvider>
         </QueryClientProvider>
       </BrowserRouter>
     </Provider>

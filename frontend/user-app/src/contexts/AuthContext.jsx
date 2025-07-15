@@ -150,6 +150,210 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Add OAuth login functions
+  const loginWithGoogle = async (token) => {
+    try {
+      setAuthError(null);
+      setLoading(true);
+      
+      console.log('Starting Google login process with token:', token ? 'Token provided' : 'No token');
+      
+      if (!token) {
+        throw new Error('No Google authentication token provided');
+      }
+      
+      // Get API URL from env or use default
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const response = await axios.post(`${API_BASE_URL}/api/auth/google`, { token });
+      
+      console.log('Google login response received:', response.status);
+      
+      if (response.data && response.data.token) {
+        const token = response.data.token;
+        
+        // Validate token
+        if (token.length < 10) {
+          throw new Error('Invalid token received from server');
+        }
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('authToken', token); // Add secondary token storage for compatibility
+        
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
+        
+        const userData = response.data.user || {};
+        
+        // Ensure we have a user ID
+        if (!userData.id && !userData.UserID && !userData.userId) {
+          throw new Error('User data does not contain an ID field');
+        }
+        
+        // Create a complete user object with token and normalize ID fields
+        const userWithToken = {
+          ...userData,
+          token: token,
+          // Ensure all ID fields are set for compatibility
+          id: userData.id || userData.UserID || userData.userId,
+          UserID: userData.id || userData.UserID || userData.userId,
+          userId: userData.id || userData.UserID || userData.userId
+        };
+        
+        // Save complete user data
+        localStorage.setItem('user', JSON.stringify(userWithToken));
+        
+        setCurrentUser(userWithToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setIsAuthenticated(true);
+        
+        console.log('Google login successful, user authenticated:', userWithToken.id);
+        return { success: true, user: userWithToken };
+      } else {
+        throw new Error('Login response did not contain token');
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      // More detailed error logging
+      if (error.response) {
+        console.error('Server response error:', {
+          status: error.response.status,
+          data: error.response.data
+        });
+      }
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Google login failed';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithFacebook = async (accessToken) => {
+    try {
+      setAuthError(null);
+      setLoading(true);
+      
+      const response = await axios.post('http://localhost:5001/api/auth/facebook', { accessToken });
+      
+      if (response.data && response.data.token) {
+        const token = response.data.token;
+        
+        // Validate token
+        if (token.length < 10) {
+          throw new Error('Invalid token received from server');
+        }
+        
+        localStorage.setItem('token', token);
+        
+        if (response.data.refreshToken) {
+          localStorage.setItem('refreshToken', response.data.refreshToken);
+        }
+        
+        const userData = response.data.user || {};
+        
+        // Create a complete user object with token and normalize ID fields
+        const userWithToken = {
+          ...userData,
+          token: token,
+          // Ensure all ID fields are set for compatibility
+          id: userData.id || userData.UserID || userData.userId,
+          UserID: userData.id || userData.UserID || userData.userId,
+          userId: userData.id || userData.UserID || userData.userId
+        };
+        
+        // Save complete user data
+        localStorage.setItem('user', JSON.stringify(userWithToken));
+        
+        setCurrentUser(userWithToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setIsAuthenticated(true);
+        
+        return { success: true, user: userWithToken };
+      } else {
+        throw new Error('Login response did not contain token');
+      }
+    } catch (error) {
+      console.error('Facebook login error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Facebook login failed';
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // OAuth connection management
+  const connectOAuthProvider = async (provider, token) => {
+    try {
+      setAuthError(null);
+      setLoading(true);
+      
+      const endpoint = provider === 'google' ? 'connect/google' : 'connect/facebook';
+      const payload = provider === 'google' ? { token } : { accessToken: token };
+      
+      const response = await axios.post(`http://localhost:5001/api/auth/oauth/${endpoint}`, payload, {
+        headers: { Authorization: `Bearer ${currentUser.token}` }
+      });
+      
+      if (response.data && response.data.success) {
+        return { success: true, message: response.data.message };
+      } else {
+        throw new Error(response.data?.message || `Failed to connect ${provider}`);
+      }
+    } catch (error) {
+      console.error(`${provider} connection error:`, error);
+      const errorMessage = error.response?.data?.message || error.message || `${provider} connection failed`;
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const disconnectOAuthProvider = async (provider) => {
+    try {
+      setAuthError(null);
+      setLoading(true);
+      
+      const response = await axios.delete(`http://localhost:5001/api/auth/oauth/disconnect/${provider}`, {
+        headers: { Authorization: `Bearer ${currentUser.token}` }
+      });
+      
+      if (response.data && response.data.success) {
+        return { success: true, message: response.data.message };
+      } else {
+        throw new Error(response.data?.message || `Failed to disconnect ${provider}`);
+      }
+    } catch (error) {
+      console.error(`${provider} disconnection error:`, error);
+      const errorMessage = error.response?.data?.message || error.message || `${provider} disconnection failed`;
+      setAuthError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getOAuthConnections = async () => {
+    try {
+      const response = await axios.get('http://localhost:5001/api/auth/oauth/connections', {
+        headers: { Authorization: `Bearer ${currentUser.token}` }
+      });
+      
+      if (response.data && response.data.success) {
+        return { success: true, connections: response.data.connections };
+      } else {
+        throw new Error(response.data?.message || 'Failed to get OAuth connections');
+      }
+    } catch (error) {
+      console.error('Get OAuth connections error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to get OAuth connections';
+      return { success: false, error: errorMessage };
+    }
+  };
+
   // Add login2Fa function for verifying 2FA OTP
   const login2Fa = async (tempToken, otp) => {
     try {
@@ -357,6 +561,11 @@ export function AuthProvider({ children }) {
     authError,
     login,
     login2Fa,
+    loginWithGoogle,
+    loginWithFacebook,
+    connectOAuthProvider,
+    disconnectOAuthProvider,
+    getOAuthConnections,
     register,
     logout,
     checkAuth,

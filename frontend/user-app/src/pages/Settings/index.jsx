@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   UserIcon, LockClosedIcon, BellIcon, ShieldCheckIcon, 
   Cog6ToothIcon, EyeIcon, ArrowLeftOnRectangleIcon, TrashIcon,
-  ArrowPathIcon, PhotoIcon, XMarkIcon, CreditCardIcon
+  ArrowPathIcon, PhotoIcon, XMarkIcon, CreditCardIcon, ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import { 
   getUserSettings, 
@@ -52,6 +52,7 @@ const Settings = () => {
   
   const { settings, profileInfo, loading, error, success, message } = useSelector(state => state.user);
   const [activeTab, setActiveTab] = useState('general');
+  const [showNav, setShowNav] = useState(true);
   const [localSettings, setLocalSettings] = useState(null);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -96,6 +97,7 @@ const Settings = () => {
   // Handle tab change
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    setShowNav(false);
   };
 
   // Handle settings change
@@ -237,7 +239,7 @@ const Settings = () => {
       
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Left Sidebar */}
-        <div className="lg:w-1/4">
+        <div className={showNav ? 'block lg:block lg:w-1/4' : 'hidden lg:block lg:w-1/4'}>
           <div className="mb-4">
             <div className="flex items-center">
                 <div 
@@ -420,7 +422,11 @@ const Settings = () => {
         </div>
         
         {/* Settings Content */}
-        <div className="lg:w-3/4">
+        <div className={showNav ? 'hidden lg:block lg:w-3/4' : 'block lg:block lg:w-3/4'}>
+          <button onClick={() => setShowNav(true)} className='mb-4 flex items-center text-blue-500 font-medium lg:hidden'>
+            <ArrowLeftIcon className='h-5 w-5 mr-2' />
+            <span>Quay lại</span>
+          </button>
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeTab}

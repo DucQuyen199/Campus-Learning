@@ -257,5 +257,34 @@ ELSE
 BEGIN
     PRINT 'TwoFAEnabled column already exists';
 END;
+use campushubt;
+-- Table for OAuth connected accounts
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserOAuthConnections')
+BEGIN
+    CREATE TABLE UserOAuthConnections (
+        ConnectionID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        UserID BIGINT NOT NULL FOREIGN KEY REFERENCES Users(UserID),
+        Provider VARCHAR(20) NOT NULL, -- 'google', 'facebook', etc.
+        ProviderUserID VARCHAR(255) NOT NULL, -- ID from the provider
+        Email VARCHAR(255), -- Email from the provider
+        Name NVARCHAR(255), -- Name from the provider
+        ProfilePicture VARCHAR(500), -- Profile picture URL
+        AccessToken VARCHAR(2000), -- OAuth access token (encrypted)
+        RefreshToken VARCHAR(2000), -- OAuth refresh token (encrypted)
+        TokenExpiry DATETIME, -- When the token expires
+        IsVerified BIT DEFAULT 1, -- Whether this connection is verified
+        CreatedAt DATETIME DEFAULT GETDATE(),
+        UpdatedAt DATETIME DEFAULT GETDATE(),
+        LastUsedAt DATETIME, -- Last time this connection was used to login
+        CONSTRAINT UQ_UserOAuthConnections_User_Provider UNIQUE (UserID, Provider),
+        CONSTRAINT UQ_UserOAuthConnections_Provider_ProviderUserID UNIQUE (Provider, ProviderUserID)
+    );
+    
+    PRINT 'Created UserOAuthConnections table';
+END
+ELSE
+BEGIN
+    PRINT 'UserOAuthConnections table already exists';
+END
 
 SELECT * from users;

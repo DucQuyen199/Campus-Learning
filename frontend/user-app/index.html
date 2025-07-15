@@ -2,6 +2,35 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Define a permissive Trusted Types policy so third-party scripts (Google Identity, Facebook SDK, etc.) can still inject inline scripts without throwing "TrustedScript" errors. -->
+    <script>
+      window.trustedTypes && window.trustedTypes.createPolicy('default', {
+        createHTML: (input) => input,
+        createScript: (input) => input,
+        createScriptURL: (input) => input,
+      });
+    </script>
+    <!-- Content Security Policy to allow scripts -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://*.gstatic.com https://*.googleapis.com https://connect.facebook.net; object-src 'none'; trusted-types default dompurify 'allow-duplicates'; require-trusted-types-for 'script';" />
+
+    <!-- Ensure both default and dompurify Trusted Types policies exist before any third-party libraries run -->
+    <script>
+      if (window.trustedTypes) {
+        try {
+          window.trustedTypes.createPolicy('dompurify', {
+            createHTML: (input) => input,
+            createScriptURL: (input) => input,
+            createScript: (input) => input,
+          });
+        } catch (e) {
+          /* policy might already exist – ignore */
+        }
+      }
+    </script>
+    <!-- Allow popups under Cross-Origin-Opener-Policy -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups" />
+    <!-- Disable Cross-Origin-Embedder-Policy to avoid blocking popups -->
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="unsafe-none" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />

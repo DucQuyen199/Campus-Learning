@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { PlusIcon } from '@heroicons/react/24/outline';
-import StoryCreate from './StoryCreate';
 import { Avatar } from '../index';
+import { getAllStories, viewStory } from '../../api/storyApi';
 
-const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEnd }) => {
+const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEnd, onViewStory }) => {
     const [stories, setStories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showCreateForm, setShowCreateForm] = useState(false);
@@ -16,17 +16,8 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
 
     const fetchStories = async () => {
         try {
-            const response = await fetch('/api/stories', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Không thể tải stories');
-            }
-
-            const data = await response.json();
+            setLoading(true);
+            const data = await getAllStories();
             setStories(data.stories || []);
         } catch (error) {
             console.error('Fetch stories error:', error);
@@ -44,14 +35,18 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
         setSelectedStory(story);
         setViewingStory(true);
 
+        // If onViewStory prop is provided, use it instead of internal viewer
+        if (onViewStory) {
+            const storyIndex = stories.findIndex(s => s.StoryID === story.StoryID);
+            if (storyIndex !== -1) {
+                onViewStory(storyIndex, stories);
+                return;
+            }
+        }
+
         // Mark story as viewed
         try {
-            await fetch(`/api/stories/${story.StoryID}/view`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            await viewStory(story.StoryID);
         } catch (error) {
             console.error('Mark story as viewed error:', error);
         }
@@ -125,7 +120,7 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
             )}
 
             {/* Story Viewer Modal */}
-            {viewingStory && selectedStory && (
+            {viewingStory && selectedStory && !onViewStory && (
                 <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
                     <button
                         onClick={() => setViewingStory(false)}
@@ -164,7 +159,7 @@ const StoryList = ({ orientation = 'horizontal', showTimeline = false, onStoryEn
 
             {/* Stories Grid */}
             <div className={`grid gap-4 ${
-                orientation === 'horizontal' ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+                orientation === 'horizontal' ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6' : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
             }`}>
                 {/* Create Story Button */}
                 <div

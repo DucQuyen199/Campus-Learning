@@ -323,3 +323,16 @@ use campushubt;
       BEGIN
         ALTER TABLE dbo.Posts ADD BookmarksCount INT NOT NULL DEFAULT 0;
       END
+use campushubt;
+-- Bảng StoryLikes: Quản lý lượt thích của stories
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'StoryLikes')
+BEGIN
+    CREATE TABLE StoryLikes (
+        LikeID BIGINT IDENTITY(1,1) PRIMARY KEY,
+        StoryID BIGINT FOREIGN KEY REFERENCES Stories(StoryID),
+        UserID BIGINT FOREIGN KEY REFERENCES Users(UserID),
+        CreatedAt DATETIME DEFAULT GETDATE()
+    );
+    CREATE UNIQUE INDEX UQ_StoryLikes_StoryID_UserID ON StoryLikes(StoryID, UserID);
+END
+GO

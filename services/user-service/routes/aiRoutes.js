@@ -2,14 +2,56 @@ const express = require('express');
 const router = express.Router();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { pool, query } = require('../config/db');
 
 // Initialize Gemini API with the provided API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY');
 
 /**
+ * Check if the user has exceeded their daily AI usage limit (5 uses per day)
+ */
+const checkAiUsageLimit = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const today = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+    
+    // Check if we already have a record for today's usage
+    const usageResult = await query(`
+      SELECT COUNT(*) AS usageCount
+      FROM UserAiUsage
+      WHERE UserID = @userId 
+      AND CONVERT(date, UsageDate) = CONVERT(date, @today)
+    `, { userId, today });
+    
+    const usageCount = usageResult[0]?.usageCount || 0;
+    
+    // If user has reached the limit, return an error
+    if (usageCount >= 5) {
+      return res.status(429).json({
+        success: false,
+        message: 'Bạn đã đạt giới hạn 5 lần sử dụng AI mỗi ngày. Vui lòng thử lại vào ngày mai.'
+      });
+    }
+    
+    // Add this usage to the database
+    await query(`
+      INSERT INTO UserAiUsage (UserID, UsageDate, UsageType)
+      VALUES (@userId, GETDATE(), 'ai_test_generator')
+    `, { userId });
+    
+    // Continue to the next middleware
+    next();
+  } catch (error) {
+    console.error('Error checking AI usage limit:', error);
+    // If there's an error checking the limit, still allow the request to proceed
+    next();
+  }
+};
+
+/**
  * Generate a chat response using Gemini AI
  */
-router.post('/gemini-chat', authMiddleware, async (req, res) => {
+router.post('/gemini-chat', authMiddleware, checkAiUsageLimit, async (req, res) => {
   try {
     const { messages } = req.body;
     
@@ -83,7 +125,7 @@ router.post('/gemini-chat', authMiddleware, async (req, res) => {
 /**
  * Generate test cases for a programming problem
  */
-router.post('/generate-testcases', authMiddleware, async (req, res) => {
+router.post('/generate-testcases', authMiddleware, checkAiUsageLimit, async (req, res) => {
   try {
     const { problemDescription } = req.body;
     

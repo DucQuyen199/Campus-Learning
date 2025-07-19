@@ -1280,117 +1280,144 @@ const Friends = () => {
 
             {/* User Grid */}
             {!showTabLoading && !showSentLoading && filteredUsers.length > 0 && (
-              <div className={`grid ${activeTab === 'sent' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'} gap-2 md:gap-4`}>
-                {filteredUsers.map(user => (
-                  <div 
-                    key={user.UserID}
-                    className={`bg-white rounded-xl ${activeTab === 'sent' ? 'p-4 md:p-5' : 'p-3 md:p-4'} border border-gray-200 hover:shadow-md transition-all group`}
-                  >
-                    <div className="flex items-start space-x-2 md:space-x-4">
-                      {/* Avatar */}
-                      <div className="relative">
-                        <Avatar 
-                          src={user.Image || user.Avatar} 
-                          name={user.FullName || user.Username}
-                          size="xl"
-                          className="rounded-xl"
-                        />
-                        <div className={`absolute -bottom-1 -right-1 h-3 w-3 md:h-4 md:w-4 rounded-full border-2 border-white ${
-                          user.Status === 'ONLINE' ? 'bg-green-500' : 'bg-gray-300'
-                        }`}></div>
-                      </div>
-
-                      {/* User Info */}
-                      <div className="flex-1 min-w-0">
-                        <div 
-                          className="cursor-pointer"
-                          onClick={() => navigateToProfile(user.UserID)}
-                        >
-                          <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                            {user.FullName || user.Username}
-                          </h3>
-                          <p className="text-xs md:text-sm text-gray-500 truncate">@{user.Username}</p>
-                          {user.School && (
-                            <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1 truncate">
-                              {user.School}
-                            </p>
-                          )}
+              <>
+                {/* Mobile layout: dọc, card đơn giản, nút full width */}
+                <div className="grid grid-cols-1 gap-2 sm:hidden px-2">
+                  {activeTab === 'sent' && filteredUsers.map(user => (
+                    <div key={user.UserID} className="w-full max-w-sm mx-auto bg-white rounded-xl p-3 border border-gray-200 flex flex-col gap-2">
+                      <Avatar 
+                        src={user.Image || user.Avatar} 
+                        name={user.FullName || user.Username}
+                        size="xl"
+                        className="rounded-xl mb-2"
+                      />
+                      <div className="w-full">
+                        <div className="font-semibold text-gray-900 truncate text-left">{user.FullName || user.Username}</div>
+                        <div className="text-xs text-gray-500 truncate mb-1 text-left">@{user.Username}</div>
+                        <div className="flex items-center text-xs text-gray-400 mb-2 text-left">
+                          <ClockIcon className="h-4 w-4 mr-1" />
+                          Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}
                         </div>
-
-                        {/* Action Buttons */}
-                        <div className="mt-2 md:mt-4 flex items-center space-x-2">
-                          {isOwnFriends && (
-                            <>
-                              {activeTab === 'all' && (
-                                <>
+                        <button
+                          onClick={() => cancelFriendRequest(user.UserID)}
+                          className="w-full px-3 py-2.5 text-xs border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center font-medium"
+                        >
+                          <XMarkIcon className="h-4 w-4 mr-1.5" />
+                          Hủy lời mời
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Desktop layout giữ nguyên */}
+                <div className={`hidden sm:grid ${activeTab === 'sent' ? 'md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'} gap-2 md:gap-4`}>
+                  {filteredUsers.map(user => (
+                    <div 
+                      key={user.UserID}
+                      className={`bg-white rounded-xl ${activeTab === 'sent' ? 'p-4 md:p-5' : 'p-3 md:p-4'} border border-gray-200 hover:shadow-md transition-all group`}
+                    >
+                      <div className="flex items-start space-x-2 md:space-x-4">
+                        {/* Avatar */}
+                        <div className="relative">
+                          <Avatar 
+                            src={user.Image || user.Avatar} 
+                            name={user.FullName || user.Username}
+                            size="xl"
+                            className="rounded-xl"
+                          />
+                          <div className={`absolute -bottom-1 -right-1 h-3 w-3 md:h-4 md:w-4 rounded-full border-2 border-white ${
+                            user.Status === 'ONLINE' ? 'bg-green-500' : 'bg-gray-300'
+                          }`}></div>
+                        </div>
+                        {/* User Info */}
+                        <div className="flex-1 min-w-0">
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => navigateToProfile(user.UserID)}
+                          >
+                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
+                              {user.FullName || user.Username}
+                            </h3>
+                            <p className="text-xs md:text-sm text-gray-500 truncate">@{user.Username}</p>
+                            {user.School && (
+                              <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1 truncate">
+                                {user.School}
+                              </p>
+                            )}
+                          </div>
+                          {/* Action Buttons */}
+                          <div className="mt-2 md:mt-4 flex items-center space-x-2">
+                            {isOwnFriends && (
+                              <>
+                                {activeTab === 'sent' && (
+                                  <>
+                                    <div className="flex items-center space-x-2 text-xs text-gray-500 mb-3">
+                                      <ClockIcon className="h-4 w-4" />
+                                      <span>Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}</span>
+                                    </div>
+                                    <button
+                                      onClick={() => cancelFriendRequest(user.UserID)}
+                                      className="flex-1 px-3 py-2.5 text-xs md:text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center"
+                                    >
+                                      <XMarkIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5" />
+                                      Hủy lời mời
+                                    </button>
+                                  </>
+                                )}
+                                {/* Các tab khác giữ nguyên */}
+                                {activeTab === 'all' && (
+                                  <>
+                                    <button
+                                      onClick={() => navigateToChat(user)}
+                                      className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center"
+                                    >
+                                      <ChatBubbleLeftRightIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+                                      Nhắn tin
+                                    </button>
+                                    <button
+                                      onClick={() => removeFriend(user.UserID)}
+                                      className="px-2 md:px-3 py-2 text-xs md:text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                      <UserMinusIcon className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                )}
+                                {activeTab === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => acceptFriendRequest(user.UserID)}
+                                      className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+                                    >
+                                      <CheckIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+                                      Đồng ý
+                                    </button>
+                                    <button
+                                      onClick={() => rejectFriendRequest(user.UserID)}
+                                      className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
+                                    >
+                                      <XMarkIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+                                      Từ chối
+                                    </button>
+                                  </>
+                                )}
+                                {(activeTab === 'suggestions' || activeTab === 'search') && (
                                   <button
-                                    onClick={() => navigateToChat(user)}
-                                    className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center"
-                                  >
-                                    <ChatBubbleLeftRightIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                                    Nhắn tin
-                                  </button>
-                                  <button
-                                    onClick={() => removeFriend(user.UserID)}
-                                    className="px-2 md:px-3 py-2 text-xs md:text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  >
-                                    <UserMinusIcon className="h-4 w-4" />
-                                  </button>
-                                </>
-                              )}
-
-                              {activeTab === 'pending' && (
-                                <>
-                                  <button
-                                    onClick={() => acceptFriendRequest(user.UserID)}
+                                    onClick={() => sendFriendRequest(user.UserID)}
                                     className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                                   >
-                                    <CheckIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                                    Đồng ý
+                                    <UserPlusIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
+                                    Kết bạn
                                   </button>
-                                  <button
-                                    onClick={() => rejectFriendRequest(user.UserID)}
-                                    className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center"
-                                  >
-                                    <XMarkIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                                    Từ chối
-                                  </button>
-                                </>
-                              )}
-
-                              {activeTab === 'sent' && (
-                                <>
-                                  <div className="flex items-center space-x-2 text-xs text-gray-500 mb-3">
-                                    <ClockIcon className="h-4 w-4" />
-                                    <span>Đã gửi: {new Date(user.CreatedAt || Date.now()).toLocaleDateString('vi-VN')}</span>
-                                  </div>
-                                  <button
-                                    onClick={() => cancelFriendRequest(user.UserID)}
-                                    className="flex-1 px-3 py-2.5 text-xs md:text-sm border border-red-100 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center"
-                                  >
-                                    <XMarkIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5" />
-                                    Hủy lời mời
-                                  </button>
-                                </>
-                              )}
-
-                              {(activeTab === 'suggestions' || activeTab === 'search') && (
-                                <button
-                                  onClick={() => sendFriendRequest(user.UserID)}
-                                  className="flex-1 px-2 md:px-3 py-2 text-xs md:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
-                                >
-                                  <UserPlusIcon className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1 md:mr-2" />
-                                  Kết bạn
-                                </button>
-                              )}
-                            </>
-                          )}
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* Empty State */}

@@ -24,12 +24,16 @@ import {
   UserIcon,
   UserGroupIcon,
   BookmarkIcon,
-  PencilIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  CogIcon,
+  BriefcaseIcon
 } from '@heroicons/react/24/outline';
 import PostList from '../../components/Post/PostList';
 import { Avatar } from '../../components';
 import EmailVerification from './EmailVerification';
+import { userServices } from '../../services/api';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -49,6 +53,10 @@ const Profile = () => {
   const fileInputRef = useRef(null);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  
+  // Add state for education and work experience data
+  const [educationData, setEducationData] = useState([]);
+  const [workExperienceData, setWorkExperienceData] = useState([]);
   
   // Added state for bookmarked posts
   const [bookmarkedPosts, setBookmarkedPosts] = useState([]);
@@ -124,6 +132,22 @@ const Profile = () => {
 
         setUserData(data);
 
+        // Get extended profile data with education and work experience
+        try {
+          const extendedProfileResponse = await userServices.getUserProfile(userId || data.UserID);
+          const extendedData = extendedProfileResponse.data.profile;
+          
+          if (extendedData.Education) {
+            setEducationData(extendedData.Education);
+          }
+          
+          if (extendedData.WorkExperience) {
+            setWorkExperienceData(extendedData.WorkExperience);
+          }
+        } catch (profileError) {
+          console.error("Error fetching extended profile:", profileError);
+        }
+
         // Check if this is the user's own profile
         if (!userId) {
           setIsOwnProfile(true);
@@ -146,6 +170,11 @@ const Profile = () => {
 
     fetchUserData();
   }, [navigate, userId]);
+
+  // Function to handle edit profile button click
+  const handleEditProfile = () => {
+    navigate('/settings', { state: { activeTab: 'general' } });
+  };
 
   // Function to check friendship status
   const fetchFriendshipStatus = async (targetUserId) => {
@@ -823,6 +852,110 @@ const Profile = () => {
     }
   };
 
+  // Function to handle adding a new education item
+  const handleAddEducation = () => {
+    const newEducation = {
+      id: Date.now(),
+      school: '',
+      degree: '',
+      field: '',
+      startDate: '',
+      endDate: '',
+      current: false,
+      description: ''
+    };
+    
+    setEducationData(prev => [...prev, newEducation]);
+  };
+
+  // Function to update an education item
+  const handleUpdateEducation = (id, field, value) => {
+    setEducationData(prevData => 
+      prevData.map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  // Function to remove an education item
+  const handleRemoveEducation = (id) => {
+    setEducationData(prevData => prevData.filter(item => item.id !== id));
+  };
+
+  // Function to add a new work experience item
+  const handleAddWorkExperience = () => {
+    const newWorkExperience = {
+      id: Date.now(),
+      company: '',
+      position: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      current: false,
+      description: ''
+    };
+    
+    setWorkExperienceData(prev => [...prev, newWorkExperience]);
+  };
+
+  // Function to update a work experience item
+  const handleUpdateWorkExperience = (id, field, value) => {
+    setWorkExperienceData(prevData => 
+      prevData.map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  // Function to remove a work experience item
+  const handleRemoveWorkExperience = (id) => {
+    setWorkExperienceData(prevData => prevData.filter(item => item.id !== id));
+  };
+
+  // Function to save education
+  const handleSaveEducation = async () => {
+    try {
+      setEducationLoading(true);
+      await userServices.updateEducation(educationData);
+      setEditingEducation(false);
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+      
+      // Refresh profile data
+      const response = await userServices.getUserProfile();
+      if (response.data.profile.Education) {
+        setEducationData(response.data.profile.Education);
+      }
+    } catch (error) {
+      console.error('Error saving education:', error);
+      setError('Không thể lưu thông tin học vấn');
+    } finally {
+      setEducationLoading(false);
+    }
+  };
+
+  // Function to save work experience
+  const handleSaveWorkExperience = async () => {
+    try {
+      setWorkExpLoading(true);
+      await userServices.updateWorkExperience(workExperienceData);
+      setEditingWorkExperience(false);
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+      
+      // Refresh profile data
+      const response = await userServices.getUserProfile();
+      if (response.data.profile.WorkExperience) {
+        setWorkExperienceData(response.data.profile.WorkExperience);
+      }
+    } catch (error) {
+      console.error('Error saving work experience:', error);
+      setError('Không thể lưu thông tin kinh nghiệm làm việc');
+    } finally {
+      setWorkExpLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -963,17 +1096,7 @@ const Profile = () => {
               <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-6 gap-4">
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        name="FullName"
-                        value={editedData.FullName}
-                        onChange={handleChange}
-                        className="border-b border-gray-300 focus:border-blue-500 focus:outline-none"
-                      />
-                    ) : (
-                      userData?.FullName
-                    )}
+                    {userData?.FullName}
                   </h1>
                   <p className="text-gray-600">{userData?.Role === 'STUDENT' ? 'Học sinh' : userData?.Role === 'TEACHER' ? 'Giáo viên' : 'Quản trị viên'}</p>
                 </div>
@@ -1035,37 +1158,17 @@ const Profile = () => {
                   )}
                   
                   {isOwnProfile && (
-                    isEditing ? (
-                      <>
-                        <button
-                          onClick={handleSubmit}
-                          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                        >
-                          <CheckIcon className="h-5 w-5 mr-1" />
-                          Lưu
-                        </button>
-                        <button
-                          onClick={handleCancel}
-                          className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
-                        >
-                          <XMarkIcon className="h-5 w-5 mr-1" />
-                          Hủy
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={handleEdit}
-                        className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition border border-gray-300"
-                        title="Chỉnh sửa thông tin"
-                      >
-                        <PencilIcon className="h-5 w-5 text-gray-600" />
-                      </button>
-                    )
+                    <button
+                      onClick={() => navigate('/settings', { state: { activeTab: 'general' } })}
+                      className="text-gray-600 hover:text-gray-900 transition"
+                    >
+                      <CogIcon className="h-6 w-6" />
+                    </button>
                   )}
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="flex items-center space-x-3">
@@ -1095,215 +1198,214 @@ const Profile = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-3">
-                        <PhoneIcon className="h-5 w-5 text-gray-400" />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Số điện thoại</p>
-                          {isEditing ? (
-                            <input
-                              type="tel"
-                              name="PhoneNumber"
-                              value={editedData.PhoneNumber || ''}
-                              onChange={handleChange}
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                              placeholder="Nhập số điện thoại"
-                            />
-                          ) : (
-                            <p className="text-gray-900">{userData?.PhoneNumber || 'Chưa cập nhật'}</p>
-                          )}
-                        </div>
+                    <div className="flex items-center space-x-3">
+                      <PhoneIcon className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Số điện thoại</p>
+                        <p className="text-gray-900">{userData?.PhoneNumber || 'Chưa cập nhật'}</p>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-3">
-                        <CalendarIcon className="h-5 w-5 text-gray-400" />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Ngày sinh</p>
-                          {isEditing ? (
-                            <input
-                              type="date"
-                              name="DateOfBirth"
-                              value={editedData.DateOfBirth || ''}
-                              onChange={handleChange}
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                            />
-                          ) : (
-                            <p className="text-gray-900">{formatDate(userData?.DateOfBirth)}</p>
-                          )}
-                        </div>
+                    <div className="flex items-center space-x-3">
+                      <CalendarIcon className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Ngày sinh</p>
+                        <p className="text-gray-900">{formatDate(userData?.DateOfBirth)}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-3">
-                        <BuildingLibraryIcon className="h-5 w-5 text-gray-400" />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Trường học</p>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              name="School"
-                              value={editedData.School || ''}
-                              onChange={handleChange}
-                              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                              placeholder="Nhập tên trường"
-                            />
-                          ) : (
-                            <p className="text-gray-900">{userData?.School || 'Chưa cập nhật'}</p>
-                          )}
-                        </div>
+                    <div className="flex items-center space-x-3">
+                      <BuildingLibraryIcon className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Trường học</p>
+                        <p className="text-gray-900">{userData?.School || 'Chưa cập nhật'}</p>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center space-x-3">
-                        <MapPinIcon className="h-5 w-5 text-gray-400" />
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-500">Địa chỉ</p>
-                          {isEditing ? (
-                            <>
-                              <input
-                                type="text"
-                                name="Address"
-                                value={editedData.Address || ''}
-                                onChange={handleChange}
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                placeholder="Nhập địa chỉ"
-                              />
-                              <input
-                                type="text"
-                                name="City"
-                                value={editedData.City || ''}
-                                onChange={handleChange}
-                                className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                placeholder="Nhập thành phố"
-                              />
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-gray-900">{userData?.Address || 'Chưa cập nhật'}</p>
-                              <p className="text-gray-600">
-                                {[userData?.City, userData?.Country].filter(Boolean).join(', ') || 'Chưa cập nhật'}
-                              </p>
-                            </>
-                          )}
-                        </div>
+                    <div className="flex items-center space-x-3">
+                      <MapPinIcon className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <p className="text-sm text-gray-500">Địa chỉ</p>
+                        <p className="text-gray-900">{userData?.Address || 'Chưa cập nhật'}</p>
+                        <p className="text-gray-600">
+                          {[userData?.City, userData?.Country].filter(Boolean).join(', ') || 'Chưa cập nhật'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {isEditing && (
-                  <div className="flex justify-end space-x-3 mt-6">
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Lưu thay đổi
-                    </button>
+                {/* Education Section */}
+                <div className="border-t pt-6 mt-6">
+                  <div className="flex items-center mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <AcademicCapIcon className="h-5 w-5 mr-2 text-blue-600" />
+                      Học vấn
+                    </h2>
                   </div>
-                )}
-              </form>
-
-              {/* Account Info */}
-              <div className="border-t pt-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Thông tin tài khoản</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Ngày tham gia</p>
-                    <p className="text-gray-900">{formatDate(userData?.CreatedAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Đăng nhập gần nhất</p>
-                    <p className="text-gray-900">{formatDate(userData?.LastLoginAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Trạng thái tài khoản</p>
-                    <p className={`font-medium ${
-                      userData?.AccountStatus === 'ACTIVE' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {userData?.AccountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Xác thực email</p>
-                    <p className={`font-medium ${
-                      (userData?.EmailVerified === true || userData?.emailVerified === true) ? 'text-green-600' : 'text-yellow-600'
-                    }`}>
-                      {(userData?.EmailVerified === true || userData?.emailVerified === true) ? 'Đã xác thực' : 'Chưa xác thực'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Friends List */}
-              <div className="border-t pt-6 mt-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <UserGroupIcon className="h-5 w-5 mr-2 text-blue-600" />
-                  Bạn bè ({userFriends.length})
-                </h2>
                 
-                {friendsLoading ? (
-                  <div className="flex justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : friendsError ? (
-                  <div className="text-center py-4 text-red-500">
-                    Không thể tải danh sách bạn bè
-                  </div>
-                ) : userFriends.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">
-                    {isOwnProfile ? 'Bạn chưa có kết bạn với ai.' : `${userData?.FullName || 'Người dùng này'} chưa có kết bạn với ai.`}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {userFriends.slice(0, 8).map(friend => (
-                      <div 
-                        key={friend.UserID || friend.FriendID}
-                        className="flex flex-col items-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        onClick={() => navigate(`/profile/${friend.UserID || friend.FriendID}`)}
-                      >
-                        <Avatar 
-                          src={friend.Image || friend.FriendProfilePicture} 
-                          name={friend.FullName || friend.FriendFullName}
-                          size="md"
-                          className="mb-2"
-                        />
-                        <p className="text-sm font-medium text-center truncate w-full">
-                          {friend.FullName || friend.FriendFullName}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate w-full text-center">
-                          @{friend.Username || friend.FriendUsername}
-                        </p>
+                  {/* View mode for education */}
+                  <div className="space-y-4">
+                    {educationData.length === 0 ? (
+                      <div className="p-4 text-gray-500 text-center bg-gray-50 border border-dashed rounded-md">
+                        {isOwnProfile ? (
+                          <>
+                            Chưa có thông tin học vấn. 
+                          </>
+                        ) : (
+                          <>Người dùng chưa cập nhật thông tin học vấn.</>
+                        )}
                       </div>
-                    ))}
-                    
-                    {userFriends.length > 8 && (
-                      <div 
-                        className="flex flex-col items-center justify-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        onClick={() => navigate(isOwnProfile ? '/friends' : `/friends?userId=${userId}`)}
-                      >
-                        <div className="bg-gray-100 rounded-full p-2 mb-2">
-                          <ArrowPathIcon className="h-6 w-6 text-gray-500" />
+                    ) : (
+                      educationData.map((edu, index) => (
+                        <div key={edu.id || index} className="p-4 bg-gray-50 rounded-md">
+                          <h4 className="font-semibold text-gray-900">{edu.school || 'Không có tên trường'}</h4>
+                          <p className="text-gray-700">
+                            {edu.degree} {edu.field ? `- ${edu.field}` : ''}
+                          </p>
+                          <p className="text-gray-500 text-sm">
+                            {edu.startDate && format(new Date(edu.startDate), 'MM/yyyy', { locale: vi })} - {edu.current ? 'Hiện tại' : edu.endDate && format(new Date(edu.endDate), 'MM/yyyy', { locale: vi })}
+                          </p>
+                          {edu.description && (
+                            <p className="mt-1 text-gray-600 text-sm">{edu.description}</p>
+                          )}
                         </div>
-                        <p className="text-sm font-medium text-blue-600 text-center">
-                          Xem tất cả ({userFriends.length})
-                        </p>
-                      </div>
+                      ))
                     )}
                   </div>
-                )}
+                </div>
+
+                {/* Work Experience Section */}
+                <div className="border-t pt-6 mt-6">
+                  <div className="flex items-center mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <BriefcaseIcon className="h-5 w-5 mr-2 text-blue-600" />
+                      Kinh nghiệm làm việc
+                    </h2>
+                  </div>
+                
+                  {/* View mode for work experience */}
+                  <div className="space-y-4">
+                    {workExperienceData.length === 0 ? (
+                      <div className="p-4 text-gray-500 text-center bg-gray-50 border border-dashed rounded-md">
+                        {isOwnProfile ? (
+                          <>
+                            Chưa có thông tin kinh nghiệm làm việc.
+                          </>
+                        ) : (
+                          <>Người dùng chưa cập nhật thông tin kinh nghiệm làm việc.</>
+                        )}
+                      </div>
+                    ) : (
+                      workExperienceData.map((work, index) => (
+                        <div key={work.id || index} className="p-4 bg-gray-50 rounded-md">
+                          <h4 className="font-semibold text-gray-900">{work.company || 'Không có tên công ty'}</h4>
+                          <p className="text-gray-700">
+                            {work.position} {work.location ? `- ${work.location}` : ''}
+                          </p>
+                          <p className="text-gray-500 text-sm">
+                            {work.startDate && format(new Date(work.startDate), 'MM/yyyy', { locale: vi })} - {work.current ? 'Hiện tại' : work.endDate && format(new Date(work.endDate), 'MM/yyyy', { locale: vi })}
+                          </p>
+                          {work.description && (
+                            <p className="mt-1 text-gray-600 text-sm">{work.description}</p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Account Info */}
+                <div className="border-t pt-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Thông tin tài khoản</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Ngày tham gia</p>
+                      <p className="text-gray-900">{formatDate(userData?.CreatedAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Đăng nhập gần nhất</p>
+                      <p className="text-gray-900">{formatDate(userData?.LastLoginAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Trạng thái tài khoản</p>
+                      <p className={`font-medium ${
+                        userData?.AccountStatus === 'ACTIVE' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {userData?.AccountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Xác thực email</p>
+                      <p className={`font-medium ${
+                        (userData?.EmailVerified === true || userData?.emailVerified === true) ? 'text-green-600' : 'text-yellow-600'
+                      }`}>
+                        {(userData?.EmailVerified === true || userData?.emailVerified === true) ? 'Đã xác thực' : 'Chưa xác thực'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Friends List */}
+                <div className="border-t pt-6 mt-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <UserGroupIcon className="h-5 w-5 mr-2 text-blue-600" />
+                    Bạn bè ({userFriends.length})
+                  </h2>
+                  
+                  {friendsLoading ? (
+                    <div className="flex justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : friendsError ? (
+                    <div className="text-center py-4 text-red-500">
+                      Không thể tải danh sách bạn bè
+                    </div>
+                  ) : userFriends.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">
+                      {isOwnProfile ? 'Bạn chưa có kết bạn với ai.' : `${userData?.FullName || 'Người dùng này'} chưa có kết bạn với ai.`}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {userFriends.slice(0, 8).map(friend => (
+                        <div 
+                          key={friend.UserID || friend.FriendID}
+                          className="flex flex-col items-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(`/profile/${friend.UserID || friend.FriendID}`)}
+                        >
+                          <Avatar 
+                            src={friend.Image || friend.FriendProfilePicture} 
+                            name={friend.FullName || friend.FriendFullName}
+                            size="md"
+                            className="mb-2"
+                          />
+                          <p className="text-sm font-medium text-center truncate w-full">
+                            {friend.FullName || friend.FriendFullName}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate w-full text-center">
+                            @{friend.Username || friend.FriendUsername}
+                          </p>
+                        </div>
+                      ))}
+                      
+                      {userFriends.length > 8 && (
+                        <div 
+                          className="flex flex-col items-center justify-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          onClick={() => navigate(isOwnProfile ? '/friends' : `/friends?userId=${userId}`)}
+                        >
+                          <div className="bg-gray-100 rounded-full p-2 mb-2">
+                            <ArrowPathIcon className="h-6 w-6 text-gray-500" />
+                          </div>
+                          <p className="text-sm font-medium text-blue-600 text-center">
+                            Xem tất cả ({userFriends.length})
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

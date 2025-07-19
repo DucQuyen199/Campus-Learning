@@ -156,14 +156,18 @@ exports.getUsers = async (req, res) => {
     
     // Format user data for chat functionality
     const userData = result.recordset.map(user => {
-      // Determine status using both LastLoginAt and PresenceStatus
+      // Determine status: respect user.Status flag first
       let finalStatus = 'OFFLINE';
-      
-      if (user.PresenceStatus === 'online' || 
-          user.PresenceStatus === 'ONLINE' || 
+      if (user.Status === 'ONLINE') {
+        // Only show as online if status flag is ONLINE and presence suggests online
+        if (
+          user.PresenceStatus === 'online' ||
+          user.PresenceStatus === 'ONLINE' ||
           user.OnlineStatus === 'ONLINE' ||
-          (user.LastActiveTime && new Date() - new Date(user.LastActiveTime) < 900000)) { // 15 minutes
-        finalStatus = 'ONLINE';
+          (user.LastActiveTime && new Date() - new Date(user.LastActiveTime) < 900000)
+        ) {
+          finalStatus = 'ONLINE';
+        }
       }
       
       return {
@@ -415,18 +419,61 @@ exports.suggestFriends = async (req, res) => {
 exports.updateUserProfile = async (req, res) => {
   try {
     await pool.connect();
+    const transaction = new sql.Transaction(pool);
     
-    // Lấy userId từ token đã được xác thực trong middleware
+    // Get userId from authenticated token
     const { userId } = req.user;
     const profileData = req.body;
-
-    // Bắt đầu transaction để đảm bảo tất cả hoặc không có thay đổi nào được lưu
-    const transaction = new sql.Transaction(pool);
+    
     await transaction.begin();
 
     try {
+      // First, get the current user profile data
+      const currentProfileRequest = new sql.Request(transaction);
+      currentProfileRequest.input('UserID', sql.BigInt, userId);
+      const currentProfileResult = await currentProfileRequest.query(`
+        SELECT 
+          Education, WorkExperience, Skills, 
+          Interests, SocialLinks, Achievements
+        FROM UserProfiles 
+        WHERE UserID = @UserID
+      `);
+      
+      // Parse existing profile data if it exists
+      let currentEducation = [];
+      let currentWorkExperience = [];
+      let currentSkills = [];
+      let currentInterests = [];
+      let currentSocialLinks = {};
+      let currentAchievements = [];
+      
+      if (currentProfileResult.recordset && currentProfileResult.recordset.length > 0) {
+        const currentProfile = currentProfileResult.recordset[0];
+        try {
+          if (currentProfile.Education) currentEducation = JSON.parse(currentProfile.Education);
+          if (currentProfile.WorkExperience) currentWorkExperience = JSON.parse(currentProfile.WorkExperience);
+          if (currentProfile.Skills) currentSkills = JSON.parse(currentProfile.Skills);
+          if (currentProfile.Interests) currentInterests = JSON.parse(currentProfile.Interests);
+          if (currentProfile.SocialLinks) currentSocialLinks = JSON.parse(currentProfile.SocialLinks);
+          if (currentProfile.Achievements) currentAchievements = JSON.parse(currentProfile.Achievements);
+        } catch (parseError) {
+          console.error('Lỗi khi parse dữ liệu hồ sơ hiện tại:', parseError);
+        }
+      }
+      
       // Cập nhật thông tin cơ bản trong bảng Users (chỉ khi có trường được cung cấp)
-      const shouldUpdateUser = ['fullName','school','bio','image'].some(key => Object.prototype.hasOwnProperty.call(profileData, key));
+      const shouldUpdateUser = [
+        'fullName',
+        'school',
+        'bio',
+        'image',
+        'address',
+        'phoneNumber',
+        'dateOfBirth',
+        'city',
+        'country'
+      ].some(key => Object.prototype.hasOwnProperty.call(profileData, key));
+      
       if (shouldUpdateUser) {
         const userRequest = new sql.Request(transaction);
         userRequest
@@ -434,15 +481,25 @@ exports.updateUserProfile = async (req, res) => {
           .input('FullName', sql.NVarChar(100), profileData.fullName)
           .input('School', sql.NVarChar(255), profileData.school || null)
           .input('Bio', sql.NVarChar(500), profileData.bio || null)
-          .input('Image', sql.VarChar(255), profileData.image || null);
+          .input('Image', sql.VarChar(255), profileData.image || null)
+          .input('Address', sql.NVarChar(255), profileData.address || null)
+          .input('PhoneNumber', sql.VarChar(15), profileData.phoneNumber || null)
+          .input('DateOfBirth', sql.Date, profileData.dateOfBirth ? new Date(profileData.dateOfBirth) : null)
+          .input('City', sql.NVarChar(100), profileData.city || null)
+          .input('Country', sql.NVarChar(100), profileData.country || null);
 
         await userRequest.query(`
           UPDATE Users
           SET 
-            FullName = @FullName,
-            School = @School,
-            Bio = @Bio,
-            Image = ISNULL(@Image, Image), -- Chỉ cập nhật ảnh khi có giá trị mới
+            FullName = ISNULL(@FullName, FullName),
+            School = ISNULL(@School, School),
+            Bio = ISNULL(@Bio, Bio),
+            Image = ISNULL(@Image, Image),
+            Address = ISNULL(@Address, Address),
+            PhoneNumber = ISNULL(@PhoneNumber, PhoneNumber),
+            DateOfBirth = ISNULL(@DateOfBirth, DateOfBirth),
+            City = ISNULL(@City, City),
+            Country = ISNULL(@Country, Country),
             UpdatedAt = GETDATE()
           WHERE UserID = @UserID;
         `);
@@ -455,16 +512,24 @@ exports.updateUserProfile = async (req, res) => {
         SELECT ProfileID FROM UserProfiles WHERE UserID = @UserID
       `);
 
+      // Prepare the data for update, preserving existing data when not provided
+      const education = profileData.hasOwnProperty('education') ? profileData.education : currentEducation;
+      const workExperience = profileData.hasOwnProperty('workExperience') ? profileData.workExperience : currentWorkExperience;
+      const skills = profileData.hasOwnProperty('skills') ? profileData.skills : currentSkills;
+      const interests = profileData.hasOwnProperty('interests') ? profileData.interests : currentInterests;
+      const socialLinks = profileData.hasOwnProperty('socialLinks') ? profileData.socialLinks : currentSocialLinks;
+      const achievements = profileData.hasOwnProperty('achievements') ? profileData.achievements : currentAchievements;
+
       // Cập nhật hoặc tạo mới UserProfile
       const profileRequest = new sql.Request(transaction);
       profileRequest
         .input('UserID', sql.BigInt, userId)
-        .input('Education', sql.NVarChar(sql.MAX), JSON.stringify(profileData.education || []))
-        .input('WorkExperience', sql.NVarChar(sql.MAX), JSON.stringify(profileData.workExperience || []))
-        .input('Skills', sql.NVarChar(sql.MAX), JSON.stringify(profileData.skills || []))
-        .input('Interests', sql.NVarChar(sql.MAX), JSON.stringify(profileData.interests || []))
-        .input('SocialLinks', sql.NVarChar(sql.MAX), JSON.stringify(profileData.socialLinks || {}))
-        .input('Achievements', sql.NVarChar(sql.MAX), JSON.stringify(profileData.achievements || []))
+        .input('Education', sql.NVarChar(sql.MAX), JSON.stringify(education))
+        .input('WorkExperience', sql.NVarChar(sql.MAX), JSON.stringify(workExperience))
+        .input('Skills', sql.NVarChar(sql.MAX), JSON.stringify(skills))
+        .input('Interests', sql.NVarChar(sql.MAX), JSON.stringify(interests))
+        .input('SocialLinks', sql.NVarChar(sql.MAX), JSON.stringify(socialLinks))
+        .input('Achievements', sql.NVarChar(sql.MAX), JSON.stringify(achievements))
         .input('PreferredLanguage', sql.VarChar(10), profileData.preferredLanguage || 'vi')
         .input('TimeZone', sql.VarChar(50), profileData.timeZone || 'Asia/Ho_Chi_Minh');
 
@@ -505,7 +570,8 @@ exports.updateUserProfile = async (req, res) => {
       const result = await finalRequest.query(`
         SELECT 
           u.UserID, u.Username, u.Email, u.FullName, u.School,
-          u.Bio, u.Image, u.Status, u.AccountStatus, 
+          u.Bio, u.Image, u.Status, u.AccountStatus, u.PhoneNumber,
+          u.Address, u.City, u.Country, u.DateOfBirth,
           up.Education, up.WorkExperience, up.Skills, 
           up.Interests, up.SocialLinks, up.Achievements, 
           up.PreferredLanguage, up.TimeZone
@@ -576,7 +642,9 @@ exports.getUserProfile = async (req, res) => {
     const result = await request.query(`
       SELECT 
         u.UserID, u.Username, u.Email, u.FullName, u.School,
-        u.Bio, u.Image, u.Status, u.AccountStatus, u.CreatedAt,
+        u.Bio, u.Image, u.Status, u.AccountStatus,
+        u.PhoneNumber, u.Address, u.City, u.Country, u.DateOfBirth,
+        u.CreatedAt,
         up.Education, up.WorkExperience, up.Skills, 
         up.Interests, up.SocialLinks, up.Achievements, 
         up.PreferredLanguage, up.TimeZone
@@ -604,6 +672,9 @@ exports.getUserProfile = async (req, res) => {
     }
     
     // Format dates
+    if (userData.DateOfBirth) {
+      userData.DateOfBirth = userData.DateOfBirth.toISOString().split('T')[0];
+    }
     if (userData.CreatedAt) {
       userData.CreatedAt = userData.CreatedAt.toISOString();
     }

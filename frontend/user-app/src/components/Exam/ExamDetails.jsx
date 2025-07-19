@@ -200,6 +200,14 @@ const ExamDetails = () => {
     }
   };
 
+  // Helper to safely format date/time or show placeholder
+  const formatDateTime = (dateTime) => {
+    const date = new Date(dateTime);
+    return !dateTime || isNaN(date.getTime())
+      ? '—'
+      : format(date, 'dd/MM/yyyy HH:mm', { locale: vi });
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -378,213 +386,31 @@ const ExamDetails = () => {
           <Typography color="text.primary">{exam.Title}</Typography>
         </Box>
 
-        {/* Hero Section */}
-        <Paper 
-          elevation={0}
-          sx={{
-            background: `linear-gradient(to right, ${examTheme.colors.primaryDark}, ${examTheme.colors.primary})`,
-            color: 'white',
-            borderRadius: 4,
-            overflow: 'hidden',
-            mb: 4,
-            boxShadow: examTheme.shadows.card,
-            position: 'relative'
-          }}
-        >
-          <Box sx={{ p: { xs: 3, md: 4, lg: 6 } }}>
-            <Grid container spacing={4}>
-              <Grid item xs={12} md={8}>
-                <Stack spacing={3}>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    <Chip 
-                      label={exam.CourseName || 'Khóa học'}
-                      icon={<School />}
-                      sx={{ 
-                        backgroundColor: 'rgba(255,255,255,0.2)',
-                        color: 'white',
-                        '& .MuiChip-icon': { color: 'white' }
-                      }}
-                    />
-                    <Chip 
-                      label={status.text}
-                      sx={{ 
-                        backgroundColor: `${status.color}40`,
-                        color: 'white'
-                      }}
-                    />
-                    <Chip 
-                      label={difficulty.text}
-                      sx={{ 
-                        backgroundColor: `${difficulty.color}40`,
-                        color: 'white'
-                      }}
-                    />
-                  </Box>
-
-                  <Typography 
-                    variant="h3" 
-                    sx={{ 
-                      fontWeight: 800,
-                      fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
-                    }}
-                  >
-                    {exam.Title}
-                  </Typography>
-
-                  <Typography 
-                    variant="body1" 
-                    sx={{ 
-                      color: 'rgba(255,255,255,0.9)',
-                      fontSize: { xs: '1rem', md: '1.1rem' },
-                      lineHeight: 1.7
-                    }}
-                  >
-                    {exam.Description || 'Không có mô tả cho kỳ thi này.'}
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Star sx={{ mr: 1, color: '#FFD700' }} />
-                      <Typography>Điểm đạt: {exam.PassingScore}/{exam.TotalPoints}</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <People sx={{ mr: 1 }} />
-                      <Typography>{exam.RegisteredCount || 0} thí sinh</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <AccessTime sx={{ mr: 1 }} />
-                      <Typography>{exam.Duration} phút</Typography>
-                    </Box>
-                  </Box>
-
-                  {exam.IsRegistered ? (
-                    <Button
-                      component={Link}
-                      to={`/exams/${examId}/session`}
-                      variant="contained"
-                      disabled={new Date(exam.StartTime) > new Date() || new Date(exam.EndTime) < new Date()}
-                      endIcon={<Launch />}
-                      sx={{
-                        alignSelf: 'flex-start',
-                        px: 4,
-                        py: 1.5,
-                        borderRadius: 3,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        backgroundColor: '#10B981',
-                        '&:hover': {
-                          backgroundColor: '#059669',
-                          transform: 'translateY(-2px)',
-                          boxShadow: examTheme.shadows.button
-                        },
-                        '&.Mui-disabled': {
-                          backgroundColor: 'rgba(16, 185, 129, 0.4)',
-                          color: 'white'
-                        }
-                      }}
-                    >
-                      {new Date(exam.StartTime) > new Date() 
-                        ? 'Chưa đến thời gian thi' 
-                        : new Date(exam.EndTime) < new Date() 
-                          ? 'Kỳ thi đã kết thúc' 
-                          : 'Vào thi ngay'}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      onClick={handleRegister}
-                      disabled={registering || new Date(exam.EndTime) < new Date()}
-                      endIcon={registering ? null : <ArrowForward />}
-                      sx={{
-                        alignSelf: 'flex-start',
-                        px: 4,
-                        py: 1.5,
-                        borderRadius: 3,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        backgroundColor: '#F59E0B',
-                        '&:hover': {
-                          backgroundColor: '#D97706',
-                          transform: 'translateY(-2px)',
-                          boxShadow: examTheme.shadows.button
-                        },
-                        '&.Mui-disabled': {
-                          backgroundColor: 'rgba(245, 158, 11, 0.4)',
-                          color: 'white'
-                        }
-                      }}
-                    >
-                      {registering ? (
-                        <>
-                          <CircularProgress size={20} thickness={4} sx={{ color: 'white', mr: 1 }} />
-                          Đang đăng ký...
-                        </>
-                      ) : new Date(exam.EndTime) < new Date() ? 'Kỳ thi đã kết thúc' : 'Đăng ký tham gia'}
-                    </Button>
-                  )}
-                </Stack>
-              </Grid>
-
-              <Grid item xs={12} md={4}>
-                <Paper
-                  elevation={0}
-                  sx={{
-                    backgroundColor: 'rgba(255,255,255,0.1)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: 3,
-                    p: 3,
-                    height: '100%',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    position: 'absolute',
-                    right: { md: 24, lg: 48 },
-                    top: { md: 24, lg: 48 },
-                    width: { md: '300px', lg: '350px' }
-                  }}
-                >
-                  <Stack spacing={3}>
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                        Thời gian làm bài
-                      </Typography>
-                      <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                        {exam.Duration} phút
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                        Thời gian bắt đầu
-                      </Typography>
-                      <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                        {format(new Date(exam.StartTime), 'HH:mm - dd/MM/yyyy', { locale: vi })}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                        Thời gian kết thúc
-                      </Typography>
-                      <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                        {format(new Date(exam.EndTime), 'HH:mm - dd/MM/yyyy', { locale: vi })}
-                      </Typography>
-                    </Box>
-
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                        Điểm đạt
-                      </Typography>
-                      <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                        <Box component="span" sx={{ color: difficulty.color }}>
-                          {exam.PassingScore}
-                        </Box>
-                        /{exam.TotalPoints} ({Math.round(exam.PassingScore / exam.TotalPoints * 100)}%)
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Paper>
-              </Grid>
-            </Grid>
-          </Box>
+        {/* Hero Section - Simplified */}
+        <Paper elevation={1} sx={{ p: 4, borderRadius: 2, mb: 4 }}>
+          <Typography variant="h4" align="center" gutterBottom sx={{ fontWeight: 700 }}>
+            {exam.Title}
+          </Typography>
+          <Typography variant="subtitle2" align="center" color="text.secondary" gutterBottom>
+            {exam.CourseName}
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+          <Stack direction="row" spacing={4} justifyContent="center">
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Timer fontSize="small" />
+              <Typography variant="body2">{exam.Duration} phút</Typography>
+            </Stack>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <CalendarMonth fontSize="small" />
+              <Typography variant="body2">
+                {format(new Date(exam.StartTime), 'dd/MM/yyyy HH:mm', { locale: vi })}
+              </Typography>
+            </Stack>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <People fontSize="small" />
+              <Typography variant="body2">{exam.RegisteredCount} đã đăng ký</Typography>
+            </Stack>
+          </Stack>
         </Paper>
 
         {/* Tabs Section */}
@@ -830,7 +656,7 @@ const ExamDetails = () => {
                           {exam.attempts.map((attempt, index) => (
                             <TableRow key={attempt.ParticipantID}>
                               <TableCell>{attempt.AttemptNumber || (exam.attempts.length - index)}</TableCell>
-                              <TableCell>{format(new Date(attempt.StartedAt || attempt.CreatedAt), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
+                              <TableCell>{formatDateTime(attempt.StartedAt)}</TableCell>
                               <TableCell>
                                 {attempt.Score !== null && attempt.Score !== undefined ? (
                                   `${attempt.Score}/${exam.TotalPoints} (${Math.round(attempt.Score / exam.TotalPoints * 100)}%)`

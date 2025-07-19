@@ -1,18 +1,21 @@
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
-// Custom type casting to handle date fields properly
+// Updated custom type casting to handle date fields properly
 // This prevents "Conversion failed when converting date and/or time from character string" errors
 const customTypeCast = function (field, next) {
-  // For SQL Server DATETIME fields, return the raw string value
-  // This bypasses Sequelize's automatic date conversion
+  // For SQL Server DATETIME fields, handle specifically
   if (field.type && (field.type.includes('DATETIME') || field.type.includes('DATE'))) {
     const value = field.string();
     if (value === null || value === undefined) {
       return null;
     }
     
-    // Return the raw string as is, without any automatic conversion
+    // Return the raw value without timezone information
+    if (typeof value === 'string' && value.includes('+')) {
+      // Strip timezone info if present
+      return value.split('+')[0].trim();
+    }
     return value;
   }
   
@@ -34,27 +37,24 @@ const sequelize = new Sequelize(
                 encrypt: false,
                 useUTC: false,
                 dateFirst: 1,
-                timezone: '+07:00',
                 enableArithAbort: true,
                 trustServerCertificate: true,
                 requestTimeout: 30000,
                 dateFormat: 'ymd', // Set date format
                 datefirst: 7, // Sunday is the first day
-                // Force date strings to be treated as local times
+                // Don't use timezone conversion for date handling
                 useNagleAlgorithm: true,
                 connectTimeout: 30000
             },
-            typeCast: customTypeCast, // Add custom type casting function
-            // Prevent timezone issues with dates
+            typeCast: customTypeCast, // Updated custom type casting function
             typeValidation: true,
-            // Always use SQL Server's GETDATE() for timestamps 
             useDateString: true
         },
         define: {
             timestamps: false, // Disable automatic timestamps unless specified in model
             freezeTableName: true, // Use exact model name as table name
         },
-        timezone: '+07:00', // Set timezone to Vietnam time (UTC+7)
+        // Remove timezone setting to prevent automatic conversion
         logging: true, // Enable logging temporarily to debug date issues
         query: {
             raw: false // Don't convert to raw objects

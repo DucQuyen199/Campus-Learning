@@ -25,7 +25,20 @@ const StoryView = sequelize.define('StoryView', {
     },
     ViewedAt: {
         type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW
+        defaultValue: sequelize.fn('GETDATE'),
+        get() {
+            return this.getDataValue('ViewedAt');
+        },
+        set(value) {
+            // If it's already a Date object, use it directly
+            // Otherwise, if it's a string with timezone info, convert it properly
+            if (value && typeof value === 'string') {
+                const dateObj = new Date(value);
+                this.setDataValue('ViewedAt', dateObj);
+            } else {
+                this.setDataValue('ViewedAt', value);
+            }
+        }
     }
 }, {
     tableName: 'StoryViews',

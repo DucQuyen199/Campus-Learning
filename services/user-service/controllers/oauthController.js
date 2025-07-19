@@ -1,4 +1,4 @@
-const { pool, sql } = require('../config/db');
+const { pool, sql, query } = require('../config/db');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const { OAuth2Client } = require('google-auth-library');
@@ -326,8 +326,9 @@ exports.getConnections = async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Use the query helper function instead of direct pool.request
-    const connections = await pool.query(`
+    // Use the query helper function instead of pool.query
+    const connections = await query(
+      `
       SELECT ConnectionID, Provider, Email, Name, ProfilePicture, CreatedAt, LastUsedAt
       FROM UserOAuthConnections
       WHERE UserID = @userId

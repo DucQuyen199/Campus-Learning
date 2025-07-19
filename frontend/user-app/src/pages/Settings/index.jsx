@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -48,10 +48,15 @@ import Interface from './Interface';
 const Settings = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
   
   const { settings, profileInfo, loading, error, success, message } = useSelector(state => state.user);
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Check URL parameter first, then location state, then default to 'general'
+    return searchParams.get('tab') || location.state?.activeTab || 'general';
+  });
   const [showNav, setShowNav] = useState(true);
   const [localSettings, setLocalSettings] = useState(null);
   const [passwordData, setPasswordData] = useState({
@@ -69,8 +74,45 @@ const Settings = () => {
 
   // Fetch user settings on component mount
   useEffect(() => {
-    dispatch(getUserSettings());
-  }, [dispatch]);
+    // Check if we already have settings and profileInfo before fetching to avoid unnecessary loading state
+    if (!settings || !profileInfo) {
+      dispatch(getUserSettings());
+    }
+  }, [dispatch, settings, profileInfo]);
+
+  // Handle navigation events and preserve tab state on back/forward navigation
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Save current tab state to localStorage for recovery on browser reload
+      if (activeTab) {
+        localStorage.setItem('settings_active_tab', activeTab);
+      }
+    };
+
+    // Add listener for page unload to save state
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // If we don't have tab from URL or state, try to recover from localStorage
+    if (!searchParams.get('tab') && !location.state?.activeTab && !activeTab) {
+      const savedTab = localStorage.getItem('settings_active_tab');
+      if (savedTab) {
+        setActiveTab(savedTab);
+        setSearchParams({ tab: savedTab }, { replace: true });
+      }
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [activeTab, setSearchParams, searchParams, location.state?.activeTab]);
+
+  // Synchronize activeTab with URL search params when they change
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]); // Remove activeTab from dependencies to prevent loops
 
   // Initialize local settings when settings are fetched
   useEffect(() => {
@@ -96,8 +138,14 @@ const Settings = () => {
 
   // Handle tab change
   const handleTabChange = (tab) => {
+    // Update state first for immediate UI response
     setActiveTab(tab);
     setShowNav(false);
+    
+    // Then update URL parameter to persist tab selection
+    if (searchParams.get('tab') !== tab) {
+      setSearchParams({ tab }, { replace: true }); // Use replace to avoid extra history entries
+    }
   };
 
   // Handle settings change
@@ -217,7 +265,18 @@ const Settings = () => {
     navigate('/login');
   };
 
-  if (!localSettings || !profileInfo) {
+  // Create a persistent loading state that doesn't flicker on navigation
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  useEffect(() => {
+    // Once we get settings data, mark initial loading as complete
+    if (localSettings && profileInfo) {
+      setIsInitialLoad(false);
+    }
+  }, [localSettings, profileInfo]);
+  
+  // Show loading indicator only on initial load, not during navigation or tab changes
+  if (isInitialLoad && (!localSettings || !profileInfo)) {
     return (
       <div className="flex justify-center items-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -433,465 +492,470 @@ const Settings = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.2 }}
                 >
-                
-                  {/* Payment Tab */}
-                  {activeTab === 'payment' && <PaymentSettings />}
-                  
-                  {/* Email Tab */}
-                  {activeTab === 'email' && <Email />}
-                  
-                  {/* Login Session Tab */}
-                  {activeTab === 'loginsession' && <LoginSession />}
-
-                  {/* Privacy Tab */}
-                  {activeTab === 'privacy' && <Privacy />}
-
-                  {/* SSH Tab */}
-                  {activeTab === 'ssh' && <Ssh />}
-
-                  {/* Archive Tab */}
-                  {activeTab === 'archive' && <Archive />}
-
-                  {/* Codespace Tab */}
-                  {activeTab === 'codespace' && <Codespace />}
-
-                  {/* Package Tab */}
-                  {activeTab === 'package' && <Package />}
-
-                  {/* Account Tab */}
-                  {activeTab === 'account' && <Account />}
-
-                  {/* General/Public Profile Tab */}
-                  {activeTab === 'general' && (
-                    <Profile />
-                  )}
-                  
-                  {/* Security Tab */}
-                  {activeTab === 'security' && <Password />}
-
-                  {/* Appearance Tab */}
-                  {activeTab === 'appearance' && <Interface />}
-
-                  {/* Notifications Tab */}
-                  {activeTab === 'notifications' && (
-                    <div>
-                  <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
-                    Thông báo
-                      </h2>
+                  {!localSettings ? (
+                    <div className="flex justify-center items-center h-96">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Payment Tab */}
+                      {activeTab === 'payment' && <PaymentSettings />}
                       
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="divide-y divide-gray-200">
-                      {/* Email Notifications */}
-                      <div className="flex items-center justify-between py-4">
-                              <div>
-                          <h3 className="font-medium text-gray-900">
-                            Thông báo email
-                                </h3>
-                          <p className="text-sm mt-1 text-gray-500">
-                            Nhận thông báo qua email
+                      {/* Email Tab */}
+                      {activeTab === 'email' && <Email />}
+                      
+                      {/* Login Session Tab */}
+                      {activeTab === 'loginsession' && <LoginSession />}
+
+                      {/* Privacy Tab */}
+                      {activeTab === 'privacy' && <Privacy />}
+
+                      {/* SSH Tab */}
+                      {activeTab === 'ssh' && <Ssh />}
+
+                      {/* Archive Tab */}
+                      {activeTab === 'archive' && <Archive />}
+
+                      {/* Codespace Tab */}
+                      {activeTab === 'codespace' && <Codespace />}
+
+                      {/* Package Tab */}
+                      {activeTab === 'package' && <Package />}
+
+                      {/* Account Tab */}
+                      {activeTab === 'account' && <Account />}
+
+                      {/* General/Public Profile Tab */}
+                      {activeTab === 'general' && <Profile />}
+                      
+                      {/* Security Tab */}
+                      {activeTab === 'security' && <Password />}
+
+                      {/* Appearance Tab */}
+                      {activeTab === 'appearance' && <Interface />}
+
+                      {/* Notifications Tab */}
+                      {activeTab === 'notifications' && (
+                        <div>
+                          <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
+                            Thông báo
+                          </h2>
+                          
+                          <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="divide-y divide-gray-200">
+                              {/* Email Notifications */}
+                              <div className="flex items-center justify-between py-4">
+                                  <div>
+                              <h3 className="font-medium text-gray-900">
+                                Thông báo email
+                                    </h3>
+                              <p className="text-sm mt-1 text-gray-500">
+                                Nhận thông báo qua email
+                                    </p>
+                                </div>
+                          <div className="ml-3">
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                type="checkbox"
+                            checked={localSettings?.notifications?.email}
+                            onChange={() => handleCheckboxChange('notifications', 'email')}
+                                className="sr-only peer"
+                              />
+                          <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                peer-focus:ring-4 peer-focus:ring-blue-300
+                                after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                              after:bg-white after:rounded-full after:h-5 after:w-5
+                              after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+                            </div>
+                            
+                        {/* Push Notifications */}
+                        <div className="flex items-center justify-between py-4">
+                          <div>
+                            <h3 className="font-medium text-gray-900">
+                              Thông báo đẩy
+                            </h3>
+                            <p className="text-sm mt-1 text-gray-500">
+                              Nhận thông báo trên thiết bị
                                 </p>
                               </div>
-                        <div className="ml-3">
-                              <label className="relative inline-flex cursor-pointer">
+                          <div className="ml-3">
+                            <label className="relative inline-flex cursor-pointer">
                                 <input
-                                  type="checkbox"
-                              checked={localSettings?.notifications?.email}
-                              onChange={() => handleCheckboxChange('notifications', 'email')}
-                                  className="sr-only peer"
-                                />
-                            <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                  peer-focus:ring-4 peer-focus:ring-blue-300
-                                  after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                after:bg-white after:rounded-full after:h-5 after:w-5
-                                after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-                          </div>
-                          
-                      {/* Push Notifications */}
-                      <div className="flex items-center justify-between py-4">
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            Thông báo đẩy
-                          </h3>
-                          <p className="text-sm mt-1 text-gray-500">
-                            Nhận thông báo trên thiết bị
-                              </p>
-                            </div>
-                        <div className="ml-3">
-                          <label className="relative inline-flex cursor-pointer">
-                              <input
-                              type="checkbox"
-                              checked={localSettings?.notifications?.push}
-                              onChange={() => handleCheckboxChange('notifications', 'push')}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                type="checkbox"
+                                checked={localSettings?.notifications?.push}
+                                onChange={() => handleCheckboxChange('notifications', 'push')}
+                                className="sr-only peer"
+                              />
+                          <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
                                 peer-focus:ring-4 peer-focus:ring-blue-300
                                 after:content-[''] after:absolute after:top-0.5 after:left-0.5
                                 after:bg-white after:rounded-full after:h-5 after:w-5
                                 after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-                            </div>
-                            
-                      {/* Course Updates */}
-                      <div className="flex items-center justify-between py-4">
-                            <div>
-                          <h3 className="font-medium text-gray-900">
-                            Cập nhật khóa học
-                          </h3>
-                          <p className="text-sm mt-1 text-gray-500">
-                            Thông báo khi khóa học có cập nhật mới
-                              </p>
-                            </div>
-                        <div className="ml-3">
-                          <label className="relative inline-flex cursor-pointer">
-                              <input
-                              type="checkbox"
-                              checked={localSettings?.notifications?.courseUpdates}
-                              onChange={() => handleCheckboxChange('notifications', 'courseUpdates')}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                </label>
+                              </div>
+                              </div>
+                              
+                        {/* Course Updates */}
+                        <div className="flex items-center justify-between py-4">
+                              <div>
+                            <h3 className="font-medium text-gray-900">
+                              Cập nhật khóa học
+                            </h3>
+                            <p className="text-sm mt-1 text-gray-500">
+                              Thông báo khi khóa học có cập nhật mới
+                                </p>
+                              </div>
+                          <div className="ml-3">
+                            <label className="relative inline-flex cursor-pointer">
+                                <input
+                                type="checkbox"
+                                checked={localSettings?.notifications?.courseUpdates}
+                                onChange={() => handleCheckboxChange('notifications', 'courseUpdates')}
+                                className="sr-only peer"
+                              />
+                          <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
                                 peer-focus:ring-4 peer-focus:ring-blue-300
                                 after:content-[''] after:absolute after:top-0.5 after:left-0.5
                                 after:bg-white after:rounded-full after:h-5 after:w-5
                                 after:transition-all peer-checked:after:translate-x-5"></div>
                                   </label>
                                 </div>
+                        </div>
+                              </div>
+                              
+                      <div className="pt-6">
+                                <button
+                                  type="submit"
+                                  disabled={loading}
+                          className="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                                >
+                          {loading ? "Đang lưu..." : "Lưu thay đổi"}
+                                </button>
+                              </div>
+                            </form>
                       </div>
-                            </div>
-                            
-                    <div className="pt-6">
-                              <button
-                                type="submit"
-                                disabled={loading}
-                        className="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                              >
-                        {loading ? "Đang lưu..." : "Lưu thay đổi"}
-                              </button>
-                            </div>
-                          </form>
-                    </div>
-                  )}
-                  
-                  {/* Accessibility Tab */}
-                  {activeTab === 'accessibility' && (
-                    <div>
-                      <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
-                        Trợ năng
-                      </h2>
-                      
-                      <form onSubmit={handleSubmit} className="space-y-8">
-                        {/* Screen Reader */}
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <div className="px-5 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Hỗ trợ trình đọc màn hình</h3>
+                    )}
+                    
+                    {/* Accessibility Tab */}
+                    {activeTab === 'accessibility' && (
+                      <div>
+                        <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">
+                          Trợ năng
+                        </h2>
+                        
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                          {/* Screen Reader */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="px-5 py-4 border-b border-gray-200">
+                              <h3 className="text-lg font-medium text-gray-900">Hỗ trợ trình đọc màn hình</h3>
+                          </div>
+                            <div className="p-5 space-y-5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Cải thiện trình đọc màn hình</h4>
+                                  <p className="text-sm text-gray-500">Tối ưu hóa trang web cho người dùng trình đọc màn hình</p>
                         </div>
-                          <div className="p-5 space-y-5">
-                            <div className="flex items-center justify-between">
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.screenReader === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'screenReader')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+                              
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Mô tả hình ảnh</h4>
+                                  <p className="text-sm text-gray-500">Hiển thị mô tả chi tiết cho hình ảnh</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.imageDescriptions === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'imageDescriptions')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Keyboard Navigation */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="px-5 py-4 border-b border-gray-200">
+                              <h3 className="text-lg font-medium text-gray-900">Điều hướng bàn phím</h3>
+                            </div>
+                            <div className="p-5 space-y-5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Chỉ báo tiêu điểm</h4>
+                                  <p className="text-sm text-gray-500">Hiển thị đường viền rõ ràng xung quanh phần tử đang được chọn</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.focusIndicator !== false}
+                                    onChange={() => handleCheckboxChange('accessibility', 'focusIndicator')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+
                               <div>
-                                <h4 className="font-medium text-gray-900">Cải thiện trình đọc màn hình</h4>
-                                <p className="text-sm text-gray-500">Tối ưu hóa trang web cho người dùng trình đọc màn hình</p>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Độ trễ phím (ms)
+                                </label>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="1000"
+                                    step="50"
+                                    value={localSettings?.accessibility?.keyboardDelay || 0}
+                                    onChange={(e) => handleSettingChange('accessibility', 'keyboardDelay', parseInt(e.target.value))}
+                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                  <span className="text-sm text-gray-700 w-12 text-center">
+                                    {localSettings?.accessibility?.keyboardDelay || 0}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Điều chỉnh độ trễ khi nhấn và giữ phím
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Motion & Animations */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="px-5 py-4 border-b border-gray-200">
+                              <h3 className="text-lg font-medium text-gray-900">Chuyển động & Hiệu ứng</h3>
+                            </div>
+                            <div className="p-5 space-y-5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Giảm chuyển động</h4>
+                                  <p className="text-sm text-gray-500">Giảm thiểu hoặc loại bỏ các hiệu ứng chuyển động</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.reducedMotion === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'reducedMotion')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Bỏ qua hiệu ứng</h4>
+                                  <p className="text-sm text-gray-500">Tắt các hiệu ứng đặc biệt như lấp lánh và hiệu ứng hover</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.disableEffects === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'disableEffects')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+                              
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Tốc độ hiệu ứng
+                                </label>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="range"
+                                    min="50"
+                                    max="200"
+                                    step="10"
+                                    value={localSettings?.accessibility?.animationSpeed || 100}
+                                    onChange={(e) => handleSettingChange('accessibility', 'animationSpeed', parseInt(e.target.value))}
+                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                  <span className="text-sm text-gray-700 w-12 text-center">
+                                    {localSettings?.accessibility?.animationSpeed || 100}%
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Điều chỉnh tốc độ hiệu ứng chuyển động (100% là bình thường)
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Visual Adjustments */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="px-5 py-4 border-b border-gray-200">
+                              <h3 className="text-lg font-medium text-gray-900">Điều chỉnh hiển thị</h3>
+                            </div>
+                            <div className="p-5 space-y-5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Chế độ tương phản cao</h4>
+                                  <p className="text-sm text-gray-500">Tăng cường tương phản giữa văn bản và nền</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.highContrast === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'highContrast')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Khoảng cách chữ
+                                </label>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="10"
+                                    step="1"
+                                    value={localSettings?.accessibility?.letterSpacing || 0}
+                                    onChange={(e) => handleSettingChange('accessibility', 'letterSpacing', parseInt(e.target.value))}
+                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                  <span className="text-sm text-gray-700 w-12 text-center">
+                                    {localSettings?.accessibility?.letterSpacing || 0}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Điều chỉnh khoảng cách giữa các chữ cái
+                                </p>
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Khoảng cách dòng
+                                </label>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="range"
+                                    min="100"
+                                    max="200"
+                                    step="10"
+                                    value={localSettings?.accessibility?.lineHeight || 150}
+                                    onChange={(e) => handleSettingChange('accessibility', 'lineHeight', parseInt(e.target.value))}
+                                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                  <span className="text-sm text-gray-700 w-12 text-center">
+                                    {localSettings?.accessibility?.lineHeight || 150}%
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                  Điều chỉnh khoảng cách giữa các dòng chữ
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Content Preferences */}
+                          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                            <div className="px-5 py-4 border-b border-gray-200">
+                              <h3 className="text-lg font-medium text-gray-900">Tùy chọn nội dung</h3>
+                            </div>
+                            <div className="p-5 space-y-5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Hiển thị phụ đề</h4>
+                                  <p className="text-sm text-gray-500">Tự động hiển thị phụ đề cho video và âm thanh</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.alwaysShowCaptions === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'alwaysShowCaptions')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium text-gray-900">Tự động phát</h4>
+                                  <p className="text-sm text-gray-500">Ngăn tự động phát nội dung âm thanh và video</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={localSettings?.accessibility?.preventAutoplay === true}
+                                    onChange={() => handleCheckboxChange('accessibility', 'preventAutoplay')}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
+                                      peer-focus:ring-4 peer-focus:ring-blue-300
+                                      after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                      after:bg-white after:rounded-full after:h-5 after:w-5
+                                      after:transition-all peer-checked:after:translate-x-5"></div>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-6">
+                            <button
+                              type="submit"
+                              disabled={loading}
+                              className="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            >
+                              {loading ? "Đang lưu..." : "Lưu thay đổi"}
+                            </button>
+                          </div>
+                        </form>
                       </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.screenReader === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'screenReader')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Mô tả hình ảnh</h4>
-                                <p className="text-sm text-gray-500">Hiển thị mô tả chi tiết cho hình ảnh</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.imageDescriptions === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'imageDescriptions')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Keyboard Navigation */}
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <div className="px-5 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Điều hướng bàn phím</h3>
-                          </div>
-                          <div className="p-5 space-y-5">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Chỉ báo tiêu điểm</h4>
-                                <p className="text-sm text-gray-500">Hiển thị đường viền rõ ràng xung quanh phần tử đang được chọn</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.focusIndicator !== false}
-                                  onChange={() => handleCheckboxChange('accessibility', 'focusIndicator')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Độ trễ phím (ms)
-                              </label>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="1000"
-                                  step="50"
-                                  value={localSettings?.accessibility?.keyboardDelay || 0}
-                                  onChange={(e) => handleSettingChange('accessibility', 'keyboardDelay', parseInt(e.target.value))}
-                                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <span className="text-sm text-gray-700 w-12 text-center">
-                                  {localSettings?.accessibility?.keyboardDelay || 0}
-                                </span>
-                              </div>
-                              <p className="mt-2 text-sm text-gray-500">
-                                Điều chỉnh độ trễ khi nhấn và giữ phím
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Motion & Animations */}
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <div className="px-5 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Chuyển động & Hiệu ứng</h3>
-                          </div>
-                          <div className="p-5 space-y-5">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Giảm chuyển động</h4>
-                                <p className="text-sm text-gray-500">Giảm thiểu hoặc loại bỏ các hiệu ứng chuyển động</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.reducedMotion === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'reducedMotion')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Bỏ qua hiệu ứng</h4>
-                                <p className="text-sm text-gray-500">Tắt các hiệu ứng đặc biệt như lấp lánh và hiệu ứng hover</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.disableEffects === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'disableEffects')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-                            
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Tốc độ hiệu ứng
-                              </label>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="range"
-                                  min="50"
-                                  max="200"
-                                  step="10"
-                                  value={localSettings?.accessibility?.animationSpeed || 100}
-                                  onChange={(e) => handleSettingChange('accessibility', 'animationSpeed', parseInt(e.target.value))}
-                                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <span className="text-sm text-gray-700 w-12 text-center">
-                                  {localSettings?.accessibility?.animationSpeed || 100}%
-                                </span>
-                              </div>
-                              <p className="mt-2 text-sm text-gray-500">
-                                Điều chỉnh tốc độ hiệu ứng chuyển động (100% là bình thường)
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Visual Adjustments */}
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <div className="px-5 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Điều chỉnh hiển thị</h3>
-                          </div>
-                          <div className="p-5 space-y-5">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Chế độ tương phản cao</h4>
-                                <p className="text-sm text-gray-500">Tăng cường tương phản giữa văn bản và nền</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.highContrast === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'highContrast')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Khoảng cách chữ
-                              </label>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="range"
-                                  min="0"
-                                  max="10"
-                                  step="1"
-                                  value={localSettings?.accessibility?.letterSpacing || 0}
-                                  onChange={(e) => handleSettingChange('accessibility', 'letterSpacing', parseInt(e.target.value))}
-                                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <span className="text-sm text-gray-700 w-12 text-center">
-                                  {localSettings?.accessibility?.letterSpacing || 0}
-                                </span>
-                              </div>
-                              <p className="mt-2 text-sm text-gray-500">
-                                Điều chỉnh khoảng cách giữa các chữ cái
-                              </p>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Khoảng cách dòng
-                              </label>
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="range"
-                                  min="100"
-                                  max="200"
-                                  step="10"
-                                  value={localSettings?.accessibility?.lineHeight || 150}
-                                  onChange={(e) => handleSettingChange('accessibility', 'lineHeight', parseInt(e.target.value))}
-                                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <span className="text-sm text-gray-700 w-12 text-center">
-                                  {localSettings?.accessibility?.lineHeight || 150}%
-                                </span>
-                              </div>
-                              <p className="mt-2 text-sm text-gray-500">
-                                Điều chỉnh khoảng cách giữa các dòng chữ
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Content Preferences */}
-                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                          <div className="px-5 py-4 border-b border-gray-200">
-                            <h3 className="text-lg font-medium text-gray-900">Tùy chọn nội dung</h3>
-                          </div>
-                          <div className="p-5 space-y-5">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Hiển thị phụ đề</h4>
-                                <p className="text-sm text-gray-500">Tự động hiển thị phụ đề cho video và âm thanh</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.alwaysShowCaptions === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'alwaysShowCaptions')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-gray-900">Tự động phát</h4>
-                                <p className="text-sm text-gray-500">Ngăn tự động phát nội dung âm thanh và video</p>
-                              </div>
-                              <label className="relative inline-flex cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={localSettings?.accessibility?.preventAutoplay === true}
-                                  onChange={() => handleCheckboxChange('accessibility', 'preventAutoplay')}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
-                                    peer-focus:ring-4 peer-focus:ring-blue-300
-                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
-                                    after:bg-white after:rounded-full after:h-5 after:w-5
-                                    after:transition-all peer-checked:after:translate-x-5"></div>
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-6">
-                          <button
-                            type="submit"
-                            disabled={loading}
-                            className="px-4 py-2 rounded-md text-white bg-green-600 hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                          >
-                            {loading ? "Đang lưu..." : "Lưu thay đổi"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
         </div>
       </div>
     </div>

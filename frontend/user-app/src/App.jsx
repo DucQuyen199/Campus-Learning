@@ -33,7 +33,6 @@ import Register from './pages/Auth/Register';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
 import AuthMiddleware from './middleware/AuthMiddleware';
-import StoryCreate from './pages/Stories/StoryCreate';
 import { CallProvider } from './contexts/CallContext';
 import { CallInterface } from './components/Call';
 import FAQ from './pages/Support/FAQ';
@@ -46,6 +45,7 @@ import CompetitionsPage from './pages/Competitions';
 import CompetitionDetail from './pages/Competitions/CompetitionDetail';
 import ProblemDetail from './pages/Competitions/ProblemDetail';
 import PaymentVietQR from './pages/Payment/VietQRPayment';
+import Stories from './pages/Stories';
 
 // Custom CSS for toast notifications
 import './toast-custom.css';
@@ -111,6 +111,7 @@ function App() {
               { path: '/ai-test-local', element: <AiTestLocal /> },
               { path: '/other-courses', element: <OtherCourses /> },
               { path: '/chat', element: <Chat /> },
+              { path: '/stories', element: <Stories /> },
               { path: '/reports', element: <Reports /> },
               { path: '/settings', element: <Settings /> },
               { path: '/exams/*', element: <Exams /> },
@@ -134,9 +135,6 @@ function App() {
                 }
               />
             ))}
-
-            {/* Public story creation route */}
-            <Route path="/stories/create" element={<StoryCreate />} />
 
             {/* Root route */}
             <Route 

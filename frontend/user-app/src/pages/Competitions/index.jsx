@@ -132,7 +132,38 @@ const CompetitionsPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">
-      <div className="mb-6 sm:mb-8">
+      {/* Desktop: Tiêu đề và search box cạnh nhau */}
+      <div className="hidden sm:flex sm:items-center sm:justify-between mb-6 sm:mb-8">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Cuộc Thi Lập Trình</h1>
+          <p className="text-gray-600 text-sm sm:text-base">
+            Tham gia các cuộc thi lập trình để nâng cao kỹ năng và cạnh tranh với những người khác
+          </p>
+        </div>
+        {/* Search box desktop */}
+        <div className="hidden sm:block min-w-[220px] max-w-xs w-full ml-8">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="Tìm kiếm cuộc thi..."
+              className="w-full px-4 py-2.5 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <svg 
+              className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" 
+              fill="none" 
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile: Tiêu đề và search box tách dòng */}
+      <div className="sm:hidden mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Cuộc Thi Lập Trình</h1>
         <p className="text-gray-600 text-sm sm:text-base">
           Tham gia các cuộc thi lập trình để nâng cao kỹ năng và cạnh tranh với những người khác
@@ -142,7 +173,7 @@ const CompetitionsPage = () => {
       {/* Mobile optimized filter section */}
       <div className="flex flex-col space-y-4 mb-6">
         {/* Search box - full width on mobile */}
-        <div className="relative">
+        <div className="relative sm:hidden">
           <input
             type="text"
             value={searchTerm}

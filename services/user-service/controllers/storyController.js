@@ -1,5 +1,4 @@
-const Story = require('../models/Story');
-const User = require('../models/User');
+const { Story, User, StoryView, StoryLike, Chat } = require('../models');
 const fs = require('fs');
 const path = require('path');
 const { Op } = require('sequelize');
@@ -43,7 +42,7 @@ exports.createStory = async (req, res) => {
         // Calculate expiration date (24 hours from now)
         const now = new Date();
         const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        // Format as YYYY-MM-DD
+        // Format as YYYY-MM-DD without timezone information
         const expiresAtSQL = expiresAt.toISOString().split('T')[0];
 
         if (mediaType === 'text') {
@@ -58,7 +57,7 @@ exports.createStory = async (req, res) => {
                 TextContent: textContent,
                 BackgroundColor: backgroundColor || '#000000',
                 Duration: duration || 15,
-                ExpiresAt: expiresAtSQL
+                ExpiresAt: expiresAtSQL // Using SQL-friendly date format
             });
 
             // Get story with user info
@@ -87,7 +86,7 @@ exports.createStory = async (req, res) => {
             MediaUrl: mediaUrl,
             MediaType: isVideo ? 'video' : 'image',
             Duration: duration || 15,
-            ExpiresAt: expiresAtSQL
+            ExpiresAt: expiresAtSQL // Using SQL-friendly date format
         });
 
         // Get story with user info
@@ -119,19 +118,69 @@ exports.createStory = async (req, res) => {
 // Mark story as viewed
 exports.viewStory = async (req, res) => {
     try {
-        const story = await Story.findByPk(req.params.storyId);
+        const storyId = req.params.storyId;
+        const viewerId = req.user.UserID;
+
+        const story = await Story.findByPk(storyId);
         
         if (!story) {
             return res.status(404).json({ message: 'Story not found' });
         }
 
-        // Increment view count
-        await story.increment('ViewCount');
-        await story.reload();
+        const existingView = await StoryView.findOne({
+            where: {
+                StoryID: storyId,
+                ViewerID: viewerId
+            }
+        });
 
-        res.json({ story });
+        if (!existingView) {
+            // Use SQL Server compatible date format (without timezone info)
+            await StoryView.create({
+                StoryID: storyId,
+                ViewerID: viewerId,
+                // Let the model handle the date with the default value
+                // No need to explicitly set ViewedAt
+            });
+            await story.increment('ViewCount');
+        }
+        
+        res.json({ success: true });
     } catch (error) {
         console.error('Error viewing story:', error);
+        res.status(500).json({ message: "An error occurred while viewing the story." });
+    }
+};
+
+
+// Get story viewers
+exports.getStoryViewers = async (req, res) => {
+    try {
+        const storyId = req.params.storyId;
+        
+        const story = await Story.findByPk(storyId);
+        
+        if (!story) {
+            return res.status(404).json({ message: 'Story not found' });
+        }
+        
+        if (story.UserID !== req.user.UserID) {
+            return res.status(403).json({ message: 'You can only view viewers of your own stories' });
+        }
+        
+        const viewers = await StoryView.findAll({
+            where: { StoryID: storyId },
+            include: [{
+                model: User,
+                as: 'Viewer',
+                attributes: ['UserID', 'Username', 'FullName', 'Image']
+            }],
+            order: [['ViewedAt', 'DESC']]
+        });
+        
+        res.json({ viewers });
+    } catch (error) {
+        console.error('Error getting story viewers:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -159,4 +208,89 @@ exports.deleteStory = async (req, res) => {
         console.error('Error deleting story:', error);
         res.status(500).json({ message: error.message });
     }
+}; 
+
+// Get stories by a specific user
+exports.getUserStories = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId, 10);
+    const currentUserId = req.user.UserID;
+
+    const stories = await Story.findAll({
+      where: {
+        UserID: userId,
+        ExpiresAt: { [Op.gt]: new Date() },
+        IsDeleted: false
+      },
+      include: [{
+        model: User,
+        attributes: ['UserID', 'Username', 'FullName', 'Image']
+      }],
+      order: [['CreatedAt', 'DESC']]
+    });
+
+    // Attach isOwner flag
+    const formattedStories = stories.map(story => {
+      const s = story.toJSON();
+      s.isOwner = s.UserID === currentUserId;
+      return s;
+    });
+
+    res.json({ stories: formattedStories });
+  } catch (error) {
+    console.error('Error getting user stories:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Like a story
+exports.likeStory = async (req, res) => {
+  try {
+    const storyId = req.params.storyId;
+    const userId = req.user.UserID;
+    const story = await Story.findByPk(storyId);
+    if (!story) {
+      return res.status(404).json({ message: 'Story not found' });
+    }
+    if (story.UserID === userId) {
+      return res.status(400).json({ message: 'Cannot like your own story' });
+    }
+    const [like, created] = await StoryLike.findOrCreate({
+      where: { StoryID: storyId, UserID: userId },
+      defaults: { StoryID: storyId, UserID: userId }
+    });
+    if (created) {
+      return res.json({ success: true, liked: true });
+    }
+    return res.json({ success: true, liked: false, message: 'Already liked' });
+  } catch (error) {
+    console.error('Error liking story:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Reply to a story
+exports.replyStory = async (req, res) => {
+  try {
+    const storyId = req.params.storyId;
+    const { content } = req.body;
+    const senderId = req.user.UserID;
+    const story = await Story.findByPk(storyId);
+    if (!story) {
+      return res.status(404).json({ message: 'Story not found' });
+    }
+    const ownerId = story.UserID;
+    if (ownerId === senderId) {
+      return res.status(400).json({ message: 'Cannot reply to your own story' });
+    }
+    // Create or get private conversation
+    const conversation = await Chat.createConversation('', [ownerId], senderId, 'private');
+    const conversationId = conversation.ConversationID;
+    // Send message
+    const message = await Chat.sendMessage(conversationId, senderId, content, 'text');
+    res.json({ conversationId, message });
+  } catch (error) {
+    console.error('Error replying to story:', error);
+    res.status(500).json({ message: error.message });
+  }
 }; 

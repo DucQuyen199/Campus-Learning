@@ -11,7 +11,7 @@ import {
   SparklesIcon, ChatBubbleBottomCenterTextIcon,
   MagnifyingGlassIcon, XMarkIcon, HeartIcon,
   Bars3Icon, ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon, CodeBracketIcon,
-  BeakerIcon, ArrowRightOnRectangleIcon
+  BeakerIcon, ArrowRightOnRectangleIcon, PhotoIcon
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid, HeartIcon as HeartIconSolid, CalendarIcon as CalendarIconSolid } from '@heroicons/react/24/solid';
 import { Avatar } from '../index';
@@ -497,7 +497,7 @@ const MainLayout = ({ children }) => {
         {/* Unified form containing all layout elements */}
         <div className="flex flex-col w-full h-full bg-white dark:bg-gray-800 overflow-hidden">
           {/* Header */}
-          <div className="border-b border-gray-200 dark:border-gray-700 z-10 bg-white dark:bg-gray-800 shadow-sm">
+          <div className="border-b border-gray-200 dark:border-gray-700 z-50 bg-white dark:bg-gray-800 shadow-sm fixed top-0 left-0 right-0 w-full">
             <div className="flex items-center justify-between h-16 px-4 md:px-6">
               {/* Logo and Toggle Button */}
               <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
@@ -554,7 +554,7 @@ const MainLayout = ({ children }) => {
 
                   {/* Chat & Friends Dropdown */}
                   <div className="relative group">
-                    <button className={`flex items-center space-x-1 whitespace-nowrap text-sm font-medium transition-colors hover:text-theme-primary ${['/chat','/friends'].some(p => location.pathname.startsWith(p)) ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
+                    <button className={`flex items-center space-x-1 whitespace-nowrap text-sm font-medium transition-colors hover:text-theme-primary ${['/chat','/friends','/stories'].some(p => location.pathname.startsWith(p)) ? 'text-theme-primary' : 'text-gray-600 dark:text-gray-300'}`}
                       onClick={(e) => e.preventDefault() /* prevent nav */}
                     >
                       <ChatBubbleBottomCenterTextIcon className="h-5 w-5 flex-shrink-0" />
@@ -573,6 +573,10 @@ const MainLayout = ({ children }) => {
                         <Link to="/friends" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
                           <UserGroupIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
                           Bạn Bè
+                        </Link>
+                        <Link to="/stories" className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap">
+                          <PhotoIcon className="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400" />
+                          Stories
                         </Link>
                       </div>
                     </div>
@@ -857,7 +861,7 @@ const MainLayout = ({ children }) => {
           </div>
           
           {/* Main Content */}
-          <div className="flex-1 overflow-auto bg-white dark:bg-gray-800">
+          <div className="flex-1 overflow-auto bg-white dark:bg-gray-800 pt-16">
             <main className="h-full w-full">
               {children}
             </main>
@@ -919,6 +923,20 @@ const MainLayout = ({ children }) => {
                       </Link>
                     );
                   })}
+                  
+                  {/* Add Stories link to mobile menu */}
+                  <Link
+                    to="/stories"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg ${
+                      location.pathname.startsWith('/stories')
+                        ? 'bg-theme-accent/70 text-theme-primary dark:bg-theme-accent/20' 
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <PhotoIcon className="h-5 w-5 flex-shrink-0" />
+                    <span className="font-medium">Stories</span>
+                  </Link>
                 </div>
               </div>
               

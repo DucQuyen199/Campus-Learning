@@ -74,13 +74,22 @@ const Login = () => {
   const inputsRef = useRef([]);
   const handleTwoFaInput = (e, idx) => {
     const val = e.target.value.replace(/\D/, '');
-    if (!val) return;
+    
+    // Update the code array
     const codeArr = twoFaCode.split('');
     codeArr[idx] = val;
     const newCode = codeArr.join('').slice(0, 6);
     setTwoFaCode(newCode);
-    if (inputsRef.current[idx + 1]) inputsRef.current[idx + 1].focus();
-    if (newCode.length === 6) autoVerifyTwoFa(newCode);
+    
+    // If we have a value, move to next input
+    if (val && idx < 5) {
+      inputsRef.current[idx + 1].focus();
+    }
+    
+    // If we have a complete 6-digit code, try to auto-verify
+    if (newCode.length === 6) {
+      autoVerifyTwoFa(newCode);
+    }
   };
   const autoVerifyTwoFa = async (code) => {
     setTwoFaLoading(true);
@@ -94,12 +103,49 @@ const Login = () => {
           navigate('/home', { replace: true });
         }, 300);
       }
-      else setTwoFaError(result.error || 'Xác thực 2FA thất bại');
+      else {
+        setTwoFaError(result.error || 'Xác thực 2FA thất bại');
+        // Clear the code when verification fails
+        clearTwoFaCode();
+      }
     } catch (err) {
       setTwoFaError(err.message || 'Xác thực 2FA thất bại');
+      // Clear the code when verification fails
+      clearTwoFaCode();
     } finally {
       setTwoFaLoading(false);
     }
+  };
+
+  // Update to handle backspace key better
+  const handleTwoFaKeyDown = (e, idx) => {
+    // Handle backspace
+    if (e.key === 'Backspace') {
+      const codeArr = twoFaCode.split('');
+      
+      // If current field has a value, clear it
+      if (codeArr[idx]) {
+        codeArr[idx] = '';
+        setTwoFaCode(codeArr.join(''));
+      } 
+      // If current field is empty and not the first field, move to previous field
+      else if (idx > 0) {
+        codeArr[idx - 1] = '';
+        setTwoFaCode(codeArr.join(''));
+        inputsRef.current[idx - 1].focus();
+      }
+    }
+  };
+
+  // Function to clear the 2FA code and focus on the first input
+  const clearTwoFaCode = () => {
+    setTwoFaCode('');
+    // Focus on the first input field after a short delay to ensure UI has updated
+    setTimeout(() => {
+      if (inputsRef.current[0]) {
+        inputsRef.current[0].focus();
+      }
+    }, 50);
   };
 
   // Check if browser supports passkeys and platform authenticator (biometrics)
@@ -158,6 +204,11 @@ const Login = () => {
         setTwoFaStage(true);
         setTempToken(result.tempToken);
       } else if (result.success) {
+        // Add password to the user object if remember is checked
+        if (formData.remember) {
+          result.user.hasStoredPassword = true;
+          result.user.storedPassword = btoa(formData.password);
+        }
         handleLoginSuccess(result.user);
       } else {
         setError(result.error || 'Đăng nhập thất bại');
@@ -218,21 +269,25 @@ const Login = () => {
     const storedAccounts = JSON.parse(localStorage.getItem('previousAccounts') || '[]');
     const updatedAccounts = storedAccounts.filter(acc => acc.email !== (userData.email || userData.Email));
     
-    // Add the current account with the saved password if 'remember' is true
+    // Check if we need to keep the stored password
+    const hasStoredPassword = userData.hasStoredPassword === true;
+    const storedPassword = hasStoredPassword ? userData.storedPassword : null;
+    
+    // Add the current account with the saved password if remember is true
     const savedAccount = {
       ...userData,
       email: userData.email || userData.Email,
       username: userData.username || userData.Username || '',
-      // Save password securely if remember option is selected
-      hasStoredPassword: formData?.remember === true,
-      storedPassword: formData?.remember === true ? btoa(formData.password) : null,
-      token: userData.token, // Save token for auto-login
+      // Save password if specified in userData or from formData
+      hasStoredPassword: hasStoredPassword,
+      storedPassword: storedPassword,
+      token: userData.token,
       lastLogin: new Date().toISOString()
     };
     
     updatedAccounts.unshift(savedAccount);
     localStorage.setItem('previousAccounts', JSON.stringify(updatedAccounts.slice(0, 3)));
-  }, [dispatch, navigate, formData]);
+  }, [dispatch, navigate]);
 
   const loginWithPasskey = async () => {
     // Check if max attempts reached
@@ -488,7 +543,7 @@ const Login = () => {
     navigate('/login-otp', { state: { email: formData.email } });
   };
 
-  // Add handler for 2FA verification
+  // Update handleTwoFaVerify to clear the code on failure
   const handleTwoFaVerify = async (e) => {
     e.preventDefault();
     setTwoFaError('');
@@ -503,9 +558,13 @@ const Login = () => {
         }, 300);
       } else {
         setTwoFaError(result.error || 'Xác thực 2FA thất bại');
+        // Clear the code when verification fails
+        clearTwoFaCode();
       }
     } catch (error) {
       setTwoFaError(error.message || 'Xác thực 2FA thất bại');
+      // Clear the code when verification fails
+      clearTwoFaCode();
     } finally {
       setTwoFaLoading(false);
     }
@@ -689,9 +748,14 @@ const Login = () => {
             setTwoFaStage(true);
             setTempToken(result.tempToken);
           } else if (result.success) {
-            // Login successful
+            // Login successful - ensure we preserve the stored password flag
             toast.dismiss("accountLogin");
             toast.success("Đăng nhập thành công");
+            
+            // Ensure password storage information is passed along
+            result.user.hasStoredPassword = true;
+            result.user.storedPassword = account.storedPassword;
+            
             handleLoginSuccess(result.user);
             
             // Ensure navigation happens
@@ -717,6 +781,8 @@ const Login = () => {
         // No stored password, show password form
         toast.dismiss("accountLogin");
         setSelectedAccount(account);
+        // Pre-select the remember checkbox if the account had it stored before
+        setFormData(prev => ({...prev, remember: account.hasStoredPassword || false}));
         setSelectedAccountError('Vui lòng nhập mật khẩu để tiếp tục');
       }
     } catch (error) {
@@ -1527,8 +1593,12 @@ const Login = () => {
 
             {twoFaStage ? (
               <div className="mt-8">
-                <label className="block text-sm font-semibold text-gray-700 text-center">Mã 2FA</label>
-                <div className="mt-2 flex justify-center space-x-2">
+                <label className="block text-sm font-semibold text-gray-700 text-center">Mã xác thực 2FA</label>
+                <p className="text-sm text-gray-600 text-center mt-2">
+                  Vui lòng nhập mã xác thực từ ứng dụng của bạn
+                </p>
+                
+                <div className="mt-4 flex justify-center space-x-2">
                   {Array.from({ length: 6 }).map((_, idx) => (
                     <input
                       key={idx}
@@ -1537,20 +1607,26 @@ const Login = () => {
                       maxLength={1}
                       value={twoFaCode[idx] || ''}
                       onChange={(e) => handleTwoFaInput(e, idx)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Backspace' && !twoFaCode[idx] && idx > 0) {
-                          inputsRef.current[idx - 1].focus();
-                        }
-                      }}
+                      onKeyDown={(e) => handleTwoFaKeyDown(e, idx)}
                       ref={(el) => (inputsRef.current[idx] = el)}
-                      className="w-10 h-10 text-center border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={twoFaLoading}
+                      className={`w-10 h-10 text-center border ${twoFaError ? 'border-red-300' : 'border-gray-300'} rounded focus:outline-none focus:ring-2 ${twoFaError ? 'focus:ring-red-500' : 'focus:ring-blue-500'} transition-all duration-200`}
                     />
                   ))}
                 </div>
+                
+                {twoFaError && (
+                  <div className="mt-3 flex items-center justify-center text-red-600">
+                    <ExclamationCircleIcon className="h-5 w-5 text-red-500 mr-1" />
+                    <p className="text-sm">{twoFaError}</p>
+                  </div>
+                )}
+                
                 <div className="text-center mt-4">
                   <button
                     type="button"
                     onClick={() => setTwoFaStage(false)}
+                    disabled={twoFaLoading}
                     className="text-sm text-gray-600 hover:underline"
                   >
                     Quay lại đăng nhập
@@ -1719,7 +1795,14 @@ const Login = () => {
                     render={renderProps => (
                       <button
                         type="button"
-                        onClick={renderProps.onClick}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (window.location.protocol !== 'https:') {
+                            toast.error('Facebook login requires HTTPS; please use a secure connection.');
+                            return;
+                          }
+                          renderProps.onClick();
+                        }}
                         className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
                       >
                         <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

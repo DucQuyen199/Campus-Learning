@@ -10,6 +10,9 @@ const Chat = require('./Chat');
 const Message = require('./Message');
 const ConversationParticipant = require('./ConversationParticipant');
 const MessageStatus = require('./MessageStatus');
+const Story = require('./Story');
+const StoryView = require('./StoryView');
+const StoryLike = require('./StoryLike');
 
 // Only import models we're sure are Sequelize models
 // The other models will be loaded dynamically if they exist and are Sequelize models
@@ -33,7 +36,7 @@ const setupAssociations = () => {
       'Achievement', 'UserAchievement',
       'Course', 'CourseEnrollment', 'CourseLesson', 'LessonProgress',
       'Exam', 'ExamQuestion', 'ExamParticipant', 'ExamAnswer', 'ExamAnswerTemplate', 'ExamMonitoringLog', 'EssayAnswerAnalysis',
-      'Story', 'StoryView', 'PaymentHistory', 'PaymentTransaction', 'Friendship', 'Report', 'Ranking'
+      'Story', 'StoryView', 'StoryLike', 'PaymentHistory', 'PaymentTransaction', 'Friendship', 'Report', 'Ranking'
     ];
     
     for (const modelName of modelFiles) {
@@ -96,6 +99,31 @@ const setupAssociations = () => {
         as: 'Sender' 
       });
     }
+
+    // Story associations
+    if (models.Story && models.User) {
+      console.log('Setting up Story associations');
+      models.User.hasMany(models.Story, { foreignKey: 'UserID' });
+      models.Story.belongsTo(models.User, { foreignKey: 'UserID' });
+    }
+    
+    // StoryView associations
+    if (models.Story && models.StoryView && models.User) {
+      console.log('Setting up StoryView associations');
+      models.Story.hasMany(models.StoryView, { foreignKey: 'StoryID' });
+      models.StoryView.belongsTo(models.Story, { foreignKey: 'StoryID' });
+      models.User.hasMany(models.StoryView, { foreignKey: 'ViewerID' });
+      models.StoryView.belongsTo(models.User, { foreignKey: 'ViewerID', as: 'Viewer' });
+    }
+
+    // StoryLike associations
+    if (models.Story && models.StoryLike && models.User) {
+      console.log('Setting up StoryLike associations');
+      models.Story.hasMany(models.StoryLike, { foreignKey: 'StoryID', as: 'Likes' });
+      models.StoryLike.belongsTo(models.Story, { foreignKey: 'StoryID' });
+      models.User.hasMany(models.StoryLike, { foreignKey: 'UserID', as: 'StoryLikes' });
+      models.StoryLike.belongsTo(models.User, { foreignKey: 'UserID', as: 'Liker' });
+    }
     
     console.log('Model associations completed');
     
@@ -123,7 +151,9 @@ module.exports = {
   Message,
   ConversationParticipant,
   MessageStatus,
-  // Add any other models we're certain about
   UserAchievement,
-  Achievement
+  Achievement,
+  Story,
+  StoryView,
+  StoryLike
 };

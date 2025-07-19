@@ -45,3 +45,38 @@ async function updateExamRetakes() {
 }
 
 updateExamRetakes(); 
+
+// Add this at the end of the file
+// SQL to create UserAiUsage table
+const createUserAiUsageTable = `
+CREATE TABLE [dbo].[UserAiUsage] (
+    [UsageID]   BIGINT         IDENTITY (1, 1) NOT NULL,
+    [UserID]    BIGINT         NOT NULL,
+    [UsageDate] DATETIME       DEFAULT (getdate()) NOT NULL,
+    [UsageType] VARCHAR (50)   NOT NULL,
+    PRIMARY KEY CLUSTERED ([UsageID] ASC),
+    FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID])
+);
+
+-- Create index for faster queries by user and date
+CREATE NONCLUSTERED INDEX [IX_UserAiUsage_UserID_Date] 
+ON [dbo].[UserAiUsage]([UserID] ASC, [UsageDate] ASC);
+`;
+
+// Execute the SQL to create the table
+async function createAiUsageTable() {
+  try {
+    console.log('Creating UserAiUsage table...');
+    await pool.query(createUserAiUsageTable);
+    console.log('UserAiUsage table created successfully.');
+  } catch (err) {
+    if (err.message.includes('There is already an object named')) {
+      console.log('UserAiUsage table already exists.');
+    } else {
+      console.error('Error creating UserAiUsage table:', err);
+    }
+  }
+}
+
+// Call the function to create the table
+createAiUsageTable(); 

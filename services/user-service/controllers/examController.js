@@ -10,12 +10,20 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy-key');
 // Get all exams
 exports.getAllExams = async (req, res) => {
   try {
+    const userId = req.user.id;
     const exams = await query(`
-      SELECT e.*, c.Title as CourseName
+      SELECT e.*, c.Title as CourseName,
+             CASE WHEN ep.attemptsCount > 0 THEN 1 ELSE 0 END AS IsRegistered
       FROM Exams e
       LEFT JOIN Courses c ON e.CourseID = c.CourseID
+      LEFT JOIN (
+        SELECT ExamID, COUNT(*) as attemptsCount
+        FROM ExamParticipants
+        WHERE UserID = @userId
+        GROUP BY ExamID
+      ) ep ON e.ExamID = ep.ExamID
       ORDER BY e.StartTime DESC
-    `);
+    `, { userId });
     
     res.status(200).json({ success: true, data: exams });
   } catch (error) {
@@ -49,6 +57,8 @@ exports.getExamById = async (req, res) => {
     
     // Convert string parameter to integer
     const examIdInt = parseInt(id, 10);
+    // Current user ID for registration check
+    const userId = req.user.id;
     
     if (isNaN(examIdInt)) {
       return res.status(400).json({ 
@@ -57,12 +67,27 @@ exports.getExamById = async (req, res) => {
       });
     }
     
+    // Fetch exam details with registration status and total participants
     const exam = await query(`
-      SELECT e.*, c.Title as CourseName
+      SELECT e.*, c.Title as CourseName,
+             CASE WHEN upr.ParticipantCount > 0 THEN 1 ELSE 0 END AS IsRegistered,
+             COALESCE(total.ParticipantCount, 0) AS RegisteredCount
       FROM Exams e
       LEFT JOIN Courses c ON e.CourseID = c.CourseID
+      LEFT JOIN (
+        SELECT ExamID, COUNT(*) AS ParticipantCount
+        FROM ExamParticipants
+        WHERE UserID = @userId AND ExamID = @examId
+        GROUP BY ExamID
+      ) upr ON e.ExamID = upr.ExamID
+      LEFT JOIN (
+        SELECT ExamID, COUNT(*) AS ParticipantCount
+        FROM ExamParticipants
+        WHERE ExamID = @examId
+        GROUP BY ExamID
+      ) total ON e.ExamID = total.ExamID
       WHERE e.ExamID = @examId
-    `, { examId: examIdInt });
+    `, { examId: examIdInt, userId });
     
     if (!exam || exam.length === 0) {
       return res.status(404).json({ success: false, message: 'Exam not found' });

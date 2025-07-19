@@ -160,6 +160,9 @@ exports.getUserSettings = async (req, res) => {
         }
       };
     }
+    // Ensure timezone is included in preferences
+    if (!settings.preferences) settings.preferences = {};
+    settings.preferences.timeZone = userProfile.TimeZone || settings.preferences.timeZone || 'Asia/Ho_Chi_Minh';
 
     // Return settings and profile info
     return res.json({
@@ -273,10 +276,10 @@ exports.updateUserSettings = async (req, res) => {
     
     // Execute the main query
     await request
-      .input('UserID', sql.BigInt, userId)  // Ensure UserID is explicitly set
+      // UserID already set earlier
       .input('NotificationPreferences', sql.NVarChar(sql.MAX), JSON.stringify(settings))
       .input('PreferredLanguage', sql.VarChar(10), settings.preferences.language || 'vi')
-      .input('TimeZone', sql.VarChar(50), 'Asia/Ho_Chi_Minh')
+      .input('TimeZone', sql.VarChar(50), settings.preferences.timeZone || 'Asia/Ho_Chi_Minh')
       .query(query);
 
     res.json({

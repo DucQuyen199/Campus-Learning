@@ -312,6 +312,8 @@ const Account = () => {
               </label>
               <div className="relative">
                 <select
+                  value={localSettings?.preferences?.timeZone}
+                  onChange={(e)=>handleSettingChange('preferences','timeZone',e.target.value)}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="Asia/Ho_Chi_Minh">(GMT+7:00) Hồ Chí Minh, Hà Nội, Bangkok</option>
@@ -336,7 +338,8 @@ const Account = () => {
               <label className="relative inline-flex cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={true}
+                  checked={localSettings?.privacy?.showOnlineStatus}
+                  onChange={(e) => handleSettingChange('privacy', 'showOnlineStatus', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 rounded-full peer bg-gray-200 peer-checked:bg-blue-600
@@ -460,7 +463,14 @@ const Account = () => {
                       fields="name,email,picture"
                       render={renderProps => (
                         <button 
-                          onClick={renderProps.onClick}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (window.location.protocol !== 'https:') {
+                              toast.error('Facebook connection requires HTTPS; please use a secure connection.');
+                              return;
+                            }
+                            renderProps.onClick();
+                          }}
                           className="px-3 py-1 bg-blue-50 border border-blue-300 rounded text-sm text-blue-700 hover:bg-blue-100"
                         >
                           Kết nối

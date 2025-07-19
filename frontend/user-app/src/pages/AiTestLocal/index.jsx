@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { PaperAirplaneIcon, ArrowPathIcon, PlayIcon, BeakerIcon, CheckIcon, XMarkIcon, ChatBubbleLeftRightIcon, ClockIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon, ArrowPathIcon, PlayIcon, BeakerIcon, CheckIcon, XMarkIcon, ChatBubbleLeftRightIcon, ClockIcon, SparklesIcon, DevicePhoneMobileIcon } from '@heroicons/react/24/outline';
 import CodeServerEditor from './components/CodeServerEditor';
 import TestCasePanel from './components/TestCasePanel';
 import { initGeminiChat, sendMessageToGemini } from '../../services/geminiService';
@@ -38,6 +38,7 @@ const AiTestLocal = () => {
   const [isGeneratingProblem, setIsGeneratingProblem] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState('trung bình');
   const [selectedProblemType, setSelectedProblemType] = useState('xử lý chuỗi');
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef(null);
 
   // List of possible problem types and difficulties
@@ -448,49 +449,74 @@ const AiTestLocal = () => {
     setTestCases([...testCases, newTestCase]);
   };
 
+  // Check if device is mobile
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkIsMobile);
+    };
+  }, []);
+
   return (
     <div className="h-[93vh] flex flex-col p-2 max-w-[100vw] mx-auto bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg">
+      {/* Mobile notice overlay */}
+      {isMobile && (
+        <div className="fixed inset-0 bg-gradient-to-br from-blue-900/90 to-indigo-900/90 z-50 flex flex-col items-center justify-center text-white p-6">
+          <DevicePhoneMobileIcon className="w-16 h-16 mb-4 text-blue-300" />
+          <h2 className="text-xl font-bold mb-2">Vui lòng sử dụng thiết bị lớn hơn</h2>
+          <p className="text-center mb-4">
+            Ứng dụng này được tối ưu cho laptop, iPad hoặc PC.
+          </p>
+          <p className="text-sm text-blue-200">
+            Hãy truy cập lại từ màn hình lớn hơn để có trải nghiệm tốt nhất.
+          </p>
+        </div>
+      )}
+      
       <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-          AI Test Case Generator
+          
         </h1>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedDifficulty}
-              onChange={(e) => setSelectedDifficulty(e.target.value)}
-              className="px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {difficulties.map(diff => (
-                <option key={diff} value={diff}>Độ khó: {diff}</option>
-              ))}
-            </select>
-            
-            <select
-              value={selectedProblemType}
-              onChange={(e) => setSelectedProblemType(e.target.value)}
-              className="px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {problemTypes.map(type => (
-                <option key={type} value={type}>Loại: {type}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
+          <select
+            value={selectedDifficulty}
+            onChange={(e) => setSelectedDifficulty(e.target.value)}
+            className="flex-1 min-w-[140px] sm:flex-none px-3 py-1.5 bg-white/90 border border-blue-100 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
+          >
+            {difficulties.map(diff => (
+              <option key={diff} value={diff}>{diff}</option>
+            ))}
+          </select>
+          
+          <select
+            value={selectedProblemType}
+            onChange={(e) => setSelectedProblemType(e.target.value)}
+            className="flex-1 min-w-[140px] sm:flex-none px-3 py-1.5 bg-white/90 border border-blue-100 rounded-lg shadow-sm text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 text-center"
+          >
+            {problemTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
           
           <button
             onClick={generateNewProblem}
             disabled={isGeneratingProblem}
-            className="flex items-center px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 min-w-[140px] sm:flex-none px-3 py-1.5 bg-blue-400 text-white rounded-lg shadow-sm transition-all hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
           >
-            <SparklesIcon className="h-4 w-4 mr-1" />
-            <span>{isGeneratingProblem ? 'Đang tạo...' : 'Tạo bài toán mới'}</span>
+            {isGeneratingProblem ? 'Đang tạo...' : 'Tạo bài toán mới'}
           </button>
           <button
             onClick={handleReset}
-            className="flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 rounded-lg transition-all shadow-sm border border-gray-200 hover:shadow"
+            className="flex justify-center items-center h-9 w-9 bg-gray-50 text-gray-500 rounded-lg shadow-sm transition-all hover:bg-gray-100 hover:text-gray-700"
+            title="Bắt đầu lại"
           >
-            <ArrowPathIcon className="h-4 w-4 mr-1 text-blue-600" />
-            <span className="text-gray-700">Bắt đầu lại</span>
+            <ArrowPathIcon className="h-5 w-5" />
           </button>
         </div>
       </div>

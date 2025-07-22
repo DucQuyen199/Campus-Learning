@@ -78,7 +78,7 @@ const MainLayout = () => {
       width: '100vw',
       overflow: 'hidden',
       position: 'relative',
-      p: { xs: 1, sm: 2, md: 3 },
+      p: 0,
       transition: theme.transitions.create(['padding'], {
         easing: theme.transitions.easing.easeOut,
         duration: theme.transitions.duration.standard,
@@ -95,28 +95,24 @@ const MainLayout = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed',
-        opacity: 0.1,
+        opacity: 0.05,
         zIndex: -1
       }
     }}>
       <CssBaseline />
       
-      {/* Main container with glassmorphism effect */}
-      <Paper
-        elevation={0}
+      {/* Main container - full screen */}
+      <Box
         sx={{
           display: 'flex',
           flexDirection: 'column',
           width: '100%',
           height: '100%',
-          borderRadius: { xs: 2, md: 3 },
+          borderRadius: 0,
           overflow: 'hidden',
-          border: `1px solid ${theme.palette.divider}`,
           flexGrow: 1,
-          backgroundColor: 'rgba(255, 255, 255, 0.7)',
-          backdropFilter: 'blur(8px)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-          transition: theme.transitions.create(['box-shadow', 'border-radius'], {
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          transition: theme.transitions.create(['box-shadow'], {
             easing: theme.transitions.easing.easeInOut,
             duration: theme.transitions.duration.standard,
           }),
@@ -134,7 +130,7 @@ const MainLayout = () => {
           }),
         }}>
           <Header 
-            insideUnifiedForm={true}
+            insideUnifiedForm={false}
             open={sidebarOpen}
             handleDrawerToggle={handleDrawerToggle}
             isMobile={isMobile}
@@ -178,7 +174,7 @@ const MainLayout = () => {
           >
             {sidebarOpen && (
               <Sidebar 
-                insideUnifiedForm={true}
+                insideUnifiedForm={false}
                 drawerWidth="100%"
                 open={sidebarOpen}
                 handleDrawerToggle={handleDrawerToggle}
@@ -220,7 +216,7 @@ const MainLayout = () => {
                 duration: theme.transitions.duration.enteringScreen,
               }),
               bgcolor: 'rgba(255, 255, 255, 0.5)',
-              p: { xs: 2, md: 3 },
+              p: { xs: 1, md: 2 },
             }}
           >
             {loading ? (
@@ -243,7 +239,7 @@ const MainLayout = () => {
             )}
           </Box>
         </Box>
-      </Paper>
+      </Box>
     </Box>
   );
 };

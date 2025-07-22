@@ -1,4 +1,4 @@
-# Campus T - Learning Management System
+# Campus - Learning Management System
 
 <div align="center">
 

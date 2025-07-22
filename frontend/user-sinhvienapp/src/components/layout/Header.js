@@ -101,7 +101,7 @@ const Header = ({ handleDrawerToggle, insideUnifiedForm = false, open, drawerWid
               WebkitTextFillColor: 'transparent'
             }}
           >
-            Hệ thống Quản lý tín chỉ Đại Học Kinh Doanh và Công Nghệ Hà Nội
+              Hệ thống thông tin tín chỉ
           </Typography>
         </Box>
         

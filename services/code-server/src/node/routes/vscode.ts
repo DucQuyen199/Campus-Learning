@@ -119,8 +119,22 @@ router.get("/", ensureVSCodeLoaded, async (req, res, next) => {
   const isAuthenticated = await authenticated(req)
   const NO_FOLDER_OR_WORKSPACE_QUERY = !req.query.folder && !req.query.workspace
   // Ew means the workspace was closed so clear the last folder/workspace.
-  const FOLDER_OR_WORKSPACE_WAS_CLOSED = req.query.ew
-
+  // If authenticated and no folder/workspace specified and no CLI paths, assign per-user workspace
+  if (isAuthenticated) {
+    const user = (req as any).userServiceUser
+    const hasNoWorkspaceArg = !req.query.folder && !req.query.workspace
+    const hasNoCLIPath = req.args._.length === 0
+    if (user && hasNoWorkspaceArg && hasNoCLIPath) {
+      const workspaceBase = process.env.WORKSPACE_BASE || path.join(req.args["user-data-dir"], "workspaces")
+      const userId = user.id || user.UserID || user.userId || (user as any).sub
+      const userWorkspace = path.join(workspaceBase, String(userId))
+      try {
+        await fs.mkdir(userWorkspace, { recursive: true })
+      } catch {}
+      const to = self(req)
+      return redirect(req, res, to, { folder: userWorkspace })
+    }
+  }
   if (!isAuthenticated) {
     const to = self(req)
     return redirect(req, res, "login", {

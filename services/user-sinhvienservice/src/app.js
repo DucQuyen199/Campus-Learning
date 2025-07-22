@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const compression = require('compression');
 const { apiPrefix } = require('./config/app');
+const { sqlConnection, isSqlServerRunning, dbConfig } = require('./config/database');
 
 // Import routes
 const profileRoutes = require('./routes/profileRoutes');
@@ -24,6 +25,31 @@ const internshipRoutes = require('./routes/internshipRoutes');
 // Initialize Express app
 const app = express();
 
+// Initialize database connection
+(async () => {
+  try {
+    // Check if SQL Server is reachable
+    const sqlHost = dbConfig.server;
+    const sqlPort = 1433; // Default SQL Server port
+    const isServerRunning = await isSqlServerRunning(sqlHost, sqlPort);
+    
+    if (!isServerRunning) {
+      console.warn(`SQL Server doesn't appear to be running at ${sqlHost}:${sqlPort}`);
+      console.warn('Starting in demo mode with limited functionality.');
+      app.locals.demoMode = true;
+    } else {
+      // Try to connect to database
+      await sqlConnection.connect();
+      console.log('Database connection successful.');
+      app.locals.demoMode = false;
+    }
+  } catch (err) {
+    console.error('Failed to connect to database:', err.message);
+    console.warn('Starting in demo mode with limited functionality.');
+    app.locals.demoMode = true;
+  }
+})();
+
 // Set up middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -37,7 +63,8 @@ app.get('/', (req, res) => {
   res.json({
     status: 'ok',
     message: 'Student API is running',
-    version: '1.0.0'
+    version: '1.0.0',
+    demoMode: app.locals.demoMode || false
   });
 });
 
@@ -49,11 +76,6 @@ app.get('/api/version', (req, res) => {
     serverTime: new Date().toISOString(),
     demoMode: app.locals.demoMode || false
   });
-});
-
-// Replace the fallback handler with a simple 404 handler
-app.use(apiPrefix, (req, res, next) => {
-  next();
 });
 
 // Register API routes
@@ -86,7 +108,8 @@ app.use((err, req, res, next) => {
   // Generic error response
   return res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal Server Error'
+    message: err.message || 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
@@ -94,7 +117,7 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: `Route not found: ${req.method} ${req.originalUrl}`
   });
 });
 

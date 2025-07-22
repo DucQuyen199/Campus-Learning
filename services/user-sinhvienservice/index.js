@@ -1,8 +1,5 @@
-// Entry point for backward compatibility
-// This file redirects to the new structure
-console.log('Starting application with new architecture...');
-
-const express = require('express');
+// Entry point for student service
+require('dotenv').config();
 const http = require('http');
 const app = require('./src/app');
 
@@ -12,6 +9,27 @@ const PORT = process.env.PORT || 5008;
 // Create HTTP server with the Express app
 const server = http.createServer(app);
 
+// Handle server startup errors
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Please use another port.`);
+  } else {
+    console.error('Server error:', error);
+  }
+  process.exit(1);
+});
+
+// Start listening
 server.listen(PORT, () => {
   console.log(`User Student Service running on port ${PORT}`);
+  console.log(`API accessible at http://localhost:${PORT}/api`);
+});
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  console.info('SIGTERM signal received. Closing server gracefully.');
+  server.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
+  });
 }); 

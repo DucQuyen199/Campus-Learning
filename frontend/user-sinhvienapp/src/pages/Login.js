@@ -17,7 +17,6 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
-  Divider,
   useMediaQuery,
   useTheme,
   Card,
@@ -40,13 +39,13 @@ import {
   Grow,
   Zoom,
   Slide,
-  useScrollTrigger
+  useScrollTrigger,
+  Divider
 } from '@mui/material';
 import { 
   LockOutlined, 
   Visibility, 
   VisibilityOff, 
-  Google, 
   School,
   LocationOn,
   Groups,
@@ -56,7 +55,8 @@ import {
   Timeline as TimelineIcon,
   Handshake,
   Bookmark,
-  LocalLibrary
+  LocalLibrary,
+  Login as LoginIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -167,8 +167,9 @@ const Login = () => {
   const dispatch = useDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('lg'));
-  const { login, loginWithGmail, error: authError, loading, isAuthenticated } = useAuth();
+  const { login, error: authError, loading, isAuthenticated } = useAuth();
   
   // Refs for scroll animations
   const infoSectionRef = useRef(null);
@@ -190,7 +191,6 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [gmailLoading, setGmailLoading] = useState(false);
   
   // Animation states
   const [showLogin, setShowLogin] = useState(false);
@@ -286,6 +286,14 @@ const Login = () => {
       setError('Vui lòng nhập mật khẩu');
       return false;
     }
+
+    // Check if email is from @hubt.edu.vn domain
+    if (formData.username.includes('@')) {
+      if (!formData.username.toLowerCase().endsWith('@hubt.edu.vn')) {
+        setError('Chỉ tài khoản email @hubt.edu.vn được phép đăng nhập');
+        return false;
+      }
+    }
     
     setError('');
     return true;
@@ -304,7 +312,7 @@ const Login = () => {
       const result = await login(formData.username, formData.password);
       
       if (result.success) {
-        // Store user data in Redux
+        // Store user data in Redux regardless of role
         dispatch(setUser(result.user));
         
         // Redirect to dashboard after successful login
@@ -317,41 +325,6 @@ const Login = () => {
     }
   };
   
-  // Handle Gmail login
-  const handleGmailLogin = async () => {
-    // Prompt for Gmail address
-    const email = prompt('Nhập địa chỉ Gmail của bạn:');
-    
-    if (!email) return;
-    
-    // Validate email format
-    const emailRegex = /^[^\s@]+@gmail\.com$/i;
-    if (!emailRegex.test(email)) {
-      setError('Vui lòng nhập một địa chỉ Gmail hợp lệ.');
-      return;
-    }
-    
-    try {
-      setGmailLoading(true);
-      setError('');
-      const result = await loginWithGmail(email);
-      
-      if (result.success) {
-        // Store user data in Redux
-        dispatch(setUser(result.user));
-        
-        // Redirect to dashboard after successful login
-        navigate('/');
-      } else {
-        setError(result.error || 'Đăng nhập bằng Gmail thất bại');
-      }
-    } catch (err) {
-      setError('Đăng nhập bằng Gmail thất bại. Vui lòng thử lại sau.');
-    } finally {
-      setGmailLoading(false);
-    }
-  };
-  
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -361,172 +334,200 @@ const Login = () => {
       minHeight: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden',
+      overflow: 'auto', // Changed from 'hidden' to 'auto' to allow scrolling
       backgroundColor: '#f5f5f5'
     }}>
       <Box sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        minHeight: { xs: 'auto', md: '100vh' }
+        minHeight: { xs: 'auto', md: '100vh' } // Keep minHeight, not fixed height
       }}>
         {/* Login Form - Left Side with Slide from Left Animation */}
         <Slide direction="right" in={showLogin} timeout={transitionDuration} mountOnEnter unmountOnExit>
-      <Box
-        sx={{
+          <Box
+            sx={{
               flex: { md: '0 0 40%' },
-          display: 'flex',
-          alignItems: 'center',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
-              padding: { xs: 2, sm: 4, md: 6 },
+              padding: { xs: 2, sm: 3, md: 6 },
               boxSizing: 'border-box',
-              backgroundColor: 'white'
+              backgroundColor: 'white',
+              minHeight: { xs: '100vh', md: 'auto' } // Use minHeight
             }}
           >
-            <Box sx={{ width: '100%', maxWidth: 450 }}>
-              <Box sx={{ mb: 5, textAlign: 'center' }}>
+            <Box sx={{ 
+              width: '100%', 
+              maxWidth: 450,
+              mx: 'auto'
+            }}>
+              <Box sx={{ 
+                mb: { xs: 3, sm: 4 }, 
+                textAlign: 'center',
+                pt: { xs: 2, sm: 0 }
+              }}>
                 <Box 
                   component="img"
                   src={HUBT_LOGO}
                   alt="HUBT Logo"
-          sx={{
-                    height: 100, 
-                    mb: 2
+                  sx={{
+                    height: { xs: 70, sm: 90 }, 
+                    mb: { xs: 1, sm: 2 }
                   }}
                 />
-                <Typography variant="h5" fontWeight="bold" sx={{ mb: 1, color: '#0c4da2' }}>
+                <Typography 
+                  variant={isSmallMobile ? "h6" : "h5"} 
+                  fontWeight="bold" 
+                  sx={{ mb: 1, color: '#0c4da2' }}
+                >
                   Đại học Kinh doanh và Công nghệ Hà Nội
-          </Typography>
+                </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                HUBT Connect
-          </Typography>
+                  HUBT Connect
+                </Typography>
               </Box>
           
-          {(error || authError) && (
+              {(error || authError) && (
                 <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
-              {error || authError}
-            </Alert>
-          )}
+                  {error || authError}
+                </Alert>
+              )}
           
-              <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ color: '#0c4da2' }}>
+              <Typography 
+                variant={isSmallMobile ? "h6" : "h5"} 
+                fontWeight="bold" 
+                gutterBottom 
+                sx={{ color: '#0c4da2', textAlign: 'center' }}
+              >
                 Đăng nhập
               </Typography>
               
-              <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
-                Nhập thông tin đăng nhập của bạn để tiếp tục
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mb: { xs: 2, sm: 4 }, 
+                  color: 'text.secondary', 
+                  textAlign: 'center' 
+                }}
+              >
+                Nhập thông tin tài khoản để tiếp tục
               </Typography>
               
               <Box component="form" onSubmit={handleSubmit} noValidate sx={{ width: '100%' }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="username"
-              label="Tên đăng nhập hoặc email"
-              name="username"
-              autoComplete="username"
-              autoFocus
-              value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
-              disabled={loading}
-              error={Boolean(error && error.includes('đăng nhập'))}
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  id="username"
+                  label="Email @hubt.edu.vn"
+                  name="username"
+                  autoComplete="username"
+                  autoFocus
+                  value={formData.username}
+                  onChange={(e) => setFormData({...formData, username: e.target.value})}
+                  disabled={loading}
+                  error={Boolean(error && (error.includes('đăng nhập') || error.includes('email')))}
                   variant="outlined"
                   sx={{ mb: 2 }}
-            />
-            
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              name="password"
-              label="Mật khẩu"
-              type={showPassword ? "text" : "password"}
-              id="password"
-              autoComplete="current-password"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              disabled={loading}
-              error={Boolean(error && error.includes('mật khẩu'))}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label="toggle password visibility"
-                      onClick={togglePasswordVisibility}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
+                  size={isSmallMobile ? "small" : "medium"}
+                  InputProps={{
+                    sx: { borderRadius: 2 }
+                  }}
+                />
+                
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  name="password"
+                  label="Mật khẩu"
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  autoComplete="current-password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  disabled={loading}
+                  error={Boolean(error && error.includes('mật khẩu'))}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={togglePasswordVisibility}
+                          edge="end"
+                          size={isSmallMobile ? "small" : "medium"}
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    sx: { borderRadius: 2 }
+                  }}
                   variant="outlined"
                   sx={{ mb: 1 }}
-            />
-            
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  value="remember"
-                  color="primary"
-                  checked={formData.remember}
-                  onChange={(e) => setFormData({...formData, remember: e.target.checked})}
-                  disabled={loading}
+                  size={isSmallMobile ? "small" : "medium"}
                 />
-              }
-              label="Nhớ mật khẩu"
-            />
+                
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  mb: 3,
+                  flexDirection: isSmallMobile ? 'column' : 'row',
+                  gap: isSmallMobile ? 1 : 0,
+                  alignItems: isSmallMobile ? 'flex-start' : 'center'
+                }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        value="remember"
+                        color="primary"
+                        checked={formData.remember}
+                        onChange={(e) => setFormData({...formData, remember: e.target.checked})}
+                        disabled={loading}
+                        size={isSmallMobile ? "small" : "medium"}
+                      />
+                    }
+                    label={
+                      <Typography variant={isSmallMobile ? "body2" : "body1"}>
+                        Nhớ mật khẩu
+                      </Typography>
+                    }
+                  />
                   
                   <Link to="#" style={{ textDecoration: 'none' }}>
-                    <Typography variant="body2" color="primary">
+                    <Typography 
+                      variant={isSmallMobile ? "body2" : "body1"} 
+                      color="primary"
+                    >
                       Quên mật khẩu?
                     </Typography>
                   </Link>
                 </Box>
-            
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
+                
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
                   size="large"
                   sx={{ 
                     mt: 1, 
                     mb: 3, 
-                    py: 1.5,
+                    py: isSmallMobile ? 1 : 1.5,
                     borderRadius: 2,
                     backgroundColor: '#0c4da2',
                     '&:hover': {
                       backgroundColor: '#0a3d82',
                     }
                   }}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Đăng nhập'}
-            </Button>
-            
-                <Divider sx={{ my: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Hoặc
-                  </Typography>
-                </Divider>
-            
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<Google />}
-              onClick={handleGmailLogin}
-              disabled={gmailLoading || loading}
-                  sx={{ 
-                    mb: 3, 
-                    py: 1.5,
-                    borderRadius: 2
-                  }}
-            >
-              {gmailLoading ? <CircularProgress size={24} /> : 'Đăng nhập bằng Gmail'}
-            </Button>
-            
-                <Typography variant="body2" color="text.secondary" align="center">
-                  © 2023 HUBT Connect
+                  disabled={loading}
+                  startIcon={!loading && <LoginIcon />}
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Đăng nhập'}
+                </Button>
+                
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
+                  © {new Date().getFullYear()} HUBT Connect
                 </Typography>
               </Box>
             </Box>
@@ -548,7 +549,7 @@ const Login = () => {
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 color: 'white',
-                overflow: 'hidden',
+                overflow: 'auto', // Allow scrolling in this section too
                 '&::before': {
                   content: '""',
                   position: 'absolute',
@@ -705,7 +706,8 @@ const Login = () => {
           py: 6, 
           px: { xs: 2, sm: 4, md: 8 },
           backgroundColor: 'white',
-          borderTop: '1px solid rgba(0,0,0,0.08)'
+          borderTop: '1px solid rgba(0,0,0,0.08)',
+          overflow: 'visible' // Ensure content can overflow and be scrolled to
         }}
       >
         <Fade in={infoSectionVisible} timeout={transitionDuration}>
@@ -783,7 +785,10 @@ const Login = () => {
         {/* Admission Scores Section */}
         <Box 
           ref={scoresSectionRef}
-          sx={{ mb: 6 }}
+          sx={{ 
+            mb: 6,
+            overflow: 'visible' // Ensure content can overflow
+          }}
         >
           <Fade in={scoresSectionVisible} timeout={transitionDuration}>
             <Typography variant="h5" fontWeight="bold" color="#0c4da2" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>
@@ -1152,7 +1157,10 @@ const Login = () => {
         {/* Partnerships Section with alternating animations */}
         <Box 
           ref={partnershipsSectionRef}
-          sx={{ mb: 6 }}
+          sx={{ 
+            mb: 6,
+            overflow: 'visible' // Ensure content can overflow
+          }}
         >
           <Fade in={partnershipsSectionVisible} timeout={transitionDuration}>
             <Typography variant="h5" fontWeight="bold" color="#0c4da2" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>
@@ -1219,7 +1227,10 @@ const Login = () => {
         {/* Achievements Section */}
         <Box 
           ref={achievementsSectionRef}
-          sx={{ mb: 6 }}
+          sx={{ 
+            mb: 6,
+            overflow: 'visible' // Ensure content can overflow
+          }}
         >
           <Fade in={achievementsSectionVisible} timeout={transitionDuration}>
             <Typography variant="h5" fontWeight="bold" color="#0c4da2" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>

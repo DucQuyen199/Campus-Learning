@@ -7,6 +7,7 @@ import { rootPath } from "../constants"
 import { authenticated, getCookieOptions, redirect, replaceTemplates } from "../http"
 import i18n from "../i18n"
 import { getPasswordMethod, handlePasswordValidation, sanitizeString, escapeHtml } from "../util"
+import axios from 'axios'
 
 // RateLimiter wraps around the limiter library for logins.
 // It allows 2 logins every minute plus 12 logins every hour.
@@ -69,52 +70,41 @@ router.get("/", async (req, res) => {
 })
 
 router.post<{}, string, { password?: string; base?: string } | undefined, { to?: string }>("/", async (req, res) => {
+  const username = sanitizeString(req.body?.username)
   const password = sanitizeString(req.body?.password)
-  const hashedPasswordFromArgs = req.args["hashed-password"]
 
   try {
-    // Check to see if they exceeded their login attempts
+    // Rate limiting for login attempts
     if (!limiter.canTry()) {
       throw new Error(i18n.t("LOGIN_RATE_LIMIT") as string)
+    }
+
+    if (!username) {
+      throw new Error("Username is required")
     }
 
     if (!password) {
       throw new Error(i18n.t("MISS_PASSWORD") as string)
     }
 
-    const passwordMethod = getPasswordMethod(hashedPasswordFromArgs)
-    const { isPasswordValid, hashedPassword } = await handlePasswordValidation({
-      passwordMethod,
-      hashedPasswordFromArgs,
-      passwordFromRequestBody: password,
-      passwordFromArgs: req.args.password,
-    })
-
-    if (isPasswordValid) {
-      // The hash does not add any actual security but we do it for
-      // obfuscation purposes (and as a side effect it handles escaping).
-      res.cookie(CookieKeys.Session, hashedPassword, getCookieOptions(req))
+    // Authenticate against user-service
+    const userServiceUrl = process.env.USER_SERVICE_URL || "http://localhost:5001"
+    const loginResponse = await axios.post(`${userServiceUrl}/api/auth/login`, { username, password })
+    const data = loginResponse.data
+    if (data.success) {
+      // Use returned JWT token as session cookie
+      const token = data.tokens?.accessToken || data.token
+      res.cookie(CookieKeys.Session, token, getCookieOptions(req))
 
       const to = (typeof req.query.to === "string" && req.query.to) || "/"
       return redirect(req, res, to, { to: undefined })
     }
 
-    // Note: successful logins should not count against the RateLimiter
-    // which is why this logic must come after the successful login logic
+    // Remove token for failed login
     limiter.removeToken()
-
-    console.error(
-      "Failed login attempt",
-      JSON.stringify({
-        xForwardedFor: req.headers["x-forwarded-for"],
-        remoteAddress: req.connection.remoteAddress,
-        userAgent: req.headers["user-agent"],
-        timestamp: Math.floor(new Date().getTime() / 1000),
-      }),
-    )
-
-    throw new Error(i18n.t("INCORRECT_PASSWORD") as string)
+    throw new Error(data.error || data.message || "Login failed")
   } catch (error: any) {
+    limiter.removeToken()
     const renderedHtml = await getRoot(req, error)
     res.send(renderedHtml)
   }

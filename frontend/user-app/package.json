@@ -64,7 +64,7 @@
     "@wasmer/wasi": "^0.12.0",
     "@wasmer/wasmfs": "^0.12.0",
     "antd": "^5.24.6",
-    "axios": "^1.8.4",
+    "axios": "^1.11.0",
     "buffer": "^6.0.3",
     "canvas-confetti": "^1.9.3",
     "date-fns": "^3.5.0",

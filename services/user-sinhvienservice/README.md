@@ -1,99 +1,111 @@
-# User Sinh Viên Service
+# Campust Student Service API
 
-## Overview
-This service provides API endpoints for student profile and academic information management. It follows standard Express.js architecture patterns and best practices.
+The **Campust Student Service** provides RESTful endpoints that power the HUBT student mobile/web applications. It handles profile data, academic information, schedules, tuition, course registration and more.
 
-## Architecture
+---
 
-The application follows the MVC (Model-View-Controller) pattern with a clean, modular structure:
+## Table of Contents
+1. [Features](#features)
+2. [Tech-Stack](#tech-stack)
+3. [Requirements](#requirements)
+4. [Setup](#setup)
+5. [Scripts](#scripts)
+6. [Environment Variables](#environment-variables)
+7. [Folder Structure](#folder-structure)
+8. [License](#license)
 
+---
+
+## Features
+• **JWT Authentication** – Secure access tokens with refresh logic.  
+• **Profile & Academic APIs** – Retrieve and update student profile, program and grades.  
+• **Schedule & Exam Registration** – Daily timetable, exam slots & online registration.  
+• **Tuition & Payments** – Tuition fee breakdown, payment history & mock payment gateway.  
+• **Notifications** – Push and pull notifications endpoint.  
+• **Demo Mode** – Service starts with mock data when SQL Server is unreachable.
+
+## Tech-Stack
+* **Node.js 18** + **Express 4**  
+* **MSSQL** via `mssql` driver & connection pool  
+* **dotenv**, **helmet**, **cors**, **compression**, **morgan**  
+* **express-validator** for request validation  
+* **jsonwebtoken** for auth  
+
+## Requirements
+| Software | Version |
+| -------- | ------- |
+| Node.js  | >= 16 |
+| SQL Server | 2017+ |
+
+## Setup
+```bash
+# 1. Clone repository
+$ git clone https://github.com/your-org/campust.git
+$ cd campust/services/user-sinhvienservice
+
+# 2. Install dependencies
+$ npm install
+
+# 3. Configure environment variables
+$ cp .env.example .env
+$ nano .env
+
+# 4. Run database migrations / import sample data (optional)
+$ sqlcmd -S localhost -i datasinhvien.sql
+
+# 5. Start the server
+$ npm run dev   # nodemon
 ```
-src/
-├── config/           # Configuration settings
-│   ├── app.js        # App configuration
-│   └── database.js   # Database configuration
-├── controllers/      # API route handlers
-│   ├── profileController.js
-│   └── academicController.js
-├── middleware/       # Express middleware
-│   ├── auth.js       # Authentication middleware
-│   └── errorHandler.js # Error handling middleware
-├── models/           # Data models with SQL queries
-│   ├── profile.js
-│   └── academic.js
-├── routes/           # API route definitions
-│   ├── profileRoutes.js
-│   └── academicRoutes.js
-├── utils/            # Utility functions
-├── app.js            # Express app setup
-└── server.js         # Server entry point
+The API will be available on `http://localhost:5008/api` by default.
+
+## Scripts
+Script | Description
+------ | -----------
+`npm run dev` | Start server with **nodemon** & demo mode toggle
+`npm start` | Start server in production mode
+`npm test` | Placeholder for test runner
+`npm run lint` | Run ESLint
+
+## Environment Variables
+```
+# Server
+PORT=5008
+NODE_ENV=development
+
+# Database
+DB_USER=sa
+DB_PASSWORD=YourStrongPassword!
+DB_SERVER=localhost
+DB_NAME=campushubt
+DB_ENCRYPT=false
+
+# Auth
+JWT_SECRET=SuperSecretJWTKey
+JWT_EXPIRES_IN=1d
+REFRESH_TOKEN_EXPIRES_IN=30d
+
+# CORS
+CORS_ORIGIN=http://localhost:3000
+
+# Misc
+DEMO_MODE=false
+LOG_LEVEL=info
 ```
 
-## API Endpoints
-
-### Profile API
-- `GET /api/profile/:userId` - Get student profile
-- `GET /api/profile/:userId/academic` - Get student academic information
-- `GET /api/profile/:userId/metrics` - Get student metrics
-- `PUT /api/profile/:userId` - Update student profile
-- `GET /api/profile/:userId/updates` - Get profile update history
-
-### Academic API
-- `GET /api/academic/program/:userId` - Get student's academic program details
-- `GET /api/academic/courses/:programId` - Get student's courses in program
-- `GET /api/academic/grades/:userId` - Get student's academic results (grades)
-- `GET /api/academic/conduct/:userId` - Get student's conduct scores
-- `GET /api/academic/warnings/:userId` - Get student's academic warnings
-- `GET /api/academic/metrics/:userId` - Get student's academic metrics
-- `GET /api/academic/registered-courses/:userId` - Get student's registered courses
-
-## Getting Started
-
-### Prerequisites
-- Node.js 14.x or higher
-- npm or yarn
-- SQL Server instance
-
-### Installation
-1. Clone the repository
-2. Create a `.env` file in the root directory with the following variables:
-   ```
-   PORT=5008
-   NODE_ENV=development
-   DB_USER=sa
-   DB_PASSWORD=your_password
-   DB_SERVER=localhost
-   DB_NAME=campushubt
-   JWT_SECRET=your-secret-key
-   ```
-3. Install dependencies:
-   ```
-   npm install
-   ```
-
-### Running the application
+## Folder Structure
 ```
-npm start        # For production
-npm run dev      # For development with hot reload
+user-sinhvienservice/
+├── src/
+│   ├── config/        # app.js & database.js
+│   ├── controllers/   # Business logic
+│   ├── middleware/    # Auth & error handling
+│   ├── models/        # SQL queries
+│   ├── routes/        # Express routers
+│   ├── utils/
+│   └── app.js         # Express app setup
+├── index.js           # HTTP server wrapper
+└── run.sh             # Helper script for dockerised run
 ```
-
-Or use the convenient script:
-```
-./run.sh
-```
-
-## Error Handling
-The application has centralized error handling through the errorHandler middleware. All controllers use try/catch blocks and pass errors to the next middleware.
-
-## Authentication
-JWT-based authentication is implemented through the auth middleware. To access protected routes, include a valid JWT token in the Authorization header:
-
-```
-Authorization: Bearer <token>
-```
-
-## Demo Mode
-If the SQL Server connection fails, the application falls back to a "demo mode" that provides mock data for essential endpoints.
 
 ## License
-This project is proprietary and confidential. 
+Distributed under the **MIT** License. 

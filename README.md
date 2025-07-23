@@ -1,11 +1,10 @@
-# Campus - Learning Management System
+# Campus T - Learning Management System
 
 <div align="center">
 
 [Overview](#overview) | 
 [Technology Stack](#technology-stack) | 
-[Frontend Applications](#frontend-applications) | 
-[Backend Services](#backend-services) | 
+[Project Structure](#project-structure) | 
 [Setup & Installation](#setup-and-installation) | 
 [Features](#features) | 
 [Development](#development-guidelines) | 
@@ -38,246 +37,31 @@ Campus T is a comprehensive learning management system designed to facilitate on
 
 ---
 
-## Frontend Applications
+## Project Structure
 
-<div align="center">
+### Frontend Applications
 
-[User App](#user-app) | 
-[Student App](#user-sinhvienapp) | 
-[Teacher App](#teacher-app) | 
-[Admin App](#admin-app) | 
-[Student Admin App](#admin-sinhvienapp)
+The project includes multiple specialized frontend applications:
 
-</div>
+- [User App](frontend/user-app/README.md) - Main application for regular users/students
+- [User SinhvienApp](frontend/user-sinhvienapp/README.md) - Specialized student application for Vietnamese university students
+- [Teacher App](frontend/teacher-app/README.md) - Application for teachers/instructors
+- [Admin App](frontend/admin-app/README.md) - Administration interface for system management
+- [Admin SinhvienApp](frontend/admin-sinhvienapp/README.md) - Specialized administration interface for student management
 
-### User App
+### Backend Services
 
-**Main application for regular users/students**
+The backend architecture consists of several specialized services:
 
-- **Features**:
-  - Course browsing and learning
-  - Progress tracking
-  - Social features (posts, stories, friends)
-  - Payments integration
-  - Event participation
-  - AI chat assistance
-  - Competitions and coding challenges
-  - Exams and assessments
-  - Roadmaps for learning paths
+- [User Service](services/user-service/README.md) - Core services for regular users/students
+- [User Sinhvienservice](services/user-sinhvienservice/README.md) - Specialized services for Vietnamese university students
+- [Teacher Service](services/teacher-service/README.md) - Services supporting teacher functionality
+- [Admin Service](services/admin-service/README.md) - Services for administrative functions
+- [Admin Sinhvienservice](services/admin-sinhvienservice/README.md) - Specialized services for student administration
+- [Judge0 Master](services/judge0-master/README.md) - Code execution and evaluation service
+- [Code Server](services/code-server/README.md) - In-browser IDE for coding exercises
 
-- **Key Pages**:
-  - Home, Courses, CourseDetail, CourseLearning
-  - Profile, Friends, Posts
-  - Payments, PaymentResult
-  - Exams, Competitions
-  - Chat, AIChat
-  - Notifications, Ranking
-  - Settings, Support
-
-[Back to Frontend Applications](#frontend-applications)
-
----
-
-### User Sinhvienapp
-
-**Specialized student application for Vietnamese university students**
-
-- **Features**:
-  - Academic record management
-  - Schedule viewing
-  - Tuition payment
-  - Registration for courses and exams
-  - Academic results tracking
-  - Student services
-
-- **Key Pages**:
-  - Dashboard
-  - Academic
-  - Schedule
-  - Tuition
-  - Results
-  - Registration
-  - Services
-
-[Back to Frontend Applications](#frontend-applications)
-
----
-
-### Teacher App
-
-**Application for teachers/instructors**
-
-- **Features**:
-  - Course creation and management
-  - Module and lesson editing
-  - Student performance tracking
-  - Assignment management and grading
-  - Dashboard with analytics
-  - Notifications system
-
-- **Key Pages**:
-  - DashboardPage
-  - CoursesPage, CourseDetailPage, CourseEditPage
-  - ModuleDetailPage
-  - LessonDetailPage, LessonEditPage
-  - AssignmentsPage, AssignmentDetailPage
-  - StudentsPage, StudentDetailPage
-  - ProfilePage
-
-[Back to Frontend Applications](#frontend-applications)
-
----
-
-### Admin App
-
-**Administration interface for system management**
-
-- **Features**:
-  - User management across all roles
-  - Course approvals and moderation
-  - System configuration
-  - Reporting and analytics
-
-[Back to Frontend Applications](#frontend-applications)
-
----
-
-### Admin Sinhvienapp
-
-**Specialized administration interface for student management**
-
-- **Features**:
-  - Student record management
-  - Academic program administration
-  - Specialized reporting for educational institutions
-
-[Back to Frontend Applications](#frontend-applications) | [Back to top](#campus-t---learning-management-system)
-
----
-
-## Backend Services
-
-<div align="center">
-
-[User Service](#user-service) | 
-[Student Service](#user-sinhvienservice) | 
-[Teacher Service](#teacher-service) | 
-[Admin Service](#admin-service) | 
-[Student Admin Service](#admin-sinhvienservice) | 
-[Judge0](#judge0-master) | 
-[Code Server](#code-server)
-
-</div>
-
-### User Service
-
-**Core services for regular users/students**
-
-- **API Endpoints**:
-  - Authentication (login, register, password reset)
-  - Course browsing and enrollment
-  - Lesson progress tracking
-  - Payment processing (VNPay, PayPal)
-  - Social features (posts, friends, stories)
-  - Notifications
-  - Chat functionality
-
-- **Key Controllers**:
-  - authController - User authentication
-  - courseController - Course management and access
-  - lessonController - Lesson content and progress
-  - paymentController - Payment processing
-  - socialController - Social interactions
-
-[Back to Backend Services](#backend-services)
-
----
-
-### User Sinhvienservice
-
-**Specialized services for Vietnamese university students**
-
-- **Features**:
-  - Academic record management
-  - Course registration
-  - Grade tracking
-  - Tuition payment processing
-  - Student information management
-
-[Back to Backend Services](#backend-services)
-
----
-
-### Teacher Service
-
-**Services supporting teacher functionality**
-
-- **Features**:
-  - Course and content management
-  - Assignment creation and grading
-  - Student performance analytics
-  - Communication with students
-
-[Back to Backend Services](#backend-services)
-
----
-
-### Admin Service
-
-**Services for administrative functions**
-
-- **Features**:
-  - User account management
-  - System configuration
-  - Content moderation
-  - Analytics and reporting
-
-[Back to Backend Services](#backend-services)
-
----
-
-### Admin Sinhvienservice
-
-**Specialized services for student administration**
-
-- **Features**:
-  - Academic program management
-  - Student record administration
-  - Reporting for educational institutions
-
-[Back to Backend Services](#backend-services)
-
----
-
-### Judge0 Master
-
-**Code execution and evaluation service**
-
-- **Features**:
-  - Secure code execution in isolated environments
-  - Support for multiple programming languages
-  - Test case validation
-  - Performance analysis for code submissions
-  - Integration with coding challenges and assignments
-  - Configuration via judge0.conf
-  - Dockerized for security and scalability
-
-[Back to Backend Services](#backend-services)
-
----
-
-### Code Server
-
-**In-browser IDE for coding exercises**
-
-- **Features**:
-  - VS Code interface in the browser
-  - Syntax highlighting
-  - Extensions support
-  - Integration with judge0 for code execution
-  - Real-time collaboration features
-
-[Back to Backend Services](#backend-services) | [Back to top](#campus-t---learning-management-system)
+[Back to top](#campus-t---learning-management-system)
 
 ---
 
@@ -372,152 +156,21 @@ Campus T is a comprehensive learning management system designed to facilitate on
 
 ## Features
 
-<div align="center">
+The Campus T platform offers numerous features across its various applications and services:
 
-[Course Management](#course-management-system) | 
-[Authentication](#user-authentication-and-authorization) | 
-[Payment](#payment-integration) | 
-[Preview Lessons](#preview-lessons) | 
-[Code Execution](#code-execution-and-ide-integration) | 
-[Social Features](#social-features) | 
-[Competition System](#competition-system) | 
-[Educational Support](#educational-support)
+- **Course Management System**: Create, organize, and deliver educational content
+- **User Authentication**: Secure JWT-based authentication and role-based access control
+- **Payment Integration**: Support for multiple payment gateways
+- **Preview Lessons**: Allow unregistered users to preview course content
+- **Code Execution**: Secure Docker-based code execution in various programming languages
+- **In-browser IDE**: Integrated development environment for coding exercises
+- **Social Features**: User profiles, posts, and connections
+- **Competition System**: Coding competitions with timed challenges
+- **Educational Support**: Learning roadmaps and AI-assisted learning
 
-</div>
+For more detailed information about specific features, please refer to the READMEs of individual applications and services.
 
-### Course Management System
-
-- Course creation and publishing workflow
-- Module and lesson organization
-- Content types: video, text, quiz, coding exercises
-- Preview lessons for marketing
-- Progress tracking
-- Enrollment and payment processing
-
-[Back to Features](#features)
-
----
-
-### User Authentication and Authorization
-
-- JWT-based authentication
-- Role-based access control
-- Password reset functionality
-- Social login options
-
-[Back to Features](#features)
-
----
-
-### Payment Integration
-
-- Multiple payment gateways:
-  - VNPay integration for Vietnamese users
-  - PayPal for international payments
-- Transaction history tracking
-- Payment verification
-- Course enrollment activation
-
-[Back to Features](#features)
-
----
-
-### Preview Lessons
-
-The system supports preview functionality allowing unregistered users to access the first 3 lessons of each module to evaluate course content before registration.
-
-#### Preview Implementation Details:
-
-1. **Frontend Changes**:
-   - Updated `CourseLearning.jsx` to display preview mode and notifications
-   - Added API `getCourseContent` to handle preview lessons
-   - Implemented visual indicators and CTA buttons for course registration
-   - Added preview status checks in the lesson renderer
-
-2. **Backend Changes**:
-   - Updated `getCourseContent` controller to allow unregistered users to access preview lessons
-   - Modified authentication middleware to support preview mode
-   - Created SQL script (`update_preview_lessons.sql`) to update preview status for the first 3 lessons of each module
-   - Added preview status field to lesson schema
-
-#### Applying SQL Script:
-
-1. Connect to SQL Server and select the application database:
-   ```sql
-   USE CampusTDatabase;
-   ```
-
-2. Run the script in `update_preview_lessons.sql`:
-   ```sql
-   -- Example of what the script contains
-   UPDATE Lessons
-   SET IsPreview = 1
-   WHERE LessonOrder <= 3
-   AND ModuleID IN (SELECT ID FROM Modules);
-   ```
-
-3. Verify successful updates through the SELECT statement included in the script:
-   ```sql
-   SELECT ModuleID, COUNT(ID) as PreviewLessons
-   FROM Lessons
-   WHERE IsPreview = 1
-   GROUP BY ModuleID;
-   ```
-
-#### Additional Notes:
-
-- Unregistered users can view the first 3 lessons of each module
-- Clear notifications indicate preview mode with course registration buttons
-- Preview lessons are marked with "Xem trước" (Preview) labels for easy identification
-- Access restrictions are enforced for non-preview content
-
-[Back to Features](#features)
-
----
-
-### Code Execution and IDE Integration
-
-- In-browser code execution with Judge0
-- Support for multiple programming languages
-- Automated test case validation
-- Integrated VS Code environment
-- Code sharing and collaboration
-
-[Back to Features](#features)
-
----
-
-### Social Features
-
-- User profiles and connections
-- Posts and stories sharing
-- Friend management
-- Chat functionality
-- Notifications system
-
-[Back to Features](#features)
-
----
-
-### Competition System
-
-- Coding competitions with timed challenges
-- Multiple problem difficulties
-- Real-time leaderboard
-- Submission history and analysis
-
-[Back to Features](#features)
-
----
-
-### Educational Support
-
-- Learning roadmaps
-- AI-assisted learning via chat interface
-- Progress tracking and analytics
-- Exam preparation and practice
-
-[Back to Features](#features) | [Back to top](#campus-t---learning-management-system)
+[Back to top](#campus-t---learning-management-system)
 
 ---
 

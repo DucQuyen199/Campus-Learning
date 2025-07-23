@@ -1,6 +1,6 @@
-# Campust User Service with Docker-based Code Execution
+# CampusLearning - User Service
 
-This service provides authentication, user management, course management, and secure code execution capabilities for the Campust learning platform.
+This service provides authentication, user management, course management, and secure code execution capabilities for the CampusLearning platform.
 
 ## Features
 
@@ -8,6 +8,7 @@ This service provides authentication, user management, course management, and se
 - **Course Management**: Enroll, access, and complete courses
 - **Secure Code Execution**: Run user code inside isolated Docker containers
 - **Multiple Language Support**: Execute code in JavaScript, Python, C++, Java, and C#
+- **Payment Integration**: Process payments through multiple gateways
 
 ## Requirements
 
@@ -168,7 +169,7 @@ Environment variables for Docker code execution are set in the `.env` file:
 
 ```
 ENABLE_DOCKER_CODE_EXECUTION=true   # Enable/disable Docker code execution
-DOCKER_CODE_TEMP_DIR=/tmp/campust-code-execution   # Temp directory for code files
+DOCKER_CODE_TEMP_DIR=/tmp/campuslearning-code-execution   # Temp directory for code files
 DOCKER_MAX_CONTAINERS=10   # Maximum number of simultaneous containers
 DOCKER_CONTAINER_TIMEOUT=30000   # Container execution timeout in milliseconds
 DOCKER_MEMORY_LIMIT_MB=200   # Memory limit per container
@@ -257,7 +258,7 @@ To configure VietQR, set the following environment variables:
 ```
 VIETQR_ACCOUNT_NUMBER=123456789012  # Your bank account number
 VIETQR_BANK_NAME=TPBank             # Your bank name
-VIETQR_ACCOUNT_NAME=CAMPUST EDUCATION    # Account holder name
+VIETQR_ACCOUNT_NAME=CAMPUSLEARNING EDUCATION    # Account holder name
 VIETQR_BANK_CODE=TPB                # Bank code
 ```
 

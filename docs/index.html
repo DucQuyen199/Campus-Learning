@@ -12,7 +12,10 @@
     nav button.active { background:#fff; border-bottom:3px solid #2e5aac; }
     section { display:none; padding:2rem; }
     section.active { display:block; }
-    ul { line-height:1.8; }
+    ul { list-style:none; padding:0; margin:0; display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); }
+    .card { background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); transition:transform .15s ease, box-shadow .15s ease; }
+    .card:hover { transform:translateY(-3px); box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+    .card h4 { margin-top:0; color:#2e5aac; font-size:1.1rem; }
     a { color:#1a73e8; text-decoration:none; }
     a:hover { text-decoration:underline; }
   </style>
@@ -31,7 +34,36 @@
 <main>
   <section id="overviewSection" class="active">
     <h2>Platform Overview</h2>
-    <p>CampusLearning is an open-source learning management ecosystem connecting students, teachers and administrators through specialized apps and micro-services.</p>
+    <p>CampusLearning is a modular learning-management ecosystem composed of several Single-Page Applications (SPAs) and micro-services. The table below gives you a quick taste of what each piece does.</p>
+
+    <h3>Frontend Applications</h3>
+    <ul>
+      <li class="card"><h4>User App</h4><p>Student interface with AI Chat, Monaco editor, competitions and real-time notifications.</p></li>
+      <li class="card"><h4>Student Web App</h4><p>HUBT-specific portal: dashboard, course registration, grade tracking & timetable.</p></li>
+      <li class="card"><h4>Teacher App</h4><p>Manage courses, publish lessons, build assignments, live gradebook & analytics.</p></li>
+      <li class="card"><h4>Admin App</h4><p>System configuration, user/role management, site-wide monitoring.</p></li>
+      <li class="card"><h4>Student Admin App</h4><p>Deep student record management, academic catalogue & finance dashboards with CSV import/export.</p></li>
+    </ul>
+
+    <h3>Backend Services</h3>
+    <ul>
+      <li class="card"><h4>User Service</h4><p>Auth, profiles, courses, competitions & websocket notifications.</p></li>
+      <li class="card"><h4>Student Service</h4><p>Academic data, schedules, tuition & exam-registration APIs (with demo fallback).</p></li>
+      <li class="card"><h4>Teacher Service</h4><p>Course CRUD, assignments, grading endpoints. JWT-protected.</p></li>
+      <li class="card"><h4>Admin Service</h4><p>System-wide admin APIs: users, courses, events, reports, settings.</p></li>
+      <li class="card"><h4>Student Admin Service</h4><p>Student CRUD, academic catalogue, finance, service desk.</p></li>
+      <li class="card"><h4>Judge0 Master</h4><p>Containerised code runner for 50+ languages.</p></li>
+      <li class="card"><h4>Code-Server</h4><p>Browser-based VS Code for interactive labs.</p></li>
+    </ul>
+
+    <h3>Core Platform Capabilities</h3>
+    <ul>
+      <li class="card"><h4>Real-Time Collaboration</h4><p>Socket.IO powers live chats, notifications and coding sessions.</p></li>
+      <li class="card"><h4>AI Assistance</h4><p>Gemini API integration provides contextual coding help & study advice.</p></li>
+      <li class="card"><h4>Secure Auth</h4><p>JWT + refresh tokens, role-based access and granular middleware.</p></li>
+      <li class="card"><h4>Containerised Execution</h4><p>Judge0 + Docker ensure safe, consistent multi-language code runs.</p></li>
+      <li class="card"><h4>Scalable Architecture</h4><p>Micro-services with independent deploy pipelines & health checks.</p></li>
+    </ul>
   </section>
 
   <section id="readmeSection">

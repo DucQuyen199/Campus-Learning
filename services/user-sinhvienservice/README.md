@@ -1,6 +1,6 @@
-# Campust Student Service API
+# CampusLearning Student Service API
 
-The **Campust Student Service** provides RESTful endpoints that power the HUBT student mobile/web applications. It handles profile data, academic information, schedules, tuition, course registration and more.
+The **CampusLearning Student Service** provides RESTful endpoints that power the HUBT student mobile/web applications. It handles profile data, academic information, schedules, tuition, course registration and more.
 
 ---
 
@@ -40,8 +40,8 @@ The **Campust Student Service** provides RESTful endpoints that power the HUBT s
 ## Setup
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/services/user-sinhvienservice
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/services/user-sinhvienservice
 
 # 2. Install dependencies
 $ npm install

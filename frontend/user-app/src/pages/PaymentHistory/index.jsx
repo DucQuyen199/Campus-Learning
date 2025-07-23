@@ -314,7 +314,7 @@ const PaymentHistory = () => {
     }
 
     // Lấy thông tin người dùng từ context
-    const userName = currentUser?.FullName || currentUser?.fullName || currentUser?.name || 'Người dùng Campust Learning';
+    const userName = currentUser?.FullName || currentUser?.fullName || currentUser?.name || 'Người dùng CampusLearning Learning';
     const userEmail = currentUser?.Email || currentUser?.email || '';
     const userId = currentUser?.UserID || currentUser?.userId || currentUser?.id || '';
 
@@ -327,7 +327,7 @@ const PaymentHistory = () => {
       <html lang="vi">
       <head>
         <meta charset="UTF-8">
-        <title>Lịch sử thanh toán thành công - Campust Learning</title>
+        <title>Lịch sử thanh toán thành công - CampusLearning Learning</title>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -383,7 +383,7 @@ const PaymentHistory = () => {
             
             /* Text watermark on every page */
             .page::after {
-              content: "Campust Learning";
+              content: "CampusLearning Learning";
               position: fixed;
               top: 50%;
               left: 50%;
@@ -602,7 +602,7 @@ const PaymentHistory = () => {
         <div class="page">
           <div class="container">
             <div class="header">
-              <div class="logo">Campust Learning</div>
+              <div class="logo">CampusLearning Learning</div>
               <h1>Lịch sử thanh toán thành công</h1>
               <div class="print-date">Ngày in: ${new Date().toLocaleDateString('vi-VN', {day: '2-digit', month: '2-digit', year: 'numeric'})} lúc ${new Date().toLocaleTimeString('vi-VN', {hour: '2-digit', minute: '2-digit'})}</div>
             </div>
@@ -663,7 +663,7 @@ const PaymentHistory = () => {
             
             <div class="notes">
               <h3>Ghi chú:</h3>
-              <p>Tài liệu này chỉ có giá trị thông tin và không có giá trị pháp lý. Vui lòng liên hệ với bộ phận hỗ trợ khách hàng của Campust Learning nếu cần thêm thông tin hoặc xác nhận thanh toán.</p>
+              <p>Tài liệu này chỉ có giá trị thông tin và không có giá trị pháp lý. Vui lòng liên hệ với bộ phận hỗ trợ khách hàng của CampusLearning Learning nếu cần thêm thông tin hoặc xác nhận thanh toán.</p>
             </div>
             
             <div class="stamp">
@@ -671,8 +671,8 @@ const PaymentHistory = () => {
             </div>
             
             <div class="footer">
-              <p>Campust Learning - Nền tảng học trực tuyến hàng đầu</p>
-              <p>Mọi thắc mắc xin liên hệ: support@campust.com | Hotline: 0123456789</p>
+              <p>CampusLearning Learning - Nền tảng học trực tuyến hàng đầu</p>
+              <p>Mọi thắc mắc xin liên hệ: support@CampusLearning.com | Hotline: 0123456789</p>
             </div>
           </div>
         </div>
@@ -695,7 +695,7 @@ const PaymentHistory = () => {
                 'white-space: nowrap;' +
                 'z-index: -1;' +
                 'pointer-events: none;';
-              watermarkText.innerText = 'Campust Learning';
+              watermarkText.innerText = 'CampusLearning Learning';
               document.body.appendChild(watermarkText);
               
               const watermarkStripes = document.createElement('div');
@@ -731,7 +731,7 @@ const PaymentHistory = () => {
                 'white-space: nowrap;' +
                 'z-index: 1;' +
                 'pointer-events: none;';
-              blueWatermark.innerText = 'Tài liệu của Campust Learning - www.campust.com';
+              blueWatermark.innerText = 'Tài liệu của CampusLearning Learning - www.CampusLearning.com';
               document.body.appendChild(blueWatermark);
             };
             

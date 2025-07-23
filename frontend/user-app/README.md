@@ -1,6 +1,6 @@
-# Campust User Application
+# CampusLearning User Application
 
-The **Campust User Application** is the cross-platform (Web, Desktop & Mobile) client for the Campust learning ecosystem.  
+The **CampusLearning User Application** is the cross-platform (Web, Desktop & Mobile) client for the CampusLearning learning ecosystem.  
 It is built with modern web technologies (React + Vite + TailwindCSS) and packaged with Electron (desktop) & Capacitor (mobile) to deliver a native-like experience everywhere.
 
 ---
@@ -42,8 +42,8 @@ It is built with modern web technologies (React + Vite + TailwindCSS) and packag
 ### Installation
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/frontend/user-app
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/frontend/user-app
 
 # 2. Install dependencies
 $ npm install

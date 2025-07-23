@@ -775,15 +775,15 @@ exports.setup2Fa = async (req, res) => {
       secretBase32 = row.TwoFASecret;
       otpauthUrl = speakeasy.otpauthURL({
         secret: secretBase32,
-        label: `Campust (${email})`,
-        issuer: 'Campust',
+        label: `CampusLearning (${email})`,
+        issuer: 'CampusLearning',
         encoding: 'base32'
       });
     } else {
       // Generate new secret
       const secretObj = speakeasy.generateSecret({
-        name: `Campust (${email})`,
-        issuer: 'Campust',
+        name: `CampusLearning (${email})`,
+        issuer: 'CampusLearning',
         length: 20
       });
       secretBase32 = secretObj.base32;

@@ -69,7 +69,7 @@ const LoginForm = () => {
               </div>
             </div>
             <span className="mt-2 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-800">
-              campust
+              CampusLearning
             </span>
           </div>
         </div>

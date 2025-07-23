@@ -1,6 +1,6 @@
-# Campust Teacher Service API
+# CampusLearning Teacher Service API
 
-The **Campust Teacher Service** is a Node.js/Express REST API that enables instructors to manage courses, assignments, and student data within the Campust learning ecosystem.
+The **CampusLearning Teacher Service** is a Node.js/Express REST API that enables instructors to manage courses, assignments, and student data within the CampusLearning learning ecosystem.
 
 ---
 
@@ -40,8 +40,8 @@ The **Campust Teacher Service** is a Node.js/Express REST API that enables instr
 ## Setup
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/services/teacher-service
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/services/teacher-service
 
 # 2. Install dependencies
 $ npm install

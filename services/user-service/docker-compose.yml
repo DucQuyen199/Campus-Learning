@@ -20,7 +20,7 @@ services:
       - code-execution-service
     restart: unless-stopped
     networks:
-      - campust-network
+      - CampusLearning-network
 
   db:
     image: mcr.microsoft.com/mssql/server:2019-latest
@@ -33,7 +33,7 @@ services:
     volumes:
       - mssql-data:/var/opt/mssql
     networks:
-      - campust-network
+      - CampusLearning-network
 
   # Code execution sandbox service
   code-execution-service:
@@ -58,7 +58,7 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - campust-network
+      - CampusLearning-network
       
   # Docker containers for code execution
   # Note: The user-service will create docker containers on demand
@@ -79,10 +79,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - campust-network
+      - CampusLearning-network
 
 networks:
-  campust-network:
+  CampusLearning-network:
     driver: bridge
 
 volumes:

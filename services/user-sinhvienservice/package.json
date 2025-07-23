@@ -14,7 +14,7 @@
     "api",
     "management"
   ],
-  "author": "CampusT Team",
+  "author": "CampusLearning Team",
   "license": "ISC",
   "dependencies": {
     "body-parser": "^1.20.0",

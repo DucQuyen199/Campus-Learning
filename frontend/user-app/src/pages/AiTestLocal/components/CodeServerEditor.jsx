@@ -234,9 +234,9 @@ const CodeServerEditor = ({ code, language, onChange }) => {
     if (!iframeRef.current || !isEditorReady) return;
     
     try {
-      // Create a CAMPUST examples directory
-      await createFolder(iframeRef.current, 'campust-examples');
-      console.log('Created campust-examples folder');
+      // Create a CampusLearning examples directory
+      await createFolder(iframeRef.current, 'CampusLearning-examples');
+      console.log('Created CampusLearning-examples folder');
       
       // Create example file types with syntax highlighting
       const fileContents = {
@@ -245,7 +245,7 @@ const CodeServerEditor = ({ code, language, onChange }) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CAMPUST Demo Page</title>
+  <title>CampusLearning Demo Page</title>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -267,20 +267,20 @@ const CodeServerEditor = ({ code, language, onChange }) => {
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với CAMPUST</h1>
-    <p>Đây là một ví dụ trang HTML đơn giản được tạo bởi CAMPUST Code Editor.</p>
+    <h1>Chào mừng đến với CampusLearning</h1>
+    <p>Đây là một ví dụ trang HTML đơn giản được tạo bởi CampusLearning Code Editor.</p>
     <p>Bạn có thể chỉnh sửa tệp này để học HTML và CSS.</p>
   </div>
 </body>
 </html>`,
         'js-example.js': `// Ví dụ JavaScript
-class CAMPUSTDemo {
+class CampusLearningDemo {
   constructor(name) {
     this.name = name;
   }
   
   sayHello() {
-    return \`Xin chào, tôi là \${this.name} từ CAMPUST!\`;
+    return \`Xin chào, tôi là \${this.name} từ CampusLearning!\`;
   }
   
   createList(items) {
@@ -291,7 +291,7 @@ class CAMPUSTDemo {
 }
 
 // Tạo đối tượng demo mới
-const demo = new CAMPUSTDemo('Học viên');
+const demo = new CampusLearningDemo('Học viên');
 console.log(demo.sayHello());
 
 // Tạo danh sách
@@ -300,18 +300,18 @@ const formattedItems = demo.createList(items);
 console.log('Các khóa học:', formattedItems);`,
         'python-example.py': `# Ví dụ Python
 
-class CAMPUSTDemo:
+class CampusLearningDemo:
     def __init__(self, name):
         self.name = name
     
     def say_hello(self):
-        return f"Xin chào, tôi là {self.name} từ CAMPUST!"
+        return f"Xin chào, tôi là {self.name} từ CampusLearning!"
     
     def create_list(self, items):
         return [f"Item {i+1}: {item}" for i, item in enumerate(items)]
 
 # Tạo đối tượng demo mới
-demo = CAMPUSTDemo("Học viên")
+demo = CampusLearningDemo("Học viên")
 print(demo.say_hello())
 
 # Tạo danh sách
@@ -324,18 +324,18 @@ for item in formatted_items:
       
       // Create each file
       for (const [filename, content] of Object.entries(fileContents)) {
-        const filePath = `campust-examples/${filename}`;
+        const filePath = `CampusLearning-examples/${filename}`;
         const result = await createFile(iframeRef.current, filePath, content);
         console.log(`Created file: ${filePath}`, result);
       }
       
       // Create a README.md file in the examples folder
-      await createFile(iframeRef.current, 'campust-examples/README.md', 
-        `# CAMPUST Code Examples
+      await createFile(iframeRef.current, 'CampusLearning-examples/README.md', 
+        `# CampusLearning Code Examples
         
 ## Hướng dẫn sử dụng
 
-Thư mục này chứa các ví dụ mã nguồn để giúp bạn làm quen với trình soạn thảo code CAMPUST:
+Thư mục này chứa các ví dụ mã nguồn để giúp bạn làm quen với trình soạn thảo code CampusLearning:
 
 1. **html-example.html** - Ví dụ về cú pháp HTML và CSS cơ bản
 2. **js-example.js** - Ví dụ về JavaScript với class và các hàm
@@ -461,7 +461,7 @@ Thư mục này chứa các ví dụ mã nguồn để giúp bạn làm quen v�
         ref={iframeRef}
         src={`${serverUrl}/`}
         className="w-full h-full"
-        title="CAMPUST Code Editor"
+        title="CampusLearning Code Editor"
         onLoad={handleIframeLoad}
         style={{ border: 'none' }}
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"

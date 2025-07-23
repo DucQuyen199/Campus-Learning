@@ -630,13 +630,13 @@ const CoursePrint = () => {
       
       <div className="print-content">
         <div className="document-header">
-          <div className="logo">Campust Learning</div>
+          <div className="logo">CampusLearning Learning</div>
           <div className="document-title">Chi tiết khóa học đã đăng ký</div>
           <div className="print-date">Ngày in: {formatDate(new Date())}</div>
         </div>
         
         {/* Watermark */}
-        <div className="watermark">Campust Learning</div>
+        <div className="watermark">CampusLearning Learning</div>
         
         <div className="two-column-layout">
           {/* Left Column */}
@@ -792,8 +792,8 @@ const CoursePrint = () => {
         </div>
         
         <div className="document-footer">
-          <div className="footer-text">Campust Learning - Nền tảng học trực tuyến hàng đầu</div>
-          <div className="contact-info">Mọi thắc mắc xin liên hệ: support@campust.com | Hotline: 0123456789</div>
+          <div className="footer-text">CampusLearning Learning - Nền tảng học trực tuyến hàng đầu</div>
+          <div className="contact-info">Mọi thắc mắc xin liên hệ: support@CampusLearning.com | Hotline: 0123456789</div>
         </div>
       </div>
       

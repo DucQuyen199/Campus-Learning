@@ -21,9 +21,9 @@ const Archive = () => {
   const [archivedItems, setArchivedItems] = useState([
     {
       id: 'repo-1',
-      name: 'campust-web',
+      name: 'CampusLearning-web',
       type: 'repository',
-      description: 'Main web application for Campust',
+      description: 'Main web application for CampusLearning',
       archivedAt: new Date(2023, 8, 15),
       lastActive: new Date(2023, 7, 30),
       tags: ['react', 'javascript', 'web']
@@ -50,7 +50,7 @@ const Archive = () => {
       id: 'doc-1',
       name: 'API Documentation',
       type: 'document',
-      description: 'Documentation for the Campust API',
+      description: 'Documentation for the CampusLearning API',
       archivedAt: new Date(2023, 10, 2),
       lastActive: new Date(2023, 9, 25),
       tags: ['api', 'documentation']

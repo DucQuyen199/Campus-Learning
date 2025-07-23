@@ -183,7 +183,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
         
         {/* Course provider badge - positioned on top of the image */}
         <div className="absolute top-0 left-0 bg-black/60 backdrop-blur-sm text-white text-xs px-2 py-1.5">
-          CampusT
+          CampusLearning
         </div>
         
         {/* Badge Overlay */}

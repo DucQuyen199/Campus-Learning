@@ -1,6 +1,6 @@
-# Campust Student Admin Portal
+# CampusLearning Student Admin Portal
 
-The **Campust Student Admin Portal** allows university administrators and staff to manage student records, academic programs, semesters and institutional reports. It is developed with **React** and **Material-UI**, offering an intuitive interface for high-volume data operations.
+The **CampusLearning Student Admin Portal** allows university administrators and staff to manage student records, academic programs, semesters and institutional reports. It is developed with **React** and **Material-UI**, offering an intuitive interface for high-volume data operations.
 
 ---
 
@@ -39,8 +39,8 @@ The **Campust Student Admin Portal** allows university administrators and staff 
 ### Installation
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/frontend/admin-sinhvienapp
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/frontend/admin-sinhvienapp
 
 # 2. Install dependencies
 $ npm install  # or yarn

@@ -104,7 +104,7 @@ const AIChat = () => {
         // Create a temporary chat session (not saved to history yet)
         setMessages([{ 
           role: 'assistant',
-          content: 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusT. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.' 
+          content: 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusLearning. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.' 
         }]);
         setIsTemporaryChat(true);
       } catch (err) {
@@ -205,7 +205,7 @@ const AIChat = () => {
   const createNewChat = () => {
     setMessages([{
       role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusT. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.'
+      content: 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusLearning. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.'
     }]);
     setActiveConversationId(null);
     setIsTemporaryChat(true);
@@ -370,7 +370,7 @@ const AIChat = () => {
 
   const isEmptyChat = messages.length === 1 && 
                      messages[0].role === 'assistant' && 
-                     messages[0].content === 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusT. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.';
+                     messages[0].content === 'Xin chào! Tôi là trợ lý AI chuyên về IT của CampusLearning. Tôi sẽ giúp bạn trả lời các câu hỏi về lập trình, công nghệ và thông tin. Hãy đặt câu hỏi về lĩnh vực công nghệ thông tin để tôi có thể hỗ trợ tốt nhất.';
 
   // Suggestion actions
   const suggestedActions = [

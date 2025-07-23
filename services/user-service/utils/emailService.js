@@ -52,7 +52,7 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
     subject = 'Đặt lại mật khẩu của bạn';
     htmlContent = `
       <p>Xin chào ${fullName},</p>
-      <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Campust của bạn. Vui lòng sử dụng mã xác thực sau:</p>
+      <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản CampusLearning của bạn. Vui lòng sử dụng mã xác thực sau:</p>
       <div style="margin: 20px 0; text-align: center;">
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; font-size: 24px; letter-spacing: 5px; font-weight: bold;">${otp}</div>
       </div>
@@ -63,7 +63,7 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
     subject = 'Xác thực email của bạn';
     htmlContent = `
       <p>Xin chào ${fullName},</p>
-      <p>Bạn đang yêu cầu xác thực tài khoản tại Campust. Để hoàn tất quá trình xác thực, vui lòng nhập mã xác thực sau:</p>
+      <p>Bạn đang yêu cầu xác thực tài khoản tại CampusLearning. Để hoàn tất quá trình xác thực, vui lòng nhập mã xác thực sau:</p>
       <div style="margin: 20px 0; text-align: center;">
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; font-size: 24px; letter-spacing: 5px; font-weight: bold;">${otp}</div>
       </div>
@@ -75,11 +75,11 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
       <div style="text-align: center; margin-bottom: 20px;">
-        <h2 style="color: #2563eb;">CAMPUST</h2>
+        <h2 style="color: #2563eb;">CampusLearning</h2>
       </div>
       <div>
         ${htmlContent}
-        <p>Trân trọng,<br/>Đội ngũ CAMPUST</p>
+        <p>Trân trọng,<br/>Đội ngũ CampusLearning</p>
       </div>
     </div>
   `;
@@ -89,7 +89,7 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
     console.log(`Gửi mã OTP cho ${to}: ${otp} (Loại: ${type})`);
     
     return await transporter.sendMail({
-      from: `"Campust" <devquyen@gmail.com>`,
+      from: `"CampusLearning" <devquyen@gmail.com>`,
       to,
       subject,
       html
@@ -109,7 +109,7 @@ const sendVerificationEmail = async (to, fullName, otp, type = 'email_verificati
 const sendEmailWithAttachment = async ({ to, subject, text, attachments = [], from }) => {
   try {
     return await transporter.sendMail({
-      from: from || 'Campust <devquyen@gmail.com>',
+      from: from || 'CampusLearning <devquyen@gmail.com>',
       to,
       subject,
       text,
@@ -122,21 +122,21 @@ const sendEmailWithAttachment = async ({ to, subject, text, attachments = [], fr
 };
 
 const sendLoginOtpEmail = async (to, fullName, otp) => {
-  const subject = 'Mã OTP đăng nhập vào tài khoản Campust của bạn';
+  const subject = 'Mã OTP đăng nhập vào tài khoản CampusLearning của bạn';
   const html = `
     <p>Xin chào ${fullName},</p>
-    <p>Bạn đang yêu cầu đăng nhập không cần mật khẩu cho tài khoản Campust. Mã OTP của bạn là:</p>
+    <p>Bạn đang yêu cầu đăng nhập không cần mật khẩu cho tài khoản CampusLearning. Mã OTP của bạn là:</p>
     <div style="margin: 20px 0; text-align: center;">
       <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; font-size: 24px; letter-spacing: 5px; font-weight: bold;">${otp}</div>
     </div>
     <p>Mã OTP có hiệu lực trong 15 phút.</p>
     <p>Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email này.</p>
-    <p>Trân trọng,<br/>Đội ngũ CAMPUST</p>
+    <p>Trân trọng,<br/>Đội ngũ CampusLearning</p>
   `;
   // Hiển thị mã OTP trong console cho việc test
   console.log(`Gửi OTP đăng nhập cho ${to}: ${otp}`);
   return await transporter.sendMail({
-    from: '"Campust" <devquyen@gmail.com>',
+    from: '"CampusLearning" <devquyen@gmail.com>',
     to,
     subject,
     html

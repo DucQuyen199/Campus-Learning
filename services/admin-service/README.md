@@ -1,6 +1,6 @@
-# Campust Admin Service
+# CampusLearning Admin Service
 
-The **Campust Admin Service** is a Node.js/Express REST API that powers the administrative dashboard of the Campust learning platform.  
+The **CampusLearning Admin Service** is a Node.js/Express REST API that powers the administrative dashboard of the CampusLearning learning platform.  
 It handles user management, course & event moderation, reporting, file uploads and other privileged operations.
 
 ---
@@ -46,8 +46,8 @@ It handles user management, course & event moderation, reporting, file uploads a
 ## Setup
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/services/admin-service
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/services/admin-service
 
 # 2. Install dependencies
 $ npm install
@@ -79,7 +79,7 @@ NODE_ENV=development
 DB_SERVER=localhost
 DB_USER=sa
 DB_PASSWORD=YourStrongPassword!
-DB_NAME=campust
+DB_NAME=CampusLearning
 
 # JWT
 JWT_SECRET=SuperSecretJWTKey

@@ -160,7 +160,7 @@ const CourseLearning = () => {
         const formattedCourse = formatCourseData(courseResponse.data);
         
         setCourse(formattedCourse);
-        document.title = `Học: ${formattedCourse.Title} | Campust`;
+        document.title = `Học: ${formattedCourse.Title} | CampusLearning`;
         
         // Get user progress for this course
         try {

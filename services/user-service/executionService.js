@@ -26,7 +26,7 @@ const PORT = process.env.EXECUTION_SERVICE_PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';  // Listen on all interfaces
 const MAX_EXECUTION_TIME = parseInt(process.env.MAX_EXECUTION_TIME || 30000);
 const MAX_MEMORY_LIMIT = parseInt(process.env.MAX_MEMORY_LIMIT || 512);
-const TEMP_DIR = path.join('/tmp', 'campust-code-execution');
+const TEMP_DIR = path.join('/tmp', 'CampusLearning-code-execution');
 
 // Create temp directory if it doesn't exist
 if (!fs.existsSync(TEMP_DIR)) {

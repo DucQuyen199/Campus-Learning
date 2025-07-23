@@ -1194,7 +1194,7 @@ const Login = () => {
             >
               <h2 className="text-3xl font-bold text-gray-900 mb-4">Về Chúng Tôi</h2>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                CampusT là nền tảng học tập trực tuyến hàng đầu tại Việt Nam, được thành lập với sứ mệnh 
+                CampusLearning là nền tảng học tập trực tuyến hàng đầu tại Việt Nam, được thành lập với sứ mệnh 
                 mang đến cơ hội tiếp cận kiến thức công nghệ chất lượng cao cho mọi người. Chúng tôi tự hào 
                 là đối tác đào tạo tin cậy của nhiều doanh nghiệp công nghệ hàng đầu trong và ngoài nước.
               </p>
@@ -1261,7 +1261,7 @@ const Login = () => {
                     Giảng viên hàng đầu trong lĩnh vực công nghệ
                   </h2>
                   <p className="mt-4 text-gray-600 leading-relaxed">
-                    Đội ngũ giảng viên của CampusT gồm các chuyên gia có trên 10 năm kinh nghiệm đến từ các 
+                    Đội ngũ giảng viên của CampusLearning gồm các chuyên gia có trên 10 năm kinh nghiệm đến từ các 
                     công ty công nghệ hàng đầu như Google, Microsoft, AWS, FPT Software. Với kinh nghiệm thực tế 
                     phong phú, các giảng viên không chỉ truyền đạt kiến thức chuyên môn mà còn chia sẻ những 
                     bài học quý giá từ dự án thực tế.
@@ -1444,7 +1444,7 @@ const Login = () => {
                     className="bg-blue-50 p-6 rounded-xl"
                   >
                     <h4 className="font-semibold text-lg text-blue-900 mb-2">{title}</h4>
-                    <p className="text-blue-700">200+ doanh nghiệp công nghệ tuyển dụng trực tiếp từ CampusT</p>
+                    <p className="text-blue-700">200+ doanh nghiệp công nghệ tuyển dụng trực tiếp từ CampusLearning</p>
                   </motion.div>
                 ))}
               </div>
@@ -1479,7 +1479,7 @@ const Login = () => {
                 },
                 {
                   title: "Email",
-                  content: ["support@campust.edu.vn", "quyen.nd19@outlook.com"],
+                  content: ["support@CampusLearning.edu.vn", "quyen.nd19@outlook.com"],
                   icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
@@ -1523,7 +1523,7 @@ const Login = () => {
           className="bg-gray-900 text-white py-8"
         >
           <div className="container mx-auto px-4 text-center">
-            <p className="text-gray-400">© 2025 CAMPUST. Tất cả quyền được bảo lưu.</p>
+            <p className="text-gray-400">© 2025 CampusLearning. Tất cả quyền được bảo lưu.</p>
           </div>
         </motion.footer>
       </div>
@@ -2034,7 +2034,7 @@ const Login = () => {
           >
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Về Chúng Tôi</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              CampusT là nền tảng học tập trực tuyến hàng đầu tại Việt Nam, được thành lập với sứ mệnh 
+              CampusLearning là nền tảng học tập trực tuyến hàng đầu tại Việt Nam, được thành lập với sứ mệnh 
               mang đến cơ hội tiếp cận kiến thức công nghệ chất lượng cao cho mọi người. Chúng tôi tự hào 
               là đối tác đào tạo tin cậy của nhiều doanh nghiệp công nghệ hàng đầu trong và ngoài nước.
             </p>
@@ -2101,7 +2101,7 @@ const Login = () => {
                   Giảng viên hàng đầu trong lĩnh vực công nghệ
                 </h2>
                 <p className="mt-4 text-gray-600 leading-relaxed">
-                  Đội ngũ giảng viên của CampusT gồm các chuyên gia có trên 10 năm kinh nghiệm đến từ các 
+                  Đội ngũ giảng viên của CampusLearning gồm các chuyên gia có trên 10 năm kinh nghiệm đến từ các 
                   công ty công nghệ hàng đầu như Google, Microsoft, AWS, FPT Software. Với kinh nghiệm thực tế 
                   phong phú, các giảng viên không chỉ truyền đạt kiến thức chuyên môn mà còn chia sẻ những 
                   bài học quý giá từ dự án thực tế.
@@ -2284,7 +2284,7 @@ const Login = () => {
                   className="bg-blue-50 p-6 rounded-xl"
                 >
                   <h4 className="font-semibold text-lg text-blue-900 mb-2">{title}</h4>
-                  <p className="text-blue-700">200+ doanh nghiệp công nghệ tuyển dụng trực tiếp từ CampusT</p>
+                  <p className="text-blue-700">200+ doanh nghiệp công nghệ tuyển dụng trực tiếp từ CampusLearning</p>
                 </motion.div>
               ))}
             </div>
@@ -2319,7 +2319,7 @@ const Login = () => {
               },
               {
                 title: "Email",
-                content: ["support@campust.edu.vn", "quyen.nd19@outlook.com"],
+                content: ["support@CampusLearning.edu.vn", "quyen.nd19@outlook.com"],
                 icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
@@ -2429,7 +2429,7 @@ const Login = () => {
         className="bg-gray-900 text-white py-8"
       >
         <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-400">© 2025 CAMPUST. Tất cả quyền được bảo lưu.</p>
+          <p className="text-gray-400">© 2025 CampusLearning. Tất cả quyền được bảo lưu.</p>
         </div>
       </motion.footer>
     </div>

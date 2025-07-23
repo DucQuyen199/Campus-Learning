@@ -2,5 +2,5 @@
   <rect x="20" y="10" width="160" height="40" fill="#2563EB"/>
   <path d="M40 20C40 31.0457 31.0457 40 20 40V0C31.0457 0 40 8.95431 40 20Z" fill="#1E40AF"/>
   <circle cx="180" cy="20" r="10" fill="#60A5FA"/>
-  <text x="100" y="37" font-family="Arial" font-size="24" fill="white" text-anchor="middle" font-weight="bold">CampusT</text>
+  <text x="100" y="37" font-family="Arial" font-size="24" fill="white" text-anchor="middle" font-weight="bold">CampusLearning</text>
 </svg> 

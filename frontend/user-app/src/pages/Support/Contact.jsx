@@ -68,8 +68,8 @@ const Contact = () => {
                 <EnvelopeIcon className="h-6 w-6 text-indigo-600 mt-1 mr-4" />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Email</h3>
-                  <p className="text-gray-600">contact@campust.vn</p>
-                  <p className="text-gray-600">campust@hubt.edu.vn</p>
+                  <p className="text-gray-600">contact@CampusLearning.vn</p>
+                  <p className="text-gray-600">CampusLearning@hubt.edu.vn</p>
                   <p className="text-gray-600">quyen.nd19@outlook.com</p>
                 </div>
               </div>

@@ -142,7 +142,7 @@ const CourseDetail = () => {
           
           // Lưu dữ liệu vào state mà không thay đổi
           setCourse(courseData);
-          document.title = `${courseData.Title} | Campust`;
+          document.title = `${courseData.Title} | CampusLearning`;
           
           // Check if user is enrolled in this course - only if authenticated
           if (isAuthenticated) {

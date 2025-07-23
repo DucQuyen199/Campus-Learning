@@ -27,8 +27,8 @@ A unified repository containing all frontend applications and backend services f
 ## Quick Start (Local Dev)
 ```bash
 # 1. Clone
-$ git clone https://github.com/your-org/campuslearning.git
-$ cd campuslearning
+$ git clone https://github.com/DucQuyen199/campus-learning.git
+$ cd campus-learning
 
 # 2. Install workspace tools (optional; pnpm recommended)
 $ pnpm install -r  # or use npm in each sub-folder
@@ -44,4 +44,4 @@ See each sub-project’s README for detailed setup & env vars.
 
 ---
 
-© 2024 CampusLearning.
+© 2025 CampusLearning.

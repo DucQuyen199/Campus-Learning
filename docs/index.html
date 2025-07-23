@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CampusLearning – Documentation Hub</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; }
+    header { background:#2e5aac; color:#fff; padding:1rem 2rem; }
+    h1 { margin:0; font-size:1.6rem; }
+    nav { background:#fafafa; border-bottom:1px solid #ddd; display:flex; gap:1px; }
+    nav button { flex:1; padding:0.7rem; background:#f5f5f5; border:none; cursor:pointer; font-weight:bold; }
+    nav button.active { background:#fff; border-bottom:3px solid #2e5aac; }
+    section { display:none; padding:2rem; }
+    section.active { display:block; }
+    ul { line-height:1.8; }
+    a { color:#1a73e8; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>CampusLearning – Documentation Hub</h1>
+</header>
+
+<nav>
+  <button id="tabOverview" class="active">Overview</button>
+  <button id="tabReadme">Repo Map</button>
+  <button id="tabLicense">Licenses</button>
+</nav>
+
+<main>
+  <section id="overviewSection" class="active">
+    <h2>Platform Overview</h2>
+    <p>CampusLearning is an open-source learning management ecosystem connecting students, teachers and administrators through specialized apps and micro-services.</p>
+  </section>
+
+  <section id="readmeSection">
+    <h2>Repository Map</h2>
+    <h3>Frontend Apps</h3>
+    <ul>
+      <li><a href="../frontend/user-app/README.md">User App</a></li>
+      <li><a href="../frontend/user-sinhvienapp/README.md">Student Web App</a></li>
+      <li><a href="../frontend/teacher-app/README.md">Teacher App</a></li>
+      <li><a href="../frontend/admin-app/README.md">Admin App</a></li>
+      <li><a href="../frontend/admin-sinhvienapp/README.md">Student Admin App</a></li>
+    </ul>
+    <h3>Backend Services</h3>
+    <ul>
+      <li><a href="../services/user-service/README.md">User Service</a></li>
+      <li><a href="../services/user-sinhvienservice/README.md">Student Service</a></li>
+      <li><a href="../services/teacher-service/README.md">Teacher Service</a></li>
+      <li><a href="../services/admin-service/README.md">Admin Service</a></li>
+      <li><a href="../services/admin-sinhvienservice/README.md">Student Admin Service</a></li>
+      <li><a href="../services/judge0-master/README.md">Judge0 Master</a></li>
+      <li><a href="../services/code-server/README.md">Code-Server</a></li>
+    </ul>
+  </section>
+
+  <section id="licenseSection">
+    <h2>Open-Source Licenses</h2>
+    <p>The CampusLearning repository is released under the <strong>MIT License</strong>. Some third-party components are distributed under the <strong>Apache-2.0</strong> license.</p>
+    <h3>MIT License</h3>
+    <pre style="white-space:pre-wrap; background:#f5f5f5; padding:1rem; border:1px solid #e0e0e0;">
+Permission is hereby granted, free of charge, to any person obtaining a copy...
+[truncated – see <a href="../LICENSE">LICENSE</a> file]
+    </pre>
+    <h3>Apache 2.0 Notice</h3>
+    <pre style="white-space:pre-wrap; background:#f5f5f5; padding:1rem; border:1px solid #e0e0e0;">
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License...
+    </pre>
+  </section>
+</main>
+
+<script>
+  const tabs = {
+    tabOverview: 'overviewSection',
+    tabReadme: 'readmeSection',
+    tabLicense: 'licenseSection'
+  };
+  Object.keys(tabs).forEach(id => {
+    document.getElementById(id).addEventListener('click', () => {
+      // toggle button state
+      document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      // toggle sections
+      document.querySelectorAll('main section').forEach(sec => sec.classList.remove('active'));
+      document.getElementById(tabs[id]).classList.add('active');
+    });
+  });
+</script>
+
+<footer style="text-align:center; font-size:0.85rem; padding:1rem 0; background:#fafafa; border-top:1px solid #ddd;">
+  © 2025 CampusLearning
+</footer>
+</body>
+</html> 

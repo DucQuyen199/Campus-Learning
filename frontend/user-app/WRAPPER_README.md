@@ -1,6 +1,6 @@
-# Campust App Wrapper
+# CampusLearning App Wrapper
 
-Este proyecto contiene la configuración necesaria para ejecutar la aplicación web de Campust como una aplicación nativa en diferentes plataformas.
+Este proyecto contiene la configuración necesaria para ejecutar la aplicación web de CampusLearning como una aplicación nativa en diferentes plataformas.
 
 ## Plataformas soportadas
 

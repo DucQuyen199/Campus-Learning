@@ -112,7 +112,7 @@ const UserManagement = () => {
         {
           UserID: 1,
           Username: 'admin',
-          Email: 'admin@campust.edu.vn',
+          Email: 'admin@CampusLearning.edu.vn',
           FullName: 'Quản trị viên',
           Role: 'ADMIN',
           AccountStatus: 'ACTIVE',
@@ -122,7 +122,7 @@ const UserManagement = () => {
         {
           UserID: 2,
           Username: 'teacher1',
-          Email: 'teacher1@campust.edu.vn',
+          Email: 'teacher1@CampusLearning.edu.vn',
           FullName: 'Giáo viên 1',
           Role: 'TEACHER',
           AccountStatus: 'ACTIVE',
@@ -132,7 +132,7 @@ const UserManagement = () => {
         {
           UserID: 3,
           Username: 'student1',
-          Email: 'student1@campust.edu.vn',
+          Email: 'student1@CampusLearning.edu.vn',
           FullName: 'Học sinh 1',
           Role: 'STUDENT',
           AccountStatus: 'ACTIVE',

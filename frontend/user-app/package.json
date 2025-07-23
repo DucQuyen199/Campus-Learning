@@ -18,8 +18,8 @@
     "electron:build:all": "npm run build && electron-builder --mac --win"
   },
   "build": {
-    "appId": "com.campust.app",
-    "productName": "Campust App",
+    "appId": "com.CampusLearning.app",
+    "productName": "CampusLearning App",
     "files": [
       "dist/**/*",
       "electron.cjs",

@@ -89,10 +89,10 @@ export const createWorkspaceDirectory = (targetWindow) => {
               // Create a welcome README file
               try {
                 fs.writeFileSync(path.join(workspacePath, 'README.md'), 
-                  '# CHÀO MỪNG BẠN ĐẾN VỚI CAMPUST\n\n' +
+                  '# CHÀO MỪNG BẠN ĐẾN VỚI CampusLearning\n\n' +
                   '## Nền tảng học tập lập trình hiện đại\n\n' +
                   'Đây là không gian làm việc của bạn để thực hành lập trình và giải quyết các bài toán.\n\n' +
-                  '### Lợi ích khi học tập tại CAMPUST\n\n' +
+                  '### Lợi ích khi học tập tại CampusLearning\n\n' +
                   '- Trải nghiệm học tập thực tế với môi trường lập trình chuyên nghiệp\n' +
                   '- Hỗ trợ nhiều ngôn ngữ: JavaScript, Python, C++, Java\n' +
                   '- Bài tập đa dạng từ cơ bản đến nâng cao\n' +
@@ -126,12 +126,12 @@ export const createWorkspaceDirectory = (targetWindow) => {
               // Create a sample JavaScript file
               try {
                 fs.writeFileSync(path.join(workspacePath, 'example.js'), 
-                  '// Ví dụ code JavaScript tại CAMPUST\n\n' +
-                  'function helloCAMPUST() {\n' +
-                  '  console.log("Chào mừng bạn đến với CAMPUST!");\n' +
+                  '// Ví dụ code JavaScript tại CampusLearning\n\n' +
+                  'function helloCampusLearning() {\n' +
+                  '  console.log("Chào mừng bạn đến với CampusLearning!");\n' +
                   '  console.log("Nơi học tập lập trình hiện đại nhất");\n' +
                   '}\n\n' +
-                  'helloCAMPUST();\n\n' +
+                  'helloCampusLearning();\n\n' +
                   '// Hãy thử chỉnh sửa code này và quan sát kết quả!',
                   { flag: 'w' }
                 );
@@ -143,11 +143,11 @@ export const createWorkspaceDirectory = (targetWindow) => {
               // Create a sample Python file
               try {
                 fs.writeFileSync(path.join(workspacePath, 'example.py'), 
-                  '# Ví dụ code Python tại CAMPUST\n\n' +
-                  'def hello_campust():\n' +
-                  '    print("Chào mừng bạn đến với CAMPUST!")\n' +
+                  '# Ví dụ code Python tại CampusLearning\n\n' +
+                  'def hello_CampusLearning():\n' +
+                  '    print("Chào mừng bạn đến với CampusLearning!")\n' +
                   '    print("Nơi học tập lập trình hiện đại nhất")\n\n' +
-                  'hello_campust()\n\n' +
+                  'hello_CampusLearning()\n\n' +
                   '# Hãy thử chỉnh sửa code này và quan sát kết quả!',
                   { flag: 'w' }
                 );
@@ -159,10 +159,10 @@ export const createWorkspaceDirectory = (targetWindow) => {
               // Create a sample C++ file
               try {
                 fs.writeFileSync(path.join(workspacePath, 'example.cpp'), 
-                  '// Ví dụ code C++ tại CAMPUST\n\n' +
+                  '// Ví dụ code C++ tại CampusLearning\n\n' +
                   '#include <iostream>\n\n' +
                   'int main() {\n' +
-                  '    std::cout << "Chào mừng bạn đến với CAMPUST!" << std::endl;\n' +
+                  '    std::cout << "Chào mừng bạn đến với CampusLearning!" << std::endl;\n' +
                   '    std::cout << "Nơi học tập lập trình hiện đại nhất" << std::endl;\n' +
                   '    return 0;\n' +
                   '}\n\n' +
@@ -177,10 +177,10 @@ export const createWorkspaceDirectory = (targetWindow) => {
               // Create a sample Java file
               try {
                 fs.writeFileSync(path.join(workspacePath, 'Main.java'), 
-                  '// Ví dụ code Java tại CAMPUST\n\n' +
+                  '// Ví dụ code Java tại CampusLearning\n\n' +
                   'public class Main {\n' +
                   '    public static void main(String[] args) {\n' +
-                  '        System.out.println("Chào mừng bạn đến với CAMPUST!");\n' +
+                  '        System.out.println("Chào mừng bạn đến với CampusLearning!");\n' +
                   '        System.out.println("Nơi học tập lập trình hiện đại nhất");\n' +
                   '    }\n' +
                   '}\n\n' +

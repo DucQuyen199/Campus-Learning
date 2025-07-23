@@ -20,8 +20,8 @@ const Package = () => {
   const [packages, setPackages] = useState([
     {
       id: 'pkg-1',
-      name: '@campust/ui-components',
-      description: 'UI components for Campust applications',
+      name: '@CampusLearning/ui-components',
+      description: 'UI components for CampusLearning applications',
       version: '1.2.3',
       registry: 'npm',
       visibility: 'public',
@@ -31,8 +31,8 @@ const Package = () => {
     },
     {
       id: 'pkg-2',
-      name: '@campust/utils',
-      description: 'Utility functions for Campust applications',
+      name: '@CampusLearning/utils',
+      description: 'Utility functions for CampusLearning applications',
       version: '0.8.5',
       registry: 'npm',
       visibility: 'public',
@@ -42,8 +42,8 @@ const Package = () => {
     },
     {
       id: 'pkg-3',
-      name: 'campust-server',
-      description: 'Docker image for Campust server',
+      name: 'CampusLearning-server',
+      description: 'Docker image for CampusLearning server',
       version: '2.1.0',
       registry: 'docker',
       visibility: 'private',

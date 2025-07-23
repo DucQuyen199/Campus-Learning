@@ -767,7 +767,7 @@ exports.createVietQRPayment = async (req, res) => {
     // Get bank account information from environment variables
     const bankAccount = process.env.VIETQR_ACCOUNT_NUMBER || '9999991909';
     const bankName = process.env.VIETQR_BANK_NAME || 'MBBANK';
-    const accountName = process.env.VIETQR_ACCOUNT_NAME || 'CAMPUST EDUCATION';
+    const accountName = process.env.VIETQR_ACCOUNT_NAME || 'CampusLearning EDUCATION';
     const bankCode = process.env.VIETQR_BANK_CODE || 'MB';
 
     // Create VietQR data
@@ -777,8 +777,8 @@ exports.createVietQRPayment = async (req, res) => {
       bankName,
       accountName,
       amount,
-      description: `CAMPUST-${transactionCode}`,
-      qrImageUrl: `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact.png?amount=${amount}&addInfo=CAMPUST-${transactionCode}`
+      description: `CampusLearning-${transactionCode}`,
+      qrImageUrl: `https://img.vietqr.io/image/${bankCode}-${bankAccount}-compact.png?amount=${amount}&addInfo=CampusLearning-${transactionCode}`
     };
 
     // Update transaction with payment details

@@ -1,6 +1,6 @@
-# Campust Teacher Web App
+# CampusLearning Teacher Web App
 
-The **Campust Teacher Web App** empowers instructors to manage classes, publish course materials, evaluate student submissions and monitor progress. It is built with **React** (Create React App) and styled with **TailwindCSS** & **Material-UI**.
+The **CampusLearning Teacher Web App** empowers instructors to manage classes, publish course materials, evaluate student submissions and monitor progress. It is built with **React** (Create React App) and styled with **TailwindCSS** & **Material-UI**.
 
 ---
 
@@ -42,8 +42,8 @@ The **Campust Teacher Web App** empowers instructors to manage classes, publish 
 ### Installation
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/frontend/teacher-app
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/frontend/teacher-app
 
 # 2. Install dependencies
 $ npm install

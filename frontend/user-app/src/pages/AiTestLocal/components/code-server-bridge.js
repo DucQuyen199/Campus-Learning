@@ -432,7 +432,7 @@ export const enableFileCreation = (iframeElement) => {
             }
             
             // Set up global helper for file operations that works without the VS Code API
-            window.campustFileHelper = {
+            window.CampusLearningFileHelper = {
               // Create a new file at the specified path
               createFile: async (filePath, content = '') => {
                 try {
@@ -593,7 +593,7 @@ export const enableFileCreation = (iframeElement) => {
               
               if (type === 'create-file' && data && data.path) {
                 const content = data.content || '';
-                window.campustFileHelper.createFile(data.path, content)
+                window.CampusLearningFileHelper.createFile(data.path, content)
                   .then(result => {
                     // Send result back to parent
                     window.parent.postMessage({
@@ -602,7 +602,7 @@ export const enableFileCreation = (iframeElement) => {
                     }, '*');
                   });
               } else if (type === 'create-folder' && data && data.path) {
-                window.campustFileHelper.createFolder(data.path)
+                window.CampusLearningFileHelper.createFolder(data.path)
                   .then(result => {
                     // Send result back to parent
                     window.parent.postMessage({

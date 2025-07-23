@@ -75,7 +75,7 @@ const AiTestLocal = () => {
     } else {
       const welcomeMessage = {
         role: 'assistant',
-        content: 'Xin chào! Tôi là trợ lý AI của CampusT. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
+        content: 'Xin chào! Tôi là trợ lý AI của CampusLearning. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
       };
       setMessages([welcomeMessage]);
       localStorage.setItem('aiTestLocalMessages', JSON.stringify([welcomeMessage]));
@@ -347,7 +347,7 @@ const AiTestLocal = () => {
     // Reset all state variables
     setMessages([{
       role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI của CampusT. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
+      content: 'Xin chào! Tôi là trợ lý AI của CampusLearning. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
     }]);
     setInput('');
     setTestCases([]);
@@ -364,7 +364,7 @@ const AiTestLocal = () => {
     // Set default welcome message
     localStorage.setItem('aiTestLocalMessages', JSON.stringify([{
       role: 'assistant',
-      content: 'Xin chào! Tôi là trợ lý AI của CampusT. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
+      content: 'Xin chào! Tôi là trợ lý AI của CampusLearning. Tôi có thể giúp bạn tạo bài toán lập trình kèm test cases. Nhấn nút "Tạo bài toán mới" để bắt đầu.'
     }]));
   };
 

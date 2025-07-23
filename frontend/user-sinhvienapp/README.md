@@ -1,6 +1,6 @@
-# Campust Student Web App
+# CampusLearning Student Web App
 
-The **Campust Student Web App** is the primary portal for HUBT students to access courses, schedules, grades and campus-wide services. Built with **React (Create React App)** and **Material-UI**, it delivers a fast, responsive experience across modern browsers.
+The **CampusLearning Student Web App** is the primary portal for HUBT students to access courses, schedules, grades and campus-wide services. Built with **React (Create React App)** and **Material-UI**, it delivers a fast, responsive experience across modern browsers.
 
 ---
 
@@ -41,8 +41,8 @@ The **Campust Student Web App** is the primary portal for HUBT students to acces
 ### Installation
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/frontend/user-sinhvienapp
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/frontend/user-sinhvienapp
 
 # 2. Install dependencies
 $ npm install  # or yarn

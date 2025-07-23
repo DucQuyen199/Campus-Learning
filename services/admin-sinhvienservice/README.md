@@ -1,6 +1,6 @@
-# Campust Admin Student Service API
+# CampusLearning Admin Student Service API
 
-The **Campust Admin Student Service** exposes REST endpoints for university administrators to manage student datasets, academic structures, finance & services. It backs the **Student Admin Portal** frontend.
+The **CampusLearning Admin Student Service** exposes REST endpoints for university administrators to manage student datasets, academic structures, finance & services. It backs the **Student Admin Portal** frontend.
 
 ---
 
@@ -40,8 +40,8 @@ The **Campust Admin Student Service** exposes REST endpoints for university admi
 ## Setup
 ```bash
 # 1. Clone repository
-$ git clone https://github.com/your-org/campust.git
-$ cd campust/services/admin-sinhvienservice
+$ git clone https://github.com/your-org/CampusLearning.git
+$ cd CampusLearning/services/admin-sinhvienservice
 
 # 2. Install dependencies
 $ npm install

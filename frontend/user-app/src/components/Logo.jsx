@@ -21,7 +21,7 @@ const Logo = ({ className = "h-24 w-auto" }) => {
         textAnchor="middle"
         fontWeight="bold"
       >
-        CampusT
+        CampusLearning
       </text>
       <path
         d="M40 20c0 11.046-8.954 20-20 20V0c11.046 0 20 8.954 20 20z"

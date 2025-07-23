@@ -24,7 +24,7 @@ Nếu bạn sử dụng Gmail làm email gửi, bạn cần tạo "App Password"
 3. Trong phần "Signing in to Google", chọn "2-Step Verification" và đảm bảo đã bật
 4. Sau khi bật xác thực 2 bước, quay lại trang Security và chọn "App passwords"
 5. Chọn "Select app" và chọn "Other (Custom name)"
-6. Đặt tên là "Campust Email Service" và nhấn "Generate"
+6. Đặt tên là "CampusLearning Email Service" và nhấn "Generate"
 7. Sao chép mật khẩu được tạo và dán vào biến `EMAIL_PASSWORD` trong file `.env`
 
 ## Cấu Hình Cho Các Dịch Vụ Email Khác

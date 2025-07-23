@@ -23,8 +23,8 @@ const Codespace = () => {
   const [codespaces, setCodespaces] = useState([
     {
       id: 'cs-1',
-      name: 'campust-web-dev',
-      repository: 'campust/campust-web',
+      name: 'CampusLearning-web-dev',
+      repository: 'CampusLearning/CampusLearning-web',
       branch: 'main',
       status: 'running',
       createdAt: new Date(2023, 10, 15),
@@ -39,7 +39,7 @@ const Codespace = () => {
     {
       id: 'cs-2',
       name: 'api-feature-auth',
-      repository: 'campust/campust-api',
+      repository: 'CampusLearning/CampusLearning-api',
       branch: 'feature/auth',
       status: 'stopped',
       createdAt: new Date(2023, 9, 20),
@@ -54,7 +54,7 @@ const Codespace = () => {
     {
       id: 'cs-3',
       name: 'mobile-app-dev',
-      repository: 'campust/campust-mobile',
+      repository: 'CampusLearning/CampusLearning-mobile',
       branch: 'develop',
       status: 'stopped',
       createdAt: new Date(2023, 10, 5),
@@ -323,10 +323,10 @@ const Codespace = () => {
                     required
                   >
                     <option value="">Chọn repository</option>
-                    <option value="campust/campust-web">campust/campust-web</option>
-                    <option value="campust/campust-api">campust/campust-api</option>
-                    <option value="campust/campust-mobile">campust/campust-mobile</option>
-                    <option value="campust/campust-docs">campust/campust-docs</option>
+                    <option value="CampusLearning/CampusLearning-web">CampusLearning/CampusLearning-web</option>
+                    <option value="CampusLearning/CampusLearning-api">CampusLearning/CampusLearning-api</option>
+                    <option value="CampusLearning/CampusLearning-mobile">CampusLearning/CampusLearning-mobile</option>
+                    <option value="CampusLearning/CampusLearning-docs">CampusLearning/CampusLearning-docs</option>
                   </select>
                 </div>
                 

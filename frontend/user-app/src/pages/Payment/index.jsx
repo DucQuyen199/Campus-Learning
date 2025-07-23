@@ -690,7 +690,7 @@ const Payment = () => {
             <div className="border-t mt-4 pt-4">
               <h3 className="font-medium text-gray-700 mb-2">Cần hỗ trợ?</h3>
               <p className="text-sm text-gray-600">
-                Liên hệ với chúng tôi qua email <a href="mailto:support@campust.edu.vn" className="text-blue-600">support@campust.edu.vn</a> hoặc hotline <span className="text-blue-600">1800-6868</span>
+                Liên hệ với chúng tôi qua email <a href="mailto:support@CampusLearning.edu.vn" className="text-blue-600">support@CampusLearning.edu.vn</a> hoặc hotline <span className="text-blue-600">1800-6868</span>
               </p>
             </div>
           </div>

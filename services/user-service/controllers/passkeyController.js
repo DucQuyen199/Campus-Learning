@@ -10,7 +10,7 @@ const { pool } = require('../config/db');
 const challenges = new Map();
 
 // WebAuthn configuration
-const rpName = 'CampusT';
+const rpName = 'CampusLearning';
 const rpID = process.env.RP_ID || 'localhost';
 const origin = process.env.ORIGIN || `https://${rpID}`;
 

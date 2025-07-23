@@ -648,7 +648,7 @@ exports.exportUserData = async (req, res) => {
       await sendEmailWithAttachment({
         to: toAddresses,
         subject: 'Bản sao dữ liệu cá nhân của bạn',
-        text: `Xin chào ${fullName},\n\nĐính kèm là bản sao dữ liệu cá nhân bạn đã yêu cầu từ Campust.\n\nTrân trọng,\nĐội ngũ Campust`,
+        text: `Xin chào ${fullName},\n\nĐính kèm là bản sao dữ liệu cá nhân bạn đã yêu cầu từ CampusLearning.\n\nTrân trọng,\nĐội ngũ CampusLearning`,
         attachments: [
           {
             filename: fileName,

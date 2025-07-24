@@ -90,7 +90,7 @@
     "react-markdown": "^10.1.0",
     "react-monaco-editor": "^0.58.0",
     "react-redux": "^9.2.0",
-    "react-router-dom": "^6.22.3",
+    "react-router-dom": "^7.7.0",
     "react-share": "^5.1.0",
     "react-toastify": "^11.0.5",
     "remark-gfm": "^4.0.1",

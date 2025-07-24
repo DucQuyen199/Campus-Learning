@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: event_1.sql
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 CREATE TABLE Users (
     UserID BIGINT IDENTITY(1,1) PRIMARY KEY, -- ID tự tăng của người dùng
     Username VARCHAR(50) NOT NULL UNIQUE, -- Tên đăng nhập, không được trùng

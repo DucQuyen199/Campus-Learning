@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: constants.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student portal application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 // API base URL
 let API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5008';
 if (!API_BASE_URL.endsWith('/api')) {

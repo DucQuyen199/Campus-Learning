@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: users.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the admin backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 // Thêm route mới chỉ để cập nhật trạng thái tài khoản
 router.post('/update-status', auth, async (req, res) => {
   try {

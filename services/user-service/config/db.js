@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: db.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const sql = require('mssql');
 const dotenv = require('dotenv');
 
@@ -10,7 +17,7 @@ const sqlConfig = {
   password: process.env.DB_PASSWORD || '123456aA@$',
   server: process.env.DB_SERVER || 'localhost',
   port: parseInt(process.env.DB_PORT || '1433'),
-  database: process.env.DB_NAME || 'Campushubt',
+  database: process.env.DB_NAME || 'CampusLearning',
   options: {
     encrypt: false,
     enableArithAbort: true,

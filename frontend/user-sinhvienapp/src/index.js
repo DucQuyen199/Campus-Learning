@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: index.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student portal application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 import './polyfills'; // Must be first import
 import React from 'react';
 import ReactDOM from 'react-dom/client';

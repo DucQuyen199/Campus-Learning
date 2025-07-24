@@ -21,7 +21,7 @@ CREATE TABLE [dbo].[PaymentTransactions] (
     FOREIGN KEY ([UserID]) REFERENCES [dbo].[Users] ([UserID]),
     UNIQUE NONCLUSTERED ([TransactionCode] ASC)
 );
-use campushubt;
+use CampusLearning;
 -- Bước 1: Xóa constraint cũ
 ALTER TABLE [dbo].[PaymentTransactions] DROP CONSTRAINT [CHK_Payment_Method];
 

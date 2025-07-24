@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: vnpayUtils.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 /**
  * VNPay Integration Utilities
  * This file contains utility functions to handle VNPay-specific integration issues

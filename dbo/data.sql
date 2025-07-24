@@ -1687,9 +1687,9 @@ END
 
 GO
 
-use campushubt;
+use CampusLearning;
 
-USE CampusHubT;
+USE CampusLearning;
 GO
 
 -- Xóa bảng PasswordResets nếu đã tồn tại

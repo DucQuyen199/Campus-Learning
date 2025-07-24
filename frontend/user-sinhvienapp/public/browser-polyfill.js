@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: browser-polyfill.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student portal application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 // Browser compatibility polyfill
 // This script helps ensure 'browser' is defined for extensions or scripts that expect it
 

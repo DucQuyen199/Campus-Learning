@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: formatters.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student admin application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 /**
  * Format a number as Vietnamese currency (VND)
  * @param {number} amount - The amount to format

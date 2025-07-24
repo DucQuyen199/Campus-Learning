@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: CreatePost.jsx
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 "use client"
 
 import { useState, useRef, useEffect } from "react"
@@ -754,3 +761,4 @@ Bạn có thể sử dụng Markdown để định dạng văn bản:
 }
 
 export default CreatePost
+

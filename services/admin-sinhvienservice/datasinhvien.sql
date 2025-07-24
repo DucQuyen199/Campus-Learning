@@ -612,7 +612,7 @@ CREATE TABLE Tuition (
 );
 go
 
-use campushubt;
+use CampusLearning;
 
 DROP TABLE IF EXISTS [dbo].[TuitionPayments];
 

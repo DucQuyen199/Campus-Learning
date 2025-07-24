@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: profileController.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the student user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const profileModel = require('../models/profile');
 const academicModel = require('../models/academic');
 const { validationResult } = require('express-validator');

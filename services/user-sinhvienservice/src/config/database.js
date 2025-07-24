@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: database.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the student user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const sql = require('mssql');
 const dotenv = require('dotenv');
 
@@ -9,7 +16,7 @@ const dbConfig = {
   user: process.env.SQL_USER || process.env.DB_USER || 'sa',
   password: process.env.SQL_PASSWORD || process.env.DB_PASSWORD || '123456aA@$',
   server: process.env.SQL_SERVER || process.env.DB_SERVER || 'localhost',
-  database: process.env.SQL_DATABASE || process.env.DB_NAME || 'campushubt',
+  database: process.env.SQL_DATABASE || process.env.DB_NAME || 'CampusLearning',
   options: {
     encrypt: process.env.DB_ENCRYPT === 'true' || false,
     trustServerCertificate: true,

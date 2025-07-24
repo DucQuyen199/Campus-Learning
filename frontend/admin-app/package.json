@@ -32,7 +32,7 @@
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.5.1",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
+    "postcss": "^8.5.4",
     "tailwindcss": "^4.0.15"
   },
   "dependencies": {
@@ -43,7 +43,7 @@
     "@mui/material": "^6.4.8",
     "@mui/x-date-pickers": "^7.28.0",
     "antd": "^5.24.7",
-    "axios": "^1.8.4",
+    "axios": "^1.11.0",
     "date-fns": "^2.30.0",
     "formik": "^2.4.6",
     "framer-motion": "^12.7.4",

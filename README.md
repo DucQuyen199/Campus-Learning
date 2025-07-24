@@ -8,7 +8,7 @@ A unified repository containing all frontend applications and backend services f
 
 ### Frontend Apps
 - [User App](frontend/user-app/README.md) – Main student interface
-- [Student Web App](frontend/user-sinhvienapp/README.md) – HUBT-specific student portal
+- [Student Web App](frontend/user-sinhvienapp/README.md) – CampusLearning-specific student portal
 - [Teacher App](frontend/teacher-app/README.md) – Instructor dashboard
 - [Admin App](frontend/admin-app/README.md) – System administration UI
 - [Student Admin App](frontend/admin-sinhvienapp/README.md) – Student record management

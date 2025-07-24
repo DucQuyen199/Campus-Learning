@@ -36,7 +36,7 @@ android/.gradle
 android/app/build
 android/build
 
-# Keep release files
-!release/
-!release/platforms/
-!release/BUILD-INFO.md 
+# Keep release files (now ignored, no exceptions)
+# !release/
+# !release/platforms/
+# !release/BUILD-INFO.md 

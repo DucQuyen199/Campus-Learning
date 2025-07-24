@@ -1,7 +1,7 @@
 {
   "name": "user-app",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "main": "electron.cjs",
   "scripts": {
@@ -68,8 +68,6 @@
     "buffer": "^6.0.3",
     "canvas-confetti": "^1.9.3",
     "date-fns": "^3.5.0",
-    "electron": "^37.2.1",
-    "electron-builder": "^26.0.12",
     "framer-motion": "^10.18.0",
     "html2pdf.js": "^0.10.3",
     "i18next": "^25.2.1",
@@ -108,6 +106,8 @@
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
     "concurrently": "^9.1.2",
+    "electron": "^37.2.1",
+    "electron-builder": "^26.0.12",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.0",

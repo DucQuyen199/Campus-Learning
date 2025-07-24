@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: NotificationContext.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the admin application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 import React, { createContext, useState, useContext } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 

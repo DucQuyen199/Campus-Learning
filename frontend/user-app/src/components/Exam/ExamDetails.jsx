@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: ExamDetails.jsx
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -716,3 +723,4 @@ const ExamDetails = () => {
 };
 
 export default ExamDetails;
+

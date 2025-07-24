@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: studentsController.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the student admin backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const { executeQuery, sql } = require('../config/db');
 const bcrypt = require('bcrypt');
 const csv = require('csv-parser');

@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: index.jsx
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 "use client"
 
 import React, { useEffect, useState, useMemo, Suspense } from 'react';
@@ -651,3 +658,4 @@ const Home = () => {
 }
 
 export default Home
+

@@ -76,7 +76,7 @@ NODE_ENV=development
 DB_USER=sa
 DB_PASSWORD=YourStrongPassword!
 DB_SERVER=localhost
-DB_NAME=campushubt
+DB_NAME=CampusLearning
 DB_ENCRYPT=false
 
 # Auth

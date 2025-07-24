@@ -69,7 +69,7 @@ CREATE TABLE [dbo].[EssayAnswerAnalysis] (
     PRIMARY KEY CLUSTERED ([AnalysisID] ASC),
     FOREIGN KEY ([AnswerID]) REFERENCES [dbo].[ExamAnswers] ([AnswerID])
 );
-use campushubt;
+use CampusLearning;
 CREATE TABLE [dbo].[ExamParticipants] (
     [ParticipantID]     BIGINT         IDENTITY (1, 1) NOT NULL,
     [ExamID]            BIGINT         NULL,
@@ -360,7 +360,7 @@ BEGIN
     ALTER TABLE [dbo].[Exams]
     ADD CONSTRAINT [DF_Exams_MaxRetakes] DEFAULT ((0)) FOR [MaxRetakes]
 END
-use campushubt;
+use CampusLearning;
 -- Insert Đường lối cách mạng Việt Nam Exam
 INSERT INTO [dbo].[Exams] (
     [CourseID], [Title], [Description], [Type], 

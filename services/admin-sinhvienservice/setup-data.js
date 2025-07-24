@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: setup-data.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the student admin backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const sql = require('mssql');
 const { getPool } = require('./src/config/db');
 

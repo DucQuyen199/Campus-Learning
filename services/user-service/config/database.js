@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: database.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
@@ -25,7 +32,7 @@ const customTypeCast = function (field, next) {
 
 // Create Sequelize instance with configuration
 const sequelize = new Sequelize(
-    process.env.DB_NAME || 'Campushubt',
+    process.env.DB_NAME || 'CampusLearning',
     process.env.DB_USER || 'sa',
     process.env.DB_PASSWORD || '123456aA@$',
     {
@@ -78,3 +85,4 @@ sequelize.authenticate()
     });
 
 module.exports = sequelize; 
+

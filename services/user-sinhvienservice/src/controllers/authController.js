@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: authController.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the student user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const { jwtSecret, jwtExpiresIn, refreshTokenExpiresIn } = require('../config/app');

@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: chatController.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const { Chat, Message, User, ConversationParticipant } = require('../models');
 const { io } = require('../socket');
 const { Op } = require('sequelize');

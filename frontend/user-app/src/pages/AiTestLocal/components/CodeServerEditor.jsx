@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: CodeServerEditor.jsx
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is a component/module for the student application.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 import React, { useEffect, useRef, useState } from 'react';
 import { startCodeServer, injectCommunicationScript, configureCodeServer, createFile, createFolder } from './code-server-bridge';
 import { setupWorkspaceForCodeServer } from './create-workspace';

@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: paypalClient.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const axios = require('axios');
 
 /**
@@ -161,7 +168,7 @@ class PayPalClient {
           }
         }],
         application_context: {
-          brand_name: 'Campushubt',
+          brand_name: 'CampusLearning',
           landing_page: 'BILLING',
           user_action: 'PAY_NOW',
           return_url: returnUrl,
@@ -362,7 +369,7 @@ class PayPalClient {
           }
         }],
         application_context: {
-          brand_name: 'Campushubt Dev',
+          brand_name: 'CampusLearning Dev',
           landing_page: 'BILLING',
           user_action: 'PAY_NOW',
           return_url: 'https://example.com/success',

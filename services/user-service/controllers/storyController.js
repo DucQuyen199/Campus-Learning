@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: storyController.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const { Story, User, StoryView, StoryLike, Chat } = require('../models');
 const fs = require('fs');
 const path = require('path');

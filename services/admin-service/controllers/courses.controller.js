@@ -1,3 +1,10 @@
+/*-----------------------------------------------------------------
+* File: courses.controller.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the admin backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
 const { poolPromise, sql } = require('../config/database');
 
 // Initialize database schema 
@@ -1482,3 +1489,4 @@ exports.publishCourse = async (req, res) => {
     });
   }
 };
+

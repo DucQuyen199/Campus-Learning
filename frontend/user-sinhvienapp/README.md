@@ -1,6 +1,6 @@
 # CampusLearning Student Web App
 
-The **CampusLearning Student Web App** is the primary portal for HUBT students to access courses, schedules, grades and campus-wide services. Built with **React (Create React App)** and **Material-UI**, it delivers a fast, responsive experience across modern browsers.
+The **CampusLearning Student Web App** is the primary portal for CampusLearning students to access courses, schedules, grades and campus-wide services. Built with **React (Create React App)** and **Material-UI**, it delivers a fast, responsive experience across modern browsers.
 
 ---
 

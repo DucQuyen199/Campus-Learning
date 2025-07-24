@@ -1,7 +1,7 @@
 # CampusLearning User App Build Summary
 
-**Version:** 0.0.1
-**Build Date:** 2025-07-24 18:40:34
+**Version:** 1.0.0
+**Build Date:** 2025-07-24 18:47:13
 
 ## Platforms
 
@@ -10,7 +10,7 @@
 | iOS | CampusLearning.ipa | ❌ Not built |
 | Android | CampusLearning.apk | ❌ Not built |
 | macOS | CampusLearning-macOS.dmg | ❌ Not built |
-| Windows | CampusLearning-Windows.exe | ❌ Not built |
+| Windows | CampusLearning-Windows.exe | ✅ Built |
 
 ## Installation Instructions
 

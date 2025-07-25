@@ -25,6 +25,9 @@ router.post('/reject', authenticate, callController.rejectCall);
 // Get call history
 router.get('/history', authenticate, callController.getCallHistory);
 
+// Get missed calls
+router.get('/missed', authenticate, callController.getMissedCalls);
+
 // Get active call for a user (single active call)
 router.get('/active', authenticate, callController.getActiveCall);
 

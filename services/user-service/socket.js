@@ -1,426 +1,473 @@
 /*-----------------------------------------------------------------
-* File: socket.js
+* File: socket.js  
 * Author: Quyen Nguyen Duc
 * Date: 2025-07-24
-* Description: This file is part of the user backend service.
+* Description: Enhanced socket handling for real-time messaging and calls
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const { pool } = require('./config/db');
-const { Op } = require('sequelize');
-const sequelize = require('./config/database');
 
-// Online users map - store socket IDs by user ID for efficient lookup
+// Track online users and their socket IDs
 const onlineUsers = new Map();
-// Active conversations map to track which users are in which conversations
+// Track active conversations and their participants
 const activeConversations = new Map();
+// Track typing users per conversation
+const typingUsers = new Map();
 
-// Add scheduled task to update competition statuses
-const updateCompetitionStatuses = async () => {
-  try {
-    // Check if pool is connected before proceeding
-    if (!pool.connected) {
-      console.log('Database not connected yet, skipping competition status update');
-      return;
-    }
-    
-    const now = new Date();
-    
-    // Update upcoming competitions to ongoing if current time is after start time
-    await pool.request().query(`
-      UPDATE Competitions
-      SET Status = 'ongoing'
-      WHERE Status = 'upcoming' 
-      AND StartTime <= GETDATE() 
-      AND DATEADD(MINUTE, Duration, StartTime) > GETDATE()
-    `);
-    
-    // Update ongoing competitions to completed if current time is after end time
-    await pool.request().query(`
-      UPDATE Competitions
-      SET Status = 'completed'
-      WHERE Status = 'ongoing' 
-      AND DATEADD(MINUTE, Duration, StartTime) <= GETDATE()
-    `);
-    
-    console.log('Competition statuses updated at:', now.toISOString());
-  } catch (error) {
-    console.error('Error updating competition statuses:', error);
-  }
-};
+let io;
 
 const initializeSocket = (server) => {
-  // Initialize Socket.IO with improved performance options
-  const io = socketIo(server, {
+  io = socketIo(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5004',
-      methods: ['GET', 'POST', 'PUT', 'DELETE'],
+      origin: process.env.FRONTEND_URL || "http://localhost:3000",
+      methods: ["GET", "POST"],
       credentials: true
     },
-    // Add performance optimizations
-    pingTimeout: 30000,
-    pingInterval: 25000,
-    transports: ['websocket', 'polling'],
-    // Prefer WebSocket transport
-    allowEIO3: true
+    transports: ['websocket', 'polling']
   });
 
-  // Socket authentication middleware
-  io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
-    
-    if (!token) {
-      return next(new Error('Authentication error: Token required'));
-    }
-    
+  // Authentication middleware
+  io.use(async (socket, next) => {
     try {
+      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        throw new Error('No token provided');
+      }
+
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = decoded;
+      
+      // Get user details from database
+      const userResult = await pool.request()
+        .input('userId', decoded.id)
+        .query('SELECT UserID, Username, FullName, Avatar FROM Users WHERE UserID = @userId');
+
+      if (!userResult.recordset.length) {
+        throw new Error('User not found');
+      }
+
+      socket.user = userResult.recordset[0];
       next();
     } catch (error) {
-      return next(new Error('Authentication error: Invalid token'));
+      console.error('Socket authentication error:', error.message);
+      next(new Error('Authentication failed'));
     }
   });
 
-  // Don't run competition status update immediately
-  // Instead, set up a timer to check database connection and run it when ready
-  const checkDbAndRunUpdate = () => {
-    if (pool.connected) {
-      console.log('Database connected, running competition status update');
-      updateCompetitionStatuses();
-      // Schedule to run every minute
-      setInterval(updateCompetitionStatuses, 60000);
-    } else {
-      console.log('Database not connected yet, will retry in 5 seconds');
-      setTimeout(checkDbAndRunUpdate, 5000);
-    }
-  };
-  
-  // Start checking for database connection
-  checkDbAndRunUpdate();
-
   io.on('connection', (socket) => {
-    const userId = socket.user.id;
-    console.log('User connected:', userId);
-    
-    // Add user to online users map
+    const userId = socket.user.UserID;
+    console.log(`User ${socket.user.Username} connected with socket ${socket.id}`);
+
+    // Register user as online
     onlineUsers.set(userId, socket.id);
-    
-    // Join user's personal room
+    socket.userId = userId;
+
+    // Emit user online status to contacts
+    emitUserOnlineStatus(userId, true);
+
+    // Join user to their personal room
     socket.join(`user:${userId}`);
-    
-    // Emit updated online users list
-    io.emit('getUsers', Array.from(onlineUsers.keys()));
-    
-    // Send initial presence status to all friends
-    sendPresenceUpdate(userId, 'online');
-    
-    // Handle disconnection with grace period
-    let disconnectTimer;
-    
-    socket.on('disconnect', () => {
-      // Give a grace period before marking as offline (for reconnects)
-      disconnectTimer = setTimeout(() => {
-        console.log('User disconnected (timed out):', userId);
-        onlineUsers.delete(userId);
+
+    // Get user's conversations and join those rooms
+    getUserConversations(userId).then(conversations => {
+      conversations.forEach(conv => {
+        socket.join(`conversation:${conv.ConversationID}`);
         
-        // Leave all active conversations
-        const userConversations = getUserActiveConversations(userId);
-        userConversations.forEach(conversationId => {
-          leaveConversation(userId, conversationId);
-        });
-        
-        // Send offline status to friends
-        sendPresenceUpdate(userId, 'offline');
-        
-        // Let everyone know updated online users
-        io.emit('getUsers', Array.from(onlineUsers.keys()));
-      }, 5000); // 5 second grace period for reconnection
+        // Add user to active conversations tracking
+        if (!activeConversations.has(conv.ConversationID)) {
+          activeConversations.set(conv.ConversationID, new Set());
+        }
+        activeConversations.get(conv.ConversationID).add(userId);
+      });
     });
-    
-    // Handle reconnection by clearing timeout
-    socket.on('reconnect', () => {
-      if (disconnectTimer) {
-        clearTimeout(disconnectTimer);
-        disconnectTimer = null;
-      }
-    });
-    
-    // Handle joining a chat room with tracking
-    socket.on('join_room', (roomId) => {
-      socket.join(`room:${roomId}`);
-      console.log(`User ${userId} joined room ${roomId}`);
-      
-      // Track which conversation this user is in
-      addToConversation(userId, roomId);
-    });
-    
-    // Handle leaving a chat room
-    socket.on('leave_room', (roomId) => {
-      socket.leave(`room:${roomId}`);
-      console.log(`User ${userId} left room ${roomId}`);
-      
-      // Remove user from conversation tracking
-      leaveConversation(userId, roomId);
-    });
-    
-    // Send typing indicator to other participants
-    socket.on('typing', async (data) => {
+
+    // Handle typing indicators
+    socket.on('typing-start', async (data) => {
       try {
-        const { conversationId, isTyping } = data;
+        const { conversationId } = data;
         
-        // Get all participants in the conversation
-        const participants = await getConversationParticipants(conversationId);
-        
-        // Send typing status to all other participants
-        participants.forEach(participantId => {
-          // Skip sender
-          if (participantId === userId) return;
-          
-          const participantSocketId = onlineUsers.get(participantId);
-          if (participantSocketId) {
-            io.to(participantSocketId).emit('user-typing', {
-              conversationId,
-              userId,
-              isTyping
-            });
-          }
+        // Verify user is participant
+        const isParticipant = await verifyConversationParticipant(conversationId, userId);
+        if (!isParticipant) return;
+
+        // Add to typing users
+        if (!typingUsers.has(conversationId)) {
+          typingUsers.set(conversationId, new Set());
+        }
+        typingUsers.get(conversationId).add(userId);
+
+        // Broadcast to other participants
+        socket.to(`conversation:${conversationId}`).emit('user-typing', {
+          conversationId,
+          userId,
+          username: socket.user.Username,
+          isTyping: true
         });
       } catch (error) {
-        console.error('Error sending typing indicator:', error);
+        console.error('Error handling typing start:', error);
       }
     });
-    
-    // Handle message-sent event (when user sends a message) with optimized delivery
+
+    socket.on('typing-stop', async (data) => {
+      try {
+        const { conversationId } = data;
+        
+        // Remove from typing users
+        if (typingUsers.has(conversationId)) {
+          typingUsers.get(conversationId).delete(userId);
+          if (typingUsers.get(conversationId).size === 0) {
+            typingUsers.delete(conversationId);
+          }
+        }
+
+        // Broadcast to other participants
+        socket.to(`conversation:${conversationId}`).emit('user-typing', {
+          conversationId,
+          userId,
+          username: socket.user.Username,
+          isTyping: false
+        });
+      } catch (error) {
+        console.error('Error handling typing stop:', error);
+      }
+    });
+
+    // Handle message sent event
     socket.on('message-sent', async (data) => {
       try {
         const { conversationId, message } = data;
-        console.log(`Message sent in conversation ${conversationId}`);
         
-        // Get or fetch participants
-        const participants = await getConversationParticipants(conversationId);
-        
-        // Broadcast to all other participants with efficient targeting
-        participants.forEach(participantId => {
-          // Skip sender
-          if (participantId === userId) return;
-          
-          const participantSocketId = onlineUsers.get(participantId);
-          if (participantSocketId) {
-            // Send the new message
-            io.to(participantSocketId).emit('new-message', message);
-            
-            // Also emit conversation update to move this conversation to the top
-            io.to(participantSocketId).emit('conversation-updated', {
-              conversationId: conversationId,
-              lastMessage: message
-            });
+        // Verify user is participant
+        const isParticipant = await verifyConversationParticipant(conversationId, userId);
+        if (!isParticipant) {
+          socket.emit('error', { message: 'Not authorized to send messages in this conversation' });
+          return;
+        }
+
+        // Broadcast message to conversation participants
+        socket.to(`conversation:${conversationId}`).emit('new-message', {
+          conversationId,
+          message: {
+            ...message,
+            SenderUsername: socket.user.Username,
+            SenderName: socket.user.FullName || socket.user.Username,
+            SenderAvatar: socket.user.Avatar
           }
         });
+
+        // Update conversation's last message time
+        socket.to(`conversation:${conversationId}`).emit('conversation-updated', {
+          conversationId,
+          lastMessage: message,
+          lastMessageAt: new Date()
+        });
+
+        console.log(`Message sent in conversation ${conversationId} by user ${userId}`);
       } catch (error) {
         console.error('Error broadcasting message:', error);
         socket.emit('error', { message: 'Failed to broadcast message' });
       }
     });
-    
-    // Helper function to get conversation participants with caching
-    async function getConversationParticipants(conversationId) {
-      // Check if we already have participants cached
-      if (activeConversations.has(conversationId)) {
-        const participants = activeConversations.get(conversationId);
-        return [...participants]; // Return a copy of the set
+
+    // Handle message read status
+    socket.on('message-read', async (data) => {
+      try {
+        const { conversationId, messageId } = data;
+        
+        // Update read status in database
+        await pool.request()
+          .input('conversationId', conversationId)
+          .input('userId', userId)
+          .input('messageId', messageId)
+          .query(`
+            UPDATE ConversationParticipants
+            SET LastReadMessageID = @messageId
+            WHERE ConversationID = @conversationId AND UserID = @userId
+          `);
+
+        // Broadcast read status to other participants
+        socket.to(`conversation:${conversationId}`).emit('message-read-by', {
+          conversationId,
+          messageId,
+          readBy: userId,
+          readByName: socket.user.Username
+        });
+      } catch (error) {
+        console.error('Error updating message read status:', error);
       }
-      
-      // If not cached, fetch from database
-      const result = await pool.request()
-        .input('conversationId', conversationId)
-        .query(`
-          SELECT cp.UserID 
-          FROM ConversationParticipants cp
-          WHERE cp.ConversationID = @conversationId AND cp.LeftAt IS NULL
-        `);
-      
-      // Extract user IDs
-      const participants = result.recordset.map(row => row.UserID);
-      
-      // Initialize in the tracking map if needed
-      if (!activeConversations.has(conversationId)) {
-        activeConversations.set(conversationId, new Set());
+    });
+
+    // Handle joining a conversation
+    socket.on('join-conversation', async (conversationId) => {
+      try {
+        const isParticipant = await verifyConversationParticipant(conversationId, userId);
+        if (isParticipant) {
+          socket.join(`conversation:${conversationId}`);
+          
+          // Add to active conversations
+          if (!activeConversations.has(conversationId)) {
+            activeConversations.set(conversationId, new Set());
+          }
+          activeConversations.get(conversationId).add(userId);
+
+          console.log(`User ${userId} joined conversation ${conversationId}`);
+        }
+      } catch (error) {
+        console.error('Error joining conversation:', error);
       }
+    });
+
+    // Handle leaving a conversation
+    socket.on('leave-conversation', (conversationId) => {
+      socket.leave(`conversation:${conversationId}`);
       
-      // Add all participants to the tracking (but don't override active status)
-      participants.forEach(participantId => {
-        addToConversation(participantId, conversationId, false); // Don't join socket room
-      });
-      
-      return participants;
-    }
-    
-    // Helper function to track user in conversation
-    function addToConversation(userId, conversationId, joinRoom = true) {
-      if (!activeConversations.has(conversationId)) {
-        activeConversations.set(conversationId, new Set());
-      }
-      
-      activeConversations.get(conversationId).add(userId);
-      
-      // Optionally join the room
-      if (joinRoom) {
-        socket.join(`conversation:${conversationId}`);
-      }
-    }
-    
-    // Helper function to remove user from conversation tracking
-    function leaveConversation(userId, conversationId) {
+      // Remove from active conversations
       if (activeConversations.has(conversationId)) {
         activeConversations.get(conversationId).delete(userId);
-        
-        // Clean up empty conversations
         if (activeConversations.get(conversationId).size === 0) {
           activeConversations.delete(conversationId);
         }
       }
-      
-      // Leave the room
-      socket.leave(`conversation:${conversationId}`);
-    }
-    
-    // Helper to get all conversations a user is active in
-    function getUserActiveConversations(userId) {
-      const userConversations = [];
-      
-      for (const [conversationId, participants] of activeConversations.entries()) {
-        if (participants.has(userId)) {
-          userConversations.push(conversationId);
-        }
+
+      // Remove from typing users
+      if (typingUsers.has(conversationId)) {
+        typingUsers.get(conversationId).delete(userId);
       }
+
+      console.log(`User ${userId} left conversation ${conversationId}`);
+    });
+
+    // Call-related events
+    socket.on('call-signal', (data) => {
+      const { to, signal, callId } = data;
+      const targetSocketId = onlineUsers.get(to);
       
-      return userConversations;
-    }
-    
-    // Helper to update user's presence status
-    async function sendPresenceUpdate(userId, status) {
-      try {
-        // Update database
-        await pool.request()
-          .input('userId', userId)
-          .input('status', status)
-          .query(`
-            UPDATE UserPresence
-            SET Status = @status, LastActiveAt = GETDATE()
-            WHERE UserID = @userId;
-            
-            -- If no record exists, insert one
-            IF @@ROWCOUNT = 0
-            INSERT INTO UserPresence (UserID, Status, LastActiveAt)
-            VALUES (@userId, @status, GETDATE());
-          `);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('call-signal', {
+          from: userId,
+          signal,
+          callId
+        });
+      }
+    });
+
+    socket.on('call-ice-candidate', (data) => {
+      const { to, candidate, callId } = data;
+      const targetSocketId = onlineUsers.get(to);
+      
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('call-ice-candidate', {
+          from: userId,
+          candidate,
+          callId
+        });
+      }
+    });
+
+    // Handle WebRTC offer for calls
+    socket.on('call-offer', (data) => {
+      const { to, offer, callId } = data;
+      const targetSocketId = onlineUsers.get(to);
+      
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('call-offer', {
+          from: userId,
+          offer,
+          callId,
+          fromUser: {
+            id: userId,
+            username: socket.user.Username,
+            name: socket.user.FullName || socket.user.Username,
+            avatar: socket.user.Avatar
+          }
+        });
+      }
+    });
+
+    // Handle WebRTC answer for calls
+    socket.on('call-answer', (data) => {
+      const { to, answer, callId } = data;
+      const targetSocketId = onlineUsers.get(to);
+      
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('call-answer', {
+          from: userId,
+          answer,
+          callId
+        });
+      }
+    });
+
+    // Handle screen sharing
+    socket.on('screen-share-start', (data) => {
+      const { conversationId, callId } = data;
+      socket.to(`conversation:${conversationId}`).emit('screen-share-started', {
+        callId,
+        sharedBy: userId,
+        sharedByName: socket.user.Username
+      });
+    });
+
+    socket.on('screen-share-stop', (data) => {
+      const { conversationId, callId } = data;
+      socket.to(`conversation:${conversationId}`).emit('screen-share-stopped', {
+        callId,
+        stoppedBy: userId
+      });
+    });
+
+    // Handle disconnect
+    socket.on('disconnect', () => {
+      console.log(`User ${socket.user.Username} disconnected`);
+      
+      // Remove from online users
+      onlineUsers.delete(userId);
+      
+      // Emit user offline status
+      emitUserOnlineStatus(userId, false);
+      
+      // Clean up typing indicators
+      for (const [conversationId, typingSet] of typingUsers.entries()) {
+        if (typingSet.has(userId)) {
+          typingSet.delete(userId);
           
-        // Get user's friends to notify them
-        const friendsResult = await pool.request()
-          .input('userId', userId)
-          .query(`
-            SELECT
-              CASE 
-                WHEN f.UserID = @userId THEN f.FriendID
-                ELSE f.UserID
-              END as FriendID
-            FROM Friendships f
-            WHERE (f.UserID = @userId OR f.FriendID = @userId)
-              AND f.Status = 'accepted'
-          `);
-          
-        // Notify all online friends about status change
-        if (friendsResult.recordset) {
-          friendsResult.recordset.forEach(row => {
-            const friendId = row.FriendID;
-            const friendSocketId = onlineUsers.get(friendId);
-            
-            if (friendSocketId) {
-              io.to(friendSocketId).emit('presence-update', {
-                userId,
-                status
-              });
-            }
+          // Notify others that user stopped typing
+          socket.to(`conversation:${conversationId}`).emit('user-typing', {
+            conversationId,
+            userId,
+            username: socket.user.Username,
+            isTyping: false
           });
         }
-      } catch (error) {
-        console.error('Error updating presence:', error);
       }
-    }
-    
-    // CALL RELATED SOCKET EVENTS
-
-    // Handle call signaling (WebRTC)
-    socket.on('call-signal', (data) => {
-      const { userId, signal } = data;
-      const userSocketId = onlineUsers.get(userId);
       
-      console.log(`Call signal from ${socket.user.id} to ${userId}, type: ${signal.type}`);
-      
-      if (userSocketId) {
-        io.to(userSocketId).emit('call-signal', {
-          fromUserId: socket.user.id,
-          signal
-        });
-        console.log(`Signal forwarded to ${userId} successfully`);
-      } else {
-        console.log(`Failed to send signal: User ${userId} not found or offline`);
+      // Clean up active conversations
+      for (const [conversationId, participantSet] of activeConversations.entries()) {
+        participantSet.delete(userId);
+        if (participantSet.size === 0) {
+          activeConversations.delete(conversationId);
+        }
       }
-    });
-
-    // Handle ICE candidate exchange for WebRTC
-    socket.on('ice-candidate', (data) => {
-      const { userId, candidate } = data;
-      const userSocketId = onlineUsers.get(userId);
-      
-      if (userSocketId) {
-        io.to(userSocketId).emit('ice-candidate', {
-          fromUserId: socket.user.id,
-          candidate
-        });
-      }
-    });
-
-    // Join a call room
-    socket.on('join-call-room', (callId) => {
-      socket.join(`call:${callId}`);
-      console.log(`User ${socket.user.id} joined call room ${callId}`);
-      
-      // Notify other participants in the call room
-      socket.to(`call:${callId}`).emit('user-joined-call', {
-        userId: socket.user.id
-      });
-    });
-
-    // Leave a call room
-    socket.on('leave-call-room', (callId) => {
-      socket.leave(`call:${callId}`);
-      console.log(`User ${socket.user.id} left call room ${callId}`);
-      
-      // Notify other participants in the call room
-      socket.to(`call:${callId}`).emit('user-left-call', {
-        userId: socket.user.id
-      });
-    });
-
-    // Toggle audio/video
-    socket.on('toggle-media', (data) => {
-      const { callId, type, enabled } = data;
-      
-      socket.to(`call:${callId}`).emit('user-toggle-media', {
-        userId: socket.user.id,
-        type,
-        enabled
-      });
     });
   });
 
   return io;
 };
 
+// Helper function to get user conversations
+async function getUserConversations(userId) {
+  try {
+    const result = await pool.request()
+      .input('userId', userId)
+      .query(`
+        SELECT c.ConversationID
+        FROM Conversations c
+        INNER JOIN ConversationParticipants cp ON c.ConversationID = cp.ConversationID
+        WHERE cp.UserID = @userId AND cp.LeftAt IS NULL
+      `);
+    
+    return result.recordset;
+  } catch (error) {
+    console.error('Error getting user conversations:', error);
+    return [];
+  }
+}
+
+// Helper function to verify conversation participant
+async function verifyConversationParticipant(conversationId, userId) {
+  try {
+    const result = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND LeftAt IS NULL
+      `);
+    
+    return result.recordset.length > 0;
+  } catch (error) {
+    console.error('Error verifying conversation participant:', error);
+    return false;
+  }
+}
+
+// Helper function to emit user online/offline status
+async function emitUserOnlineStatus(userId, isOnline) {
+  try {
+    // Get user's contacts/friends who should be notified
+    const contacts = await pool.request()
+      .input('userId', userId)
+      .query(`
+        SELECT DISTINCT f.UserID as ContactId
+        FROM Friendships f
+        WHERE (f.RequesterID = @userId OR f.RequesteeID = @userId)
+        AND f.Status = 'accepted'
+      `);
+
+    // Emit status to online contacts
+    contacts.recordset.forEach(contact => {
+      const contactSocketId = onlineUsers.get(contact.ContactId);
+      if (contactSocketId && io) {
+        io.to(contactSocketId).emit('user-status-changed', {
+          userId,
+          isOnline,
+          timestamp: new Date()
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Error emitting user online status:', error);
+  }
+}
+
+// Function to get online users (for external use)
+function getOnlineUsers() {
+  return onlineUsers;
+}
+
+// Function to get active conversations (for external use)
+function getActiveConversations() {
+  return activeConversations;
+}
+
+// Function to emit to specific user
+function emitToUser(userId, event, data) {
+  const socketId = onlineUsers.get(userId);
+  if (socketId && io) {
+    io.to(socketId).emit(event, data);
+    return true;
+  }
+  return false;
+}
+
+// Function to emit to conversation
+function emitToConversation(conversationId, event, data, excludeUserId = null) {
+  if (io) {
+    const room = `conversation:${conversationId}`;
+    if (excludeUserId) {
+      const excludeSocketId = onlineUsers.get(excludeUserId);
+      if (excludeSocketId) {
+        io.to(room).except(excludeSocketId).emit(event, data);
+      } else {
+        io.to(room).emit(event, data);
+      }
+    } else {
+      io.to(room).emit(event, data);
+    }
+    return true;
+  }
+  return false;
+}
+
 module.exports = {
   initializeSocket,
-  onlineUsers
+  getOnlineUsers,
+  getActiveConversations,
+  emitToUser,
+  emitToConversation,
+  onlineUsers // Export for backward compatibility
 }; 

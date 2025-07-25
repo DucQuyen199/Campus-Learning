@@ -2,86 +2,156 @@
 * File: callController.js
 * Author: Quyen Nguyen Duc
 * Date: 2025-07-24
-* Description: This file is part of the user backend service.
+* Description: Enhanced call controller with group call support and better integration
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 const { pool } = require('../config/db');
 const { onlineUsers } = require('../socket');
 
+// Store active call timeouts
+const callTimeouts = new Map();
+
 /**
- * Initiate a call between users
+ * Initiate a call (private or group)
  */
 exports.initiateCall = async (req, res) => {
   try {
-    const { receiverId, type } = req.body;
+    const { conversationId, type, receiverId } = req.body;
     const initiatorId = req.user.id;
 
-    if (!receiverId) {
-      return res.status(400).json({ message: 'Receiver ID is required' });
-    }
-
     if (!type || !['audio', 'video'].includes(type)) {
-      return res.status(400).json({ message: 'Valid call type (audio/video) is required' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Valid call type (audio/video) is required' 
+      });
     }
 
-    // Check if receiver is online
-    const isReceiverOnline = onlineUsers.has(receiverId);
-    if (!isReceiverOnline) {
-      return res.status(400).json({ message: 'User is offline' });
+    let targetConversationId = conversationId;
+
+    // If no conversation ID provided, create or find private conversation
+    if (!conversationId) {
+      if (!receiverId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Conversation ID or receiver ID is required' 
+        });
+      }
+
+      // Check if receiver is online
+      const isReceiverOnline = onlineUsers.has(receiverId);
+      if (!isReceiverOnline) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'User is offline' 
+        });
+      }
+
+      // Find or create private conversation
+      const existingConversation = await pool.request()
+        .input('userIdA', initiatorId)
+        .input('userIdB', receiverId)
+        .query(`
+          SELECT c.ConversationID
+          FROM Conversations c
+          JOIN ConversationParticipants cp1 ON c.ConversationID = cp1.ConversationID
+          JOIN ConversationParticipants cp2 ON c.ConversationID = cp2.ConversationID
+          WHERE c.Type = 'private'
+          AND cp1.UserID = @userIdA
+          AND cp2.UserID = @userIdB
+          AND cp1.LeftAt IS NULL
+          AND cp2.LeftAt IS NULL
+        `);
+
+      if (existingConversation.recordset.length > 0) {
+        targetConversationId = existingConversation.recordset[0].ConversationID;
+      } else {
+        // Create new private conversation
+        const newConversation = await pool.request()
+          .input('createdBy', initiatorId)
+          .query(`
+            INSERT INTO Conversations (Type, CreatedBy, CreatedAt, UpdatedAt)
+            VALUES ('private', @createdBy, GETDATE(), GETDATE());
+            SELECT SCOPE_IDENTITY() AS ConversationID;
+          `);
+
+        targetConversationId = newConversation.recordset[0].ConversationID;
+
+        // Add participants
+        await pool.request()
+          .input('conversationId', targetConversationId)
+          .input('userId', initiatorId)
+          .query(`
+            INSERT INTO ConversationParticipants (ConversationID, UserID, JoinedAt, Role)
+            VALUES (@conversationId, @userId, GETDATE(), 'member')
+          `);
+
+        await pool.request()
+          .input('conversationId', targetConversationId)
+          .input('userId', receiverId)
+          .query(`
+            INSERT INTO ConversationParticipants (ConversationID, UserID, JoinedAt, Role)
+            VALUES (@conversationId, @userId, GETDATE(), 'member')
+          `);
+      }
     }
 
-    // Check if there's an existing conversation
-    let conversationId;
-    const existingConversation = await pool.request()
-      .input('userIdA', initiatorId)
-      .input('userIdB', receiverId)
+    // Check if user is participant in conversation
+    const isParticipant = await pool.request()
+      .input('conversationId', targetConversationId)
+      .input('userId', initiatorId)
       .query(`
-        SELECT c.ConversationID
-        FROM Conversations c
-        JOIN ConversationParticipants cp1 ON c.ConversationID = cp1.ConversationID
-        JOIN ConversationParticipants cp2 ON c.ConversationID = cp2.ConversationID
-        WHERE c.Type = 'private'
-        AND cp1.UserID = @userIdA
-        AND cp2.UserID = @userIdB
-        AND cp1.LeftAt IS NULL
-        AND cp2.LeftAt IS NULL
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND LeftAt IS NULL
       `);
 
-    if (existingConversation.recordset.length > 0) {
-      conversationId = existingConversation.recordset[0].ConversationID;
-    } else {
-      // Create a new conversation
-      const newConversation = await pool.request()
-        .input('createdBy', initiatorId)
-        .query(`
-          INSERT INTO Conversations (Type, CreatedBy, CreatedAt, UpdatedAt)
-          VALUES ('private', @createdBy, GETDATE(), GETDATE());
-          SELECT SCOPE_IDENTITY() AS ConversationID;
-        `);
-
-      conversationId = newConversation.recordset[0].ConversationID;
-
-      // Add participants
-      await pool.request()
-        .input('conversationId', conversationId)
-        .input('userId', initiatorId)
-        .query(`
-          INSERT INTO ConversationParticipants (ConversationID, UserID, JoinedAt, Role)
-          VALUES (@conversationId, @userId, GETDATE(), 'member')
-        `);
-
-      await pool.request()
-        .input('conversationId', conversationId)
-        .input('userId', receiverId)
-        .query(`
-          INSERT INTO ConversationParticipants (ConversationID, UserID, JoinedAt, Role)
-          VALUES (@conversationId, @userId, GETDATE(), 'member')
-        `);
+    if (!isParticipant.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to initiate call in this conversation' 
+      });
     }
 
-    // Create a new call
-    const newCall = await pool.request()
-      .input('conversationId', conversationId)
+    // Check for ongoing calls in this conversation
+    const ongoingCall = await pool.request()
+      .input('conversationId', targetConversationId)
+      .query(`
+        SELECT * FROM Calls
+        WHERE ConversationID = @conversationId 
+        AND Status IN ('initiated', 'ringing', 'ongoing')
+      `);
+
+    if (ongoingCall.recordset.length > 0) {
+      // Instead of returning an error, send back existing call data so client can join
+      const existing = ongoingCall.recordset[0];
+
+      // Fetch participants
+      const existingParticipants = await pool.request()
+        .input('callId', existing.CallID)
+        .query(`
+          SELECT cp.UserID, u.Username, u.FullName, u.Avatar, cp.Status
+          FROM CallParticipants cp
+          INNER JOIN Users u ON cp.UserID = u.UserID
+          WHERE cp.CallID = @callId
+        `);
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          callId: existing.CallID,
+          conversationId: existing.ConversationID,
+          type: existing.Type,
+          status: existing.Status,
+          participants: existingParticipants.recordset
+        },
+        message: 'Existing call returned'
+      });
+    }
+
+    // Create new call
+    const callResult = await pool.request()
+      .input('conversationId', targetConversationId)
       .input('initiatorId', initiatorId)
       .input('type', type)
       .query(`
@@ -90,7 +160,7 @@ exports.initiateCall = async (req, res) => {
         SELECT SCOPE_IDENTITY() AS CallID;
       `);
 
-    const callId = newCall.recordset[0].CallID;
+    const callId = callResult.recordset[0].CallID;
 
     // Add initiator as call participant
     await pool.request()
@@ -98,45 +168,148 @@ exports.initiateCall = async (req, res) => {
       .input('userId', initiatorId)
       .query(`
         INSERT INTO CallParticipants (CallID, UserID, JoinTime, Status, DeviceInfo)
-        VALUES (@callId, @userId, GETDATE(), 'joined', 'Web Browser')
+        VALUES (@callId, @userId, GETDATE(), 'invited', 'Web Browser')
       `);
 
-    // Get call details with user information
-    const callDetails = await pool.request()
+    // Get conversation participants and their info
+    const participants = await pool.request()
+      .input('conversationId', targetConversationId)
+      .input('initiatorId', initiatorId)
+      .query(`
+        SELECT 
+          u.UserID, u.Username, u.FullName, u.Avatar,
+          cp.Role
+        FROM ConversationParticipants cp
+        INNER JOIN Users u ON cp.UserID = u.UserID
+        WHERE cp.ConversationID = @conversationId 
+        AND cp.LeftAt IS NULL
+        AND u.UserID != @initiatorId
+      `);
+
+    // Get initiator info
+    const initiatorInfo = await pool.request()
+      .input('initiatorId', initiatorId)
+      .query(`
+        SELECT Username, FullName, Avatar
+        FROM Users WHERE UserID = @initiatorId
+      `);
+
+    const initiator = initiatorInfo.recordset[0];
+
+    // Emit call invitation to all participants
+    const io = req.app.get('io');
+    const callData = {
+      callId,
+      conversationId: targetConversationId,
+      initiatorId,
+      initiatorName: initiator.FullName || initiator.Username,
+      initiatorPicture: initiator.Avatar,
+      type,
+      participants: participants.recordset
+    };
+
+    participants.recordset.forEach(participant => {
+      const socketId = onlineUsers.get(participant.UserID);
+      if (socketId) {
+        io.to(socketId).emit('incoming-call', callData);
+      }
+    });
+
+    // Update call status to ringing
+    await pool.request()
       .input('callId', callId)
       .query(`
-        SELECT c.*, u.UserName as InitiatorName, u.ProfilePicture as InitiatorPicture
-        FROM Calls c
-        JOIN Users u ON c.InitiatorID = u.UserID
-        WHERE c.CallID = @callId
+        UPDATE Calls SET Status = 'ringing' WHERE CallID = @callId
       `);
 
-    // Get receiver socket and emit call
-    const receiverSocketId = onlineUsers.get(receiverId);
-    if (receiverSocketId) {
-      req.app.get('io').to(receiverSocketId).emit('incoming-call', {
-        callId,
-        conversationId,
-        initiatorId,
-        initiatorName: callDetails.recordset[0].InitiatorName,
-        initiatorPicture: callDetails.recordset[0].InitiatorPicture,
-        type
-      });
-    }
+    // Set up 60-second timeout for missed call
+    const timeoutId = setTimeout(async () => {
+      try {
+        // Check if call is still ringing (not answered)
+        const callStatus = await pool.request()
+          .input('callId', callId)
+          .query(`SELECT Status FROM Calls WHERE CallID = @callId`);
+
+        if (callStatus.recordset.length > 0 && callStatus.recordset[0].Status === 'ringing') {
+          // Mark call as missed
+          await pool.request()
+            .input('callId', callId)
+            .query(`
+              UPDATE Calls 
+              SET Status = 'missed', EndTime = GETDATE()
+              WHERE CallID = @callId
+            `);
+
+          // Update all non-initiator participants as missed
+          await pool.request()
+            .input('callId', callId)
+            .input('initiatorId', initiatorId)
+            .query(`
+              UPDATE CallParticipants
+              SET Status = 'missed', LeaveTime = GETDATE()
+              WHERE CallID = @callId AND UserID != @initiatorId
+            `);
+
+          // Update initiator as no-answer
+          await pool.request()
+            .input('callId', callId)
+            .input('initiatorId', initiatorId)
+            .query(`
+              UPDATE CallParticipants
+              SET Status = 'no-answer', LeaveTime = GETDATE()
+              WHERE CallID = @callId AND UserID = @initiatorId
+            `);
+
+          // Notify all participants that call timed out
+          const allParticipants = await pool.request()
+            .input('callId', callId)
+            .query(`
+              SELECT DISTINCT cp.UserID
+              FROM CallParticipants cp
+              WHERE cp.CallID = @callId
+            `);
+
+          allParticipants.recordset.forEach(participant => {
+            const socketId = onlineUsers.get(participant.UserID);
+            if (socketId) {
+              io.to(socketId).emit('call-timeout', {
+                callId,
+                reason: 'No response after 60 seconds'
+              });
+            }
+          });
+
+          console.log(`Call ${callId} timed out after 60 seconds`);
+        }
+      } catch (error) {
+        console.error('Error handling call timeout:', error);
+      } finally {
+        // Clean up timeout reference
+        callTimeouts.delete(callId);
+      }
+    }, 60000); // 60 seconds
+
+    // Store timeout reference
+    callTimeouts.set(callId, timeoutId);
 
     return res.status(200).json({
-      message: 'Call initiated successfully',
-      call: {
+      success: true,
+      data: {
         callId,
-        conversationId,
-        receiverId,
+        conversationId: targetConversationId,
         type,
-        status: 'initiated'
-      }
+        status: 'ringing',
+        participants: participants.recordset
+      },
+      message: 'Call initiated successfully'
     });
   } catch (error) {
     console.error('Error initiating call:', error);
-    return res.status(500).json({ message: 'Failed to initiate call' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to initiate call',
+      error: error.message 
+    });
   }
 };
 
@@ -149,32 +322,53 @@ exports.answerCall = async (req, res) => {
     const userId = req.user.id;
 
     if (!callId) {
-      return res.status(400).json({ message: 'Call ID is required' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Call ID is required' 
+      });
+    }
+
+    // Clear timeout if call is answered
+    if (callTimeouts.has(callId)) {
+      clearTimeout(callTimeouts.get(callId));
+      callTimeouts.delete(callId);
     }
 
     // Get call information
     const callInfo = await pool.request()
       .input('callId', callId)
       .query(`
-        SELECT * FROM Calls WHERE CallID = @callId
+        SELECT c.*, conv.Type as ConversationType
+        FROM Calls c
+        INNER JOIN Conversations conv ON c.ConversationID = conv.ConversationID
+        WHERE c.CallID = @callId
       `);
 
-    if (callInfo.recordset.length === 0) {
-      return res.status(404).json({ message: 'Call not found' });
+    if (!callInfo.recordset.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Call not found' 
+      });
     }
 
     const call = callInfo.recordset[0];
 
-    // Update call status
+    // Check if call is still valid
+    if (!['initiated', 'ringing'].includes(call.Status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Call is no longer available' 
+      });
+    }
+
+    // Update call status to ongoing
     await pool.request()
       .input('callId', callId)
       .query(`
-        UPDATE Calls
-        SET Status = 'ongoing'
-        WHERE CallID = @callId
+        UPDATE Calls SET Status = 'ongoing' WHERE CallID = @callId
       `);
 
-    // Add user as call participant if not already
+    // Update or add user as call participant
     const existingParticipant = await pool.request()
       .input('callId', callId)
       .input('userId', userId)
@@ -202,28 +396,48 @@ exports.answerCall = async (req, res) => {
         `);
     }
 
-    // Get initiator socket and emit call accepted
-    const initiatorSocketId = onlineUsers.get(call.InitiatorID);
-    if (initiatorSocketId) {
-      req.app.get('io').to(initiatorSocketId).emit('call-answered', {
-        callId,
-        userId
-      });
-    }
+    // Get all call participants for notification
+    const allParticipants = await pool.request()
+      .input('callId', callId)
+      .query(`
+        SELECT cp.UserID, u.Username, u.FullName, u.Avatar
+        FROM CallParticipants cp
+        INNER JOIN Users u ON cp.UserID = u.UserID
+        WHERE cp.CallID = @callId
+      `);
+
+    // Notify all participants that someone joined
+    const io = req.app.get('io');
+    allParticipants.recordset.forEach(participant => {
+      const socketId = onlineUsers.get(participant.UserID);
+      if (socketId) {
+        io.to(socketId).emit('call-participant-joined', {
+          callId,
+          userId,
+          participants: allParticipants.recordset
+        });
+      }
+    });
 
     return res.status(200).json({
-      message: 'Call answered successfully',
-      call: {
+      success: true,
+      data: {
         callId,
         conversationId: call.ConversationID,
         initiatorId: call.InitiatorID,
         type: call.Type,
-        status: 'ongoing'
-      }
+        status: 'ongoing',
+        participants: allParticipants.recordset
+      },
+      message: 'Call answered successfully'
     });
   } catch (error) {
     console.error('Error answering call:', error);
-    return res.status(500).json({ message: 'Failed to answer call' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to answer call',
+      error: error.message 
+    });
   }
 };
 
@@ -236,7 +450,16 @@ exports.endCall = async (req, res) => {
     const userId = req.user.id;
 
     if (!callId) {
-      return res.status(400).json({ message: 'Call ID is required' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Call ID is required' 
+      });
+    }
+
+    // Clear timeout if call is ended manually
+    if (callTimeouts.has(callId)) {
+      clearTimeout(callTimeouts.get(callId));
+      callTimeouts.delete(callId);
     }
 
     // Get call information
@@ -246,8 +469,11 @@ exports.endCall = async (req, res) => {
         SELECT * FROM Calls WHERE CallID = @callId
       `);
 
-    if (callInfo.recordset.length === 0) {
-      return res.status(404).json({ message: 'Call not found' });
+    if (!callInfo.recordset.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Call not found' 
+      });
     }
 
     const call = callInfo.recordset[0];
@@ -268,50 +494,54 @@ exports.endCall = async (req, res) => {
         WHERE CallID = @callId
       `);
 
-    // Update participant status
+    // Update all participants status
     await pool.request()
       .input('callId', callId)
-      .input('userId', userId)
       .input('leaveTime', endTime)
       .query(`
         UPDATE CallParticipants
         SET Status = 'left', LeaveTime = @leaveTime
-        WHERE CallID = @callId AND UserID = @userId
-      `);
-
-    // Get call participants
-    const participants = await pool.request()
-      .input('callId', callId)
-      .query(`
-        SELECT UserID FROM CallParticipants
         WHERE CallID = @callId AND Status = 'joined'
       `);
 
+    // Get all participants for notification
+    const participants = await pool.request()
+      .input('callId', callId)
+      .query(`
+        SELECT DISTINCT cp.UserID
+        FROM CallParticipants cp
+        WHERE cp.CallID = @callId
+      `);
+
     // Notify all participants that call has ended
+    const io = req.app.get('io');
     participants.recordset.forEach(participant => {
-      if (participant.UserID !== userId) {
-        const participantSocketId = onlineUsers.get(participant.UserID);
-        if (participantSocketId) {
-          req.app.get('io').to(participantSocketId).emit('call-ended', {
-            callId,
-            endedBy: userId,
-            duration: durationInSeconds
-          });
-        }
+      const socketId = onlineUsers.get(participant.UserID);
+      if (socketId) {
+        io.to(socketId).emit('call-ended', {
+          callId,
+          endedBy: userId,
+          duration: durationInSeconds
+        });
       }
     });
 
     return res.status(200).json({
-      message: 'Call ended successfully',
-      callDetails: {
+      success: true,
+      data: {
         callId,
         duration: durationInSeconds,
         endTime
-      }
+      },
+      message: 'Call ended successfully'
     });
   } catch (error) {
     console.error('Error ending call:', error);
-    return res.status(500).json({ message: 'Failed to end call' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to end call',
+      error: error.message 
+    });
   }
 };
 
@@ -324,7 +554,10 @@ exports.rejectCall = async (req, res) => {
     const userId = req.user.id;
 
     if (!callId) {
-      return res.status(400).json({ message: 'Call ID is required' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Call ID is required' 
+      });
     }
 
     // Get call information
@@ -334,20 +567,14 @@ exports.rejectCall = async (req, res) => {
         SELECT * FROM Calls WHERE CallID = @callId
       `);
 
-    if (callInfo.recordset.length === 0) {
-      return res.status(404).json({ message: 'Call not found' });
+    if (!callInfo.recordset.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Call not found' 
+      });
     }
 
     const call = callInfo.recordset[0];
-
-    // Update call status
-    await pool.request()
-      .input('callId', callId)
-      .query(`
-        UPDATE Calls
-        SET Status = 'rejected', EndTime = GETDATE()
-        WHERE CallID = @callId
-      `);
 
     // Add user as call participant with declined status
     const existingParticipant = await pool.request()
@@ -377,60 +604,186 @@ exports.rejectCall = async (req, res) => {
         `);
     }
 
-    // Get initiator socket and emit call rejected
-    const initiatorSocketId = onlineUsers.get(call.InitiatorID);
-    if (initiatorSocketId) {
-      req.app.get('io').to(initiatorSocketId).emit('call-rejected', {
-        callId,
-        rejectedBy: userId
-      });
+    // Check if there are still participants who might answer
+    const remainingParticipants = await pool.request()
+      .input('callId', callId)
+      .query(`
+        SELECT COUNT(*) as Count
+        FROM CallParticipants
+        WHERE CallID = @callId 
+        AND Status IN ('invited', 'joined')
+      `);
+
+    // If no one else can answer, end the call and clear timeout
+    if (remainingParticipants.recordset[0].Count === 0) {
+      await pool.request()
+        .input('callId', callId)
+        .query(`
+          UPDATE Calls SET Status = 'rejected', EndTime = GETDATE()
+          WHERE CallID = @callId
+        `);
+
+      // Clear timeout since call is manually rejected
+      if (callTimeouts.has(callId)) {
+        clearTimeout(callTimeouts.get(callId));
+        callTimeouts.delete(callId);
+      }
     }
 
+    // Notify other participants about the rejection
+    const allParticipants = await pool.request()
+      .input('callId', callId)
+      .input('userId', userId)
+      .query(`
+        SELECT DISTINCT cp.UserID
+        FROM CallParticipants cp
+        WHERE cp.CallID = @callId AND cp.UserID != @userId
+      `);
+
+    const io = req.app.get('io');
+    allParticipants.recordset.forEach(participant => {
+      const socketId = onlineUsers.get(participant.UserID);
+      if (socketId) {
+        io.to(socketId).emit('call-participant-declined', {
+          callId,
+          declinedBy: userId
+        });
+      }
+    });
+
     return res.status(200).json({
+      success: true,
       message: 'Call rejected successfully'
     });
   } catch (error) {
     console.error('Error rejecting call:', error);
-    return res.status(500).json({ message: 'Failed to reject call' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to reject call',
+      error: error.message 
+    });
   }
 };
 
 /**
- * Get call history
+ * Get missed calls for a user
+ */
+exports.getMissedCalls = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const missedCalls = await pool.request()
+      .input('userId', userId)
+      .input('limit', parseInt(limit))
+      .input('offset', offset)
+      .query(`
+        SELECT 
+          c.*,
+          u.Username as InitiatorUsername,
+          u.FullName as InitiatorName,
+          u.Avatar as InitiatorPicture,
+          conv.Type as ConversationType,
+          conv.Title as ConversationTitle
+        FROM Calls c
+        INNER JOIN Users u ON c.InitiatorID = u.UserID
+        INNER JOIN Conversations conv ON c.ConversationID = conv.ConversationID
+        INNER JOIN CallParticipants cp ON c.CallID = cp.CallID
+        WHERE cp.UserID = @userId
+        AND cp.Status = 'missed'
+        ORDER BY c.StartTime DESC
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+      `);
+
+    return res.status(200).json({
+      success: true,
+      data: missedCalls.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore: missedCalls.recordset.length === parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting missed calls:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get missed calls',
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Get call history for a user
  */
 exports.getCallHistory = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { limit = 10, offset = 0 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
 
     const callHistory = await pool.request()
       .input('userId', userId)
       .input('limit', parseInt(limit))
-      .input('offset', parseInt(offset))
+      .input('offset', offset)
       .query(`
-        SELECT c.*, u.UserName as InitiatorName, u.ProfilePicture as InitiatorPicture, 
-               conv.ConversationID
+        SELECT 
+          c.*,
+          u.Username as InitiatorUsername,
+          u.FullName as InitiatorName,
+          u.Avatar as InitiatorPicture,
+          conv.Type as ConversationType,
+          conv.Title as ConversationTitle,
+          cp.Status as UserStatus
         FROM Calls c
-        JOIN Users u ON c.InitiatorID = u.UserID
-        JOIN Conversations conv ON c.ConversationID = conv.ConversationID
-        JOIN ConversationParticipants cp ON conv.ConversationID = cp.ConversationID
+        INNER JOIN Users u ON c.InitiatorID = u.UserID
+        INNER JOIN Conversations conv ON c.ConversationID = conv.ConversationID
+        INNER JOIN CallParticipants cp ON c.CallID = cp.CallID
         WHERE cp.UserID = @userId
         ORDER BY c.StartTime DESC
-        OFFSET @offset ROWS
-        FETCH NEXT @limit ROWS ONLY
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
       `);
 
+    // Get participants for each call
+    for (let call of callHistory.recordset) {
+      const participants = await pool.request()
+        .input('callId', call.CallID)
+        .query(`
+          SELECT 
+            u.UserID, u.Username, u.FullName, u.Avatar,
+            cp.Status, cp.JoinTime, cp.LeaveTime
+          FROM CallParticipants cp
+          INNER JOIN Users u ON cp.UserID = u.UserID
+          WHERE cp.CallID = @callId
+          ORDER BY cp.JoinTime ASC
+        `);
+      
+      call.Participants = participants.recordset;
+    }
+
     return res.status(200).json({
-      calls: callHistory.recordset
+      success: true,
+      data: callHistory.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore: callHistory.recordset.length === parseInt(limit)
+      }
     });
   } catch (error) {
     console.error('Error getting call history:', error);
-    return res.status(500).json({ message: 'Failed to get call history' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get call history',
+      error: error.message 
+    });
   }
 };
 
 /**
- * Get active call
+ * Get active call for a user
  */
 exports.getActiveCall = async (req, res) => {
   try {
@@ -439,65 +792,92 @@ exports.getActiveCall = async (req, res) => {
     const activeCall = await pool.request()
       .input('userId', userId)
       .query(`
-        SELECT c.*, u.UserName as InitiatorName, u.ProfilePicture as InitiatorPicture
+        SELECT 
+          c.*,
+          u.Username as InitiatorUsername,
+          u.FullName as InitiatorName,
+          u.Avatar as InitiatorPicture,
+          conv.Type as ConversationType,
+          conv.Title as ConversationTitle
         FROM Calls c
-        JOIN Users u ON c.InitiatorID = u.UserID
-        JOIN CallParticipants cp ON c.CallID = cp.CallID
+        INNER JOIN Users u ON c.InitiatorID = u.UserID
+        INNER JOIN Conversations conv ON c.ConversationID = conv.ConversationID
+        INNER JOIN CallParticipants cp ON c.CallID = cp.CallID
         WHERE cp.UserID = @userId
-        AND c.Status IN ('initiated', 'ongoing')
-        AND cp.Status = 'joined'
+        AND c.Status IN ('initiated', 'ringing', 'ongoing')
+        AND cp.Status IN ('invited', 'joined')
       `);
 
-    if (activeCall.recordset.length === 0) {
+    if (!activeCall.recordset.length) {
       return res.status(200).json({
-        hasActiveCall: false
+        success: true,
+        data: null,
+        message: 'No active call found'
       });
     }
 
+    const call = activeCall.recordset[0];
+
+    // Get all participants
+    const participants = await pool.request()
+      .input('callId', call.CallID)
+      .query(`
+        SELECT 
+          u.UserID, u.Username, u.FullName, u.Avatar,
+          cp.Status, cp.JoinTime
+        FROM CallParticipants cp
+        INNER JOIN Users u ON cp.UserID = u.UserID
+        WHERE cp.CallID = @callId
+        ORDER BY cp.JoinTime ASC
+      `);
+
+    call.Participants = participants.recordset;
+
     return res.status(200).json({
-      hasActiveCall: true,
-      call: activeCall.recordset[0]
+      success: true,
+      data: call
     });
   } catch (error) {
     console.error('Error getting active call:', error);
-    return res.status(500).json({ message: 'Failed to get active call' });
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to get active call',
+      error: error.message 
+    });
   }
 };
 
 /**
- * Get active calls for a user
+ * Get all active calls (for admin purposes)
  */
 exports.getActiveCalls = async (req, res) => {
   try {
-    // Get user ID from the authenticated request
-    const userId = req.user ? req.user.id || req.user.userId || req.user.UserID : null;
+    const userId = req.user.id;
 
-    // If the user is not authenticated or is a guest, return an empty array
-    if (!userId || req.user.role === 'GUEST') {
-      console.log('User is not authenticated or is a guest, returning empty active calls list');
-      return res.status(200).json({
-        success: true,
-        data: []
-      });
+    // For non-admin users, just return their own active call
+    if (req.user.role !== 'admin') {
+      return this.getActiveCall(req, res);
     }
 
-    // Get the Call model
-    const { Call } = require('../models');
-
-    // Query for active calls where the user is involved
-    const activeCalls = await Call.findAll({
-      where: {
-        Status: 'active',
-        $or: [
-          { InitiatorID: userId },
-          { ReceiverID: userId }
-        ]
-      }
-    });
+    const activeCalls = await pool.request()
+      .query(`
+        SELECT 
+          c.*,
+          u.Username as InitiatorUsername,
+          u.FullName as InitiatorName,
+          u.Avatar as InitiatorPicture,
+          conv.Type as ConversationType,
+          conv.Title as ConversationTitle
+        FROM Calls c
+        INNER JOIN Users u ON c.InitiatorID = u.UserID
+        INNER JOIN Conversations conv ON c.ConversationID = conv.ConversationID
+        WHERE c.Status IN ('initiated', 'ringing', 'ongoing')
+        ORDER BY c.StartTime DESC
+      `);
 
     return res.status(200).json({
       success: true,
-      data: activeCalls || []
+      data: activeCalls.recordset
     });
   } catch (error) {
     console.error('Error fetching active calls:', error);

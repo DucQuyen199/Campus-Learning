@@ -578,4 +578,5 @@ process.on('unhandledRejection', (error) => {
   console.error('Unhandled Rejection:', error);
 });
 
-app.use('/api', chatRoutes);
+// Mount chat routes under /api/chat to match frontend requests
+app.use('/api/chat', chatRoutes);

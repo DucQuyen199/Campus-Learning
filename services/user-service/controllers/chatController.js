@@ -2,725 +2,849 @@
 * File: chatController.js
 * Author: Quyen Nguyen Duc
 * Date: 2025-07-24
-* Description: This file is part of the user backend service.
+* Description: Enhanced chat controller with full messaging and calling features
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-const { Chat, Message, User, ConversationParticipant } = require('../models');
-const { io } = require('../socket');
-const { Op } = require('sequelize');
-const sequelize = require('../config/database');
+const { pool } = require('../config/db');
+const { onlineUsers } = require('../socket');
 
+/**
+ * Get all conversations for a user with enhanced details
+ */
+exports.getConversations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const conversations = await pool.request()
+      .input('userId', userId)
+      .input('limit', parseInt(limit))
+      .input('offset', offset)
+      .query(`
+        SELECT 
+          c.*,
+          cp.Role as UserRole,
+          cp.IsMuted,
+          cp.LastReadMessageID,
+          lm.Content as LastMessageContent,
+          lm.Type as LastMessageType,
+          lm.CreatedAt as LastMessageTime,
+          lmu.Username as LastMessageSender,
+          (SELECT COUNT(*) FROM Messages m2 
+           WHERE m2.ConversationID = c.ConversationID 
+           AND m2.MessageID > ISNULL(cp.LastReadMessageID, 0)) as UnreadCount
+        FROM Conversations c
+        INNER JOIN ConversationParticipants cp ON c.ConversationID = cp.ConversationID
+        LEFT JOIN Messages lm ON c.ConversationID = lm.ConversationID 
+          AND lm.CreatedAt = (SELECT MAX(CreatedAt) FROM Messages m3 WHERE m3.ConversationID = c.ConversationID)
+        LEFT JOIN Users lmu ON lm.SenderID = lmu.UserID
+        WHERE cp.UserID = @userId AND cp.LeftAt IS NULL
+        ORDER BY ISNULL(c.LastMessageAt, c.CreatedAt) DESC
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+      `);
+
+    // Get participants for each conversation
+    for (let conv of conversations.recordset) {
+      const participants = await pool.request()
+        .input('convId', conv.ConversationID)
+        .input('userId', userId)
+        .query(`
+          SELECT 
+            u.UserID, u.Username, u.FullName, u.Avatar as Avatar,
+            cp.Role, cp.JoinedAt, cp.IsAdmin,
+            CASE WHEN ou.UserID IS NOT NULL THEN 1 ELSE 0 END as IsOnline
+          FROM ConversationParticipants cp
+          INNER JOIN Users u ON cp.UserID = u.UserID
+          LEFT JOIN (
+            SELECT DISTINCT UserID FROM 
+            (SELECT @userId as UserID) ou 
+            WHERE @userId IN (${Array.from(onlineUsers.keys()).join(',') || 'NULL'})
+          ) ou ON u.UserID = ou.UserID
+          WHERE cp.ConversationID = @convId AND cp.LeftAt IS NULL
+          ORDER BY cp.JoinedAt ASC
+        `);
+      
+      conv.Participants = participants.recordset;
+      
+      // For private conversations, set the conversation title to the other user's name
+      if (conv.Type === 'private' && participants.recordset.length === 2) {
+        const otherUser = participants.recordset.find(p => p.UserID !== userId);
+        if (otherUser) {
+          conv.Title = otherUser.FullName || otherUser.Username;
+          conv.Avatar = otherUser.Avatar;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: conversations.recordset,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore: conversations.recordset.length === parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting conversations:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Get messages for a conversation with pagination
+ */
+exports.getMessages = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+
+    // Check if user is participant
+    const isParticipant = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND LeftAt IS NULL
+      `);
+
+    if (!isParticipant.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to view this conversation' 
+      });
+    }
+
+    const messages = await pool.request()
+      .input('conversationId', conversationId)
+      .input('limit', parseInt(limit))
+      .input('offset', offset)
+      .query(`
+        SELECT 
+          m.*,
+          u.Username as SenderUsername,
+          u.FullName as SenderName,
+          u.Avatar as SenderAvatar,
+          rm.Content as ReplyToContent,
+          ru.Username as ReplyToUsername
+        FROM Messages m
+        INNER JOIN Users u ON m.SenderID = u.UserID
+        LEFT JOIN Messages rm ON m.ReplyToMessageID = rm.MessageID
+        LEFT JOIN Users ru ON rm.SenderID = ru.UserID
+        WHERE m.ConversationID = @conversationId
+        AND m.IsDeleted = 0
+        ORDER BY m.CreatedAt DESC
+        OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
+      `);
+
+    // Update last read message
+    await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .input('lastMessageId', messages.recordset[0]?.MessageID || null)
+      .query(`
+        UPDATE ConversationParticipants
+        SET LastReadMessageID = @lastMessageId
+        WHERE ConversationID = @conversationId AND UserID = @userId
+      `);
+
+    res.json({
+      success: true,
+      data: messages.recordset.reverse(), // Reverse to show oldest first
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore: messages.recordset.length === parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting messages:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Send a message with enhanced features
+ */
+exports.sendMessage = async (req, res) => {
+  try {
+    const { conversationId, content, type = 'text', replyToMessageId, mediaUrl, mediaType } = req.body;
+    const senderId = req.user.id;
+
+    // Validate required fields
+    if (!conversationId || (!content && !mediaUrl)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Conversation ID and content/media are required' 
+      });
+    }
+
+    // Check if user is participant
+    const isParticipant = await pool.request()
+      .input('conversationId', conversationId)
+      .input('senderId', senderId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @senderId 
+        AND LeftAt IS NULL
+      `);
+
+    if (!isParticipant.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to send messages in this conversation' 
+      });
+    }
+
+    // Insert message without OUTPUT to avoid trigger conflicts
+    const insertResult = await pool.request()
+      .input('conversationId', conversationId)
+      .input('senderId', senderId)
+      .input('type', type)
+      .input('content', content)
+      .input('mediaUrl', mediaUrl)
+      .input('mediaType', mediaType)
+      .input('replyToMessageId', replyToMessageId)
+      .query(`
+        INSERT INTO Messages (ConversationID, SenderID, Type, Content, MediaUrl, MediaType, ReplyToMessageID)
+        VALUES (@conversationId, @senderId, @type, @content, @mediaUrl, @mediaType, @replyToMessageId);
+        SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS MessageID;
+      `);
+    const newMessageId = insertResult.recordset[0].MessageID;
+    // Retrieve the inserted message
+    const messageResult = await pool.request()
+      .input('messageId', newMessageId)
+      .query(`
+        SELECT *
+        FROM Messages
+        WHERE MessageID = @messageId
+      `);
+    const message = messageResult.recordset[0];
+
+    // Get sender info
+    const senderInfo = await pool.request()
+      .input('senderId', senderId)
+      .query(`
+        SELECT Username as SenderUsername, FullName as SenderName, Avatar as SenderAvatar
+        FROM Users WHERE UserID = @senderId
+      `);
+
+    // Get reply info if exists
+    let replyInfo = null;
+    if (replyToMessageId) {
+      const replyResult = await pool.request()
+        .input('replyToMessageId', replyToMessageId)
+        .query(`
+          SELECT m.Content as ReplyToContent, u.Username as ReplyToUsername
+          FROM Messages m
+          INNER JOIN Users u ON m.SenderID = u.UserID
+          WHERE m.MessageID = @replyToMessageId
+        `);
+      replyInfo = replyResult.recordset[0];
+    }
+
+    const fullMessage = {
+      ...message,
+      ...senderInfo.recordset[0],
+      ...replyInfo
+    };
+
+    // Get conversation participants for real-time updates
+    const participants = await pool.request()
+      .input('conversationId', conversationId)
+      .query(`
+        SELECT UserID FROM ConversationParticipants
+        WHERE ConversationID = @conversationId AND LeftAt IS NULL
+      `);
+
+    // Emit real-time message to all participants
+    const io = req.app.get('io');
+    participants.recordset.forEach(participant => {
+      if (participant.UserID !== senderId) {
+        const socketId = onlineUsers.get(participant.UserID);
+        if (socketId) {
+          io.to(socketId).emit('new-message', {
+            conversationId,
+            message: fullMessage
+          });
+        }
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      data: fullMessage,
+      message: 'Message sent successfully'
+    });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Create a new conversation (private or group)
+ */
 exports.createConversation = async (req, res) => {
   try {
-    // Ensure authentication middleware has run
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ message: 'Unauthorized: user not authenticated' });
-    }
     const { title, participants, type = 'private' } = req.body;
     const createdBy = req.user.id;
 
-    const conversation = await Chat.createConversation(title, participants, createdBy, type);
-    res.json(conversation);
+    // Validate input
+    if (!participants || !Array.isArray(participants) || participants.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Participants array is required' 
+      });
+    }
+
+    if (type === 'group' && !title) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Group title is required' 
+      });
+    }
+
+    // For private chats, check if conversation already exists
+    if (type === 'private' && participants.length === 1) {
+      const otherUserId = participants[0];
+      const existingConversation = await pool.request()
+        .input('userIdA', createdBy)
+        .input('userIdB', otherUserId)
+        .query(`
+          SELECT c.ConversationID
+          FROM Conversations c
+          JOIN ConversationParticipants cp1 ON c.ConversationID = cp1.ConversationID
+          JOIN ConversationParticipants cp2 ON c.ConversationID = cp2.ConversationID
+          WHERE c.Type = 'private'
+          AND cp1.UserID = @userIdA
+          AND cp2.UserID = @userIdB
+          AND cp1.LeftAt IS NULL
+          AND cp2.LeftAt IS NULL
+        `);
+
+      if (existingConversation.recordset.length > 0) {
+        return res.status(200).json({
+          success: true,
+          data: { ConversationID: existingConversation.recordset[0].ConversationID },
+          message: 'Existing conversation found'
+        });
+      }
+    }
+
+    const transaction = await pool.transaction();
+    
+    try {
+      await transaction.begin();
+
+      // Create conversation
+      const conversationResult = await transaction.request()
+        .input('type', type)
+        .input('title', title)
+        .input('createdBy', createdBy)
+        .query(`
+          INSERT INTO Conversations (Type, Title, CreatedBy, CreatedAt, UpdatedAt)
+          OUTPUT INSERTED.*
+          VALUES (@type, @title, @createdBy, GETDATE(), GETDATE())
+        `);
+
+      const conversation = conversationResult.recordset[0];
+
+      // Add creator as admin
+      await transaction.request()
+        .input('conversationId', conversation.ConversationID)
+        .input('userId', createdBy)
+        .query(`
+          INSERT INTO ConversationParticipants (ConversationID, UserID, Role, IsAdmin, JoinedAt)
+          VALUES (@conversationId, @userId, 'admin', 1, GETDATE())
+        `);
+
+      // Add other participants
+      for (const userId of participants) {
+        if (userId !== createdBy) {
+          await transaction.request()
+            .input('conversationId', conversation.ConversationID)
+            .input('userId', userId)
+            .query(`
+              INSERT INTO ConversationParticipants (ConversationID, UserID, Role, JoinedAt)
+              VALUES (@conversationId, @userId, 'member', GETDATE())
+            `);
+        }
+      }
+
+      await transaction.commit();
+
+      // Get full conversation details
+      const fullConversation = await this.getConversationDetails(conversation.ConversationID, createdBy);
+
+      res.status(201).json({
+        success: true,
+        data: fullConversation,
+        message: 'Conversation created successfully'
+      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   } catch (error) {
     console.error('Error creating conversation:', error);
-    res.status(500).json({ message: error.message || 'Internal server error', stack: error.stack });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-exports.getUserConversations = async (req, res) => {
+/**
+ * Get conversation details by ID
+ */
+exports.getConversationDetails = async (conversationId, userId) => {
+  const conversation = await pool.request()
+    .input('conversationId', conversationId)
+    .input('userId', userId)
+    .query(`
+      SELECT c.*, cp.Role as UserRole, cp.IsMuted
+      FROM Conversations c
+      INNER JOIN ConversationParticipants cp ON c.ConversationID = cp.ConversationID
+      WHERE c.ConversationID = @conversationId AND cp.UserID = @userId
+    `);
+
+  if (conversation.recordset.length === 0) {
+    throw new Error('Conversation not found');
+  }
+
+  const conv = conversation.recordset[0];
+
+  // Get participants
+  const participants = await pool.request()
+    .input('conversationId', conversationId)
+    .query(`
+      SELECT 
+        u.UserID, u.Username, u.FullName, u.Avatar as Avatar,
+        cp.Role, cp.JoinedAt, cp.IsAdmin
+      FROM ConversationParticipants cp
+      INNER JOIN Users u ON cp.UserID = u.UserID
+      WHERE cp.ConversationID = @conversationId AND cp.LeftAt IS NULL
+      ORDER BY cp.JoinedAt ASC
+    `);
+
+  conv.Participants = participants.recordset;
+
+  return conv;
+};
+
+/**
+ * Search users for conversations
+ */
+exports.searchUsers = async (req, res) => {
   try {
-    const userId = req.user.id;
-    
-    // Check for If-None-Match header for ETags
-    const clientEtag = req.headers['if-none-match'];
-    
-    // Generate a cache key based on user ID
-    const cacheKey = `conversations:${userId}`;
-    
-    // Check if we have a cached response
-    if (req.app.locals.conversationCache && req.app.locals.conversationCache[cacheKey]) {
-      const cachedData = req.app.locals.conversationCache[cacheKey];
-      
-      // If client sent matching ETag, return 304 Not Modified
-      if (clientEtag && clientEtag === cachedData.etag) {
-        return res.status(304).end();
-      }
-      
-      // Check if cache is still fresh (less than 10 seconds old)
-      const now = Date.now();
-      if (now - cachedData.timestamp < 10000) { // 10 seconds cache
-        // Return cached data with ETag
-        res.setHeader('ETag', cachedData.etag);
-        res.setHeader('Cache-Control', 'private, max-age=10');
-        return res.json(cachedData.data);
-      }
+    const { query, limit = 10 } = req.query;
+    const currentUserId = req.user.id;
+
+    if (!query || query.trim().length < 2) {
+      return res.json({ success: true, data: [] });
     }
-    
-    // Directly use Sequelize query instead of the static method
-    const conversations = await Chat.findAll({
-      include: [
-        {
-          model: User,
-          as: 'Participants',
-          attributes: ['UserID', 'Username', 'FullName', 'Image'],
-          through: { 
-            attributes: ['Role'],
-            where: { LeftAt: null }
-          }
-        },
-        {
-          model: Message,
-          as: 'Messages',
-          limit: 1,
-          order: [['CreatedAt', 'DESC']],
-          include: [{
-            model: User,
-            as: 'Sender',
-            attributes: ['UserID', 'Username', 'FullName', 'Image']
-          }]
-        }
-      ],
-      where: {
-        IsActive: true,
-        '$Participants.UserID$': userId
-      },
-      order: [['LastMessageAt', 'DESC']]
+
+    const users = await pool.request()
+      .input('query', `%${query.trim()}%`)
+      .input('currentUserId', currentUserId)
+      .input('limit', parseInt(limit))
+      .query(`
+        SELECT TOP (@limit)
+          UserID, Username, FullName, Avatar as Avatar, Email
+        FROM Users
+        WHERE (Username LIKE @query OR FullName LIKE @query OR Email LIKE @query)
+        AND UserID != @currentUserId
+        AND IsActive = 1
+        ORDER BY 
+          CASE 
+            WHEN Username LIKE @query THEN 1
+            WHEN FullName LIKE @query THEN 2
+            ELSE 3
+          END,
+          FullName ASC
+      `);
+
+    res.json({
+      success: true,
+      data: users.recordset
     });
-
-    // Generate a simple ETag based on conversation data
-    const etag = `W/"${Buffer.from(JSON.stringify(conversations)).toString('base64').substring(0, 27)}"`;
-    
-    // Store in cache
-    if (!req.app.locals.conversationCache) {
-      req.app.locals.conversationCache = {};
-    }
-    
-    req.app.locals.conversationCache[cacheKey] = {
-      data: conversations,
-      etag: etag,
-      timestamp: Date.now()
-    };
-    
-    // Return response with caching headers
-    res.setHeader('ETag', etag);
-    res.setHeader('Cache-Control', 'private, max-age=10');
-    res.json(conversations);
   } catch (error) {
-    console.error('Error getting conversations:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error searching users:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-exports.getConversationMessages = async (req, res) => {
+/**
+ * Update message (edit)
+ */
+exports.updateMessage = async (req, res) => {
   try {
-    const { conversationId } = req.params;
+    const { messageId } = req.params;
+    const { content } = req.body;
     const userId = req.user.id;
 
-    // Fetch messages using the static helper (chronological order)
-    const messages = await Chat.getConversationMessages(conversationId, userId);
-    return res.json(messages);
+    // Check if user owns the message
+    const message = await pool.request()
+      .input('messageId', messageId)
+      .input('userId', userId)
+      .query(`
+        SELECT * FROM Messages
+        WHERE MessageID = @messageId AND SenderID = @userId
+      `);
+
+    if (!message.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to edit this message' 
+      });
+    }
+
+    // Update message
+    await pool.request()
+      .input('messageId', messageId)
+      .input('content', content)
+      .query(`
+        UPDATE Messages
+        SET Content = @content, IsEdited = 1, UpdatedAt = GETDATE()
+        WHERE MessageID = @messageId
+      `);
+
+    res.json({
+      success: true,
+      message: 'Message updated successfully'
+    });
   } catch (error) {
-    console.error('Error getting messages:', error);
-    return res.status(error.message === 'Not authorized to view this conversation' ? 403 : 500)
-      .json({ message: error.message || 'Internal server error' });
+    console.error('Error updating message:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-exports.sendMessage = async (req, res) => {
-  try {
-    const { conversationId, content, type = 'text' } = req.body;
-    const senderId = req.user.id;
-
-    // Delegate message creation to Chat.sendMessage static to avoid trigger/OUTPUT conflict
-    const messageWithSender = await Chat.sendMessage(conversationId, senderId, content, type);
-    return res.json(messageWithSender);
-  } catch (error) {
-    console.error('Error sending message:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-};
-
-// New method for sending messages to a specific conversation
-exports.sendMessageToConversation = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const { content, type = 'text' } = req.body;
-    const senderId = req.user.id;
-
-    // Delegate message creation to Chat.sendMessage to avoid trigger/OUTPUT conflict
-    const messageWithSender = await Chat.sendMessage(conversationId, senderId, content, type);
-    return res.json(messageWithSender);
-  } catch (error) {
-    console.error('Error sending message to conversation:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-};
-
-exports.markMessageAsRead = async (req, res) => {
+/**
+ * Delete message
+ */
+exports.deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
     const userId = req.user.id;
 
-    const message = await Message.findByPk(messageId);
-    if (!message) {
-      return res.status(404).json({ message: 'Message not found' });
-    }
+    // Check if user owns the message
+    const message = await pool.request()
+      .input('messageId', messageId)
+      .input('userId', userId)
+      .query(`
+        SELECT * FROM Messages
+        WHERE MessageID = @messageId AND SenderID = @userId
+      `);
 
-    // Update message status to read
-    await message.update({ Status: 'read' });
-
-    // Notify sender that message was read
-    io.to(`user_${message.SenderID}`).emit('message-read', {
-      messageId: message.MessageID,
-      readBy: userId,
-      conversationId: message.ConversationID
-    });
-
-    res.json({ message: 'Message marked as read' });
-  } catch (error) {
-    console.error('Mark message as read error:', error);
-    res.status(500).json({ message: 'Error marking message as read' });
-  }
-};
-
-// Search users by query
-exports.searchUsers = async (req, res) => {
-  try {
-    const { query } = req.query;
-    const userId = req.user.id;
-
-    const users = await User.findAll({
-      where: {
-        [Op.and]: [
-          { UserID: { [Op.ne]: userId } },
-          { [Op.or]: [
-            { Username: { [Op.iLike]: `%${query}%` } },
-            { FullName: { [Op.iLike]: `%${query}%` } }
-          ]}
-        ]
-      },
-      attributes: ['UserID', 'Username', 'FullName', 'Image'],
-      limit: 10
-    });
-
-    res.json(users);
-  } catch (error) {
-    console.error('Search users error:', error);
-    res.status(500).json({ message: 'Error searching users' });
-  }
-};
-
-// Update message status (read/delivered)
-exports.updateMessageStatus = async (req, res) => {
-  try {
-    const { messageId, status } = req.body;
-    const userId = req.user.id;
-
-    const messageStatus = await sequelize.models.MessageStatus.findOne({
-      where: { MessageID: messageId, UserID: userId }
-    });
-
-    if (messageStatus) {
-      await messageStatus.update({ Status: status, UpdatedAt: sequelize.literal('GETDATE()') });
-    } else {
-      await sequelize.models.MessageStatus.create({
-        MessageID: messageId,
-        UserID: userId,
-        Status: status,
-        UpdatedAt: sequelize.literal('GETDATE()')
+    if (!message.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized to delete this message' 
       });
     }
 
-    res.json({ success: true });
+    // Soft delete message
+    await pool.request()
+      .input('messageId', messageId)
+      .query(`
+        UPDATE Messages
+        SET IsDeleted = 1, DeletedAt = GETDATE()
+        WHERE MessageID = @messageId
+      `);
+
+    res.json({
+      success: true,
+      message: 'Message deleted successfully'
+    });
   } catch (error) {
-    console.error('Error updating message status:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error deleting message:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// Get users with pagination and optional search
-exports.getUsers = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const search = req.query.search || '';
-    const limit = parseInt(req.query.limit) || 20;
-    const page = parseInt(req.query.page) || 1;
-    const offset = (page - 1) * limit;
-
-    const whereClause = { [Op.and]: [
-      { UserID: { [Op.ne]: userId } },
-      { DeletedAt: null }
-    ]};
-    if (search.trim().length > 0) {
-      whereClause[Op.and].push({ [Op.or]: [
-        { Username: { [Op.iLike]: `%${search}%` } },
-        { FullName: { [Op.iLike]: `%${search}%` } },
-        { Email: { [Op.iLike]: `%${search}%` } }
-      ]});
-    }
-
-    const total = await User.count({ where: whereClause });
-    const users = await User.findAll({
-      where: whereClause,
-      attributes: ['UserID', 'Username', 'FullName', 'Image', 'Email'],
-      limit: limit,
-      offset: offset,
-      order: [['UserID', 'ASC']]
-    });
-
-    res.json({ data: users, pagination: { total, page, limit, pages: Math.ceil(total/limit) } });
-  } catch (error) {
-    console.error('Error getting users:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-};
-
-// Get suggested users for chat (paginated, excluding existing participants)
-exports.getSuggestedUsers = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const limit = parseInt(req.query.limit) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const offset = (page - 1) * limit;
-
-    const userConvs = await ConversationParticipant.findAll({
-      where: { UserID: userId },
-      attributes: ['ConversationID'],
-      raw: true
-    });
-    const convIds = userConvs.map(c => c.ConversationID);
-
-    let existingUserIds = [];
-    if (convIds.length > 0) {
-      const existing = await ConversationParticipant.findAll({
-        where: { ConversationID: { [Op.in]: convIds }, UserID: { [Op.ne]: userId } },
-        attributes: ['UserID'],
-        raw: true
-      });
-      existingUserIds = existing.map(p => p.UserID);
-    }
-
-    const whereClause = { UserID: { [Op.notIn]: [userId, ...existingUserIds] }, DeletedAt: null };
-    const suggestedUsers = await User.findAll({
-      where: whereClause,
-      attributes: ['UserID', 'Username', 'FullName', 'Image', 'Email'],
-      limit: limit,
-      offset: offset,
-      order: sequelize.literal('NEWID()')
-    });
-
-    res.json(suggestedUsers);
-  } catch (error) {
-    console.error('Error getting suggested users for chat:', error);
-    res.status(500).json({ message: error.message || 'Internal server error' });
-  }
-};
-
-// Get a single conversation by ID with participants
-exports.getConversationById = async (req, res) => {
+/**
+ * Leave conversation
+ */
+exports.leaveConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
+    
+    // Update participant status
+    await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        UPDATE ConversationParticipants
+        SET LeftAt = GETDATE()
+        WHERE ConversationID = @conversationId AND UserID = @userId
+      `);
 
-    const conversation = await Chat.findOne({
-      where: { ConversationID: conversationId, IsActive: true },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID', 'Username', 'FullName', 'Image'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
+    res.json({
+      success: true,
+      message: 'Left conversation successfully'
     });
-
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-    // Ensure requesting user is a participant
-    const isParticipant = conversation.Participants.some(p => p.UserID === userId);
-    if (!isParticipant) {
-      return res.status(403).json({ message: 'Not authorized to view this conversation' });
-    }
-
-    // Fetch full message history for this conversation
-    const messages = await Chat.getConversationMessages(conversationId, userId);
-    // Merge messages into conversation object
-    const convData = conversation.toJSON();
-    convData.Messages = messages;
-    // Return conversation with full messages
-    return res.json(convData);
-
   } catch (error) {
-    console.error('Error getting conversation by id:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Error leaving conversation:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// Add participants to a group conversation
+/**
+ * Mute/unmute conversation
+ */
+exports.toggleMuteConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { muted } = req.body;
+    const userId = req.user.id;
+
+    await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .input('muted', muted)
+      .query(`
+        UPDATE ConversationParticipants
+        SET IsMuted = @muted
+        WHERE ConversationID = @conversationId AND UserID = @userId
+      `);
+
+    res.json({
+      success: true,
+      message: `Conversation ${muted ? 'muted' : 'unmuted'} successfully`
+    });
+  } catch (error) {
+    console.error('Error toggling mute:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Add participants to a group conversation
+ */
 exports.addParticipants = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const { participants } = req.body;
     const userId = req.user.id;
 
-    // Validate input
-    if (!Array.isArray(participants) || participants.length === 0) {
-      return res.status(400).json({ message: 'Participants array is required' });
-    }
-
-    // Find the conversation
-    const conversation = await Chat.findOne({
-      where: { 
-        ConversationID: conversationId, 
-        Type: 'group', 
-        IsActive: true 
-      },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
-
-    if (!conversation) {
-      return res.status(404).json({ message: 'Group conversation not found' });
-    }
-
-    // Check if user is a participant and has admin rights
-    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
-    if (!userParticipant) {
-      return res.status(403).json({ message: 'You are not a participant in this conversation' });
-    }
-
-    // Get current participant IDs to avoid duplicates
-    const existingParticipantIds = conversation.Participants.map(p => p.UserID);
-    
-    // Filter out users that are already participants
-    const newParticipants = participants.filter(id => !existingParticipantIds.includes(Number(id)));
-    
-    if (newParticipants.length === 0) {
-      return res.status(400).json({ message: 'All users are already participants' });
-    }
-
-    // Add new participants to the conversation
-    const participantRecords = newParticipants.map(participantId => ({
-      ConversationID: conversationId,
-      UserID: participantId,
-      Role: 'member',
-      JoinedAt: new Date()
-    }));
-
-    await ConversationParticipant.bulkCreate(participantRecords);
-
-    // Get updated list of participants
-    const updatedConversation = await Chat.findOne({
-      where: { ConversationID: conversationId },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID', 'Username', 'FullName', 'Image'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
-
-    // Notify all participants about new members
-    const addedUsers = await User.findAll({
-      where: { UserID: { [Op.in]: newParticipants } },
-      attributes: ['UserID', 'Username', 'FullName', 'Image']
-    });
-
-    // Create a system message about the new members
-    const addedNames = addedUsers.map(u => u.FullName || u.Username).join(', ');
-    const systemMessage = await Message.create({
-      ConversationID: conversationId,
-      SenderID: userId,
-      Type: 'system',
-      Content: `${req.user.FullName || req.user.Username} đã thêm ${addedNames} vào nhóm.`
-    });
-
-    // Emit socket event to all participants
-    conversation.Participants.forEach(participant => {
-      io.to(`user:${participant.UserID}`).emit('group-members-added', {
-        conversationId,
-        addedMembers: addedUsers,
-        systemMessage
+    if (!participants || !Array.isArray(participants) || participants.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Participants array is required' 
       });
-    });
+    }
 
-    // Emit to new participants
-    newParticipants.forEach(participantId => {
-      io.to(`user:${participantId}`).emit('added-to-group', {
-        conversation: updatedConversation,
-        addedBy: userId
+    // Check if user is admin of the conversation
+    const isAdmin = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND IsAdmin = 1
+        AND LeftAt IS NULL
+      `);
+
+    if (!isAdmin.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only admins can add participants' 
       });
-    });
+    }
 
-    res.status(200).json({ 
-      message: 'Participants added successfully',
-      conversation: updatedConversation
+    // Add participants
+    for (const participantId of participants) {
+      // Check if participant already exists
+      const existingParticipant = await pool.request()
+        .input('conversationId', conversationId)
+        .input('participantId', participantId)
+        .query(`
+          SELECT 1 FROM ConversationParticipants
+          WHERE ConversationID = @conversationId AND UserID = @participantId
+        `);
+
+      if (existingParticipant.recordset.length > 0) {
+        // If participant left, update LeftAt to NULL
+        await pool.request()
+          .input('conversationId', conversationId)
+          .input('participantId', participantId)
+          .query(`
+            UPDATE ConversationParticipants
+            SET LeftAt = NULL
+            WHERE ConversationID = @conversationId AND UserID = @participantId
+          `);
+      } else {
+        // Add new participant
+        await pool.request()
+          .input('conversationId', conversationId)
+          .input('participantId', participantId)
+          .query(`
+            INSERT INTO ConversationParticipants (ConversationID, UserID, Role, JoinedAt)
+            VALUES (@conversationId, @participantId, 'member', GETDATE())
+          `);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Participants added successfully'
     });
   } catch (error) {
     console.error('Error adding participants:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// Remove a participant from a group conversation
+/**
+ * Remove a participant from a group conversation
+ */
 exports.removeParticipant = async (req, res) => {
   try {
     const { conversationId, participantId } = req.params;
     const userId = req.user.id;
 
-    // Find the conversation
-    const conversation = await Chat.findOne({
-      where: { 
-        ConversationID: conversationId, 
-        Type: 'group',
-        IsActive: true 
-      },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID', 'Username', 'FullName'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
+    // Check if user is admin of the conversation
+    const isAdmin = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND IsAdmin = 1
+        AND LeftAt IS NULL
+      `);
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Group conversation not found' });
-    }
-
-    // Check if user is a participant and has admin rights or is removing themselves
-    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
-    if (!userParticipant) {
-      return res.status(403).json({ message: 'You are not a participant in this conversation' });
-    }
-
-    // Only allow self-removal or admin removal
-    const isAdmin = userParticipant.ConversationParticipant?.Role === 'admin';
-    const isSelfRemoval = Number(participantId) === userId;
-    
-    if (!isAdmin && !isSelfRemoval) {
-      return res.status(403).json({ message: 'You do not have permission to remove other participants' });
-    }
-
-    // Check if participant exists
-    const participant = conversation.Participants.find(p => p.UserID === Number(participantId));
-    if (!participant) {
-      return res.status(404).json({ message: 'Participant not found in this conversation' });
-    }
-
-    // Set LeftAt to mark participant as removed instead of deleting
-    await ConversationParticipant.update(
-      { LeftAt: new Date() },
-      { 
-        where: { 
-          ConversationID: conversationId, 
-          UserID: participantId 
-        } 
-      }
-    );
-
-    // Create a system message about the removal
-    const actionUser = req.user.FullName || req.user.Username;
-    const removedUser = participant.FullName || participant.Username;
-    
-    const messageContent = isSelfRemoval 
-      ? `${actionUser} đã rời khỏi nhóm.`
-      : `${actionUser} đã xóa ${removedUser} khỏi nhóm.`;
-    
-    const systemMessage = await Message.create({
-      ConversationID: conversationId,
-      SenderID: userId,
-      Type: 'system',
-      Content: messageContent
-    });
-
-    // Emit socket event to all participants about the removal
-    conversation.Participants.forEach(p => {
-      io.to(`user:${p.UserID}`).emit('group-member-removed', {
-        conversationId,
-        removedMemberId: Number(participantId),
-        removedBy: userId,
-        systemMessage
-      });
-    });
-
-    // Notify the removed participant if they're not the one removing themselves
-    if (!isSelfRemoval) {
-      io.to(`user:${participantId}`).emit('removed-from-group', {
-        conversationId,
-        removedBy: userId
+    if (!isAdmin.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only admins can remove participants' 
       });
     }
 
-    res.status(200).json({ 
-      message: 'Participant removed successfully',
-      participantId: Number(participantId)
+    // Mark participant as left
+    await pool.request()
+      .input('conversationId', conversationId)
+      .input('participantId', participantId)
+      .query(`
+        UPDATE ConversationParticipants
+        SET LeftAt = GETDATE()
+        WHERE ConversationID = @conversationId AND UserID = @participantId
+      `);
+
+    res.json({
+      success: true,
+      message: 'Participant removed successfully'
     });
   } catch (error) {
     console.error('Error removing participant:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// Leave a group conversation (wrapper for removeParticipant for self-removal)
-exports.leaveConversation = async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    const userId = req.user.id;
-    
-    // Use the removeParticipant method with the current user as participant
-    req.params.participantId = userId;
-    return this.removeParticipant(req, res);
-  } catch (error) {
-    console.error('Error leaving conversation:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-};
-
-// Update conversation information (title, description, etc.)
+/**
+ * Update conversation info (title, etc.)
+ */
 exports.updateConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { title, description } = req.body;
+    const { title } = req.body;
     const userId = req.user.id;
 
-    // Find the conversation
-    const conversation = await Chat.findOne({
-      where: { 
-        ConversationID: conversationId,
-        IsActive: true 
-      },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
+    // Check if user is admin of the conversation
+    const isAdmin = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND IsAdmin = 1
+        AND LeftAt IS NULL
+      `);
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-
-    // Check if user is a participant
-    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
-    if (!userParticipant) {
-      return res.status(403).json({ message: 'You are not a participant in this conversation' });
-    }
-
-    // Prepare update data
-    const updateData = {};
-    
-    if (title !== undefined) {
-      updateData.Title = title;
-    }
-    
-    if (description !== undefined) {
-      updateData.Description = description;
-    }
-    
-    // Update conversation
-    await Chat.update(updateData, { 
-      where: { ConversationID: conversationId } 
-    });
-
-    // Get the updated conversation
-    const updatedConversation = await Chat.findOne({
-      where: { ConversationID: conversationId },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID', 'Username', 'FullName', 'Image'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
-
-    // Emit socket event to notify participants about the update
-    conversation.Participants.forEach(participant => {
-      io.to(`user:${participant.UserID}`).emit('conversation-updated', {
-        conversationId,
-        updatedBy: userId,
-        updatedConversation
+    if (!isAdmin.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only admins can update conversation info' 
       });
-    });
+    }
 
-    res.status(200).json(updatedConversation);
+    await pool.request()
+      .input('conversationId', conversationId)
+      .input('title', title)
+      .query(`
+        UPDATE Conversations
+        SET Title = @title, UpdatedAt = GETDATE()
+        WHERE ConversationID = @conversationId
+      `);
+
+    res.json({
+      success: true,
+      message: 'Conversation updated successfully'
+    });
   } catch (error) {
     console.error('Error updating conversation:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };
 
-// Update conversation image
+/**
+ * Update conversation image
+ */
 exports.updateConversationImage = async (req, res) => {
   try {
     const { conversationId } = req.params;
     const userId = req.user.id;
-
-    // Check if file was uploaded
-    if (!req.file) {
-      return res.status(400).json({ message: 'No image file provided' });
-    }
-
-    // Find the conversation
-    const conversation = await Chat.findOne({
-      where: { 
-        ConversationID: conversationId,
-        IsActive: true 
-      },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
-
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-
-    // Check if user is a participant
-    const userParticipant = conversation.Participants.find(p => p.UserID === userId);
-    if (!userParticipant) {
-      return res.status(403).json({ message: 'You are not a participant in this conversation' });
-    }
-
-    // Process the image (you'll need to implement file storage logic)
-    // This example assumes you're saving to a local directory
-    const imageUrl = `/uploads/groups/${conversationId}.jpg`;
     
-    // Update conversation with image URL
-    await Chat.update(
-      { ImageUrl: imageUrl },
-      { where: { ConversationID: conversationId } }
-    );
+    // Check if image was uploaded
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image uploaded' });
+    }
 
-    // Get the updated conversation
-    const updatedConversation = await Chat.findOne({
-      where: { ConversationID: conversationId },
-      include: [{
-        model: User,
-        as: 'Participants',
-        attributes: ['UserID', 'Username', 'FullName', 'Image'],
-        through: { attributes: ['Role'], where: { LeftAt: null } }
-      }]
-    });
+    // Check if user is admin of the conversation
+    const isAdmin = await pool.request()
+      .input('conversationId', conversationId)
+      .input('userId', userId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @userId 
+        AND IsAdmin = 1
+        AND LeftAt IS NULL
+      `);
 
-    // Emit socket event to notify participants about the update
-    conversation.Participants.forEach(participant => {
-      io.to(`user:${participant.UserID}`).emit('conversation-image-updated', {
-        conversationId,
-        updatedBy: userId,
-        imageUrl
+    if (!isAdmin.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Only admins can update conversation image' 
       });
-    });
+    }
 
-    res.status(200).json(updatedConversation);
+    const imageUrl = `/uploads/conversations/${req.file.filename}`;
+
+    await pool.request()
+      .input('conversationId', conversationId)
+      .input('imageUrl', imageUrl)
+      .query(`
+        UPDATE Conversations
+        SET ImageUrl = @imageUrl, UpdatedAt = GETDATE()
+        WHERE ConversationID = @conversationId
+      `);
+
+    res.json({
+      success: true,
+      data: { imageUrl },
+      message: 'Conversation image updated successfully'
+    });
   } catch (error) {
     console.error('Error updating conversation image:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 };

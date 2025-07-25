@@ -13,7 +13,7 @@ import { safeFetch } from '../utils/errorHandling';
  * Creates an axios instance with custom error handling
  */
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: `${API_URL}/api`,
   timeout: 10000
 });
 
@@ -167,7 +167,7 @@ const callService = {
   isServiceAvailable: async () => {
     try {
       // Use safeFetch to avoid exceptions
-      const response = await safeFetch(`${API_URL}/calls/active`);
+      const response = await safeFetch(`${API_URL}/api/calls/active`);
       return response.status !== 404 && response.ok;
     } catch (error) {
       return false;

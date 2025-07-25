@@ -1,0 +1,37 @@
+/* Custom styles for toast notifications */
+
+/* Adjust the container to appear below the navbar */
+.toast-container-custom {
+  z-index: 9999;
+  padding-top: 70px; /* Match the navbar height */
+}
+
+/* Ensure individual toasts don't get hidden */
+.toast-custom {
+  margin-top: 10px;
+}
+
+/* Override react-toastify's default positioning */
+.Toastify__toast-container--top-right,
+.Toastify__toast-container--top-left,
+.Toastify__toast-container--top-center {
+  top: 4rem !important; /* Approx 64px, matching navbar height */
+}
+
+/* For mobile responsiveness */
+@media (max-width: 480px) {
+  .Toastify__toast-container--top-right,
+  .Toastify__toast-container--top-left,
+  .Toastify__toast-container--top-center {
+    top: 4rem !important;
+    left: 0;
+    width: 100%;
+    padding: 0 15px;
+  }
+  
+  .toast-container-custom {
+    width: 100%;
+    left: 0;
+    padding: 0 15px;
+  }
+} 

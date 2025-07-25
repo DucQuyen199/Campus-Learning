@@ -1,0 +1,68 @@
+/*-----------------------------------------------------------------
+* File: upload.js
+* Author: Quyen Nguyen Duc
+* Date: 2025-07-24
+* Description: This file is part of the user backend service.
+* Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
+-----------------------------------------------------------------*/
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Tạo thư mục uploads nếu chưa tồn tại
+const createUploadDirs = () => {
+  const dirs = [
+    'uploads', 
+    'uploads/images', 
+    'uploads/videos',
+    'uploads/stories/images',
+    'uploads/stories/videos'
+  ];
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+};
+
+createUploadDirs();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Check if this is a story upload
+    if (req.baseUrl === '/api/stories') {
+      const isVideo = file.mimetype.startsWith('video/');
+      const uploadDir = isVideo ? 'uploads/stories/videos' : 'uploads/stories/images';
+      cb(null, uploadDir);
+    } else {
+      const isVideo = file.mimetype.startsWith('video/');
+      const uploadDir = isVideo ? 'uploads/videos' : 'uploads/images';
+      cb(null, uploadDir);
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif'];
+  const allowedVideoTypes = ['video/mp4', 'video/mpeg', 'video/quicktime'];
+  
+  if (allowedImageTypes.includes(file.mimetype) || allowedVideoTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Không hỗ trợ định dạng file này'), false);
+  }
+};
+
+const uploadMiddleware = multer({
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+  }
+});
+
+module.exports = uploadMiddleware; 

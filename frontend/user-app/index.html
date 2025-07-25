@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Define a permissive Trusted Types policy so third-party scripts (Google Identity, Facebook SDK, etc.) can still inject inline scripts without throwing "TrustedScript" errors. -->
+    <script>
+      window.trustedTypes && window.trustedTypes.createPolicy('default', {
+        createHTML: (input) => input,
+        createScript: (input) => input,
+        createScriptURL: (input) => input,
+      });
+    </script>
+    <!-- Content Security Policy to allow scripts -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://*.gstatic.com https://*.googleapis.com https://connect.facebook.net; object-src 'none'; trusted-types default dompurify 'allow-duplicates'; require-trusted-types-for 'script';" />
+
+    <!-- Ensure both default and dompurify Trusted Types policies exist before any third-party libraries run -->
+    <script>
+      if (window.trustedTypes) {
+        try {
+          window.trustedTypes.createPolicy('dompurify', {
+            createHTML: (input) => input,
+            createScriptURL: (input) => input,
+            createScript: (input) => input,
+          });
+        } catch (e) {
+          /* policy might already exist – ignore */
+        }
+      }
+    </script>
+    <!-- Allow popups under Cross-Origin-Opener-Policy -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups" />
+    <!-- Disable Cross-Origin-Embedder-Policy to avoid blocking popups -->
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="unsafe-none" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#2563EB" />
+    <title>Learning Platform</title>
+    <!-- VNPay Compatibility Script - must be loaded before any other scripts -->
+    <script>
+      // Fix for "timer is not defined" error in VNPay
+      window.timer = null;
+      window.remainingSeconds = 900; // 15 minutes
+      
+      // Implement updateTime to prevent errors
+      window.updateTime = function() {
+        if (window.remainingSeconds <= 0) {
+          clearInterval(window.timer);
+          window.timer = null;
+          return;
+        }
+        window.remainingSeconds--;
+        
+        // Update timer display if available
+        var minutesEl = document.getElementById('minutes');
+        var secondsEl = document.getElementById('seconds');
+        if (minutesEl && secondsEl) {
+          var minutes = Math.floor(window.remainingSeconds / 60);
+          var seconds = window.remainingSeconds % 60;
+          minutesEl.textContent = minutes < 10 ? '0' + minutes : minutes;
+          secondsEl.textContent = seconds < 10 ? '0' + seconds : seconds;
+        }
+      };
+      
+      // Add global error handler to catch timer errors
+      window.addEventListener('error', function(event) {
+        if (event.message && (
+          event.message.includes('timer is not defined') ||
+          event.message.includes('updateTime')
+        )) {
+          event.preventDefault();
+          return true; // Prevents the error from propagating
+        }
+        return false;
+      }, true); // Use capture phase to catch errors early
+      
+      // Specifically fix jQuery.Deferred errors with timer
+      (function patchJQueryWhenLoaded() {
+        if (window.jQuery) {
+          var $ = window.jQuery;
+          
+          // Fix jQuery.Deferred timer error
+          if ($.Deferred && $.Deferred.prototype.then) {
+            var originalThen = $.Deferred.prototype.then;
+            $.Deferred.prototype.then = function(success, failure) {
+              var wrappedSuccess = success ? function(data) {
+                try {
+                  if (typeof window.timer === 'undefined') {
+                    window.timer = null;
+                  }
+                  return success(data);
+                } catch (e) {
+                  return data;
+                }
+              } : success;
+              
+              var wrappedFailure = failure ? function(error) {
+                try {
+                  if (typeof window.timer === 'undefined') {
+                    window.timer = null;
+                  }
+                  return failure(error);
+                } catch (e) {
+                  return error;
+                }
+              } : failure;
+              
+              return originalThen.call(this, wrappedSuccess, wrappedFailure);
+            };
+          }
+        } else {
+          // Check again in 100ms
+          setTimeout(patchJQueryWhenLoaded, 100);
+        }
+      })();
+      
+      // Create timer elements immediately to ensure they exist
+      (function createTimerElements() {
+        if (!document.getElementById('minutes') || !document.getElementById('seconds')) {
+          var timerContainer = document.createElement('div');
+          timerContainer.style.display = 'none';
+          timerContainer.id = 'vnpay-timer-container';
+          
+          var minutesElement = document.createElement('span');
+          minutesElement.id = 'minutes';
+          minutesElement.textContent = '15';
+          
+          var colonElement = document.createTextNode(':');
+          
+          var secondsElement = document.createElement('span');
+          secondsElement.id = 'seconds';
+          secondsElement.textContent = '00';
+          
+          timerContainer.appendChild(minutesElement);
+          timerContainer.appendChild(colonElement);
+          timerContainer.appendChild(secondsElement);
+          
+          // If body exists, append to it, otherwise create a container in head
+          if (document.body) {
+            document.body.appendChild(timerContainer);
+          } else {
+            document.head.appendChild(timerContainer);
+          }
+        }
+      })();
+      
+      // Start timer early
+      window.timer = setInterval(window.updateTime, 1000);
+    </script>
+    
+    <!-- External VNPay fix script -->
+    <script src="/vnpay-fix.js"></script>
+    
+    <!-- Additional VNPay compatibility reference -->
+    <script>
+      // Secondary backup for timer variables
+      window.timer = window.timer || null;
+      window.remainingSeconds = window.remainingSeconds || 900;
+      window.updateTime = window.updateTime || function() {};
+    </script>
+  </head>
+  <body>
+    <!-- Hidden timer elements that VNPay scripts might look for -->
+    <div id="vnpay-timer-container" style="display: none;">
+      <span id="minutes">15</span>:<span id="seconds">00</span>
+    </div>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html> 

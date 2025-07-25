@@ -1,0 +1,178 @@
+name: Build and Release User App
+
+on:
+  push:
+    tags:
+      - 'release-*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        default: ''
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: macos-latest  # macOS runner can build all platforms
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Needed for tags
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './frontend/user-app/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: ./frontend/user-app
+        run: npm ci
+      
+      - name: Set version
+        working-directory: ./frontend/user-app
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag (remove 'release-' prefix)
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#release-}"
+          fi
+          
+          # Update package.json version
+          npm version $VERSION --no-git-tag-version
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+      
+      - name: Build web app
+        working-directory: ./frontend/user-app
+        run: npm run build
+      
+      - name: Setup Java for Android builds
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'adopt'
+          java-version: '11'
+      
+      - name: Build Android APK
+        working-directory: ./frontend/user-app
+        run: |
+          npm run cap:sync
+          cd android
+          ./gradlew assembleRelease
+      
+      # Needs a valid Apple Developer certificate
+      - name: Build iOS app (Archive only)
+        working-directory: ./frontend/user-app
+        run: |
+          npm run cap:sync
+          cd ios/App
+          pod install
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -archivePath ./build/App.xcarchive archive
+      
+      - name: Build macOS app
+        working-directory: ./frontend/user-app
+        run: npm run electron:build:mac
+      
+      - name: Build Windows app
+        working-directory: ./frontend/user-app
+        run: npm run electron:build:win
+      
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: user-app-v${{ env.APP_VERSION }}
+          release_name: User App v${{ env.APP_VERSION }}
+          body: |
+            # CampusLearning User App v${{ env.APP_VERSION }}
+            
+            Multi-platform release including:
+            - iOS app (.ipa)
+            - Android app (.apk)
+            - macOS app (.dmg)
+            - Windows app (.exe)
+            
+            ## Installation Instructions
+            See BUILD-INFO.md in the release assets.
+          draft: false
+          prerelease: false
+      
+      - name: Upload Android APK
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./frontend/user-app/android/app/build/outputs/apk/release/app-release.apk
+          asset_name: CampusLearning-${{ env.APP_VERSION }}.apk
+          asset_content_type: application/vnd.android.package-archive
+      
+      - name: Upload macOS DMG
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./frontend/user-app/release/CampusLearning App-${{ env.APP_VERSION }}.dmg
+          asset_name: CampusLearning-${{ env.APP_VERSION }}.dmg
+          asset_content_type: application/octet-stream
+      
+      - name: Upload Windows EXE
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./frontend/user-app/release/CampusLearning App Setup ${{ env.APP_VERSION }}.exe
+          asset_name: CampusLearning-${{ env.APP_VERSION }}.exe
+          asset_content_type: application/octet-stream
+      
+      - name: Create Build Info
+        run: |
+          cat > BUILD-INFO.md << EOF
+          # CampusLearning User App Build Summary
+          
+          **Version:** ${{ env.APP_VERSION }}
+          **Build Date:** $(date "+%Y-%m-%d %H:%M:%S")
+          
+          ## Platforms
+          
+          | Platform | File | Status |
+          |----------|------|--------|
+          | Android | CampusLearning-${{ env.APP_VERSION }}.apk | ✅ Built |
+          | macOS | CampusLearning-${{ env.APP_VERSION }}.dmg | ✅ Built |
+          | Windows | CampusLearning-${{ env.APP_VERSION }}.exe | ✅ Built |
+          | iOS | Not available in public release | ℹ️ Requires Apple Developer account |
+          
+          ## Installation Instructions
+          
+          ### Android
+          - Copy the APK file to your Android device.
+          - Enable "Install from Unknown Sources" in settings.
+          - Open the APK file to install.
+          
+          ### macOS
+          - Open the DMG file.
+          - Drag the application to your Applications folder.
+          
+          ### Windows
+          - Run the installer EXE file.
+          - Follow the installation prompts.
+          EOF
+      
+      - name: Upload Build Info
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./BUILD-INFO.md
+          asset_name: BUILD-INFO.md
+          asset_content_type: text/markdown 

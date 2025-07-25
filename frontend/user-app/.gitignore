@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies and build artifacts
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Capacitor
+ios/**/xcuserdata
+ios/**/Pods
+android/.gradle
+android/app/build
+android/build
+
+# Keep release files (now ignored, no exceptions)
+# !release/
+# !release/platforms/
+# !release/BUILD-INFO.md 

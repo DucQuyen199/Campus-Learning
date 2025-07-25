@@ -1,0 +1,11 @@
+.*
+*.md
+agricius
+Dockerfile*
+docker-compose*
+docs/maintainers/
+judge0.conf
+log/*
+scripts/dev/
+srv/
+tmp/*

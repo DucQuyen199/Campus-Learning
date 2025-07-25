@@ -1,0 +1,20 @@
+{
+	"appId": "com.CampusLearning.app",
+	"appName": "CampusLearning App",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https",
+		"iosScheme": "https",
+		"cleartext": true,
+		"allowNavigation": [
+			"*"
+		]
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 2000,
+			"backgroundColor": "#FFFFFF"
+		}
+	},
+	"packageClassList": []
+}

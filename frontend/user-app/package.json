@@ -1,0 +1,120 @@
+{
+  "name": "user-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "electron.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:ios": "npm run cap:sync && npx cap open ios",
+    "cap:android": "npm run cap:sync && npx cap open android",
+    "electron:start": "concurrently \"npm run dev\" \"electron ./electron.cjs\"",
+    "electron:build:mac": "npm run build && electron-builder --mac",
+    "electron:build:win": "npm run build && electron-builder --win",
+    "electron:build:all": "npm run build && electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "com.CampusLearning.app",
+    "productName": "CampusLearning App",
+    "files": [
+      "dist/**/*",
+      "electron.cjs",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.education"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/cli": "^7.4.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/ios": "^7.4.2",
+    "@chakra-ui/react": "^3.15.1",
+    "@craco/craco": "^7.1.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-fontawesome": "github:fortawesome/react-fontawesome",
+    "@google/generative-ai": "^0.24.0",
+    "@heroicons/react": "^2.1.1",
+    "@monaco-editor/react": "^4.7.0",
+    "@mui/icons-material": "^7.0.1",
+    "@mui/material": "^7.0.1",
+    "@paypal/react-paypal-js": "^8.8.2",
+    "@react-oauth/google": "^0.12.2",
+    "@reduxjs/toolkit": "^2.6.1",
+    "@simplewebauthn/browser": "^13.1.0",
+    "@tanstack/react-query": "^5.72.2",
+    "@wasmer/wasi": "^0.12.0",
+    "@wasmer/wasmfs": "^0.12.0",
+    "antd": "^5.24.6",
+    "axios": "^1.8.4",
+    "buffer": "^6.0.3",
+    "canvas-confetti": "^1.9.3",
+    "date-fns": "^3.5.0",
+    "framer-motion": "^10.18.0",
+    "html2pdf.js": "^0.10.3",
+    "i18next": "^25.2.1",
+    "i18next-browser-languagedetector": "^8.1.0",
+    "i18next-http-backend": "^3.0.2",
+    "lucide-react": "^0.487.0",
+    "monaco-editor": "^0.52.2",
+    "nodemailer": "^7.0.3",
+    "pyodide": "^0.23.4",
+    "quickjs-emscripten": "^0.15.0",
+    "re-resizable": "^6.11.2",
+    "react": "^18.2.0",
+    "react-colorful": "^5.6.1",
+    "react-countdown": "^2.3.6",
+    "react-dom": "^18.2.0",
+    "react-facebook-login": "^4.1.1",
+    "react-hot-toast": "^2.5.2",
+    "react-i18next": "^15.5.2",
+    "react-icons": "^5.5.0",
+    "react-markdown": "^10.1.0",
+    "react-monaco-editor": "^0.58.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^6.22.3",
+    "react-share": "^5.1.0",
+    "react-toastify": "^11.0.5",
+    "remark-gfm": "^4.0.1",
+    "simple-peer": "^9.11.1",
+    "socket.io-client": "^4.7.5",
+    "speakeasy": "^2.0.0",
+    "typescript": "^4.9.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.28.0",
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.18",
+    "concurrently": "^9.1.2",
+    "electron": "^37.2.1",
+    "electron-builder": "^26.0.12",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "globals": "^16.2.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.6"
+  }
+}

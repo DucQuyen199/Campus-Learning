@@ -1,0 +1,468 @@
+/* Story container */
+.story-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  margin: 0 auto;
+  overflow: hidden;
+  background-color: #000;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Story header */
+.story-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 10;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+}
+
+/* User info styling */
+.story-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.story-username {
+  color: white;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* Close button styling */
+.story-close-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background-color 0.2s;
+}
+
+.story-close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Delete button styling */
+.story-delete-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: rgba(239, 68, 68, 0.2);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.story-delete-btn:hover {
+  background-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Progress bar styling */
+.story-progress-container {
+  position: absolute;
+  top: 60px;
+  left: 16px;
+  right: 16px;
+  height: 3px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  z-index: 10;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.story-progress-bar {
+  height: 100%;
+  background-color: white;
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+/* Story footer */
+.story-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.story-footer-content {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.story-view-count {
+  display: flex;
+  align-items: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+/* Viewers button */
+.story-viewers-btn {
+  display: flex;
+  align-items: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 4px 10px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+  border: none;
+}
+
+.story-viewers-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.story-viewers-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Like and reply buttons for story viewers */
+.story-like-btn,
+.story-reply-btn {
+  display: flex;
+  align-items: center;
+  color: white;
+  font-size: 14px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 4px 10px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+  border: none;
+}
+
+.story-like-btn:hover,
+.story-reply-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Loading spinner */
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Viewers list */
+.story-viewers-list {
+  width: 100%;
+  max-height: 200px;
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  margin-top: 8px;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.story-viewers-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.story-viewers-header h4 {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.story-viewers-header button {
+  color: white;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.story-viewers-content {
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.story-viewer-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  transition: background-color 0.2s;
+}
+
+.story-viewer-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.story-viewer-info {
+  margin-left: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.story-viewer-name {
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.story-viewer-time {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+}
+
+.no-viewers {
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  padding: 12px;
+  font-size: 13px;
+}
+
+/* Story content styling */
+.story-content {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.story-media {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.story-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 24px;
+  text-align: center;
+  max-width: 80%;
+  font-weight: 600;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Navigation buttons */
+.story-navigation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  z-index: 5;
+}
+
+.story-nav-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+/* Story creation styling */
+.story-create-container {
+  background-color: white;
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.story-create-header {
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.story-create-body {
+  padding: 20px;
+}
+
+.story-create-preview {
+  height: 400px;
+  background-color: #f8f8f8;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.story-create-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.story-create-control {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.story-create-control:hover {
+  background-color: #f2f2f2;
+}
+
+.story-create-control.active {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+  color: #1890ff;
+}
+
+/* Media gallery styling */
+.story-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.story-gallery-item {
+  position: relative;
+  padding-top: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.story-gallery-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-gallery-remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.story-gallery-item:hover .story-gallery-remove {
+  opacity: 1;
+}
+
+/* Story list styling */
+.story-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.story-grid-horizontal {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.story-grid-vertical {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+/* Animation for story loading */
+@keyframes story-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.story-animation-fade-in {
+  animation: story-fade-in 0.3s ease forwards;
+} 

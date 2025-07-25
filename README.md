@@ -44,4 +44,4 @@ See each sub-project’s README for detailed setup & env vars.
 
 ---
 
-© 2024 CampusLearning.
+© 2025 CampusLearning.

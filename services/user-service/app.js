@@ -153,6 +153,7 @@ app.use((req, res, next) => {
 // Cấu hình static files - di chuyển lên trước routes
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads/stories', express.static(path.join(__dirname, 'uploads/stories')));
+app.use('/uploads/chat', express.static(path.join(__dirname, 'uploads/chat')));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -248,11 +249,21 @@ app.use((req, res) => {
 });
 
 // Đảm bảo thư mục uploads tồn tại
-const uploadDirs = ['uploads', 'uploads/images', 'uploads/videos', 'uploads/chat', 'uploads/stories/images', 'uploads/stories/videos'];
+const uploadDirs = [
+  'uploads', 
+  'uploads/images', 
+  'uploads/videos', 
+  'uploads/chat', 
+  'uploads/chat/documents',
+  'uploads/chat/images',
+  'uploads/chat/videos',
+  'uploads/chat/audio',
+  'uploads/stories/images', 
+  'uploads/stories/videos'
+];
 uploadDirs.forEach(dir => {
-  const dirPath = path.join(__dirname, dir);
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 });
 

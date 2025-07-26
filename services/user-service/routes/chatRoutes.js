@@ -9,6 +9,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const chatController = require('../controllers/chatController');
+const { chatUploadMiddleware, validateFileSize } = require('../middleware/chatUpload');
 
 // Get all conversations for current user
 router.get('/conversations', authenticate, chatController.getConversations);
@@ -46,6 +47,22 @@ router.post('/conversations/:conversationId/messages', authenticate, (req, res) 
   req.body.conversationId = req.params.conversationId;
   chatController.sendMessage(req, res);
 });
+
+// Upload file(s) for chat
+router.post('/upload-files', 
+  authenticate, 
+  chatUploadMiddleware.array('files', 5), 
+  validateFileSize, 
+  chatController.uploadFiles
+);
+
+// Send message with file
+router.post('/conversations/:conversationId/files', 
+  authenticate,
+  chatUploadMiddleware.single('file'),
+  validateFileSize,
+  chatController.sendFileMessage
+);
 
 // Update message
 router.put('/messages/:messageId', authenticate, chatController.updateMessage);

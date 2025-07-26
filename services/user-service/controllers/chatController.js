@@ -7,6 +7,8 @@
 -----------------------------------------------------------------*/
 const { pool } = require('../config/db');
 const { onlineUsers } = require('../socket');
+const { getFileType, formatFileSize } = require('../middleware/chatUpload');
+const path = require('path');
 
 /**
  * Get all conversations for a user with enhanced details
@@ -142,24 +144,59 @@ exports.getMessages = async (req, res) => {
         OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
       `);
 
+    // Process messages to add FileInfo for file messages
+    const processedMessages = messages.recordset.map(message => {
+      if (message.Type === 'file' && message.MediaUrl) {
+        // Tạo FileInfo từ thông tin có sẵn
+        const urlParts = message.MediaUrl.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        
+        // Extract original name from content (format: "📎 filename (size)")
+        let originalName = filename;
+        const contentMatch = message.Content?.match(/📎\s+(.+?)\s+\(/);
+        if (contentMatch) {
+          originalName = contentMatch[1];
+        }
+        
+        // Create FileInfo object
+        const fileInfo = {
+          originalName: originalName,
+          filename: filename,
+          type: getFileType(message.MediaType || '', filename),
+          mimetype: message.MediaType || '',
+          size: 0, // Không có thông tin size trong DB
+          sizeFormatted: 'Unknown'
+        };
+        
+        return {
+          ...message,
+          FileInfo: fileInfo,
+          Metadata: JSON.stringify(fileInfo)
+        };
+      }
+      return message;
+    });
+
     // Update last read message
-    await pool.request()
-      .input('conversationId', conversationId)
-      .input('userId', userId)
-      .input('lastMessageId', messages.recordset[0]?.MessageID || null)
-      .query(`
-        UPDATE ConversationParticipants
-        SET LastReadMessageID = @lastMessageId
-        WHERE ConversationID = @conversationId AND UserID = @userId
-      `);
+    if (processedMessages.length > 0) {
+      await pool.request()
+        .input('conversationId', conversationId)
+        .input('userId', userId)
+        .input('lastMessageId', processedMessages[0]?.MessageID || null)
+        .query(`
+          UPDATE ConversationParticipants
+          SET LastReadMessageID = @lastMessageId
+          WHERE ConversationID = @conversationId AND UserID = @userId
+        `);
+    }
 
     res.json({
       success: true,
-      data: messages.recordset.reverse(), // Reverse to show oldest first
+      data: processedMessages.reverse(), // Reverse to show oldest first
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        hasMore: messages.recordset.length === parseInt(limit)
+        hasMore: processedMessages.length === parseInt(limit)
       }
     });
   } catch (error) {
@@ -846,5 +883,188 @@ exports.updateConversationImage = async (req, res) => {
   } catch (error) {
     console.error('Error updating conversation image:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * Upload files for chat
+ */
+exports.uploadFiles = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không có file nào được tải lên'
+      });
+    }
+
+    const uploadedFiles = req.files.map(file => {
+      const fileType = getFileType(file.mimetype, file.filename);
+      const fileSize = formatFileSize(file.size);
+      
+      return {
+        originalName: file.originalname,
+        filename: file.filename,
+        url: `/uploads/chat/${file.destination.split('/').pop()}/${file.filename}`,
+        size: file.size,
+        sizeFormatted: fileSize,
+        type: fileType,
+        mimetype: file.mimetype,
+        uploadedAt: new Date()
+      };
+    });
+
+    res.json({
+      success: true,
+      data: uploadedFiles,
+      message: `Đã tải lên ${uploadedFiles.length} file thành công`
+    });
+  } catch (error) {
+    console.error('Error uploading files:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi tải file lên server' 
+    });
+  }
+};
+
+/**
+ * Send message with file attachment
+ */
+exports.sendFileMessage = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { caption } = req.body; // Optional caption for file
+    const senderId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không có file nào được tải lên'
+      });
+    }
+
+    // Check if user is participant
+    const isParticipant = await pool.request()
+      .input('conversationId', conversationId)
+      .input('senderId', senderId)
+      .query(`
+        SELECT 1 FROM ConversationParticipants
+        WHERE ConversationID = @conversationId 
+        AND UserID = @senderId 
+        AND LeftAt IS NULL
+      `);
+
+    if (!isParticipant.recordset.length) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Không có quyền gửi tin nhắn trong cuộc trò chuyện này' 
+      });
+    }
+
+    const file = req.file;
+    const fileType = getFileType(file.mimetype, file.filename);
+    
+    // Tạo URL cho file - sửa logic để tạo đúng đường dẫn
+    let fileUrl;
+    if (file.destination.includes('images')) {
+      fileUrl = `/uploads/chat/images/${file.filename}`;
+    } else if (file.destination.includes('videos')) {
+      fileUrl = `/uploads/chat/videos/${file.filename}`;
+    } else if (file.destination.includes('audio')) {
+      fileUrl = `/uploads/chat/audio/${file.filename}`;
+    } else {
+      fileUrl = `/uploads/chat/documents/${file.filename}`;
+    }
+    
+    // Tạo content với thông tin file (bao gồm metadata trong content)
+    const fileMetadata = {
+      originalName: file.originalname,
+      filename: file.filename,
+      size: file.size,
+      sizeFormatted: formatFileSize(file.size),
+      type: fileType,
+      mimetype: file.mimetype
+    };
+    
+    const messageContent = caption || `📎 ${file.originalname} (${formatFileSize(file.size)})`;
+
+    // Insert message không sử dụng cột Metadata
+    const insertResult = await pool.request()
+      .input('conversationId', conversationId)
+      .input('senderId', senderId)
+      .input('type', 'file')
+      .input('content', messageContent)
+      .input('mediaUrl', fileUrl)
+      .input('mediaType', fileType)
+      .query(`
+        INSERT INTO Messages (ConversationID, SenderID, Type, Content, MediaUrl, MediaType)
+        VALUES (@conversationId, @senderId, @type, @content, @mediaUrl, @mediaType);
+        SELECT CAST(SCOPE_IDENTITY() AS BIGINT) AS MessageID;
+      `);
+
+    const newMessageId = insertResult.recordset[0].MessageID;
+
+    // Retrieve the inserted message
+    const messageResult = await pool.request()
+      .input('messageId', newMessageId)
+      .query(`
+        SELECT *
+        FROM Messages
+        WHERE MessageID = @messageId
+      `);
+    const message = messageResult.recordset[0];
+
+    // Get sender info
+    const senderInfo = await pool.request()
+      .input('senderId', senderId)
+      .query(`
+        SELECT Username as SenderUsername, FullName as SenderName, Avatar as SenderAvatar
+        FROM Users WHERE UserID = @senderId
+      `);
+
+    // Tạo full message với FileInfo để frontend sử dụng
+    const fullMessage = {
+      ...message,
+      ...senderInfo.recordset[0],
+      FileInfo: fileMetadata, // Thêm FileInfo để frontend có thể sử dụng
+      Metadata: JSON.stringify(fileMetadata) // Để tương thích với frontend
+    };
+
+    // Get conversation participants for real-time updates
+    const participants = await pool.request()
+      .input('conversationId', conversationId)
+      .query(`
+        SELECT UserID FROM ConversationParticipants
+        WHERE ConversationID = @conversationId AND LeftAt IS NULL
+      `);
+
+    // Emit real-time message to all participants
+    const io = req.app.get('io');
+    participants.recordset.forEach(participant => {
+      if (participant.UserID !== senderId) {
+        const socketId = onlineUsers.get(participant.UserID);
+        if (socketId) {
+          io.to(socketId).emit('new-message', {
+            conversationId,
+            message: fullMessage
+          });
+        }
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      data: fullMessage,
+      message: 'File đã được gửi thành công'
+    });
+  } catch (error) {
+    console.error('Error sending file message:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi khi gửi file' 
+    });
   }
 };

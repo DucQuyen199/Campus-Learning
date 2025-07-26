@@ -26,6 +26,7 @@ import axios from 'axios';
 import { GoogleLogin } from '@react-oauth/google';
 // Add Facebook SDK
 import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props';
+import Loading from '../../components/common/Loading';
 
 // Check if passkey is supported by the browser
 const isPasskeySupported = () => {
@@ -77,6 +78,8 @@ const Login = () => {
   const [twoFaCode, setTwoFaCode] = useState('');
   const [twoFaLoading, setTwoFaLoading] = useState(false);
   const [twoFaError, setTwoFaError] = useState('');
+  const [successLoading, setSuccessLoading] = useState(false);
+  const [accountsWithPasskey, setAccountsWithPasskey] = useState(new Set());
   // Create refs for 2FA inputs and handler for auto-submit
   const inputsRef = useRef([]);
   const handleTwoFaInput = (e, idx) => {
@@ -104,22 +107,19 @@ const Login = () => {
     try {
       const result = await login2Fa(tempToken, code);
       if (result.success) {
+        setTwoFaLoading(false);
         handleLoginSuccess(result.user);
-        // Ensure navigation happens
-        setTimeout(() => {
-          navigate('/home', { replace: true });
-        }, 300);
       }
       else {
         setTwoFaError(result.error || 'Xác thực 2FA thất bại');
         // Clear the code when verification fails
         clearTwoFaCode();
+        setTwoFaLoading(false);
       }
     } catch (err) {
       setTwoFaError(err.message || 'Xác thực 2FA thất bại');
       // Clear the code when verification fails
       clearTwoFaCode();
-    } finally {
       setTwoFaLoading(false);
     }
   };
@@ -231,69 +231,74 @@ const Login = () => {
     // Log incoming userData for debugging
     console.log('handleLoginSuccess called with:', userData);
     
-    // Ensure user data has the required fields
-    const processedUserData = {
-      ...userData,
-      // Ensure consistent field naming (backend might use different formats)
-      id: userData.id || userData.UserID,
-      UserID: userData.UserID || userData.id,
-      username: userData.username || userData.Username,
-      email: userData.email || userData.Email,
-      role: (userData.role || userData.Role || 'STUDENT').toUpperCase(),
-      token: userData.token,
-    };
+    // Show success loading for 1 second before completing login
+    setSuccessLoading(true);
     
-    // Store user data and token in Redux
-    dispatch(setUser(processedUserData));
-    
-    // Persist token and user in localStorage for future sessions
-    if (processedUserData.token) {
-      localStorage.setItem('token', processedUserData.token);
-      localStorage.setItem('authToken', processedUserData.token);
-    }
-    
-    // Store complete user data
-    localStorage.setItem('user', JSON.stringify(processedUserData));
-    
-    // Show success toast
-    toast.success('Đăng nhập thành công!');
-    
-    // Log that we're about to navigate
-    console.log('Navigating to home page after successful login');
-    
-    // Navigate with replace to prevent going back to login page
-    navigate('/home', { replace: true });
-    
-    // Ensure navigation happens even if there's an issue with the first attempt
     setTimeout(() => {
-      if (window.location.pathname.includes('/login')) {
-        console.log('Backup navigation triggered');
-        navigate('/home', { replace: true });
+      // Ensure user data has the required fields
+      const processedUserData = {
+        ...userData,
+        // Ensure consistent field naming (backend might use different formats)
+        id: userData.id || userData.UserID,
+        UserID: userData.UserID || userData.id,
+        username: userData.username || userData.Username,
+        email: userData.email || userData.Email,
+        role: (userData.role || userData.Role || 'STUDENT').toUpperCase(),
+        token: userData.token,
+      };
+      
+      // Store user data and token in Redux
+      dispatch(setUser(processedUserData));
+      
+      // Persist token and user in localStorage for future sessions
+      if (processedUserData.token) {
+        localStorage.setItem('token', processedUserData.token);
+        localStorage.setItem('authToken', processedUserData.token);
       }
-    }, 500);
-    
-    // Store into previousAccounts in localStorage
-    const storedAccounts = JSON.parse(localStorage.getItem('previousAccounts') || '[]');
-    const updatedAccounts = storedAccounts.filter(acc => acc.email !== (userData.email || userData.Email));
-    
-    // Check if we need to keep the stored password
-    const hasStoredPassword = userData.hasStoredPassword === true;
-    const storedPassword = hasStoredPassword ? userData.storedPassword : null;
-    
-    // Add the current account with the saved password if remember is true
-    const savedAccount = {
-      ...userData,
-      email: userData.email || userData.Email,
-      username: userData.username || userData.Username || '',
-      // Save password if specified in userData or from formData
-      hasStoredPassword: hasStoredPassword,
-      storedPassword: storedPassword,
-      token: userData.token,
-      lastLogin: new Date().toISOString()
-    };
-    
-    updatedAccounts.unshift(savedAccount);
-    localStorage.setItem('previousAccounts', JSON.stringify(updatedAccounts.slice(0, 3)));
+      
+      // Store complete user data
+      localStorage.setItem('user', JSON.stringify(processedUserData));
+      
+      // Show success toast
+      toast.success('Đăng nhập thành công!');
+      
+      // Log that we're about to navigate
+      console.log('Navigating to home page after successful login');
+      
+      // Navigate with replace to prevent going back to login page
+      navigate('/home', { replace: true });
+      
+      // Ensure navigation happens even if there's an issue with the first attempt
+      setTimeout(() => {
+        if (window.location.pathname.includes('/login')) {
+          console.log('Backup navigation triggered');
+          navigate('/home', { replace: true });
+        }
+      }, 500);
+      
+      // Store into previousAccounts in localStorage
+      const storedAccounts = JSON.parse(localStorage.getItem('previousAccounts') || '[]');
+      const updatedAccounts = storedAccounts.filter(acc => acc.email !== (userData.email || userData.Email));
+      
+      // Check if we need to keep the stored password
+      const hasStoredPassword = userData.hasStoredPassword === true;
+      const storedPassword = hasStoredPassword ? userData.storedPassword : null;
+      
+      // Add the current account with the saved password if remember is true
+      const savedAccount = {
+        ...userData,
+        email: userData.email || userData.Email,
+        username: userData.username || userData.Username || '',
+        // Save password if specified in userData or from formData
+        hasStoredPassword: hasStoredPassword,
+        storedPassword: storedPassword,
+        token: userData.token,
+        lastLogin: new Date().toISOString()
+      };
+      
+      updatedAccounts.unshift(savedAccount);
+      localStorage.setItem('previousAccounts', JSON.stringify(updatedAccounts.slice(0, 3)));
+    }, 1000);
   }, [dispatch, navigate]);
 
   const loginWithPasskey = async () => {
@@ -496,6 +501,12 @@ const Login = () => {
       
       toast.success('Đăng nhập bằng sinh trắc học thành công!');
       
+      // Track this email as passkey-enabled for future reference
+      const storedPasskeyAccounts = JSON.parse(localStorage.getItem('passkeyEnabledAccounts') || '[]');
+      const updatedPasskeyAccounts = [...storedPasskeyAccounts, formData.email];
+      localStorage.setItem('passkeyEnabledAccounts', JSON.stringify([...new Set(updatedPasskeyAccounts)]));
+      addToPasskeyAccounts(formData.email);
+      
       // Add a direct navigation as backup in case handleLoginSuccess doesn't redirect
       setTimeout(() => {
         if (window.location.pathname.includes('/login')) {
@@ -558,21 +569,18 @@ const Login = () => {
     try {
       const result = await login2Fa(tempToken, twoFaCode);
       if (result.success) {
+        setTwoFaLoading(false);
         handleLoginSuccess(result.user);
-        // Ensure navigation happens
-        setTimeout(() => {
-          navigate('/home', { replace: true });
-        }, 300);
       } else {
         setTwoFaError(result.error || 'Xác thực 2FA thất bại');
         // Clear the code when verification fails
         clearTwoFaCode();
+        setTwoFaLoading(false);
       }
     } catch (error) {
       setTwoFaError(error.message || 'Xác thực 2FA thất bại');
       // Clear the code when verification fails
       clearTwoFaCode();
-    } finally {
       setTwoFaLoading(false);
     }
   };
@@ -858,6 +866,281 @@ const Login = () => {
     setSelectedAccountError('');
   };
 
+  // Biometric login for selected account
+  const loginWithPasskeyForAccount = async (account) => {
+    // Check if max attempts reached
+    if (biometricAttempts >= maxBiometricAttempts) {
+      toast.error('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
+      return;
+    }
+
+    // Verify browser support first
+    if (!window.PublicKeyCredential) {
+      toast.error('Trình duyệt của bạn không hỗ trợ xác thực sinh trắc học.');
+      console.error('WebAuthn is not supported in this browser');
+      return;
+    }
+
+    setSelectedAccountError('');
+    
+    try {
+      // Set loading state for the fingerprint button only
+      setPasskeyLoading(true);
+      
+      let options;
+      console.log(`Requesting authentication options for email: ${account.email}`);
+      try {
+        // Get the API base URL from environment or use a fallback
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        console.log(`Using API base URL: ${API_BASE_URL}`);
+        
+        const optionsResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/options`, {
+          email: account.email
+        });
+        console.log('Server response for auth options:', optionsResponse.data);
+        if (!optionsResponse.data.success) {
+          throw new Error(optionsResponse.data.message || 'Không thể tạo yêu cầu xác thực');
+        }
+        options = optionsResponse.data.options;
+      } catch (apiError) {
+        console.error('Error fetching authentication options:', apiError);
+        throw new Error(`Lỗi khi lấy thông tin xác thực: ${apiError.message}`);
+      }
+
+      // Step 2: Create credentials with WebAuthn API
+      try {
+        // Convert base64url challenge to Uint8Array
+        options.challenge = Uint8Array.from(
+          atob(options.challenge.replace(/-/g, '+').replace(/_/g, '/')), 
+          c => c.charCodeAt(0)
+        );
+
+        if (options.allowCredentials) {
+          options.allowCredentials = options.allowCredentials.map(credential => {
+            return {
+              ...credential,
+              id: Uint8Array.from(
+                atob(credential.id.replace(/-/g, '+').replace(/_/g, '/')), 
+                c => c.charCodeAt(0)
+              )
+            };
+          });
+        }
+      } catch (encodingError) {
+        console.error('Error preparing WebAuthn options:', encodingError);
+        throw new Error('Lỗi định dạng dữ liệu xác thực');
+      }
+
+      // Tell the user what's happening
+      toast('Vui lòng xác thực bằng sinh trắc học của thiết bị khi được yêu cầu');
+
+      console.log('🔐 Activating device biometric authentication for account:', account.email);
+      
+      // Force a slight delay to ensure UI updates before the potentially blocking credential.get call
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // The native biometric prompt should appear after this call
+      const credential = await navigator.credentials.get({
+        publicKey: options
+      });
+
+      // If we got here, the user has successfully provided their fingerprint/biometric through the device's hardware
+      console.log('✅ Native biometric authentication successful - processing server verification');
+
+      // Step 3: Prepare credential for server verification
+      let authResponse;
+      try {
+        authResponse = {
+          id: credential.id,
+          rawId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, ''),
+          response: {
+            clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(credential.response.clientDataJSON)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, ''),
+            authenticatorData: btoa(String.fromCharCode(...new Uint8Array(credential.response.authenticatorData)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, ''),
+            signature: btoa(String.fromCharCode(...new Uint8Array(credential.response.signature)))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=/g, ''),
+            userHandle: credential.response.userHandle
+              ? btoa(String.fromCharCode(...new Uint8Array(credential.response.userHandle)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=/g, '')
+              : null
+          },
+          type: credential.type
+        };
+      } catch (encodingError) {
+        console.error('Error encoding credential for server:', encodingError);
+        throw new Error('Lỗi xử lý dữ liệu sinh trắc học');
+      }
+
+      // Step 4: Send response to server for verification
+      let verifyResponse;
+      try {
+        // Get the API base URL from environment or use a fallback
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        
+        verifyResponse = await axios.post(`${API_BASE_URL}/api/passkeys/auth/verify`, {
+          email: account.email,
+          response: authResponse
+        });
+        
+        console.log('Server verification response:', verifyResponse.data);
+
+        if (!verifyResponse.data.success) {
+          throw new Error(verifyResponse.data.message || 'Xác thực không thành công');
+        }
+      } catch (apiError) {
+        console.error('Error during server verification:', apiError);
+        throw new Error(`Lỗi xác thực với máy chủ: ${apiError.message}`);
+      }
+
+      // Authentication successful - reset attempts
+      setBiometricAttempts(0);
+
+      // Handle successful login
+      const { user, tokens } = verifyResponse.data;
+      
+      // Build full user object with token
+      const userWithToken = { 
+        ...user, 
+        token: tokens.accessToken,
+        // Ensure these critical fields are available for the app's authentication system
+        UserID: user.id,
+        username: user.username,
+        role: user.role || 'STUDENT',
+        // Preserve account storage information
+        hasStoredPassword: account.hasStoredPassword,
+        storedPassword: account.storedPassword
+      };
+      
+      console.log('Constructed user object for login:', userWithToken);
+      
+      // Store tokens in localStorage directly for extra safety
+      localStorage.setItem('token', tokens.accessToken);
+      localStorage.setItem('authToken', tokens.accessToken);
+      
+      // Handle successful login via passkey
+      handleLoginSuccess(userWithToken);
+      
+      toast.success('Đăng nhập bằng sinh trắc học thành công!');
+      
+      // Track this email as passkey-enabled for future reference
+      const storedPasskeyAccounts = JSON.parse(localStorage.getItem('passkeyEnabledAccounts') || '[]');
+      const updatedPasskeyAccounts = [...storedPasskeyAccounts, account.email];
+      localStorage.setItem('passkeyEnabledAccounts', JSON.stringify([...new Set(updatedPasskeyAccounts)]));
+      addToPasskeyAccounts(account.email);
+      
+    } catch (error) {
+      console.error('❌ Passkey authentication error for account:', error);
+      
+      // Increment failed attempts
+      const newAttempts = biometricAttempts + 1;
+      setBiometricAttempts(newAttempts);
+      
+      // Check if max attempts reached
+      if (newAttempts >= maxBiometricAttempts) {
+        setSelectedAccountError('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
+        toast.error('Quá nhiều lần thử không thành công. Vui lòng sử dụng mật khẩu.');
+      } else {
+        // Provide more helpful error messages based on common WebAuthn errors
+        let errorMessage = `Xác thực sinh trắc học thất bại (lần thử ${newAttempts}/${maxBiometricAttempts}).`;
+        
+        if (error.name === 'NotAllowedError') {
+          errorMessage += ' Người dùng từ chối xác thực hoặc không có sinh trắc học được đăng ký.';
+        } else if (error.name === 'SecurityError') {
+          errorMessage += ' Lỗi bảo mật: yêu cầu xác thực phải đến từ nguồn an toàn (HTTPS).';
+        } else if (error.name === 'AbortError') {
+          errorMessage += ' Xác thực bị hủy.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage += ' Phương thức xác thực không được hỗ trợ.';
+        } else {
+          errorMessage += ` ${error.message || ''}`;
+        }
+        
+        setSelectedAccountError(errorMessage);
+        toast.error(errorMessage);
+      }
+    } finally {
+      setPasskeyLoading(false);
+      
+      // Remove the timeout for hiding the prompt
+      if (biometricTimeoutRef.current) {
+        clearTimeout(biometricTimeoutRef.current);
+        biometricTimeoutRef.current = null;
+      }
+    }
+  };
+
+  // Function to check if an account has passkey registered
+  const checkAccountPasskeyStatus = async (email) => {
+    try {
+      // First check localStorage for known passkey accounts
+      const storedPasskeyAccounts = JSON.parse(localStorage.getItem('passkeyEnabledAccounts') || '[]');
+      if (storedPasskeyAccounts.includes(email)) {
+        return true;
+      }
+      
+      // Then try to check with server (if available)
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        const response = await axios.post(`${API_BASE_URL}/api/passkeys/check-registration`, {
+          email
+        });
+        
+        // If server confirms passkey, store it locally for future reference
+        if (response.data.hasPasskey) {
+          const updatedAccounts = [...storedPasskeyAccounts, email];
+          localStorage.setItem('passkeyEnabledAccounts', JSON.stringify([...new Set(updatedAccounts)]));
+        }
+        
+        return response.data.hasPasskey || false;
+      } catch (serverError) {
+        // If server check fails, fall back to localStorage only
+        console.log(`Server check failed for ${email}, using localStorage:`, serverError.message);
+        return false;
+      }
+    } catch (error) {
+      console.log(`No passkey found for ${email}:`, error.message);
+      return false;
+    }
+  };
+
+  // Check passkey status for all previous accounts
+  useEffect(() => {
+    const checkAllAccountsPasskey = async () => {
+      if (previousAccounts.length > 0) {
+        const passkeyChecks = await Promise.all(
+          previousAccounts.map(async (account) => {
+            const hasPasskey = await checkAccountPasskeyStatus(account.email);
+            return { email: account.email, hasPasskey };
+          })
+        );
+        
+        const emailsWithPasskey = new Set(
+          passkeyChecks.filter(check => check.hasPasskey).map(check => check.email)
+        );
+        setAccountsWithPasskey(emailsWithPasskey);
+      }
+    };
+
+    checkAllAccountsPasskey();
+  }, [previousAccounts]);
+
+  // Helper function to add an email to passkey-enabled accounts
+  const addToPasskeyAccounts = (email) => {
+    setAccountsWithPasskey(prev => new Set([...prev, email]));
+  };
+
   // Render the selected account password form if an account is selected
   if (selectedAccount) {
     return (
@@ -962,26 +1245,52 @@ const Login = () => {
                   </div>
                 </div>
 
-        <div className="flex flex-col space-y-4">
-            <button
-                    type="submit"
-                    disabled={selectedAccountLoading}
-                    className={`flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white transform transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
-                      selectedAccountLoading 
-                        ? 'bg-blue-400 cursor-not-allowed' 
-                        : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-                    }`}
-                  >
-                    {selectedAccountLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Đang đăng nhập...
-                      </>
-                    ) : 'Đăng nhập'}
-                  </button>
+                <div className="flex flex-col space-y-4">
+                  <div className="flex space-x-4">
+                    <button
+                      type="submit"
+                      disabled={selectedAccountLoading}
+                      className={`flex-1 flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-base font-medium text-white transform transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
+                        selectedAccountLoading 
+                          ? 'bg-blue-400 cursor-not-allowed' 
+                          : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                      }`}
+                    >
+                      {selectedAccountLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Đang đăng nhập...
+                        </>
+                      ) : 'Đăng nhập'}
+                    </button>
+
+                    {/* Fingerprint button for selected account */}
+                    {isPasskeyAvailable && selectedAccount && accountsWithPasskey.has(selectedAccount.email) && (
+                      <button
+                        type="button"
+                        onClick={() => loginWithPasskeyForAccount(selectedAccount)}
+                        disabled={passkeyLoading || selectedAccountLoading}
+                        className={`flex items-center justify-center p-3 transform transition-all duration-200 hover:scale-[1.1] active:scale-[0.9] ${
+                          passkeyLoading || selectedAccountLoading
+                            ? 'cursor-not-allowed opacity-50'
+                            : 'hover:opacity-70 focus:outline-none'
+                        } relative group`}
+                        title="Đăng nhập bằng sinh trắc học"
+                      >
+                        {passkeyLoading ? (
+                          <svg className="animate-spin h-7 w-7 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <FingerPrintIcon className="h-7 w-7 text-gray-800" />
+                        )}
+                      </button>
+                    )}
+                  </div>
 
                   <button
                     type="button"
@@ -1080,22 +1389,52 @@ const Login = () => {
 
               <div className="mt-8 space-y-4">
                 {previousAccounts.map(account => (
-                  <motion.button
-              key={account.email}
+                  <motion.div
+                    key={account.email}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-              onClick={() => handleAccountClick(account)}
-                    className="w-full flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 transition-colors duration-200"
-            >
-                    <div className="h-14 w-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-xl font-medium text-white">
-                {account.username?.charAt(0).toUpperCase() || account.email.charAt(0).toUpperCase()}
-              </div>
-                    <div className="flex flex-col items-start">
-                      <span className="font-medium text-gray-800">{account.username || account.email}</span>
-                      {account.username && <span className="text-sm text-gray-500">{account.email}</span>}
+                    className="w-full"
+                  >
+                    <div className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+                      <button
+                        onClick={() => handleAccountClick(account)}
+                        className="flex items-center space-x-4 flex-1"
+                      >
+                        <div className="h-14 w-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-xl font-medium text-white">
+                          {account.username?.charAt(0).toUpperCase() || account.email.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium text-gray-800">{account.username || account.email}</span>
+                          {account.username && <span className="text-sm text-gray-500">{account.email}</span>}
+                        </div>
+                      </button>
+                      
+                      {/* Fingerprint button for each account */}
+                      {isPasskeyAvailable && accountsWithPasskey.has(account.email) && (
+                        <button
+                          type="button"
+                          onClick={() => loginWithPasskeyForAccount(account)}
+                          disabled={passkeyLoading}
+                          className={`flex items-center justify-center p-2 transform transition-all duration-200 hover:scale-[1.1] active:scale-[0.9] ${
+                            passkeyLoading
+                              ? 'cursor-not-allowed opacity-50'
+                              : 'hover:opacity-70 focus:outline-none'
+                          } relative group`}
+                          title={`Đăng nhập bằng sinh trắc học cho ${account.username || account.email}`}
+                        >
+                          {passkeyLoading ? (
+                            <svg className="animate-spin h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <FingerPrintIcon className="h-6 w-6 text-gray-800" />
+                          )}
+                        </button>
+                      )}
                     </div>
-                  </motion.button>
+                  </motion.div>
           ))}
         </div>
 
@@ -1537,6 +1876,15 @@ const Login = () => {
     );
   }
 
+  // Show full-page loading during initial login
+  if (loading && !twoFaStage) {
+    return <Loading message="Đang đăng nhập..." />;
+  }
+  // Show success loading with delay
+  if (successLoading) {
+    return <Loading message="Đăng nhập thành công! Đang chuyển hướng..." />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Login Section - Keeping original width */}
@@ -1759,10 +2107,10 @@ const Login = () => {
                         type="button"
                         onClick={loginWithPasskey}
                         disabled={passkeyLoading || !formData.email || loading}
-                        className={`flex items-center justify-center p-3 border border-black rounded-lg shadow-sm transform transition-all duration-200 hover:scale-[1.05] active:scale-[0.95] ${
+                        className={`flex items-center justify-center p-3 transform transition-all duration-200 hover:scale-[1.1] active:scale-[0.9] ${
                           passkeyLoading || !formData.email || loading
-                            ? 'bg-gray-300 cursor-not-allowed opacity-70 text-gray-500'
-                            : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                            ? 'cursor-not-allowed opacity-50'
+                            : 'hover:opacity-70 focus:outline-none'
                         } relative group`}
                         title={!formData.email ? "Vui lòng nhập email trước khi sử dụng đăng nhập sinh trắc học" : "Đăng nhập bằng sinh trắc học"}
                       >
@@ -1772,12 +2120,12 @@ const Login = () => {
                           </div>
                         )}
                         {passkeyLoading ? (
-                          <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-7 w-7 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
                         ) : (
-                          <FingerPrintIcon className={`h-6 w-6 ${!formData.email ? 'text-gray-500' : 'text-red-500'}`} />
+                          <FingerPrintIcon className={`h-7 w-7 ${!formData.email ? 'text-gray-500' : 'text-gray-800'}`} />
                         )}
                       </button>
                     )}

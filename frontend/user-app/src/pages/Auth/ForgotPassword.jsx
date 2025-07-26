@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
+import Loading from '../../components/common/Loading';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -27,9 +28,15 @@ const ForgotPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [successLoading, setSuccessLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   
+  // Show success loading with delay
+  if (successLoading) {
+    return <Loading message="Đang xử lý yêu cầu..." />;
+  }
+
   const handleRequestOTP = async (e) => {
     e.preventDefault();
     
@@ -45,14 +52,20 @@ const ForgotPassword = () => {
       const response = await axios.post('/api/verification/password/forgot', { email });
       
       if (response.data.message) {
-        setSuccessMessage('Mã xác thực đã được gửi đến email của bạn');
-        setStep(2);
+        setLoading(false);
+        setSuccessLoading(true);
+        
+        // Show success loading for 1 second before proceeding
+        setTimeout(() => {
+          setSuccessLoading(false);
+          setSuccessMessage('Mã xác thực đã được gửi đến email của bạn');
+          setStep(2);
+        }, 1000);
       }
     } catch (error) {
       console.error('Error requesting OTP:', error);
       setError(error.response?.data?.message || 'Không thể gửi mã xác thực');
       toast.error(error.response?.data?.message || 'Không thể gửi mã xác thực');
-    } finally {
       setLoading(false);
     }
   };
@@ -91,21 +104,27 @@ const ForgotPassword = () => {
       });
       
       if (response.data.success) {
-        setSuccessMessage('Mật khẩu đã được đặt lại thành công');
-        toast.success('Mật khẩu đã được đặt lại thành công');
+        setLoading(false);
+        setSuccessLoading(true);
         
-        // Redirect to login page after 2 seconds
+        // Show success loading for 1 second before showing success message and redirecting
         setTimeout(() => {
-          navigate('/login', { 
-            state: { message: 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới.' }
-          });
-        }, 2000);
+          setSuccessLoading(false);
+          setSuccessMessage('Mật khẩu đã được đặt lại thành công');
+          toast.success('Mật khẩu đã được đặt lại thành công');
+          
+          // Redirect to login page after 1 more second
+          setTimeout(() => {
+            navigate('/login', { 
+              state: { message: 'Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập với mật khẩu mới.' }
+            });
+          }, 1000);
+        }, 1000);
       }
     } catch (error) {
       console.error('Error resetting password:', error);
       setError(error.response?.data?.message || 'Không thể đặt lại mật khẩu');
       toast.error(error.response?.data?.message || 'Không thể đặt lại mật khẩu');
-    } finally {
       setLoading(false);
     }
   };
@@ -123,12 +142,18 @@ const ForgotPassword = () => {
       const response = await axios.post('/api/verification/password/forgot', { email });
       
       if (response.data.message) {
-        toast.success('Mã xác thực mới đã được gửi đến email của bạn');
+        setLoading(false);
+        setSuccessLoading(true);
+        
+        // Show success loading for 1 second before showing success message
+        setTimeout(() => {
+          setSuccessLoading(false);
+          toast.success('Mã xác thực mới đã được gửi đến email của bạn');
+        }, 1000);
       }
     } catch (error) {
       console.error('Error resending OTP:', error);
       setError(error.response?.data?.message || 'Không thể gửi lại mã xác thực');
-    } finally {
       setLoading(false);
     }
   };

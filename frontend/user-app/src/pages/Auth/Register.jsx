@@ -16,6 +16,7 @@ import {
   EyeIcon,
   EyeSlashIcon
 } from '@heroicons/react/24/outline';
+import Loading from '../../components/common/Loading';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -30,6 +31,8 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [successLoading, setSuccessLoading] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
 
   const handleChange = (e) => {
@@ -65,10 +68,15 @@ const Register = () => {
         throw new Error(data.message || 'Đăng ký thất bại');
       }
 
-      // Đăng ký thành công
-      navigate('/login', { 
-        state: { message: 'Đăng ký thành công! Vui lòng đăng nhập.' }
-      });
+      // Đăng ký thành công -> show loading then redirect
+      setLoading(false);
+      setSuccessLoading(true);
+      setTimeout(() => {
+        setRedirecting(true);
+        setTimeout(() => {
+          navigate('/login', { state: { message: 'Đăng ký thành công! Vui lòng đăng nhập.' } });
+        }, 500);
+      }, 1000);
 
     } catch (err) {
       setError(err.message || 'Đã có lỗi xảy ra');
@@ -76,6 +84,15 @@ const Register = () => {
       setLoading(false);
     }
   };
+
+  // Show loading during redirect after registration
+  if (redirecting) {
+    return <Loading message="Đăng ký thành công! Chuyển hướng..." />;
+  }
+  // Show success loading with delay
+  if (successLoading) {
+    return <Loading message="Đăng ký thành công! Đang xử lý..." />;
+  }
 
   return (
     <div className="min-h-screen flex">

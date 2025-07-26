@@ -14,6 +14,7 @@ import {
   ExclamationCircleIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline';
+import Loading from '../../components/common/Loading';
 
 const ResetPassword = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [successLoading, setSuccessLoading] = useState(false);
   const [error, setError] = useState('');
   const [formErrors, setFormErrors] = useState({});
   const [success, setSuccess] = useState(false);
@@ -36,6 +38,11 @@ const ResetPassword = () => {
       setError('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu liên kết mới.');
     }
   }, [token]);
+
+  // Show success loading with delay
+  if (successLoading) {
+    return <Loading message="Đặt lại mật khẩu thành công! Đang xử lý..." />;
+  }
 
   const validatePassword = (password) => {
     // Password must be at least 8 characters with at least 1 uppercase, 1 lowercase, and 1 number
@@ -135,14 +142,20 @@ const ResetPassword = () => {
       }
 
       // Show success message
-      setSuccess(true);
+      setLoading(false);
+      setSuccessLoading(true);
       
-      // Redirect after 3 seconds
+      // Show success loading for 1 second, then show success message, then redirect
       setTimeout(() => {
-        navigate('/login', { 
-          state: { message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.' } 
-        });
-      }, 3000);
+        setSuccessLoading(false);
+        setSuccess(true);
+        // Redirect after showing success message for 2 more seconds
+        setTimeout(() => {
+          navigate('/login', { 
+            state: { message: 'Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.' } 
+          });
+        }, 2000);
+      }, 1000);
     } catch (error) {
       console.error('Reset password error:', error);
       setError(error.message || 'Đã xảy ra lỗi. Vui lòng thử lại sau.');

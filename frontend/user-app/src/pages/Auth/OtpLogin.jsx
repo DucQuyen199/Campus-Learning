@@ -12,6 +12,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
+import Loading from '../../components/common/Loading';
 
 const OtpLogin = () => {
   const navigate = useNavigate();
@@ -23,10 +24,17 @@ const OtpLogin = () => {
   const [email, setEmail] = useState(initialEmail);
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successLoading, setSuccessLoading] = useState(false);
   const [error, setError] = useState('');
 
   // Refs and handlers for OTP input boxes
   const inputsRef = useRef([]);
+  
+  // Show success loading with delay
+  if (successLoading) {
+    return <Loading message="Đăng nhập OTP thành công! Đang chuyển hướng..." />;
+  }
+
   const verifyOtp = async (code) => {
     setLoading(true);
     setError('');
@@ -44,12 +52,19 @@ const OtpLogin = () => {
         username: user.username,
         role: (user.role || 'STUDENT').toUpperCase()
       };
-      dispatch(setUser(processedUser));
-      localStorage.setItem('token', token);
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('user', JSON.stringify(processedUser));
-      toast.success('Đăng nhập thành công');
-      navigate('/home', { replace: true });
+      
+      setLoading(false);
+      setSuccessLoading(true);
+      
+      // Show success loading for 1 second before completing login
+      setTimeout(() => {
+        dispatch(setUser(processedUser));
+        localStorage.setItem('token', token);
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('user', JSON.stringify(processedUser));
+        toast.success('Đăng nhập thành công');
+        navigate('/home', { replace: true });
+      }, 1000);
     } catch (err) {
       console.error('Verify OTP Error:', err);
       toast.error(err.response?.data?.message || 'Không thể xác thực OTP');

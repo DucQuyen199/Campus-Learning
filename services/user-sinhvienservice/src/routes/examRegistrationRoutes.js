@@ -10,6 +10,14 @@ const router = express.Router();
 const examRegistrationController = require('../controllers/examRegistrationController');
 const { body } = require('express-validator');
 const authMiddleware = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
+
+// Configure rate limiter: maximum of 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.'
+});
 
 // Static routes (must come before dynamic userId routes)
 /**
@@ -19,6 +27,7 @@ const authMiddleware = require('../middleware/auth');
  */
 router.get(
   '/semesters',
+  limiter, // Apply rate limiter middleware
   authMiddleware.authenticate,
   authMiddleware.authorize(),
   examRegistrationController.getActiveSemesters

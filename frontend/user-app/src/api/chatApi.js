@@ -230,5 +230,73 @@ export const chatApi = {
       console.error('Error marking messages as read:', error);
       throw error;
     }
+  },
+
+  // Upload files for chat
+  uploadFiles: async (files, onUploadProgress) => {
+    try {
+      const formData = new FormData();
+      
+      // Add files to form data
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+
+      const response = await chatApiClient.post('/upload-files', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: onUploadProgress
+      });
+      return response;
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      throw error;
+    }
+  },
+
+  // Send file message
+  sendFileMessage: async (conversationId, file, caption = '', onUploadProgress) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      if (caption) {
+        formData.append('caption', caption);
+      }
+
+      const response = await chatApiClient.post(`/conversations/${conversationId}/files`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: onUploadProgress
+      });
+      return response;
+    } catch (error) {
+      console.error('Error sending file message:', error);
+      throw error;
+    }
+  },
+
+  // Get file info helper
+  getFileIcon: (fileType, mimeType) => {
+    if (fileType.startsWith('image')) return '🖼️';
+    if (fileType.startsWith('video')) return '🎥';
+    if (fileType.startsWith('audio')) return '🎵';
+    if (fileType === 'document_word') return '📄';
+    if (fileType === 'document_excel') return '📊';
+    if (fileType === 'document_powerpoint') return '📊';
+    if (fileType === 'document_pdf') return '📋';
+    if (fileType === 'document_text') return '📝';
+    if (fileType === 'archive') return '🗜️';
+    return '📎';
+  },
+
+  // Format file size
+  formatFileSize: (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }; 

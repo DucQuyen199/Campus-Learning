@@ -19,7 +19,8 @@ import {
   PaperClipIcon,
   FaceSmileIcon,
   XMarkIcon,
-  ChevronLeftIcon
+  ChevronLeftIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline';
 import { chatApi } from '../../api/chatApi';
 import { callApi } from '../../api/callApi';
@@ -27,6 +28,7 @@ import { useSocket } from '../../contexts/SocketContext';
 import { useAuth } from '../../contexts/AuthContext';
 import Avatar from '../../components/common/Avatar';
 import CallInterface from '../../components/Call/CallInterface';
+import { API_URL } from '../../config';
 
 const Chat = () => {
   // State management
@@ -64,10 +66,17 @@ const Chat = () => {
   const messagesEndRef = useRef(null);
   const messageInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const fileInputRef = useRef(null);
   
   // Mobile specific state
   const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
   const [showConversations, setShowConversations] = useState(true);
+  
+  // File upload states
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [showFilePreview, setShowFilePreview] = useState(false);
   
   // Hooks
   const navigate = useNavigate();
@@ -91,25 +100,18 @@ const Chat = () => {
     }
   }, [location.state]);
 
-  // Socket event listeners
+  // Socket event listeners (only once)
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!socket) return;
 
     const handleNewMessage = (data) => {
       const { conversationId, message } = data;
-      
-      // Add message to current conversation if it matches
-      if (currentConversation?.ConversationID === conversationId) {
-        setMessages(prev => [...prev, message]);
-        scrollToBottom();
-      }
-      
-      // Update conversation list
-      setConversations(prev => 
-        prev.map(conv => 
+      // Always update conversation list
+      setConversations(prev =>
+        prev.map(conv =>
           conv.ConversationID === conversationId
-            ? { 
-                ...conv, 
+            ? {
+                ...conv,
                 LastMessageContent: message.Content,
                 LastMessageTime: message.CreatedAt,
                 LastMessageSender: message.SenderUsername
@@ -117,6 +119,14 @@ const Chat = () => {
             : conv
         )
       );
+      // Add to messages if viewing this conversation
+      setMessages(prev => {
+        if (currentConversation && currentConversation.ConversationID === conversationId) {
+          scrollToBottom();
+          return [...prev, message];
+        }
+        return prev;
+      });
     };
 
     const handleConversationUpdated = (data) => {
@@ -199,7 +209,7 @@ const Chat = () => {
       socket.off('call-ended', handleCallEnded);
       socket.off('call-timeout', handleCallTimeout);
     };
-  }, [socket, isConnected, currentConversation, currentCall]);
+  }, [socket]);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -507,6 +517,145 @@ const Chat = () => {
     }
   };
 
+  // Handle file selection
+  const handleFileSelect = (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      setShowFilePreview(true);
+    }
+    // Reset input
+    event.target.value = '';
+  };
+
+  // Open file picker
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Handle drag & drop file upload
+  const handleFileDrop = (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+    }
+  };
+
+  // Send selected files
+  const sendFiles = async () => {
+    if (!currentConversation || selectedFiles.length === 0) return;
+
+    setUploadingFiles(true);
+    setUploadProgress(0);
+
+    try {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        
+        const response = await chatApi.sendFileMessage(
+          currentConversation.ConversationID,
+          file,
+          '', // caption - có thể thêm input cho caption sau
+          (progressEvent) => {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(progress);
+          }
+        );
+
+        if (response.success) {
+          // Add message locally
+          setMessages(prev => [...prev, response.data]);
+          
+          // Emit to socket for real-time delivery
+          if (socket) {
+            socket.emit('message-sent', {
+              conversationId: currentConversation.ConversationID,
+              message: response.data
+            });
+          }
+        }
+      }
+      
+      // Clear selected files and close preview
+      setSelectedFiles([]);
+      setShowFilePreview(false);
+      scrollToBottom();
+    } catch (error) {
+      console.error('Error sending files:', error);
+      toast.error('Không thể gửi file');
+    } finally {
+      setUploadingFiles(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Cancel file selection
+  const cancelFileSelection = () => {
+    setSelectedFiles([]);
+    setShowFilePreview(false);
+    setUploadProgress(0);
+  };
+
+  // Remove file from selection
+  const removeFileFromSelection = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    if (selectedFiles.length === 1) {
+      setShowFilePreview(false);
+    }
+  };
+
+  // Render file message
+  const renderFileMessage = (message) => {
+    if (message.Type !== 'file') return null;
+
+    let fileInfo;
+    try {
+      fileInfo = message.Metadata ? JSON.parse(message.Metadata) : message.FileInfo;
+    } catch {
+      fileInfo = message.FileInfo || {};
+    }
+
+    const fileIcon = chatApi.getFileIcon(fileInfo.type || '', fileInfo.mimetype || '');
+    const isImage = fileInfo.type === 'image' || fileInfo.mimetype?.startsWith('image/');
+    
+    return (
+      <div className="max-w-sm">
+        {isImage ? (
+          <div className="rounded-lg overflow-hidden border">
+            <img 
+              src={`${API_URL}${message.MediaUrl}`}
+              alt={fileInfo.originalName}
+              className="w-full h-auto max-h-60 object-cover cursor-pointer"
+              onClick={() => window.open(`${API_URL}${message.MediaUrl}`, '_blank')}
+            />
+            {message.Content && (
+              <div className="p-2 text-sm">{message.Content}</div>
+            )}
+          </div>
+        ) : (
+          <div 
+            className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border cursor-pointer hover:bg-gray-100 transition-colors"
+            onClick={() => window.open(`${API_URL}${message.MediaUrl}`, '_blank')}
+          >
+            <span className="text-2xl">{fileIcon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {fileInfo.originalName || 'File'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {fileInfo.sizeFormatted || chatApi.formatFileSize(fileInfo.size || 0)}
+              </p>
+            </div>
+            <div className="text-xs text-blue-600 font-medium">
+              Tải xuống
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Filter conversations based on search
   const filteredConversations = conversations.filter(conv =>
     conv.Title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -662,183 +811,89 @@ const Chat = () => {
       {/* Main Chat Area */}
       <div className={`flex-1 flex flex-col ${isMobileView && showConversations ? 'hidden' : 'flex'}`}>
         {currentConversation ? (
-          <>
-            {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 p-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  {isMobileView && (
-                    <button 
-                      onClick={backToConversations}
-                      className="p-1 text-gray-500 hover:text-gray-700 mr-1"
-                    >
-                      <ChevronLeftIcon className="w-4 h-4" />
-                    </button>
-                  )}
-                  
-                  {currentConversation.Type === 'group' ? (
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <UserGroupIcon className="w-4 h-4 text-blue-600" />
-                    </div>
-                  ) : (
-                    <Avatar 
-                      src={currentConversation.Avatar}
-                      alt={currentConversation.Title}
-                      size="sm"
-                    />
-                  )}
-                  
-                  <div>
-                    <h2 className="text-sm font-semibold text-gray-900 truncate max-w-[120px] md:max-w-xs">
-                      {currentConversation.Title}
-                    </h2>
-                    <p className="text-xs text-gray-500">
-                      {currentConversation.Type === 'group' 
-                        ? `${currentConversation.Participants?.length || 0} thành viên`
-                        : 'Đang hoạt động'
-                      }
-                    </p>
-                  </div>
+          <div className="flex flex-col h-full">
+            {/* Zalo-style Header */}
+            <div className="flex items-center justify-between p-2 bg-blue-600 text-white">
+              {isMobileView && (
+                <button onClick={backToConversations} className="p-1">
+                  <ChevronLeftIcon className="w-6 h-6" />
+                </button>
+              )}
+              <div className="flex items-center space-x-2">
+                <Avatar src={currentConversation.Avatar} alt={currentConversation.Title} size="sm" />
+                <div className="flex flex-col">
+                  <span className="font-semibold truncate max-w-xs">{currentConversation.Title}</span>
+                  <span className="text-xs text-green-300">Active now</span>
                 </div>
-
-                {/* Call Buttons */}
-                <div className="flex items-center space-x-1">
-                  <button 
-                    onClick={startAudioCall}
-                    disabled={isWaitingForResponse || inCall}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      isWaitingForResponse || inCall 
-                        ? 'text-gray-400 cursor-not-allowed' 
-                        : 'text-gray-500 hover:text-green-600 hover:bg-green-50'
-                    }`}
-                    title={isWaitingForResponse ? "Đang gọi..." : "Gọi điện"}
-                  >
-                    <PhoneIcon className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={startVideoCall}
-                    disabled={isWaitingForResponse || inCall}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      isWaitingForResponse || inCall 
-                        ? 'text-gray-400 cursor-not-allowed' 
-                        : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-                    }`}
-                    title={isWaitingForResponse ? "Đang gọi..." : "Gọi video"}
-                  >
-                    <VideoCameraIcon className="w-4 h-4" />
-                  </button>
-                  <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                    <EllipsisVerticalIcon className="w-4 h-4" />
-                  </button>
-                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button onClick={startAudioCall} disabled={isWaitingForResponse || inCall}>
+                  <PhoneIcon className="w-6 h-6" />
+                </button>
+                <button onClick={startVideoCall} disabled={isWaitingForResponse || inCall}>
+                  <VideoCameraIcon className="w-6 h-6" />
+                </button>
               </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
-              {messages.map((message, index) => {
+            {/* Zalo-style Messages */}
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-100" onDragOver={e => e.preventDefault()} onDrop={handleFileDrop}>
+              {messages.map((message) => {
                 const currentUserId = user?.UserID ?? user?.id;
                 const isOwn = message.SenderID === currentUserId;
-                const showAvatar = !isOwn && (
-                  index === messages.length - 1 || 
-                  messages[index + 1]?.SenderID !== message.SenderID
-                );
-
-                return (
-                  <div
-                    key={message.MessageID}
-                    className={`flex w-full ${isOwn ? 'justify-end pr-4' : 'justify-start pl-4'}`}
-                  >
-                    <div className={`flex items-end space-x-1 max-w-[70%] ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                      {showAvatar && !isOwn && (
-                        <Avatar 
-                          src={message.SenderAvatar}
-                          alt={message.SenderName}
-                          size="xs"
-                        />
-                      )}
-                      
-                      <div className={`${showAvatar ? '' : isOwn ? 'ml-auto mr-1' : 'ml-1 mr-auto'}`}>
-                        <div
-                          className={`relative px-3 py-1.5 rounded-2xl text-sm ${
-                            isOwn
-                              ? 'bg-blue-600 text-white rounded-br-md shadow-sm'
-                              : 'bg-gray-100 text-gray-900 rounded-bl-md border'
-                          }`}
-                        >
-                          {/* arrow tail for bubbles */}
-                          {!isOwn && (
-                            <div className="absolute -left-1.5 bottom-1 w-3 h-3 bg-gray-100 border-l border-b transform rotate-45"></div>
-                          )}
-                          {isOwn && (
-                            <div className="absolute -right-1.5 bottom-1 w-3 h-3 bg-blue-600 transform rotate-45"></div>
-                          )}
-                          {!isOwn && currentConversation.Type === 'group' && (
-                            <p className="text-xs font-medium mb-0.5 text-blue-600">
-                              {message.SenderName}
-                            </p>
-                          )}
-                          <p className="text-sm leading-relaxed">{message.Content}</p>
+                if (isOwn) {
+                  // Sent message - bên phải, không có avatar
+                  return (
+                    <div key={message.MessageID} className="flex justify-end mb-4">
+                      <div className="max-w-[80%] p-3 bg-blue-600 text-white rounded-tl-xl rounded-tr-xl rounded-bl-xl shadow">
+                          {message.Type === 'file'
+                            ? renderFileMessage(message)
+                            : <p className="break-words">{message.Content}</p>
+                          }
+                          <div className="text-xs text-right mt-1">{formatMessageTime(message.CreatedAt)}</div>
                         </div>
-                        
-                        <p className={`text-xs text-gray-400 mt-0.5 ${isOwn ? 'text-right' : 'text-left'}`}>
-                          {formatMessageTime(message.CreatedAt)}
-                        </p>
+                    </div>
+                  );
+                } else {
+                  // Received message - bên trái, có avatar
+                  return (
+                    <div key={message.MessageID} className="flex justify-start mb-4">
+                      <div className="flex items-end space-x-2">
+                        <Avatar src={message.SenderAvatar} alt={message.SenderName} size="xs" />
+                        <div className="max-w-[80%] p-3 bg-white text-gray-900 rounded-tr-xl rounded-tl-xl rounded-br-xl shadow">
+                          {message.Type === 'file'
+                            ? renderFileMessage(message)
+                            : <p className="break-words">{message.Content}</p>
+                          }
+                          <div className="text-xs text-left mt-1">{formatMessageTime(message.CreatedAt)}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
+                  );
+                }
               })}
-              
-              {/* Typing Indicator */}
-              {getTypingText() && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-lg px-2 py-1">
-                    <p className="text-sm text-gray-600 italic">{getTypingText()}</p>
-                  </div>
-                </div>
-              )}
-              
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-2">
-              <div className="flex items-center space-x-2">
-                <button className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg transition-colors">
-                  <PaperClipIcon className="w-4 h-4" />
-                </button>
-                
-                <div className="flex-1 relative">
-                  <input
-                    ref={messageInputRef}
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => {
-                      setNewMessage(e.target.value);
-                      handleTyping();
-                    }}
-                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                    placeholder="Nhập tin nhắn..."
-                    className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    disabled={sendingMessage}
-                  />
-                </div>
-
-                <button className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg transition-colors">
-                  <FaceSmileIcon className="w-4 h-4" />
-                </button>
-            
-                <button
-                  onClick={sendMessage}
-                  disabled={!newMessage.trim() || sendingMessage}
-                  className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <PaperAirplaneIcon className="w-4 h-4" />
-                </button>
-              </div>
+            {/* Zalo-style Input */}
+            <div className="flex items-center p-2 bg-white border-t space-x-2">
+              <button onClick={openFilePicker}><PlusIcon className="w-6 h-6 text-gray-500" /></button>
+              <button><CameraIcon className="w-6 h-6 text-gray-500" /></button>
+              <input
+                ref={messageInputRef}
+                type="text"
+                value={newMessage}
+                onChange={e => { setNewMessage(e.target.value); handleTyping(); }}
+                onKeyDown={e => { if (e.key === 'Enter') sendMessage(); }}
+                placeholder="Nhập tin nhắn..."
+                className="flex-1 px-4 py-2 bg-gray-200 rounded-full focus:outline-none"
+              />
+              <button><FaceSmileIcon className="w-6 h-6 text-gray-500" /></button>
+              <button onClick={sendMessage} className="text-blue-600">
+                <PaperAirplaneIcon className="w-6 h-6" />
+              </button>
             </div>
-          </>
+          </div>
         ) : (
           /* No Conversation Selected */
           <div className="flex-1 flex items-center justify-center bg-gray-50">

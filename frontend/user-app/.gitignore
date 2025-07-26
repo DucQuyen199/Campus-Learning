@@ -40,3 +40,5 @@ android/build
 # !release/
 # !release/platforms/
 # !release/BUILD-INFO.md 
+
+services/user-service/uploads/chat/images/

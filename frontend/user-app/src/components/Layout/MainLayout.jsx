@@ -22,6 +22,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid, HeartIcon as HeartIconSolid, CalendarIcon as CalendarIconSolid } from '@heroicons/react/24/solid';
 import { Avatar } from '../index';
+import SearchBar from '../../components/common/SearchBar';
 
 const MainLayout = ({ children }) => {
   const location = useLocation();
@@ -624,57 +625,9 @@ const MainLayout = ({ children }) => {
                 >
                   <Bars3Icon className="h-6 w-6" />
                 </button>
-                {/* Search Bar */}
-                <div ref={searchRef} className="hidden md:block relative">
-                  <form onSubmit={handleSearch} className="relative group">
-                    <div className={`flex items-center transition-all duration-300 ${searchExpanded ? 'w-56 lg:w-64 xl:w-72' : 'w-10'}`}>
-                      <button 
-                        type="button" 
-                        className={`absolute left-0 p-2.5 text-theme-secondary hover:text-theme-primary z-10 ${searchExpanded ? 'bg-transparent' : 'bg-white dark:bg-gray-700 rounded-full shadow-md'}`}
-                        onClick={() => setSearchExpanded(true)}
-                      >
-                        <MagnifyingGlassIcon className="h-5 w-5" />
-                      </button>
-                      {searchExpanded && (
-                        <input
-                          type="text"
-                          className="w-full pl-10 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-full leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary sm:text-sm shadow-md text-gray-900 dark:text-gray-100 transition-all"
-                          placeholder="Tìm kiếm người dùng..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          autoFocus
-                        />
-                      )}
-                    </div>
-                    {showResults && searchResults.length > 0 && (
-                      <div className="absolute mt-1 w-full bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 max-h-96 overflow-y-auto border border-gray-100 dark:border-gray-700">
-                        <div className="py-1">
-                          <h3 className="px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700">
-                            Người dùng
-                          </h3>
-                          {searchResults.map((user) => (
-                            <div
-                              key={user.id}
-                              className="px-4 py-2.5 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 cursor-pointer flex items-center transition-colors duration-150"
-                              onClick={() => handleUserClick(user.id)}
-                            >
-                              <Avatar
-                                src={user.avatar}
-                                name={user.fullName}
-                                alt={user.fullName || 'User'}
-                                size="small"
-                                className="mr-3"
-                              />
-                              <div>
-                                <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </form>
+                {/* Unified Search */}
+                <div className="block">
+                  <SearchBar />
                 </div>
                 
                 {/* Notifications */}

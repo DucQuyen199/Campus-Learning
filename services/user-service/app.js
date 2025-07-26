@@ -63,6 +63,7 @@ const codeExecutionRoutes = require('./routes/codeExecutionRoutes');
 const friendshipRoutes = require('./routes/friendshipRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const competitionRoutes = require('./routes/competitionRoutes');
+const searchRoutes = require('./routes/searchRoutes');
 const passkeyRoutes = require('./routes/passkeyRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -176,6 +177,8 @@ app.use('/api/friendships', friendshipRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api', competitionRoutes);
 app.use('/api/passkeys', passkeyRoutes);
+// Global search route
+app.use('/api', searchRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/payments', paymentRoutes);
 

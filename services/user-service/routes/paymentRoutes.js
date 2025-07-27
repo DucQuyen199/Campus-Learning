@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
 
 router.get('/overview', authMiddleware, paymentController.getOverview);
 

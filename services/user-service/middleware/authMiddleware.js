@@ -6,36 +6,76 @@
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 const jwt = require('jsonwebtoken');
+const { pool, sql } = require('../config/db');
 
+// This middleware is only applied to protected routes that specifically need authentication
 const authMiddleware = async (req, res, next) => {
   try {
-    // Kiểm tra header Authorization
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Không tìm thấy token xác thực' });
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Không tìm thấy token xác thực' 
+      });
     }
 
-    const token = authHeader.split(' ')[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log('Decoded token:', decoded);
+      
+      // Handle different JWT token structures (id or userId)
+      const userIdFromToken = decoded.userId || decoded.id;
+      
+      if (!userIdFromToken) {
+        console.error('Token does not contain userId or id field:', decoded);
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Token không hợp lệ: không tìm thấy ID người dùng' 
+        });
+      }
+      
+      // Use direct SQL query to find the user
+      const result = await pool.request()
+        .input('userId', sql.BigInt, userIdFromToken)
+        .query(`
+          SELECT * FROM Users 
+          WHERE UserID = @userId 
+          AND DeletedAt IS NULL
+          AND AccountStatus = 'ACTIVE'
+        `);
+      
+      if (result.recordset.length === 0) {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Người dùng không tồn tại' 
+        });
+      }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Đảm bảo userId là số
-    req.user = {
-      userId: parseInt(decoded.userId),
-      role: decoded.role
-    };
-    
-    next();
+      const user = result.recordset[0];
+      
+      // Standardize user object with both id and userId properties for consistency
+      req.user = {
+        ...user,
+        id: user.UserID,
+        userId: user.UserID
+      };
+      
+      console.log('User authenticated:', user.UserID);
+      next();
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Token không hợp lệ hoặc đã hết hạn' 
+      });
+    }
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ message: 'Token không hợp lệ' });
-    }
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token đã hết hạn' });
-    }
-    console.error('Error in authMiddleware:', error);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error('Auth middleware error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi xác thực' 
+    });
   }
 };
 

@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const courseController = require('../controllers/courseController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
 
 // =============================================
 // 1. PUBLIC ROUTES - NO AUTHENTICATION REQUIRED

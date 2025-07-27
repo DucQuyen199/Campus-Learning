@@ -23,6 +23,7 @@ import {
 import { BellIcon as BellIconSolid, HeartIcon as HeartIconSolid, CalendarIcon as CalendarIconSolid } from '@heroicons/react/24/solid';
 import { Avatar } from '../index';
 import SearchBar from '../../components/common/SearchBar';
+import Loading from '../../components/common/Loading';
 
 const MainLayout = ({ children }) => {
   const location = useLocation();
@@ -44,6 +45,7 @@ const MainLayout = ({ children }) => {
   const { theme, themeColor, colors } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // Cập nhật thời gian hiện tại mỗi phút
   useEffect(() => {
@@ -363,14 +365,24 @@ const MainLayout = ({ children }) => {
   };
 
   const handleLogout = async () => {
-    // Use the AuthContext's logout function for proper cleanup
-    await logout();
-    
-    // Also dispatch Redux logout action to clear state
-    dispatch(logoutAction());
-    
-    // Navigate to login page after logout
-    navigate('/login', { replace: true });
+    setIsLoggingOut(true);
+    try {
+      // Use the AuthContext's logout function for proper cleanup
+      await logout();
+      
+      // Also dispatch Redux logout action to clear state
+      dispatch(logoutAction());
+      
+      // Navigate to login page after logout
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Assuming toast is available globally or imported elsewhere
+      // import { toast } from 'react-toastify';
+      // toast.error('Đã xảy ra lỗi khi đăng xuất');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   // Xử lý đánh dấu đã đọc thông báo
@@ -491,6 +503,11 @@ const MainLayout = ({ children }) => {
   // Kiểm tra nếu đang ở trang không cần layout
   if (!shouldShowLayout) {
     return <>{children}</>;
+  }
+  
+  // Show loading screen when logging out
+  if (isLoggingOut) {
+    return <Loading message="Đang đăng xuất..." variant="default" />;
   }
 
   // Constant for sidebar width

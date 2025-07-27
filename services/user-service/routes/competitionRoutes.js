@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const competitionController = require('../controllers/competitionController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
 
 // Public routes
 router.get('/competitions', competitionController.getAllCompetitions);

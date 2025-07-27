@@ -8,9 +8,9 @@
 const express = require('express');
 const router = express.Router();
 const codeExecutionController = require('../controllers/codeExecutionController');
-const authMiddleware = require('../middlewares/authMiddleware');
-const { checkDockerStatus } = require('../utils/dockerManager');
 const { authenticateToken } = require('../middleware/auth');
+const authMiddleware = authenticateToken;
+const { checkDockerStatus } = require('../utils/dockerManager');
 
 // Code execution endpoints
 router.post('/execute-code', authMiddleware, codeExecutionController.executeCode);

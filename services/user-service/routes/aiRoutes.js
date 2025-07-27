@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
 const { pool, query } = require('../config/db');
 
 // Initialize Gemini API with the provided API key

@@ -6,11 +6,13 @@
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 const sequelize = require('../config/database');
+const { DataTypes } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 
 // Import user models
 const User = require('./User');
+const RegistrationAttempts = require('./RegistrationAttempts')(sequelize, DataTypes);
 const UserAchievement = require('./UserAchievement');
 const Achievement = require('./Achievement');
 const Chat = require('./Chat');
@@ -43,7 +45,7 @@ const setupAssociations = () => {
       'Achievement', 'UserAchievement',
       'Course', 'CourseEnrollment', 'CourseLesson', 'LessonProgress',
       'Exam', 'ExamQuestion', 'ExamParticipant', 'ExamAnswer', 'ExamAnswerTemplate', 'ExamMonitoringLog', 'EssayAnswerAnalysis',
-      'Story', 'StoryView', 'StoryLike', 'PaymentHistory', 'PaymentTransaction', 'Friendship', 'Report', 'Ranking'
+      'Story', 'StoryView', 'StoryLike', 'PaymentHistory', 'PaymentTransaction', 'Friendship', 'Report', 'Ranking', 'RegistrationAttempts'
     ];
     
     for (const modelName of modelFiles) {
@@ -154,6 +156,7 @@ module.exports = {
   sequelize,
   setupAssociations,
   User,
+  RegistrationAttempts,
   Chat,
   Message,
   ConversationParticipant,

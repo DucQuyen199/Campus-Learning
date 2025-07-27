@@ -11,7 +11,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const settingsController = require('../controllers/settingsController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({

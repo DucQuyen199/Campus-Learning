@@ -12,8 +12,8 @@ const emailController = require('../controllers/emailController');
 const sessionController = require('../controllers/sessionController');
 const authController = require('../controllers/authController');
 const sshController = require('../controllers/sshController');
-const authMiddleware = require('../middlewares/authMiddleware');
-const User = require('../models/user');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
+const { User } = require('../models');
 
 // Route để lấy thông tin người dùng hiện tại
 router.get('/me', authMiddleware, authController.getMe);

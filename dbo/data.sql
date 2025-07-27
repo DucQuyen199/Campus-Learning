@@ -1730,3 +1730,21 @@ CREATE UNIQUE NONCLUSTERED INDEX IX_PasswordResets_UserID_Active
 ON [dbo].[PasswordResets]([UserID])
 WHERE [IsUsed] = 0;
 GO
+
+use CampusLearning;
+GO
+
+CREATE TABLE [dbo].[RegistrationAttempts] (
+    [AttemptID] BIGINT IDENTITY(1,1) PRIMARY KEY,
+    [IPAddress] VARCHAR(45) NOT NULL,
+    [AttemptCount] INT DEFAULT 1,
+    [LastAttemptAt] DATETIME DEFAULT GETDATE(),
+    [BlockedUntil] DATETIME NULL,
+    [CreatedAt] DATETIME DEFAULT GETDATE()
+);
+
+-- Create index for fast IP lookup
+CREATE NONCLUSTERED INDEX [IX_RegistrationAttempts_IPAddress] 
+    ON [dbo].[RegistrationAttempts]([IPAddress]);
+
+GO

@@ -10,9 +10,10 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 const oauthController = require('../controllers/oauthController');
 const { authenticateToken } = require('../middleware/auth');
+const registrationLimiter = require('../middleware/rateLimiter');
 
 // Public routes
-router.post('/register', authController.register);
+router.post('/register', registrationLimiter, authController.register);
 router.post('/login', authController.login);
 // OTP login routes
 router.post('/login-otp', authController.requestLoginOtp);

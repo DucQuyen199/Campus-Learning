@@ -157,7 +157,13 @@ export function AuthProvider({ children }) {
         setAuthError(null);
         return { success: true, twoFaRequired: true, tempToken: response.data.tempToken };
       }
-      
+
+      // Handle first-time 2FA setup requirement
+      if (response.data.requireTwoFASetup) {
+        setAuthError(null);
+        return { success: true, requireTwoFASetup: true, setupToken: response.data.setupToken, user: response.data.user };
+      }
+
       if (response.data && response.data.token) {
         const token = response.data.token;
         

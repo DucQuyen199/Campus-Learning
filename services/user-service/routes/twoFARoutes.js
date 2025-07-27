@@ -9,7 +9,7 @@
 const express = require('express');
 const router = express.Router();
 const twoFAController = require('../controllers/twoFAController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const { authenticateToken: authMiddleware } = require('../middleware/auth');
 
 // Get 2FA status (requires authentication)
 router.get('/status', authMiddleware, twoFAController.getTwoFAStatus);

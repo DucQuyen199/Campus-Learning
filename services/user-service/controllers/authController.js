@@ -9,9 +9,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool, sql } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
-const { generateOTP, sendLoginOtpEmail } = require('../utils/emailService');
+const { generateOTP, sendLoginOtpEmail, sendAccountUnlockEmail } = require('../utils/emailService');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
+const securityService = require('../utils/securityService');
+
+// Import security constants
+const { MAX_FAILED_ATTEMPTS } = securityService;
 
 exports.register = async (req, res) => {
   try {
@@ -131,6 +135,8 @@ exports.login = async (req, res) => {
   
   try {
     const { email, password } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.get('User-Agent') || 'unknown';
 
     await transaction.begin();
 
@@ -138,6 +144,26 @@ exports.login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         message: 'Vui lòng nhập email và mật khẩu'
+      });
+    }
+
+    // Check IP blocking due to too many failed attempts
+    const ipBlocking = await securityService.checkIPBlocking(ipAddress);
+    if (ipBlocking.isBlocked) {
+      await securityService.recordLoginAttempt(
+        ipAddress, 
+        email, 
+        null, 
+        false, 
+        userAgent, 
+        'IP blocked due to multiple failed attempts'
+      );
+      
+      await transaction.rollback();
+      return res.status(429).json({
+        message: `IP address đã bị chặn tạm thời do có ${ipBlocking.failedCount} lần đăng nhập thất bại trong ${ipBlocking.timeWindow} phút. Vui lòng thử lại sau.`,
+        blocked: true,
+        retryAfter: ipBlocking.timeWindow * 60
       });
     }
 
@@ -149,7 +175,6 @@ exports.login = async (req, res) => {
         FROM Users
         WHERE Email = @email
         AND DeletedAt IS NULL
-        AND AccountStatus = 'ACTIVE'
       `);
 
     let user = result.recordset[0];
@@ -165,12 +190,21 @@ exports.login = async (req, res) => {
           WHERE ue.Email = @email
           AND ue.IsVerified = 1
           AND u.DeletedAt IS NULL
-          AND u.AccountStatus = 'ACTIVE'
         `);
         
       if (secondaryEmailResult.recordset.length > 0) {
         user = secondaryEmailResult.recordset[0];
       } else {
+        // Record failed attempt for non-existent email
+        await securityService.recordLoginAttempt(
+          ipAddress, 
+          email, 
+          null, 
+          false, 
+          userAgent, 
+          'Email not found'
+        );
+        
         await transaction.rollback();
         return res.status(401).json({
           message: 'Email hoặc mật khẩu không chính xác'
@@ -178,18 +212,175 @@ exports.login = async (req, res) => {
       }
     }
 
+    // Check if account is currently locked
+    const lockStatus = await securityService.isAccountLocked(user.UserID);
+    if (lockStatus.isLocked) {
+      await securityService.recordLoginAttempt(
+        ipAddress, 
+        email, 
+        user.UserID, 
+        false, 
+        userAgent, 
+        'Account is locked'
+      );
+      
+      await transaction.rollback();
+      return res.status(423).json({
+        message: `Tài khoản đã bị khóa tạm thời đến ${new Date(lockStatus.lockedUntil).toLocaleString('vi-VN')}. Lý do: ${lockStatus.reason}`,
+        locked: true,
+        lockedUntil: lockStatus.lockedUntil,
+        reason: lockStatus.reason
+      });
+    }
+
+    // Check if account is suspended or deleted
+    if (user.AccountStatus !== 'ACTIVE') {
+      await securityService.recordLoginAttempt(
+        ipAddress, 
+        email, 
+        user.UserID, 
+        false, 
+        userAgent, 
+        `Account status: ${user.AccountStatus}`
+      );
+      
+      await transaction.rollback();
+      return res.status(403).json({
+        message: user.AccountStatus === 'SUSPENDED' 
+          ? 'Tài khoản đã bị tạm ngưng. Vui lòng liên hệ quản trị viên.'
+          : 'Tài khoản không khả dụng.'
+      });
+    }
+
     // Check password
     const isValidPassword = await bcrypt.compare(password, user.Password);
     if (!isValidPassword) {
+      console.log(`[DEBUG] Invalid password for user: ${email}`);
+      
+      // Record failed attempt
+      await securityService.recordLoginAttempt(
+        ipAddress, 
+        email, 
+        user.UserID, 
+        false, 
+        userAgent, 
+        'Invalid password'
+      );
+
+      // Check if account should be locked due to failed attempts
+      const lockCheck = await securityService.checkAccountLocking(email);
+      console.log(`[DEBUG] Lock check result:`, lockCheck);
+      
+      if (lockCheck.shouldLock) {
+        console.log(`[DEBUG] Locking account for user: ${email} due to ${lockCheck.failedCount} failed attempts`);
+        
+        // Lock the account and set RequireTwoFA flag
+        const lockResult = await pool.request()
+          .input('userID', sql.BigInt, user.UserID)
+          .input('lockReason', sql.NVarChar, `Tự động khóa do ${lockCheck.failedCount} lần đăng nhập thất bại`)
+          .input('lockDuration', sql.Int, securityService.LOCKOUT_DURATION_MINUTES)
+          .input('lockedUntil', sql.DateTime, new Date(Date.now() + securityService.LOCKOUT_DURATION_MINUTES * 60 * 1000))
+          .query(`
+            UPDATE Users
+            SET AccountStatus = 'LOCKED',
+                LockReason = @lockReason,
+                LockDuration = @lockDuration,
+                LockedUntil = @lockedUntil,
+                UpdatedAt = GETDATE(),
+                RequireTwoFA = 1
+            WHERE UserID = @userID
+          `);
+        
+        console.log(`[DEBUG] Lock result:`, lockResult);
+        
+        if (lockResult.rowsAffected[0] > 0) {
+          // Generate unlock token and send email
+          const unlockTokenResult = await securityService.generateUnlockToken(user.UserID, ipAddress);
+          if (unlockTokenResult.success) {
+            const unlockUrl = `${process.env.FRONTEND_URL || 'http://localhost:5004'}/unlock-account?token=${unlockTokenResult.unlockToken}&email=${encodeURIComponent(email)}`;
+            
+            // Send unlock email
+            try {
+              await sendAccountUnlockEmail(
+                email,
+                user.FullName,
+                unlockUrl,
+                ipAddress,
+                securityService.LOCKOUT_DURATION_MINUTES
+              );
+              console.log(`[DEBUG] Unlock email sent to: ${email}`);
+            } catch (emailError) {
+              console.error('Failed to send unlock email:', emailError);
+            }
+          }
+          
+          await transaction.rollback();
+          return res.status(423).json({
+            message: `Tài khoản đã bị khóa tạm thời do quá nhiều lần đăng nhập thất bại. Chúng tôi đã gửi hướng dẫn mở khóa qua email của bạn.`,
+            locked: true,
+            lockedUntil: new Date(Date.now() + securityService.LOCKOUT_DURATION_MINUTES * 60 * 1000),
+            unlockEmailSent: true,
+            requireTwoFA: true
+          });
+        }
+      }
+      
       await transaction.rollback();
       return res.status(401).json({
-        message: 'Email hoặc mật khẩu không chính xác'
+        message: 'Email hoặc mật khẩu không chính xác',
+        attemptsRemaining: securityService.MAX_FAILED_ATTEMPTS - lockCheck.failedCount
+      });
+    }
+
+    // Successful login - reset failed attempts
+    await securityService.resetFailedAttempts(email, ipAddress);
+
+    // Record successful login attempt
+    await securityService.recordLoginAttempt(
+      ipAddress, 
+      email, 
+      user.UserID, 
+      true, 
+      userAgent, 
+      null
+    );
+
+    // Check if the user has previously been locked and needs to set up 2FA
+    const userSettings = await transaction.request()
+      .input('userId', sql.BigInt, user.UserID)
+      .query(`
+        SELECT RequireTwoFA, TwoFAEnabled FROM Users 
+        WHERE UserID = @userId
+      `);
+    
+    const userRequires2FA = userSettings.recordset[0]?.RequireTwoFA === true;
+    const hasEnabled2FA = userSettings.recordset[0]?.TwoFAEnabled === true;
+    
+    // If 2FA is required but not yet enabled, force the user to set it up
+    if (userRequires2FA && !hasEnabled2FA) {
+      await transaction.commit();
+      // Generate a special token for 2FA setup
+      const setupToken = jwt.sign(
+        { userId: user.UserID, requireTwoFASetup: true },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+      );
+      return res.json({
+        message: 'Đăng nhập thành công nhưng bạn cần thiết lập xác thực hai lớp (2FA)',
+        requireTwoFASetup: true,
+        setupToken,
+        user: {
+          id: user.UserID,
+          username: user.Username,
+          email: user.PrimaryEmail || user.Email,
+          fullName: user.FullName
+        }
       });
     }
 
     // If user has 2FA enabled, issue a temporary token for 2FA verification
     if (user.TwoFAEnabled) {
-      await transaction.rollback();
+      await transaction.commit();
       const tempToken = jwt.sign(
         { userId: user.UserID, twoFaAllowed: true },
         process.env.JWT_SECRET,
@@ -205,7 +396,7 @@ exports.login = async (req, res) => {
     // Update last login
     await transaction.request()
       .input('userId', sql.BigInt, user.UserID)
-      .input('ip', sql.VarChar, req.ip)
+      .input('ip', sql.VarChar, ipAddress)
       .query(`
         UPDATE Users
         SET 
@@ -260,6 +451,21 @@ exports.login = async (req, res) => {
   } catch (error) {
     await transaction.rollback();
     console.error('Login Error:', error);
+    
+    // Record system error
+    try {
+      await securityService.recordLoginAttempt(
+        req.ip || 'unknown', 
+        req.body.email || 'unknown', 
+        null, 
+        false, 
+        req.get('User-Agent') || 'unknown', 
+        `System error: ${error.message}`
+      );
+    } catch (recordError) {
+      console.error('Failed to record login attempt:', recordError);
+    }
+    
     res.status(500).json({
       message: 'Đã có lỗi xảy ra khi đăng nhập',
       error: error.message

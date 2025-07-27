@@ -85,6 +85,20 @@ const authServices = {
   getCurrentUser: () => api.get('/auth/me'),
   updateProfile: (userData) => api.put('/auth/profile', userData),
   changePassword: (oldPassword, newPassword) => api.post('/auth/change-password', { oldPassword, newPassword }),
+  
+  // Account unlock services
+  verifyUnlockToken: (token) => api.get(`/api/unlock/verify-token/${token}`),
+  verifyEmailToken: (emailToken) => api.post('/api/unlock/verify-email', { emailToken }),
+  verifyTwoFAUnlock: (otp, tempToken) => api.post('/api/unlock/verify-2fa', { otp, tempToken }),
+  requestNewUnlockEmail: (email) => api.post('/api/unlock/request-email', { email }),
+  getAccountLockStatus: (email) => api.get(`/api/unlock/status/${encodeURIComponent(email)}`),
+  
+  // Two-factor authentication services
+  initTwoFASetup: (token) => api.post('/api/2fa/setup', { setupToken: token }),
+  verifyAndEnableTwoFA: (data) => api.post('/api/2fa/verify', data),
+  disable2FA: (password) => api.post('/api/2fa/disable', { password }),
+  get2FAStatus: () => api.get('/api/2fa/status'),
+  verify2FA: (code, token) => api.post('/api/2fa/verify-login', { code, token }),
 };
 
 // =================== USER SERVICES ===================

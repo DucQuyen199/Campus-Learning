@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +59,7 @@ const Settings = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
+  const { refreshUserData } = useAuth();
   
   const { settings, profileInfo, loading, error, success, message } = useSelector(state => state.user);
   const [activeTab, setActiveTab] = useState(() => {
@@ -199,13 +201,22 @@ const Settings = () => {
     fileInputRef.current.click();
   };
 
-  const handleProfilePictureChange = (e) => {
+  const handleProfilePictureChange = async (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const formData = new FormData();
       formData.append('image', file);
       
-      dispatch(uploadProfilePicture(formData));
+      try {
+        const result = await dispatch(uploadProfilePicture(formData));
+        if (result.type.endsWith('/fulfilled')) {
+          // Refresh user data in AuthContext to ensure UI is updated
+          await refreshUserData();
+          toast.success('Ảnh đại diện đã được cập nhật thành công');
+        }
+      } catch (error) {
+        toast.error('Có lỗi xảy ra khi cập nhật ảnh đại diện');
+      }
     }
   };
 

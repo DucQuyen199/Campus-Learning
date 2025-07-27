@@ -40,16 +40,21 @@ const Avatar = ({ src, alt, name, className = '', size = 'medium', onClick }) =>
   
   // Get a valid image source or fallback to UI Avatars
   const getImageSource = () => {
-    // If src is provided directly, use it
-    if (src && typeof src === 'string' && src.trim() !== '') {
+    // If src is provided and is a valid string, use it
+    if (src && typeof src === 'string' && src.trim() !== '' && src !== 'null' && src !== 'undefined') {
+      // Handle relative paths from backend
+      if (src.startsWith('/uploads/')) {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        return `${API_BASE_URL}${src}`;
+      }
       return src;
     }
     
-    // Otherwise, generate UI Avatars URL
+    // Otherwise, generate UI Avatars URL as fallback
     return getUiAvatarUrl();
   };
   
-  // Use UI Avatars as fallback
+  // Use UI Avatars as fallback when image fails to load
   const handleImageError = (e) => {
     e.target.onerror = null;
     e.target.src = getUiAvatarUrl();

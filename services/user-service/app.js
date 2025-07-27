@@ -67,6 +67,8 @@ const searchRoutes = require('./routes/searchRoutes');
 const passkeyRoutes = require('./routes/passkeyRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const unlockRoutes = require('./routes/unlockRoutes');
+const twoFARoutes = require('./routes/twoFARoutes');
 const app = express();
 // trust proxy so req.ip respects X-Forwarded-For
 app.set('trust proxy', true);
@@ -181,6 +183,8 @@ app.use('/api/passkeys', passkeyRoutes);
 app.use('/api', searchRoutes);
 app.use('/api/verification', verificationRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/unlock', unlockRoutes);
+app.use('/api/2fa', twoFARoutes);
 
 // Direct route handler for /calls/active to fix 404 error
 app.get('/calls/active', (req, res) => {

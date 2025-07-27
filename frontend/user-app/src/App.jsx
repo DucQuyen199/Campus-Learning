@@ -39,6 +39,8 @@ import OtpLogin from './pages/Auth/OtpLogin';
 import Register from './pages/Auth/Register';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
+import UnlockAccount from './pages/Auth/UnlockAccount';
+import ForcedTwoFASetup from './pages/Auth/ForcedTwoFASetup';
 import AuthMiddleware from './middleware/AuthMiddleware';
 import { CallProvider } from './contexts/CallContext';
 import { CallInterface } from './components/Call';
@@ -92,6 +94,8 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/unlock-account" element={<UnlockAccount />} />
+            <Route path="/setup-2fa" element={<ForcedTwoFASetup />} />
             
             {/* Public course and event routes */}
             <Route path="/courses/*" element={<Courses />} />

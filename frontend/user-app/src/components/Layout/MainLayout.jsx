@@ -31,6 +31,7 @@ const MainLayout = ({ children }) => {
   const authUser = useSelector(state => state.auth.user);
   const token = localStorage.getItem('token');
   const [currentUser, setCurrentUser] = useState(null);
+  const { logout, currentUser: contextUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
@@ -40,7 +41,6 @@ const MainLayout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchRef = useRef(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const { logout } = useAuth();
   const { theme, themeColor, colors } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
@@ -99,7 +99,13 @@ const MainLayout = ({ children }) => {
   // Update current user state from Redux and localStorage
   useEffect(() => {
     const loadUserData = () => {
-      if (authUser && Object.keys(authUser).length > 0) {
+      // Priority: AuthContext currentUser > Redux authUser > localStorage
+      if (contextUser && Object.keys(contextUser).length > 0) {
+        console.log('Setting current user from AuthContext:', contextUser);
+        setCurrentUser(contextUser);
+        // Update Redux store to keep in sync
+        dispatch(updateProfileImage(contextUser.avatar || contextUser.profileImage || contextUser.Image));
+      } else if (authUser && Object.keys(authUser).length > 0) {
         console.log('Setting current user from Redux state:', authUser);
         setCurrentUser(authUser);
       } else {
@@ -111,7 +117,7 @@ const MainLayout = ({ children }) => {
             setCurrentUser(userData);
             // If we have user data in localStorage but not in Redux, update Redux too
             if (!authUser || Object.keys(authUser).length === 0) {
-              dispatch(updateProfileImage(userData.profileImage || userData.avatar));
+              dispatch(updateProfileImage(userData.profileImage || userData.avatar || userData.Image));
             }
           } catch (error) {
             console.error('Error parsing user data from localStorage:', error);
@@ -135,7 +141,7 @@ const MainLayout = ({ children }) => {
     return () => {
       window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
-  }, [authUser, dispatch]);
+  }, [contextUser, authUser, dispatch]);
   
   const navigation = [
     { name: 'Trang Chủ', icon: HomeIcon, href: '/home' },
@@ -768,9 +774,9 @@ const MainLayout = ({ children }) => {
                     className="flex items-center space-x-2 p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-theme-accent/50 dark:hover:bg-theme-accent/20 transition-all duration-200 hover:text-theme-primary dark:hover:text-theme-secondary"
                   >
                     <Avatar
-                      src={currentUser?.avatar || currentUser?.profileImage}
-                      name={currentUser?.fullName || currentUser?.username || 'User'}
-                      alt={currentUser?.fullName || currentUser?.username || 'User'}
+                      src={currentUser?.avatar || currentUser?.profileImage || currentUser?.Image}
+                      name={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
+                      alt={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                       size="small"
                       className="ring-2 ring-theme-accent"
                     />
@@ -904,15 +910,15 @@ const MainLayout = ({ children }) => {
               <div className="border-t border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center space-x-3">
                   <Avatar
-                    src={currentUser?.avatar || currentUser?.profileImage}
-                    name={currentUser?.fullName || currentUser?.username || 'User'}
-                    alt={currentUser?.fullName || currentUser?.username || 'User'}
+                    src={currentUser?.avatar || currentUser?.profileImage || currentUser?.Image}
+                    name={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
+                    alt={currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                     size="small"
                     className="ring-2 ring-theme-accent"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900 dark:text-white truncate">
-                      {currentUser?.fullName || currentUser?.username || 'User'}
+                      {currentUser?.fullName || currentUser?.username || currentUser?.FullName || 'User'}
                     </p>
                   </div>
                   <button 

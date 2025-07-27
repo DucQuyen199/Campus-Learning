@@ -30,6 +30,59 @@ export function AuthProvider({ children }) {
   const [authError, setAuthError] = useState(null);
   const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
 
+  // Helper function to normalize user data with consistent field names
+  const normalizeUserData = useCallback((userData) => {
+    if (!userData) return null;
+    
+    return {
+      ...userData,
+      // Ensure all ID fields are set for compatibility
+      id: userData.id || userData.UserID || userData.userId,
+      UserID: userData.id || userData.UserID || userData.userId,
+      userId: userData.id || userData.UserID || userData.userId,
+      // Normalize avatar/image fields for consistency
+      avatar: userData.Image || userData.avatar || userData.profileImage,
+      profileImage: userData.Image || userData.avatar || userData.profileImage,
+      Image: userData.Image || userData.avatar || userData.profileImage
+    };
+  }, []);
+
+  // Function to update current user data
+  const updateUser = useCallback((updatedData) => {
+    const normalizedData = normalizeUserData(updatedData);
+    setCurrentUser(prev => {
+      const updated = { ...prev, ...normalizedData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, [normalizeUserData]);
+
+  // Function to refresh user data from server
+  const refreshUserData = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+
+      const response = await axios.get('http://localhost:5001/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data) {
+        const normalizedUser = normalizeUserData({
+          ...response.data,
+          token: token
+        });
+        
+        setCurrentUser(normalizedUser);
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+        return normalizedUser;
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      return false;
+    }
+  }, [normalizeUserData]);
+
   // Initial auth check - run only once at component mount
   useEffect(() => {
     if (initialAuthCheckDone || initialUser) return;
@@ -126,15 +179,11 @@ export function AuthProvider({ children }) {
           throw new Error('User data does not contain an ID field');
         }
         
-        // Create a complete user object with token and normalize ID fields
-        const userWithToken = {
+        // Create a complete user object with token and normalize fields
+        const userWithToken = normalizeUserData({
           ...userData,
-          token: token,
-          // Ensure all ID fields are set for compatibility
-          id: userData.id || userData.UserID || userData.userId,
-          UserID: userData.id || userData.UserID || userData.userId,
-          userId: userData.id || userData.UserID || userData.userId
-        };
+          token: token
+        });
         
         // Save complete user data
         localStorage.setItem('user', JSON.stringify(userWithToken));
@@ -149,9 +198,47 @@ export function AuthProvider({ children }) {
       }
     } catch (error) {
       console.error('Login error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      setAuthError(errorMessage);
-      return { success: false, error: errorMessage };
+      
+      // Enhanced error handling
+      if (error.response) {
+        const { status, data } = error.response;
+        const errorMessage = data.message || 'Đăng nhập thất bại';
+        
+        setAuthError(errorMessage);
+        
+        switch (status) {
+          case 423: // Account locked
+            return {
+              success: false,
+              error: errorMessage,
+              locked: true,
+              unlockEmailSent: !!data.unlockEmailSent,
+              lockedUntil: data.lockedUntil
+            };
+          
+          case 429: // Too many requests (IP blocked)
+            return {
+              success: false, 
+              error: errorMessage,
+              blocked: true,
+              retryAfter: parseInt(error.response.headers['retry-after'] || '300', 10)
+            };
+            
+          case 401: // Unauthorized
+            return {
+              success: false,
+              error: errorMessage,
+              attemptsRemaining: data.attemptsRemaining
+            };
+            
+          default:
+            return { success: false, error: errorMessage };
+        }
+      } else {
+        const errorMessage = error.message || 'Đăng nhập thất bại';
+        setAuthError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
     } finally {
       setLoading(false);
     }
@@ -197,15 +284,11 @@ export function AuthProvider({ children }) {
           throw new Error('User data does not contain an ID field');
         }
         
-        // Create a complete user object with token and normalize ID fields
-        const userWithToken = {
+        // Create a complete user object with token and normalize fields
+        const userWithToken = normalizeUserData({
           ...userData,
-          token: token,
-          // Ensure all ID fields are set for compatibility
-          id: userData.id || userData.UserID || userData.userId,
-          UserID: userData.id || userData.UserID || userData.userId,
-          userId: userData.id || userData.UserID || userData.userId
-        };
+          token: token
+        });
         
         // Save complete user data
         localStorage.setItem('user', JSON.stringify(userWithToken));
@@ -260,15 +343,11 @@ export function AuthProvider({ children }) {
         
         const userData = response.data.user || {};
         
-        // Create a complete user object with token and normalize ID fields
-        const userWithToken = {
+        // Create a complete user object with token and normalize fields
+        const userWithToken = normalizeUserData({
           ...userData,
-          token: token,
-          // Ensure all ID fields are set for compatibility
-          id: userData.id || userData.UserID || userData.userId,
-          UserID: userData.id || userData.UserID || userData.userId,
-          userId: userData.id || userData.UserID || userData.userId
-        };
+          token: token
+        });
         
         // Save complete user data
         localStorage.setItem('user', JSON.stringify(userWithToken));
@@ -481,14 +560,10 @@ export function AuthProvider({ children }) {
             return false;
           }
           
-          const updatedUser = {
+          const updatedUser = normalizeUserData({
             ...response.data.user,
-            token: token,
-            // Normalize all ID fields for compatibility
-            id: userId,
-            UserID: userId,
-            userId: userId
-          };
+            token: token
+          });
           
           setCurrentUser(updatedUser);
           localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -576,7 +651,9 @@ export function AuthProvider({ children }) {
     register,
     logout,
     checkAuth,
-    refreshUserToken
+    refreshUserToken,
+    updateUser, // Add updateUser to the context value
+    refreshUserData // Add refreshUserData to the context value
   };
 
   return (

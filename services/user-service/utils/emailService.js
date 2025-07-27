@@ -18,13 +18,14 @@ const nodemailer = require('nodemailer');
  */
 
 // Create a transporter object with Gmail credentials
+// Create a transporter object with Gmail credentials
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
   secure: false, // true for SSL, false for TLS
   auth: {
-    user: '',
-    pass: ''
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
   }
 });
 
@@ -150,9 +151,209 @@ const sendLoginOtpEmail = async (to, fullName, otp) => {
   });
 };
 
+/**
+ * Send account unlock email with verification link
+ * @param {string} to - Recipient email
+ * @param {string} fullName - Recipient name
+ * @param {string} unlockUrl - Account unlock URL
+ * @param {string} ipAddress - IP address that triggered the lock
+ * @param {number} lockDuration - Lock duration in minutes
+ * @returns {Promise} Promise object
+ */
+const sendAccountUnlockEmail = async (to, fullName, unlockUrl, ipAddress, lockDuration) => {
+  const subject = '🔒 Tài khoản CampusLearning của bạn đã bị khóa tạm thời';
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #dc2626;">🔒 CampusLearning</h2>
+      </div>
+      <div>
+        <p>Xin chào ${fullName},</p>
+        <p><strong>Tài khoản CampusLearning của bạn đã bị khóa tạm thời</strong> do có quá nhiều lần đăng nhập thất bại từ địa chỉ IP: <code>${ipAddress}</code></p>
+        
+        <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Thông tin khóa tài khoản:</strong></p>
+          <ul style="margin: 10px 0;">
+            <li>Thời gian khóa: ${lockDuration} phút</li>
+            <li>Lý do: Nhiều lần đăng nhập thất bại</li>
+            <li>IP Address: ${ipAddress}</li>
+          </ul>
+        </div>
+
+        <p><strong>Để mở khóa tài khoản ngay lập tức, bạn cần:</strong></p>
+        <ol>
+          <li>Xác thực qua email bằng cách nhấp vào nút bên dưới</li>
+          <li>Xác thực bằng mã 2FA (nếu đã bật)</li>
+        </ol>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${unlockUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+            🔓 Mở khóa tài khoản
+          </a>
+        </div>
+
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>⚠️ Lưu ý bảo mật:</strong></p>
+          <ul style="margin: 10px 0 0 0;">
+            <li>Liên kết này có hiệu lực trong 24 giờ</li>
+            <li>Chỉ sử dụng liên kết này nếu bạn chắc chắn rằng mình đã cố gắng đăng nhập</li>
+            <li>Nếu bạn không thực hiện hành động này, vui lòng đổi mật khẩu ngay lập tức</li>
+          </ul>
+        </div>
+
+        <p>Hoặc bạn có thể chờ <strong>${lockDuration} phút</strong> để tài khoản tự động được mở khóa.</p>
+        
+        <p><strong>Nếu bạn không phải là người thực hiện các lần đăng nhập này:</strong></p>
+        <ul>
+          <li>Vui lòng đổi mật khẩu ngay lập tức</li>
+          <li>Liên hệ với đội hỗ trợ của chúng tôi</li>
+          <li>Kiểm tra các thiết bị đã đăng nhập vào tài khoản</li>
+        </ul>
+
+        <p>Trân trọng,<br/>Đội ngũ Bảo mật CampusLearning</p>
+      </div>
+      
+      <div style="border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 15px; font-size: 12px; color: #6b7280;">
+        <p>Email này được gửi tự động từ hệ thống bảo mật CampusLearning. Vui lòng không trả lời email này.</p>
+      </div>
+    </div>
+  `;
+  
+  try {
+    console.log(`Gửi email mở khóa tài khoản cho ${to} từ IP: ${ipAddress}`);
+    
+    return await transporter.sendMail({
+      from: `"CampusLearning Security" <security@campuslearning.com>`,
+      to,
+      subject,
+      html,
+      priority: 'high'
+    });
+  } catch (error) {
+    console.error('Lỗi gửi email mở khóa tài khoản:', error.message);
+    
+    // Hiển thị URL mở khóa trong console cho việc test
+    console.log(`[CHỈ CHO DEV] URL mở khóa cho ${to}: ${unlockUrl}`);
+    
+    return { messageId: 'dev-mode', unlockUrl };
+  }
+};
+
+/**
+ * Send account unlocked confirmation email
+ * @param {string} to - Recipient email
+ * @param {string} fullName - Recipient name
+ * @param {string} ipAddress - IP address used for unlock
+ * @returns {Promise} Promise object
+ */
+const sendAccountUnlockedEmail = async (to, fullName, ipAddress) => {
+  const subject = '✅ Tài khoản CampusLearning đã được mở khóa thành công';
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #059669;">✅ CampusLearning</h2>
+      </div>
+      <div>
+        <p>Xin chào ${fullName},</p>
+        <p><strong>Tài khoản CampusLearning của bạn đã được mở khóa thành công!</strong></p>
+        
+        <div style="background-color: #f0f9ff; border-left: 4px solid #059669; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Thông tin mở khóa:</strong></p>
+          <ul style="margin: 10px 0;">
+            <li>Thời gian: ${new Date().toLocaleString('vi-VN')}</li>
+            <li>IP Address: ${ipAddress}</li>
+            <li>Phương thức: Email + 2FA verification</li>
+          </ul>
+        </div>
+
+        <p>Bạn có thể đăng nhập vào tài khoản của mình ngay bây giờ. Để tăng cường bảo mật, chúng tôi khuyến nghị:</p>
+        <ul>
+          <li>Sử dụng mật khẩu mạnh và duy nhất</li>
+          <li>Bật xác thực 2 bước (2FA) nếu chưa có</li>
+          <li>Thường xuyên kiểm tra hoạt động đăng nhập</li>
+        </ul>
+
+        <p>Nếu bạn không thực hiện việc mở khóa này, vui lòng liên hệ với đội hỗ trợ ngay lập tức.</p>
+
+        <p>Trân trọng,<br/>Đội ngũ Bảo mật CampusLearning</p>
+      </div>
+    </div>
+  `;
+  
+  try {
+    console.log(`Gửi email xác nhận mở khóa cho ${to} từ IP: ${ipAddress}`);
+    
+    return await transporter.sendMail({
+      from: `"CampusLearning Security" <security@campuslearning.com>`,
+      to,
+      subject,
+      html
+    });
+  } catch (error) {
+    console.error('Lỗi gửi email xác nhận mở khóa:', error.message);
+    return { messageId: 'dev-mode' };
+  }
+};
+
+/**
+ * Send email notification about 2FA setup
+ * @param {string} to - Recipient email
+ * @param {string} fullName - Recipient name
+ * @param {string} ipAddress - IP address used for setup
+ * @returns {Promise} Promise object
+ */
+const sendTwoFASetupEmail = async (to, fullName, ipAddress) => {
+  const subject = '🔒 Thiết lập xác thực hai yếu tố cho tài khoản CampusLearning';
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #059669;">🔒 CampusLearning</h2>
+      </div>
+      <div>
+        <p>Xin chào ${fullName},</p>
+        <p>Chúng tôi ghi nhận bạn đang thiết lập <strong>xác thực hai yếu tố (2FA)</strong> cho tài khoản CampusLearning của mình.</p>
+        
+        <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Thông tin thiết lập:</strong></p>
+          <ul style="margin: 10px 0;">
+            <li>Thời gian: ${new Date().toLocaleString('vi-VN')}</li>
+            <li>IP Address: ${ipAddress}</li>
+          </ul>
+        </div>
+
+        <p>Xác thực hai yếu tố sẽ giúp bảo vệ tài khoản của bạn an toàn hơn bằng cách yêu cầu một mã xác thực duy nhất từ thiết bị di động của bạn khi đăng nhập.</p>
+        
+        <p>Nếu bạn không thực hiện hành động này, vui lòng thay đổi mật khẩu tài khoản ngay lập tức và liên hệ với đội hỗ trợ của chúng tôi.</p>
+
+        <p>Trân trọng,<br/>Đội ngũ Bảo mật CampusLearning</p>
+      </div>
+    </div>
+  `;
+  
+  try {
+    console.log(`Gửi email thông báo thiết lập 2FA cho ${to} từ IP: ${ipAddress}`);
+    
+    return await transporter.sendMail({
+      from: `"CampusLearning Security" <security@campuslearning.com>`,
+      to,
+      subject,
+      html
+    });
+  } catch (error) {
+    console.error('Lỗi gửi email thông báo thiết lập 2FA:', error.message);
+    return { messageId: 'dev-mode' };
+  }
+};
+
 module.exports = {
   generateOTP,
   sendVerificationEmail,
   sendEmailWithAttachment,
-  sendLoginOtpEmail
+  sendLoginOtpEmail,
+  sendAccountUnlockEmail,
+  sendAccountUnlockedEmail,
+  sendTwoFASetupEmail
 };

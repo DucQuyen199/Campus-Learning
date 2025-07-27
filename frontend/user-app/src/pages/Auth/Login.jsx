@@ -27,6 +27,7 @@ import { GoogleLogin } from '@react-oauth/google';
 // Add Facebook SDK
 import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props';
 import Loading from '../../components/common/Loading';
+import Avatar from '../../components/common/Avatar';
 
 // Check if passkey is supported by the browser
 const isPasskeySupported = () => {
@@ -48,7 +49,7 @@ const Login = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { login, login2Fa, isAuthenticated, loginWithGoogle, loginWithFacebook } = useAuth();
+  const { login, login2Fa, isAuthenticated, loginWithGoogle } = useAuth();
 
   // Redirect to home if already authenticated (also covers account-selection screen)
   useEffect(() => {
@@ -218,10 +219,107 @@ const Login = () => {
         }
         handleLoginSuccess(result.user);
       } else {
-        setError(result.error || 'Đăng nhập thất bại');
+        // Handle specific error types
+        if (result.locked || result.blocked) {
+          // Account locked or IP blocked
+          if (result.unlockEmailSent) {
+            setError(`${result.error} Chúng tôi đã gửi hướng dẫn mở khóa qua email của bạn.`);
+          } else if (result.retryAfter) {
+            const minutes = Math.ceil(result.retryAfter / 60);
+            setError(`${result.error} Vui lòng thử lại sau ${minutes} phút.`);
+          } else {
+            setError(result.error);
+          }
+        } else if (result.attemptsRemaining !== undefined) {
+          // Show remaining attempts warning with increasing severity
+          if (result.attemptsRemaining <= 2) {
+            // Critical warning - last attempts
+            setError(
+              <div className="text-red-600 font-bold">
+                {result.error}
+                <div className="mt-1 text-sm bg-red-100 p-2 rounded border border-red-300">
+                  <span className="font-bold">⚠️ Cảnh báo:</span> Tài khoản sẽ bị khóa sau {result.attemptsRemaining} lần đăng nhập thất bại nữa!
+                </div>
+              </div>
+            );
+          } else if (result.attemptsRemaining <= 3) {
+            // Warning - getting close to lockout
+            setError(
+              <div>
+                {result.error}
+                <div className="mt-1 text-sm text-amber-700 font-semibold">
+                  ⚠️ Còn lại {result.attemptsRemaining} lần thử trước khi tài khoản bị khóa.
+                </div>
+              </div>
+            );
+          } else {
+            // Standard notice
+            setError(`${result.error} Còn lại ${result.attemptsRemaining} lần thử.`);
+          }
+        } else {
+          setError(result.error || 'Đăng nhập thất bại');
+        }
       }
     } catch (error) {
+      console.error('Login error:', error);
+      
+      // Handle different HTTP status codes
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        
+        switch (status) {
+          case 423: // Account locked
+            if (data.unlockEmailSent) {
+              setError(`${data.message} Chúng tôi đã gửi hướng dẫn mở khóa qua email của bạn.`);
+            } else {
+              setError(data.message || 'Tài khoản đã bị khóa tạm thời');
+            }
+            break;
+          case 429: // Too many requests (IP blocked)
+            const retryAfter = parseInt(error.response.headers['retry-after'] || '300', 10);
+            const minutes = Math.ceil(retryAfter / 60);
+            setError(`${data.message || 'Quá nhiều lần thử. Vui lòng thử lại sau.'} (${minutes} phút)`);
+            break;
+          case 401: // Unauthorized
+            if (data.attemptsRemaining !== undefined) {
+              if (data.attemptsRemaining <= 2) {
+                // Critical warning - last attempts
+                setError(
+                  <div className="text-red-600 font-bold">
+                    {data.message}
+                    <div className="mt-1 text-sm bg-red-100 p-2 rounded border border-red-300">
+                      <span className="font-bold">⚠️ Cảnh báo:</span> Tài khoản sẽ bị khóa sau {data.attemptsRemaining} lần đăng nhập thất bại nữa!
+                    </div>
+                  </div>
+                );
+              } else if (data.attemptsRemaining <= 3) {
+                // Warning - getting close to lockout
+                setError(
+                  <div>
+                    {data.message}
+                    <div className="mt-1 text-sm text-amber-700 font-semibold">
+                      ⚠️ Còn lại {data.attemptsRemaining} lần thử trước khi tài khoản bị khóa.
+                    </div>
+                  </div>
+                );
+              } else {
+                // Standard notice
+                setError(`${data.message} Còn lại ${data.attemptsRemaining} lần thử.`);
+              }
+            } else {
+              setError(data.message || 'Email hoặc mật khẩu không chính xác');
+            }
+            break;
+          case 403: // Forbidden (account suspended)
+            setError(data.message || 'Tài khoản không khả dụng');
+            break;
+          default:
+            setError(data.message || error.message || 'Đăng nhập thất bại');
+        }
+      } else {
       setError(error.message || 'Đăng nhập thất bại');
+      }
     } finally {
       setLoading(false);
     }
@@ -231,7 +329,7 @@ const Login = () => {
     // Log incoming userData for debugging
     console.log('handleLoginSuccess called with:', userData);
     
-    // Show success loading for 1 second before completing login
+    // Show success loading for 1.5 seconds before completing login
     setSuccessLoading(true);
     
     setTimeout(() => {
@@ -243,6 +341,13 @@ const Login = () => {
         UserID: userData.UserID || userData.id,
         username: userData.username || userData.Username,
         email: userData.email || userData.Email,
+        // Normalize fullName fields
+        fullName: userData.fullName || userData.FullName || userData.username || userData.Username,
+        FullName: userData.fullName || userData.FullName || userData.username || userData.Username,
+        // Normalize avatar/image fields for consistency
+        avatar: userData.Image || userData.avatar || userData.profileImage,
+        profileImage: userData.Image || userData.avatar || userData.profileImage,
+        Image: userData.Image || userData.avatar || userData.profileImage,
         role: (userData.role || userData.Role || 'STUDENT').toUpperCase(),
         token: userData.token,
       };
@@ -289,6 +394,12 @@ const Login = () => {
         ...userData,
         email: userData.email || userData.Email,
         username: userData.username || userData.Username || '',
+        fullName: userData.fullName || userData.FullName || '',
+        FullName: userData.fullName || userData.FullName || '',
+        // Save avatar/profile image fields
+        avatar: userData.avatar || userData.profileImage || userData.Image || '',
+        profileImage: userData.avatar || userData.profileImage || userData.Image || '',
+        Image: userData.avatar || userData.profileImage || userData.Image || '',
         // Save password if specified in userData or from formData
         hasStoredPassword: hasStoredPassword,
         storedPassword: storedPassword,
@@ -298,7 +409,7 @@ const Login = () => {
       
       updatedAccounts.unshift(savedAccount);
       localStorage.setItem('previousAccounts', JSON.stringify(updatedAccounts.slice(0, 3)));
-    }, 1000);
+    }, 1500);
   }, [dispatch, navigate]);
 
   const loginWithPasskey = async () => {
@@ -1167,11 +1278,15 @@ const Login = () => {
                 </div>
                 
                 <div className="mt-8 flex flex-col items-center">
-                  <div className="h-20 w-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-3xl font-medium text-white mb-4">
-                    {selectedAccount.username?.charAt(0).toUpperCase() || selectedAccount.email.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar
+                    src={selectedAccount.avatar || selectedAccount.profileImage || selectedAccount.Image}
+                    name={selectedAccount.fullName || selectedAccount.FullName || selectedAccount.username || selectedAccount.email}
+                    alt={selectedAccount.fullName || selectedAccount.FullName || selectedAccount.username || selectedAccount.email}
+                    size="xl"
+                    className="mb-4"
+                  />
                   <h2 className="text-2xl font-bold text-gray-900">
-                    {selectedAccount.username || selectedAccount.email}
+                    {selectedAccount.fullName || selectedAccount.FullName || selectedAccount.username || selectedAccount.email}
                   </h2>
                   <p className="mt-2 text-base text-gray-600">{selectedAccount.email}</p>
                 </div>
@@ -1257,13 +1372,7 @@ const Login = () => {
                       }`}
                     >
                       {selectedAccountLoading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Đang đăng nhập...
-                        </>
+                        'Đang đăng nhập...'
                       ) : 'Đăng nhập'}
                     </button>
 
@@ -1278,13 +1387,10 @@ const Login = () => {
                             ? 'cursor-not-allowed opacity-50'
                             : 'hover:opacity-70 focus:outline-none'
                         } relative group`}
-                        title="Đăng nhập bằng sinh trắc học"
+                        title={`Đăng nhập bằng sinh trắc học cho ${selectedAccount.fullName || selectedAccount.FullName || selectedAccount.username || selectedAccount.email}`}
                       >
                         {passkeyLoading ? (
-                          <svg className="animate-spin h-7 w-7 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
+                          <FingerPrintIcon className="h-7 w-7 text-gray-400 opacity-50" />
                         ) : (
                           <FingerPrintIcon className="h-7 w-7 text-gray-800" />
                         )}
@@ -1388,7 +1494,7 @@ const Login = () => {
               </motion.div>
 
               <div className="mt-8 space-y-4">
-                {previousAccounts.map(account => (
+                {previousAccounts.filter(account => account && account.email).map(account => (
                   <motion.div
                     key={account.email}
                     initial={{ opacity: 0, y: 10 }}
@@ -1401,12 +1507,19 @@ const Login = () => {
                         onClick={() => handleAccountClick(account)}
                         className="flex items-center space-x-4 flex-1"
                       >
-                        <div className="h-14 w-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-xl font-medium text-white">
-                          {account.username?.charAt(0).toUpperCase() || account.email.charAt(0).toUpperCase()}
-                        </div>
+                        <Avatar
+                          src={account.avatar || account.profileImage || account.Image}
+                          name={account.fullName || account.FullName || account.username || account.email}
+                          alt={account.fullName || account.FullName || account.username || account.email}
+                          size="large"
+                        />
                         <div className="flex flex-col items-start">
-                          <span className="font-medium text-gray-800">{account.username || account.email}</span>
-                          {account.username && <span className="text-sm text-gray-500">{account.email}</span>}
+                          <span className="font-medium text-gray-800">
+                            {account.fullName || account.FullName || account.username || account.email}
+                          </span>
+                          {(account.fullName || account.FullName) && (
+                            <span className="text-sm text-gray-500">{account.email}</span>
+                          )}
                         </div>
                       </button>
                       
@@ -1421,13 +1534,10 @@ const Login = () => {
                               ? 'cursor-not-allowed opacity-50'
                               : 'hover:opacity-70 focus:outline-none'
                           } relative group`}
-                          title={`Đăng nhập bằng sinh trắc học cho ${account.username || account.email}`}
+                          title={`Đăng nhập bằng sinh trắc học cho ${account.fullName || account.FullName || account.username || account.email}`}
                         >
                           {passkeyLoading ? (
-                            <svg className="animate-spin h-6 w-6 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
+                            <FingerPrintIcon className="h-6 w-6 text-gray-400 opacity-50" />
                           ) : (
                             <FingerPrintIcon className="h-6 w-6 text-gray-800" />
                           )}
@@ -1435,8 +1545,8 @@ const Login = () => {
                       )}
                     </div>
                   </motion.div>
-          ))}
-        </div>
+                ))}
+              </div>
 
               <div className="mt-8 pt-6 border-t border-gray-200">
         <button
@@ -1878,11 +1988,23 @@ const Login = () => {
 
   // Show full-page loading during initial login
   if (loading && !twoFaStage) {
-    return <Loading message="Đang đăng nhập..." />;
+    return <Loading message="Đang đăng nhập..." size="large" />;
   }
   // Show success loading with delay
   if (successLoading) {
-    return <Loading message="Đăng nhập thành công! Đang chuyển hướng..." />;
+    return <Loading message="Đăng nhập thành công! Đang chuyển hướng..." variant="success" size="large" />;
+  }
+  // Show loading for passkey authentication
+  if (passkeyLoading) {
+    return <Loading message="Đang xác thực sinh trắc học..." size="large" />;
+  }
+  // Show loading for 2FA verification
+  if (twoFaLoading) {
+    return <Loading message="Đang xác thực mã 2FA..." size="large" />;
+  }
+  // Show loading for account selection
+  if (selectedAccountLoading) {
+    return <Loading message="Đang xử lý tài khoản..." size="large" />;
   }
 
   return (
@@ -2091,13 +2213,7 @@ const Login = () => {
                       }`}
                     >
                       {loading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Đăng nhập...
-                        </>
+                        'Đang đăng nhập...'
                       ) : 'Đăng nhập'}
                     </button>
                     
@@ -2120,12 +2236,9 @@ const Login = () => {
                           </div>
                         )}
                         {passkeyLoading ? (
-                          <svg className="animate-spin h-7 w-7 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
+                          <FingerPrintIcon className="h-7 w-7 text-gray-400 opacity-50" />
                         ) : (
-                          <FingerPrintIcon className={`h-7 w-7 ${!formData.email ? 'text-gray-500' : 'text-gray-800'}`} />
+                          <FingerPrintIcon className="h-7 w-7 text-gray-800" />
                         )}
                       </button>
                     )}
@@ -2141,32 +2254,7 @@ const Login = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-5 gap-3">
-                  {/* Facebook */}
-                  <FacebookLogin
-                    appId={import.meta.env.VITE_FACEBOOK_APP_ID || '123456789012345'}
-                    callback={handleFacebookLogin}
-                    fields="name,email,picture"
-                    render={renderProps => (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (window.location.protocol !== 'https:') {
-                            toast.error('Facebook login requires HTTPS; please use a secure connection.');
-                            return;
-                          }
-                          renderProps.onClick();
-                        }}
-                        className="inline-flex justify-center items-center py-2.5 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-                      >
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <circle cx="12" cy="12" r="11" fill="white" />
-                          <path d="M17,12 L13,12 L13,8 C13,7.5 13.5,7 14,7 L17,7 L17,4 L14,4 C11.8,4 10,5.8 10,8 L10,12 L7,12 L7,15 L10,15 L10,24 L13,24 L13,15 L16,15 L17,12 Z" fill="#1877F2" />
-                        </svg>
-                      </button>
-                    )}
-                  />
+                <div className="grid grid-cols-4 gap-3">
                   
                   {/* Google */}
                   <button
@@ -2392,7 +2480,7 @@ const Login = () => {
               CampusLearning là nền tảng học tập trực tuyến hàng đầu tại Việt Nam, được thành lập với sứ mệnh 
               mang đến cơ hội tiếp cận kiến thức công nghệ chất lượng cao cho mọi người. Chúng tôi tự hào 
               là đối tác đào tạo tin cậy của nhiều doanh nghiệp công nghệ hàng đầu trong và ngoài nước.
-            </p>
+          </p>
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">

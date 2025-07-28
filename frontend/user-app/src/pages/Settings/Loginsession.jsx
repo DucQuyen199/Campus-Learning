@@ -15,13 +15,19 @@ import {
   GlobeAltIcon,
   ClockIcon,
   XMarkIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 import { userServices } from '@/services/api';
+import { logout } from '@/store/slices/authSlice';
+import { useNavigate } from 'react-router-dom';
+import Loading from '@/components/common/Loading';
 
 const LoginSession = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
   // Fetch sessions on mount
   useEffect(() => {
@@ -94,6 +100,30 @@ const LoginSession = () => {
         toast.error('Lỗi khi kết thúc các phiên khác');
       });
   };
+
+  // Handle logout from all devices
+  const handleLogoutAllDevices = async () => {
+    setIsLoggingOut(true);
+    try {
+      // Add a 5-second delay to ensure the logout process isn't too quick
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      await userServices.terminateAllSessions();
+      toast.success('Đã đăng xuất khỏi tất cả thiết bị');
+      
+      // Logout from current session
+      await dispatch(logout());
+      navigate('/login');
+    } catch (err) {
+      console.error('Error logging out from all devices:', err);
+      toast.error('Lỗi khi đăng xuất khỏi tất cả thiết bị');
+      setIsLoggingOut(false);
+    }
+  };
+  
+  if (isLoggingOut) {
+    return <Loading message="Đang đăng xuất khỏi tất cả thiết bị..." variant="default" fullscreen={true} />;
+  }
   
   return (
     <div>
@@ -244,6 +274,28 @@ const LoginSession = () => {
             ) : (
               <div className="text-center text-gray-500">Chưa có lịch sử đăng nhập</div>
             )}
+          </div>
+        </div>
+        
+        {/* Logout from all devices button */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="px-5 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Đăng xuất khỏi tất cả thiết bị</h3>
+          </div>
+          <div className="p-5">
+            <p className="text-gray-600 mb-4">
+              Đăng xuất khỏi tất cả các thiết bị đang đăng nhập vào tài khoản của bạn, bao gồm cả thiết bị hiện tại.
+              Bạn sẽ cần đăng nhập lại sau khi thực hiện thao tác này.
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={handleLogoutAllDevices}
+                className="flex items-center px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors shadow-sm"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5 mr-2" />
+                Đăng xuất khỏi tất cả thiết bị
+              </button>
+            </div>
           </div>
         </div>
       </div>

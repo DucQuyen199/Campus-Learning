@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import courseApi from '@/api/courseApi';
 import { toast } from 'react-toastify';
+import Loading from '@/components/common/Loading';
 
 // Add deletePayment method to courseApi if it doesn't exist
 if (!courseApi.deletePayment) {
@@ -93,14 +94,21 @@ const FilterButton = ({ active, onClick, children, activeColor }) => (
 
 const PaymentHistory = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, currentUser } = useAuth(); // Lấy thông tin người dùng từ AuthContext
+  const { isAuthenticated, currentUser } = useAuth();
+  // Immediate auth check using context or stored token
+  const token = localStorage.getItem('token');
+  const isAuthImmediate = isAuthenticated || !!token;
+  const [authChecking, setAuthChecking] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Component state for payment history
   const [paymentHistory, setPaymentHistory] = useState([]);
-  const [loading, setLoading] = useState(false); // Thay đổi từ true sang false
-  const [processingPaymentId, setProcessingPaymentId] = useState(null); // Track which payment is being deleted
+  const [loading, setLoading] = useState(false);
+  const [processingPaymentId, setProcessingPaymentId] = useState(null);
   const [error, setError] = useState(null);
   const [sortField, setSortField] = useState('CreatedAt');
   const [sortDirection, setSortDirection] = useState('desc');
-  const [filter, setFilter] = useState('all'); 
+  const [filter, setFilter] = useState('all');
   const [selectedPayments, setSelectedPayments] = useState([]);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [paymentStats, setPaymentStats] = useState({
@@ -110,8 +118,22 @@ const PaymentHistory = () => {
     successfulTransactions: 0
   });
 
+  // End auth checking immediately
+  useEffect(() => { setAuthChecking(false); }, []);
+  // Track online/offline status
   useEffect(() => {
-    if (!isAuthenticated) {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthImmediate) {
       toast.info('Bạn cần đăng nhập để xem lịch sử thanh toán');
       navigate('/login', { state: { from: '/payment-history' } });
       return;
@@ -171,7 +193,20 @@ const PaymentHistory = () => {
 
     fetchPaymentHistory();
     fetchEnrolledCourses();
-  }, [isAuthenticated, navigate]);
+  }, [isAuthImmediate, navigate]);
+
+  // Show loading during auth check
+  if (authChecking) {
+    return <Loading message="Đang kiểm tra đăng nhập..." fullscreen={true} />;
+  }
+  // Prevent render if not authenticated
+  if (!isAuthImmediate) {
+    return null;
+  }
+  // Show loading when offline
+  if (!isOnline) {
+    return <Loading message="Không có kết nối internet. Đang thử kết nối lại..." fullscreen={true} />;
+  }
 
   // Delete payment transaction
   const deletePayment = async (paymentId) => {

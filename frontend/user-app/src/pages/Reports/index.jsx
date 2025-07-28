@@ -16,14 +16,15 @@ import {
   ArrowPathIcon,
   XMarkIcon,
   InformationCircleIcon,
-  EyeIcon,
-  ChatBubbleBottomCenterTextIcon,
-  CalendarIcon,
   UserIcon,
   BookOpenIcon,
-  FlagIcon
+  FlagIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import reportsAPI from '../../api/reports.new';
+import Loading from '@/components/common/Loading';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
@@ -32,7 +33,8 @@ const Reports = () => {
   const [activeStatus, setActiveStatus] = useState('all');
   const [openDialog, setOpenDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [viewDetailsId, setViewDetailsId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredReports, setFilteredReports] = useState([]);
 
   const [reportForm, setReportForm] = useState({
     title: '',
@@ -45,6 +47,29 @@ const Reports = () => {
   useEffect(() => {
     fetchReports();
   }, [activeStatus]);
+
+  useEffect(() => {
+    if (reports.length > 0) {
+      let filtered = [...reports];
+      
+      // Filter based on search term
+      if (searchTerm) {
+        filtered = filtered.filter(report => 
+          report.Title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          report.Content.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      
+      // Filter based on status
+      if (activeStatus !== 'all') {
+        filtered = filtered.filter(report => report.Status.toLowerCase() === activeStatus.toLowerCase());
+      }
+      
+      setFilteredReports(filtered);
+    } else {
+      setFilteredReports([]);
+    }
+  }, [reports, searchTerm, activeStatus]);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -245,197 +270,200 @@ const Reports = () => {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 pt-8 pb-6">
-        <div className="px-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-sm font-medium mb-3">
-                <FlagIcon className="h-4 w-4" />
-                <span>Hệ thống báo cáo</span>
+    <div className="bg-gray-50 min-h-screen pb-12">
+      {/* Header section */}
+      <div className="bg-white border-b border-gray-200 mb-6">
+        <div className="container mx-auto px-4 py-6">
+          <h1 className="text-2xl font-bold text-gray-900">Báo Cáo & Phản Hồi</h1>
+          
+          {/* Mobile-optimized layout */}
+          <div className="flex flex-col space-y-4 mt-6">
+            {/* Horizontally scrollable status tabs */}
+            <div className="overflow-x-auto -mx-4 px-4 pb-1">
+              <div className="flex space-x-3 min-w-max">
+                <button
+                  onClick={() => setActiveStatus('all')}
+                  className={`px-4 py-2.5 font-medium rounded-md whitespace-nowrap ${
+                    activeStatus === 'all'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                <button
+                  onClick={() => setActiveStatus('pending')}
+                  className={`px-4 py-2.5 font-medium rounded-md whitespace-nowrap ${
+                    activeStatus === 'pending'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  Đang xử lý
+                </button>
+                <button
+                  onClick={() => setActiveStatus('resolved')}
+                  className={`px-4 py-2.5 font-medium rounded-md whitespace-nowrap ${
+                    activeStatus === 'resolved'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  Đã giải quyết
+                </button>
+                <button
+                  onClick={() => setActiveStatus('rejected')}
+                  className={`px-4 py-2.5 font-medium rounded-md whitespace-nowrap ${
+                    activeStatus === 'rejected'
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                  }`}
+                >
+                  Đã từ chối
+                </button>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">Theo dõi trạng thái báo cáo</h1>
-              <p className="text-blue-100 mt-2">
-                Tại đây, bạn có thể theo dõi trạng thái xử lý các báo cáo và gửi báo cáo mới
-              </p>
             </div>
+            
+            {/* Search and Filter Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="relative w-full sm:w-auto">
+                <select
+                  value={reportForm.category || 'all'}
+                  onChange={(e) => setReportForm(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-md text-sm font-medium border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white appearance-none"
+                >
+                  <option value="all">Tất cả danh mục</option>
+                  <option value="CONTENT">Nội dung</option>
+                  <option value="USER">Người dùng</option>
+                  <option value="COMMENT">Bình luận</option>
+                  <option value="COURSE">Khóa học</option>
+                  <option value="EVENT">Sự kiện</option>
+                </select>
+                <ChevronDownIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+              </div>
 
-            <button 
-              onClick={() => setOpenDialog(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-all duration-200 shadow-md"
-            >
-              <PaperAirplaneIcon className="h-5 w-5 rotate-90" />
-              Gửi báo cáo mới
-            </button>
-          </div>
-
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-2 mt-6">
-            <button
-              onClick={() => setActiveStatus('all')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                activeStatus === 'all'
-                  ? 'bg-white text-blue-600'
-                  : 'text-white hover:bg-white/10'
-              }`}
-            >
-              Tất cả
-            </button>
-            <button
-              onClick={() => setActiveStatus('pending')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                activeStatus === 'pending'
-                  ? 'bg-white text-amber-600'
-                  : 'text-white hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <ClockIcon className="h-4 w-4" />
-                Đang xử lý
+              <div className="flex-1 flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Tìm kiếm báo cáo..."
+                    className="w-full px-4 py-2.5 rounded-md text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <MagnifyingGlassIcon className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                </div>
+                
+                <button
+                  onClick={() => setOpenDialog(true)}
+                  className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
+                  title="Gửi báo cáo mới"
+                >
+                  <PlusIcon className="h-5 w-5" />
+                </button>
               </div>
-            </button>
-            <button
-              onClick={() => setActiveStatus('resolved')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                activeStatus === 'resolved'
-                  ? 'bg-white text-green-600'
-                  : 'text-white hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <CheckCircleIcon className="h-4 w-4" />
-                Đã giải quyết
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveStatus('rejected')}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                activeStatus === 'rejected'
-                  ? 'bg-white text-red-600'
-                  : 'text-white hover:bg-white/10'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <XCircleIcon className="h-4 w-4" />
-                Đã từ chối
-              </div>
-            </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-gray-50">
-        <div className="px-6 py-6">
-          {/* Report count */}
-          <div className="mb-4">
-            <p className="text-sm text-gray-500">
-              Hiển thị {reports.length} báo cáo
-            </p>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
-                  <div className="p-6 space-y-4">
-                    <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded"></div>
-                      <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Đã xảy ra lỗi</h3>
-              <p className="text-gray-600 mb-4">{error}</p>
+      <div className="container mx-auto px-4">
+        {loading ? (
+          <Loading message="Đang tải báo cáo..." />
+        ) : error ? (
+          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+            <div className="flex flex-col items-center">
+              <XMarkIcon className="w-16 h-16 text-red-500 mb-4" />
+              <h3 className="text-xl font-medium text-gray-700 mb-2">Đã xảy ra lỗi</h3>
+              <p className="text-gray-500 mb-6">{error}</p>
               <button 
                 onClick={fetchReports}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                <ArrowPathIcon className="h-5 w-5" />
+                <ArrowPathIcon className="h-5 w-5 mr-2" />
                 Thử lại
               </button>
             </div>
-          ) : reports.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có báo cáo nào</h3>
-              <p className="text-gray-600 mb-4">Bạn chưa gửi báo cáo nào hoặc không có báo cáo phù hợp với bộ lọc.</p>
-              <button 
-                onClick={() => setOpenDialog(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {filteredReports.map((report) => (
+              <div 
+                key={report.ReportID}
+                className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-300"
               >
-                <PaperAirplaneIcon className="h-5 w-5 rotate-90" />
-                Tạo báo cáo mới
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {reports.map((report) => (
-                <div 
-                  key={report.ReportID}
-                  className="bg-white rounded-xl border border-gray-200 overflow-hidden hover:border-blue-300 hover:shadow-lg transition-all duration-200"
-                >
-                  <div className="flex flex-col md:flex-row">
-                    {/* Left side - Category and Status */}
-                    <div className="w-full md:w-64 p-6 bg-gray-50 flex flex-col justify-between">
-                      <div>
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${getCategoryColor(report.Category)} bg-opacity-10 mb-3`}>
-                          {getCategoryIcon(report.Category)}
-                          <span className="text-sm font-medium">{getCategoryText(report.Category)}</span>
-                        </div>
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${getStatusBgColor(report.Status)} ${getStatusColor(report.Status)}`}>
-                          {getStatusIcon(report.Status)}
-                          <span className="text-sm font-medium">{getStatusText(report.Status)}</span>
-                        </div>
-                      </div>
-                      <div className="text-sm text-gray-500 mt-4">
-                        #{report.ReportID}
-                      </div>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${getCategoryColor(report.Category)} bg-opacity-10`}>
+                      {getCategoryIcon(report.Category)}
+                      <span className="text-sm font-medium">{getCategoryText(report.Category)}</span>
                     </div>
-
-                    {/* Right side - Content */}
-                    <div className="flex-1 p-6 flex flex-col">
-                      <h3 className="font-semibold text-lg mb-2">{report.Title}</h3>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{report.Content}</p>
-                      
-                      {report.Notes && (
-                        <div className="mt-auto p-3 bg-blue-50 rounded-lg">
-                          <p className="text-sm text-gray-700">{report.Notes}</p>
-                        </div>
-                      )}
-                      
-                      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                        <div className="text-sm text-gray-500">
-                          {formatDate(report.CreatedAt)}
-                        </div>
-                        
-                        {report.Status === 'PENDING' && (
-                          <button 
-                            onClick={(e) => handleCancelReport(report.ReportID, e)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
-                          >
-                            <XCircleIcon className="h-4 w-4" />
-                            Hủy báo cáo
-                          </button>
-                        )}
-                      </div>
+                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${getStatusBgColor(report.Status)} ${getStatusColor(report.Status)}`}>
+                      {getStatusIcon(report.Status)}
+                      <span className="text-sm font-medium">{getStatusText(report.Status)}</span>
                     </div>
                   </div>
+
+                  <h3 className="font-semibold text-lg mb-2 line-clamp-1">{report.Title}</h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">{report.Content}</p>
+
+                  {report.Notes && (
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-gray-700 line-clamp-2">{report.Notes}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-sm text-gray-500 pt-4 border-t">
+                    <span>#{report.ReportID}</span>
+                    <span>{formatDate(report.CreatedAt)}</span>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+
+                {report.Status === 'PENDING' && (
+                  <div className="px-6 py-3 bg-gray-50 border-t">
+                    <button 
+                      onClick={() => handleCancelReport(report.ReportID)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium"
+                    >
+                      <XCircleIcon className="h-4 w-4" />
+                      Hủy báo cáo
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Empty State */}
+            {filteredReports.length === 0 && (
+              <div className="col-span-full py-8 sm:py-12 text-center">
+                <div className="bg-white rounded-xl p-6 sm:p-8 max-w-md mx-auto shadow-sm">
+                  <div className="bg-gray-50 rounded-full w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mx-auto mb-4">
+                    <DocumentTextIcon className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+                    Không tìm thấy báo cáo
+                  </h3>
+                  <p className="text-gray-600 text-sm sm:text-base mb-5 sm:mb-6">
+                    {searchTerm 
+                      ? `Không có báo cáo nào phù hợp với từ khóa "${searchTerm}". Vui lòng thử tìm kiếm với từ khóa khác.` 
+                      : 'Hiện tại chưa có báo cáo nào trong danh mục này.'}
+                  </p>
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="px-5 py-2.5 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
+                    >
+                      Xóa tìm kiếm
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Submit Report Dialog */}
+      {/* Submit Report Dialog - Keep existing dialog code */}
       {openDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div 

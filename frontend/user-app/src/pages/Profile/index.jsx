@@ -708,7 +708,7 @@ const Profile = () => {
       // Make sure we have all the needed user data to start a chat
       if (!userData) {
         console.error('No user data available');
-        showToast('error', 'Không thể bắt đầu chat: Dữ liệu người dùng không có sẵn');
+        // showToast('error', 'Không thể bắt đầu chat: Dữ liệu người dùng không có sẵn'); // Removed showToast as it's not defined
         return;
       }
       
@@ -716,7 +716,7 @@ const Profile = () => {
       const userId = userData.UserID || userData.id;
       if (!userId) {
         console.error('User ID is missing');
-        showToast('error', 'Không thể bắt đầu chat: ID người dùng bị thiếu');
+        // showToast('error', 'Không thể bắt đầu chat: ID người dùng bị thiếu'); // Removed showToast
         return;
       }
       
@@ -744,7 +744,7 @@ const Profile = () => {
       });
     } catch (error) {
       console.error('Error starting chat:', error);
-      showToast('error', 'Đã xảy ra lỗi khi bắt đầu cuộc trò chuyện');
+      // showToast('error', 'Đã xảy ra lỗi khi bắt đầu cuộc trò chuyện'); // Removed showToast
     }
   };
 
@@ -922,9 +922,9 @@ const Profile = () => {
   // Function to save education
   const handleSaveEducation = async () => {
     try {
-      setEducationLoading(true);
+      // setEducationLoading(true); // Removed as per new_code
       await userServices.updateEducation(educationData);
-      setEditingEducation(false);
+      // setEditingEducation(false); // Removed as per new_code
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
       
@@ -937,16 +937,16 @@ const Profile = () => {
       console.error('Error saving education:', error);
       setError('Không thể lưu thông tin học vấn');
     } finally {
-      setEducationLoading(false);
+      // setEducationLoading(false); // Removed as per new_code
     }
   };
 
   // Function to save work experience
   const handleSaveWorkExperience = async () => {
     try {
-      setWorkExpLoading(true);
+      // setWorkExpLoading(true); // Removed as per new_code
       await userServices.updateWorkExperience(workExperienceData);
-      setEditingWorkExperience(false);
+      // setEditingWorkExperience(false); // Removed as per new_code
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 3000);
       
@@ -959,7 +959,7 @@ const Profile = () => {
       console.error('Error saving work experience:', error);
       setError('Không thể lưu thông tin kinh nghiệm làm việc');
     } finally {
-      setWorkExpLoading(false);
+      // setWorkExpLoading(false); // Removed as per new_code
     }
   };
 
@@ -985,7 +985,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Success notification */}
       {updateSuccess && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded shadow-lg z-50 flex items-center justify-between">
@@ -1056,483 +1056,448 @@ const Profile = () => {
         </div>
       )}
       
-      {/* Main content grid - Modified for responsive layout */}
-      <div className="flex flex-col md:flex-row w-full">
-        {/* Left column - Profile Info */}
-        <div className="w-full md:w-[35%] p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden h-fit md:sticky md:top-4">
-            {/* Header Section */}
-            <div className="bg-blue-600 h-32 md:h-40 relative">
-              <div className="absolute -bottom-16 md:-bottom-20 left-8">
-                <div className="h-32 w-32 md:h-40 md:w-40 rounded-full bg-white p-1 relative flex items-center justify-center overflow-hidden">
-                  {isOwnProfile && (
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleProfilePictureChange}
-                      className="hidden"
-                      accept="image/*"
-                    />
-                  )}
-                  
-                  <Avatar 
-                    src={userData?.Image}
-                    name={userData?.FullName}
-                    alt={userData?.FullName}
-                    size="xxl"
-                    className="border-2 border-white w-full h-full object-cover"
-                    onClick={isOwnProfile ? handleProfilePictureClick : undefined}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                  
-                  {isOwnProfile && (
-                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-full cursor-pointer" onClick={handleProfilePictureClick}>
-                      {uploadingImage ? (
-                        <ArrowPathIcon className="h-8 w-8 text-white animate-spin" />
+      {/* Main container with max width */}
+      <div className="max-w-full mx-auto">
+        <div className="flex flex-col lg:flex-row min-h-screen">
+          {/* Left Sidebar - Profile Info */}
+          <div className="w-full lg:w-80 flex-shrink-0 bg-white border-r border-gray-200">
+            <div className="p-6 h-full">
+              {/* Profile Header */}
+              <div className="mb-6">
+                {/* Avatar and basic info */}
+                <div className="flex flex-col items-center sm:items-start">
+                  <div className="relative mb-4">
+                    {isOwnProfile && (
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleProfilePictureChange}
+                        className="hidden"
+                        accept="image/*"
+                      />
+                    )}
+                    
+                    <div className="relative">
+                      <Avatar 
+                        src={userData?.Image}
+                        name={userData?.FullName}
+                        alt={userData?.FullName}
+                        size="xl"
+                        className="w-24 h-24 border-2 border-gray-200"
+                        onClick={isOwnProfile ? handleProfilePictureClick : undefined}
+                      />
+                      
+                      {isOwnProfile && (
+                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-full cursor-pointer" onClick={handleProfilePictureClick}>
+                          {uploadingImage ? (
+                            <ArrowPathIcon className="h-6 w-6 text-white animate-spin" />
+                          ) : (
+                            <CameraIcon className="h-6 w-6 text-white" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Name and username */}
+                  <div className="text-center sm:text-left mb-4 w-full">
+                    <h1 className="text-xl font-bold text-gray-900 mb-1">
+                      {userData?.FullName}
+                    </h1>
+                    <p className="text-gray-600 text-sm mb-2">@{userData?.Username}</p>
+                    <p className="text-gray-500 text-sm">
+                      {userData?.Role === 'STUDENT' ? 'Học sinh' : userData?.Role === 'TEACHER' ? 'Giáo viên' : 'Quản trị viên'}
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 w-full mb-6">
+                    {!isOwnProfile && (
+                      <>
+                        {/* Friend request button */}
+                        {friendshipStatus === null && (
+                          <button
+                            onClick={sendFriendRequest}
+                            disabled={friendRequestSending}
+                            className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                          >
+                            {friendRequestSending ? 
+                              <ArrowPathIcon className="h-4 w-4 animate-spin" /> : 
+                              <UserPlusIcon className="h-4 w-4" />
+                            }
+                            <span>Kết bạn</span>
+                          </button>
+                        )}
+                        
+                        {friendshipStatus === 'pending' && (
+                          <button
+                            onClick={acceptFriendRequest}
+                            disabled={friendRequestSending}
+                            className="flex-1 px-3 py-2 bg-yellow-500 text-white text-sm rounded-lg hover:bg-yellow-600 transition flex items-center justify-center gap-2"
+                          >
+                            {friendRequestSending ? 
+                              <ArrowPathIcon className="h-4 w-4 animate-spin" /> : 
+                              <ClockIcon className="h-4 w-4" />
+                            }
+                            <span>Chấp nhận</span>
+                          </button>
+                        )}
+                        
+                        {friendshipStatus === 'accepted' && (
+                          <button
+                            onClick={removeFriend}
+                            disabled={friendRequestSending}
+                            className="flex-1 px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition flex items-center justify-center gap-2"
+                          >
+                            {friendRequestSending ? 
+                              <ArrowPathIcon className="h-4 w-4 animate-spin" /> : 
+                              <UserMinusIcon className="h-4 w-4" />
+                            }
+                            <span>Bạn bè</span>
+                          </button>
+                        )}
+
+                        {/* Chat button */}
+                        <button
+                          onClick={handleStartChat}
+                          className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                        >
+                          <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                          <span>Chat</span>
+                        </button>
+                      </>
+                    )}
+                    
+                    {isOwnProfile && (
+                      <button
+                        onClick={() => navigate('/settings', { state: { activeTab: 'general' } })}
+                        className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition flex items-center justify-center gap-2"
+                      >
+                        <CogIcon className="h-4 w-4" />
+                        <span>Chỉnh sửa hồ sơ</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-4 py-4 border-t border-gray-100">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{userPosts.length}</div>
+                    <div className="text-xs text-gray-500">Bài viết</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">{userFriends.length}</div>
+                    <div className="text-xs text-gray-500">Bạn bè</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-gray-900">
+                      {isOwnProfile ? bookmarkedPosts.length : 0}
+                    </div>
+                    <div className="text-xs text-gray-500">Đã lưu</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="mb-6">
+                <div className="space-y-3">
+                  {userData?.Email && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <EnvelopeIcon className="h-4 w-4 mr-3 text-gray-400" />
+                      <span className="truncate">{userData.Email}</span>
+                      {(userData?.EmailVerified === true || userData?.emailVerified === true) ? (
+                        <ShieldCheckIcon className="h-4 w-4 ml-2 text-green-500" />
                       ) : (
-                        <CameraIcon className="h-8 w-8 text-white" />
+                        <span className="ml-2 text-xs text-red-500">(Chưa xác thực)</span>
                       )}
                     </div>
                   )}
-                </div>
-              </div>
-            </div>
-
-            {/* Profile Info */}
-            <div className="pt-20 md:pt-24 px-6 md:px-8 pb-8">
-              <div className="flex flex-col md:flex-row md:justify-between md:items-start mb-6 gap-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    {userData?.FullName}
-                  </h1>
-                  <p className="text-gray-600">{userData?.Role === 'STUDENT' ? 'Học sinh' : userData?.Role === 'TEACHER' ? 'Giáo viên' : 'Quản trị viên'}</p>
-                </div>
-                <div className="flex space-x-2">
-                  {!isOwnProfile && (
-                    <>
-                      {/* Chat button */}
-                      <button
-                        onClick={handleStartChat}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
-                      >
-                        <ChatBubbleLeftRightIcon className="h-5 w-5" />
-                        <span>Chat</span>
-                      </button>
-                      
-                      {/* Friend request button - show different button based on friendship status */}
-                      {friendshipStatus === null && (
-                        <button
-                          onClick={sendFriendRequest}
-                          disabled={friendRequestSending}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
-                        >
-                          {friendRequestSending ? 
-                            <ArrowPathIcon className="h-5 w-5 animate-spin" /> : 
-                            <UserPlusIcon className="h-5 w-5" />
-                          }
-                          <span>Kết bạn</span>
-                        </button>
-                      )}
-                      
-                      {friendshipStatus === 'pending' && (
-                        <button
-                          onClick={acceptFriendRequest}
-                          disabled={friendRequestSending}
-                          className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition flex items-center space-x-2"
-                        >
-                          {friendRequestSending ? 
-                            <ArrowPathIcon className="h-5 w-5 animate-spin" /> : 
-                            <ClockIcon className="h-5 w-5" />
-                          }
-                          <span>Chấp nhận</span>
-                        </button>
-                      )}
-                      
-                      {friendshipStatus === 'accepted' && (
-                        <button
-                          onClick={removeFriend}
-                          disabled={friendRequestSending}
-                          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center space-x-2"
-                        >
-                          {friendRequestSending ? 
-                            <ArrowPathIcon className="h-5 w-5 animate-spin" /> : 
-                            <UserMinusIcon className="h-5 w-5" />
-                          }
-                          <span>Hủy kết bạn</span>
-                        </button>
-                      )}
-                    </>
+                  
+                  {userData?.PhoneNumber && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <PhoneIcon className="h-4 w-4 mr-3 text-gray-400" />
+                      <span>{userData.PhoneNumber}</span>
+                    </div>
                   )}
                   
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => navigate('/settings', { state: { activeTab: 'general' } })}
-                      className="text-gray-600 hover:text-gray-900 transition"
+                  {userData?.School && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <BuildingLibraryIcon className="h-4 w-4 mr-3 text-gray-400" />
+                      <span className="truncate">{userData.School}</span>
+                    </div>
+                  )}
+                  
+                  {userData?.Address && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <MapPinIcon className="h-4 w-4 mr-3 text-gray-400" />
+                      <span className="truncate">{userData.Address}</span>
+                    </div>
+                  )}
+                  
+                  {userData?.DateOfBirth && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <CalendarIcon className="h-4 w-4 mr-3 text-gray-400" />
+                      <span>Ngày sinh: {formatDate(userData.DateOfBirth)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center text-sm text-gray-600">
+                    <ClockIcon className="h-4 w-4 mr-3 text-gray-400" />
+                    <span>Tham gia {formatDate(userData?.CreatedAt)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education */}
+              {educationData.length > 0 && (
+                <div className="mb-6 border-t border-gray-100 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                    <AcademicCapIcon className="h-4 w-4 mr-2" />
+                    Học vấn
+                  </h3>
+                  <div className="space-y-3">
+                    {educationData.slice(0, 2).map((edu, index) => (
+                      <div key={edu.id || index} className="text-sm">
+                        <div className="font-medium text-gray-900">{edu.school}</div>
+                        <div className="text-gray-600">
+                          {edu.degree} {edu.field ? `- ${edu.field}` : ''}
+                        </div>
+                        <div className="text-gray-500 text-xs">
+                          {edu.startDate && format(new Date(edu.startDate), 'MM/yyyy', { locale: vi })} - {edu.current ? 'Hiện tại' : edu.endDate && format(new Date(edu.endDate), 'MM/yyyy', { locale: vi })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Work Experience */}
+              {workExperienceData.length > 0 && (
+                <div className="mb-6 border-t border-gray-100 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                    <BriefcaseIcon className="h-4 w-4 mr-2" />
+                    Kinh nghiệm
+                  </h3>
+                  <div className="space-y-3">
+                    {workExperienceData.slice(0, 2).map((work, index) => (
+                      <div key={work.id || index} className="text-sm">
+                        <div className="font-medium text-gray-900">{work.company}</div>
+                        <div className="text-gray-600">{work.position}</div>
+                        <div className="text-gray-500 text-xs">
+                          {work.startDate && format(new Date(work.startDate), 'MM/yyyy', { locale: vi })} - {work.current ? 'Hiện tại' : work.endDate && format(new Date(work.endDate), 'MM/yyyy', { locale: vi })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Friends Preview */}
+              {userFriends.length > 0 && (
+                <div className="border-t border-gray-100 pt-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                    <UserGroupIcon className="h-4 w-4 mr-2" />
+                    Bạn bè ({userFriends.length})
+                  </h3>
+                  <div className="grid grid-cols-6 gap-2">
+                    {userFriends.slice(0, 6).map(friend => (
+                      <div 
+                        key={friend.UserID || friend.FriendID}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/profile/${friend.UserID || friend.FriendID}`)}
+                      >
+                        <Avatar 
+                          src={friend.Image || friend.FriendProfilePicture} 
+                          name={friend.FullName || friend.FriendFullName}
+                          size="sm"
+                          className="w-8 h-8"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {userFriends.length > 6 && (
+                    <button 
+                      className="text-xs text-blue-600 hover:text-blue-800 mt-2"
+                      onClick={() => navigate(isOwnProfile ? '/friends' : `/friends?userId=${userId}`)}
                     >
-                      <CogIcon className="h-6 w-6" />
+                      Xem tất cả {userFriends.length} bạn bè
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <IdentificationIcon className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Tên đăng nhập</p>
-                        <p className="text-gray-900">{userData?.Username}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <div className="flex items-center">
-                          {(userData?.EmailVerified === true || userData?.emailVerified === true) ? (
-                            <p className="text-gray-900">{userData?.Email || userData?.email || 'Chưa cập nhật'}</p>
-                          ) : (
-                            <p 
-                              className="text-red-600 cursor-pointer hover:underline"
-                              onClick={() => isOwnProfile && setShowEmailVerification(true)}
-                            >
-                              {userData?.Email || userData?.email || 'Chưa cập nhật'}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <PhoneIcon className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Số điện thoại</p>
-                        <p className="text-gray-900">{userData?.PhoneNumber || 'Chưa cập nhật'}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <CalendarIcon className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Ngày sinh</p>
-                        <p className="text-gray-900">{formatDate(userData?.DateOfBirth)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <BuildingLibraryIcon className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Trường học</p>
-                        <p className="text-gray-900">{userData?.School || 'Chưa cập nhật'}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center space-x-3">
-                      <MapPinIcon className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Địa chỉ</p>
-                        <p className="text-gray-900">{userData?.Address || 'Chưa cập nhật'}</p>
-                        <p className="text-gray-600">
-                          {[userData?.City, userData?.Country].filter(Boolean).join(', ') || 'Chưa cập nhật'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Education Section */}
-                <div className="border-t pt-6 mt-6">
-                  <div className="flex items-center mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <AcademicCapIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Học vấn
-                    </h2>
-                  </div>
-                
-                  {/* View mode for education */}
-                  <div className="space-y-4">
-                    {educationData.length === 0 ? (
-                      <div className="p-4 text-gray-500 text-center bg-gray-50 border border-dashed rounded-md">
-                        {isOwnProfile ? (
-                          <>
-                            Chưa có thông tin học vấn. 
-                          </>
-                        ) : (
-                          <>Người dùng chưa cập nhật thông tin học vấn.</>
-                        )}
-                      </div>
-                    ) : (
-                      educationData.map((edu, index) => (
-                        <div key={edu.id || index} className="p-4 bg-gray-50 rounded-md">
-                          <h4 className="font-semibold text-gray-900">{edu.school || 'Không có tên trường'}</h4>
-                          <p className="text-gray-700">
-                            {edu.degree} {edu.field ? `- ${edu.field}` : ''}
-                          </p>
-                          <p className="text-gray-500 text-sm">
-                            {edu.startDate && format(new Date(edu.startDate), 'MM/yyyy', { locale: vi })} - {edu.current ? 'Hiện tại' : edu.endDate && format(new Date(edu.endDate), 'MM/yyyy', { locale: vi })}
-                          </p>
-                          {edu.description && (
-                            <p className="mt-1 text-gray-600 text-sm">{edu.description}</p>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Work Experience Section */}
-                <div className="border-t pt-6 mt-6">
-                  <div className="flex items-center mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <BriefcaseIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Kinh nghiệm làm việc
-                    </h2>
-                  </div>
-                
-                  {/* View mode for work experience */}
-                  <div className="space-y-4">
-                    {workExperienceData.length === 0 ? (
-                      <div className="p-4 text-gray-500 text-center bg-gray-50 border border-dashed rounded-md">
-                        {isOwnProfile ? (
-                          <>
-                            Chưa có thông tin kinh nghiệm làm việc.
-                          </>
-                        ) : (
-                          <>Người dùng chưa cập nhật thông tin kinh nghiệm làm việc.</>
-                        )}
-                      </div>
-                    ) : (
-                      workExperienceData.map((work, index) => (
-                        <div key={work.id || index} className="p-4 bg-gray-50 rounded-md">
-                          <h4 className="font-semibold text-gray-900">{work.company || 'Không có tên công ty'}</h4>
-                          <p className="text-gray-700">
-                            {work.position} {work.location ? `- ${work.location}` : ''}
-                          </p>
-                          <p className="text-gray-500 text-sm">
-                            {work.startDate && format(new Date(work.startDate), 'MM/yyyy', { locale: vi })} - {work.current ? 'Hiện tại' : work.endDate && format(new Date(work.endDate), 'MM/yyyy', { locale: vi })}
-                          </p>
-                          {work.description && (
-                            <p className="mt-1 text-gray-600 text-sm">{work.description}</p>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Account Info */}
-                <div className="border-t pt-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Thông tin tài khoản</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-500">Ngày tham gia</p>
-                      <p className="text-gray-900">{formatDate(userData?.CreatedAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Đăng nhập gần nhất</p>
-                      <p className="text-gray-900">{formatDate(userData?.LastLoginAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Trạng thái tài khoản</p>
-                      <p className={`font-medium ${
-                        userData?.AccountStatus === 'ACTIVE' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {userData?.AccountStatus === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Xác thực email</p>
-                      <p className={`font-medium ${
-                        (userData?.EmailVerified === true || userData?.emailVerified === true) ? 'text-green-600' : 'text-yellow-600'
-                      }`}>
-                        {(userData?.EmailVerified === true || userData?.emailVerified === true) ? 'Đã xác thực' : 'Chưa xác thực'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Friends List */}
-                <div className="border-t pt-6 mt-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <UserGroupIcon className="h-5 w-5 mr-2 text-blue-600" />
-                    Bạn bè ({userFriends.length})
-                  </h2>
-                  
-                  {friendsLoading ? (
-                    <div className="flex justify-center py-4">
-                      <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-600"></div>
-                    </div>
-                  ) : friendsError ? (
-                    <div className="text-center py-4 text-red-500">
-                      Không thể tải danh sách bạn bè
-                    </div>
-                  ) : userFriends.length === 0 ? (
-                    <div className="text-center py-4 text-gray-500">
-                      {isOwnProfile ? 'Bạn chưa có kết bạn với ai.' : `${userData?.FullName || 'Người dùng này'} chưa có kết bạn với ai.`}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                      {userFriends.slice(0, 8).map(friend => (
-                        <div 
-                          key={friend.UserID || friend.FriendID}
-                          className="flex flex-col items-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                          onClick={() => navigate(`/profile/${friend.UserID || friend.FriendID}`)}
-                        >
-                          <Avatar 
-                            src={friend.Image || friend.FriendProfilePicture} 
-                            name={friend.FullName || friend.FriendFullName}
-                            size="md"
-                            className="mb-2"
-                          />
-                          <p className="text-sm font-medium text-center truncate w-full">
-                            {friend.FullName || friend.FriendFullName}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate w-full text-center">
-                            @{friend.Username || friend.FriendUsername}
-                          </p>
-                        </div>
-                      ))}
-                      
-                      {userFriends.length > 8 && (
-                        <div 
-                          className="flex flex-col items-center justify-center p-2 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer"
-                          onClick={() => navigate(isOwnProfile ? '/friends' : `/friends?userId=${userId}`)}
-                        >
-                          <div className="bg-gray-100 rounded-full p-2 mb-2">
-                            <ArrowPathIcon className="h-6 w-6 text-gray-500" />
-                          </div>
-                          <p className="text-sm font-medium text-blue-600 text-center">
-                            Xem tất cả ({userFriends.length})
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right column - Posts - Now positioned below on mobile */}
-        <div className="w-full md:w-[65%] p-4 overflow-y-auto mt-4 md:mt-0">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center sticky top-4 bg-white py-4 z-10">
-              <DocumentTextIcon className="h-6 w-6 text-blue-600 mr-2" />
-              Bài viết của {isOwnProfile ? 'tôi' : userData?.FullName?.split(' ').pop()}
-            </h2>
-
-            {/* Tabs for posts */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              <button
-                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${activeTab === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                onClick={() => setActiveTab('all')}
-              >
-                Tất cả bài viết
-              </button>
-              <button
-                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${activeTab === 'image' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                onClick={() => setActiveTab('image')}
-              >
-                Ảnh
-              </button>
-              <button
-                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${activeTab === 'video' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                onClick={() => setActiveTab('video')}
-              >
-                Video
-              </button>
-              {isOwnProfile && (
-                <button
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center ${activeTab === 'saved' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                  onClick={() => setActiveTab('saved')}
-                >
-                  <BookmarkIcon className="w-4 h-4 mr-1" />
-                  Đã lưu
-                </button>
               )}
             </div>
+          </div>
 
-            {/* Filter posts by tab - Added handling for saved posts */}
-            {activeTab === 'saved' ? (
-              bookmarksLoading ? (
-                <div className="text-center py-10">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Đang tải bài viết đã lưu...</p>
-                </div>
-              ) : bookmarksError ? (
-                <div className="text-center py-10">
-                  <p className="text-red-600">Không thể tải bài viết đã lưu: {bookmarksError}</p>
-                </div>
-              ) : bookmarkedPosts.length === 0 ? (
-                <div className="text-center py-10 bg-gray-50 rounded-lg">
-                  <BookmarkIcon className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                  <p className="text-gray-600">Bạn chưa lưu bài viết nào.</p>
-                  <p className="text-gray-500 mt-1">Bài viết đã lưu sẽ hiển thị tại đây.</p>
+          {/* Right Content - Posts */}
+          <div className="flex-1 min-w-0 bg-white">
+            {/* Navigation Tabs */}
+            <div className="border-b border-gray-200">
+              <div className="flex">
+                <button
+                  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'all' 
+                      ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  onClick={() => setActiveTab('all')}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <DocumentTextIcon className="h-4 w-4" />
+                    <span>Bài viết</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                      {userPosts.length}
+                    </span>
+                  </div>
+                </button>
+                
+                <button
+                  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'image' 
+                      ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  onClick={() => setActiveTab('image')}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <PhotoIcon className="h-4 w-4" />
+                    <span>Ảnh</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                      {filteredPosts(userPosts, 'image').length}
+                    </span>
+                  </div>
+                </button>
+                
+                <button
+                  className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === 'video' 
+                      ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  onClick={() => setActiveTab('video')}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span>Video</span>
+                    <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                      {filteredPosts(userPosts, 'video').length}
+                    </span>
+                  </div>
+                </button>
+                
+                {isOwnProfile && (
                   <button
-                    onClick={() => navigate('/posts')}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                      activeTab === 'saved' 
+                        ? 'border-blue-500 text-blue-600 bg-blue-50' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    onClick={() => setActiveTab('saved')}
                   >
-                    Khám phá bài viết
+                    <div className="flex items-center justify-center gap-2">
+                      <BookmarkIcon className="h-4 w-4" />
+                      <span>Đã lưu</span>
+                      <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                        {bookmarkedPosts.length}
+                      </span>
+                    </div>
                   </button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <PostList 
-                    initialPosts={bookmarkedPosts} 
-                    onLike={handleLike}
-                    onComment={handleComment}
-                    onShare={(postId) => console.log('Share:', postId)}
-                    onEdit={handleEditPost}
-                    onRefreshMedia={refreshPostMedia}
-                    onBookmark={handleBookmark}
-                  />
-                </div>
-              )
-            ) : (
-              postsLoading ? (
-                <div className="text-center py-10">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Đang tải bài viết...</p>
-                </div>
-              ) : postsError ? (
-                <div className="text-center py-10">
-                  <p className="text-red-600">Không thể tải bài viết: {postsError}</p>
-                </div>
-              ) : filteredPosts(userPosts, activeTab).length === 0 ? (
-                <div className="text-center py-10 bg-gray-50 rounded-lg">
-                  <p className="text-gray-600">
-                    {isOwnProfile 
-                      ? 'Bạn chưa có bài viết nào. Hãy chia sẻ điều gì đó với cộng đồng!' 
-                      : `${userData?.FullName} chưa có bài viết nào.`}
-                  </p>
-                  {isOwnProfile && (
-                    <button
-                      onClick={() => navigate('/posts')}
-                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Tạo bài viết
-                    </button>
+                )}
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="min-h-screen">
+              {/* Posts Content */}
+              {activeTab === 'saved' ? (
+                <div className="p-6">
+                  {bookmarksLoading ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Đang tải bài viết đã lưu...</p>
+                    </div>
+                  ) : bookmarksError ? (
+                    <div className="text-center py-12">
+                      <p className="text-red-600">Không thể tải bài viết đã lưu: {bookmarksError}</p>
+                    </div>
+                  ) : bookmarkedPosts.length === 0 ? (
+                    <div className="text-center py-12">
+                      <BookmarkIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có bài viết đã lưu</h3>
+                      <p className="text-gray-500 mb-4">Bài viết bạn lưu sẽ hiển thị tại đây.</p>
+                      <button
+                        onClick={() => navigate('/posts')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                      >
+                        Khám phá bài viết
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <PostList 
+                        initialPosts={bookmarkedPosts} 
+                        onLike={handleLike}
+                        onComment={handleComment}
+                        onShare={(postId) => console.log('Share:', postId)}
+                        onEdit={handleEditPost}
+                        onRefreshMedia={refreshPostMedia}
+                        onBookmark={handleBookmark}
+                      />
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-6">
-                  <PostList 
-                    initialPosts={filteredPosts(userPosts, activeTab)} 
-                    onLike={handleLike}
-                    onComment={handleComment}
-                    onShare={(postId) => console.log('Share:', postId)}
-                    onEdit={handleEditPost}
-                    onRefreshMedia={refreshPostMedia}
-                    onBookmark={handleBookmark}
-                  />
+                <div className="p-6">
+                  {postsLoading ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Đang tải bài viết...</p>
+                    </div>
+                  ) : postsError ? (
+                    <div className="text-center py-12">
+                      <p className="text-red-600">Không thể tải bài viết: {postsError}</p>
+                    </div>
+                  ) : filteredPosts(userPosts, activeTab).length === 0 ? (
+                    <div className="text-center py-12">
+                      <DocumentTextIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {activeTab === 'all' && 'Chưa có bài viết'}
+                        {activeTab === 'image' && 'Chưa có bài viết với ảnh'}
+                        {activeTab === 'video' && 'Chưa có bài viết với video'}
+                      </h3>
+                      <p className="text-gray-500 mb-4">
+                        {isOwnProfile 
+                          ? 'Hãy chia sẻ điều gì đó với cộng đồng!' 
+                          : `${userData?.FullName} chưa chia sẻ ${activeTab === 'all' ? 'bài viết' : activeTab === 'image' ? 'ảnh' : 'video'} nào.`
+                        }
+                      </p>
+                      {isOwnProfile && (
+                        <button
+                          onClick={() => navigate('/posts')}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        >
+                          Tạo bài viết đầu tiên
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <PostList 
+                        initialPosts={filteredPosts(userPosts, activeTab)} 
+                        onLike={handleLike}
+                        onComment={handleComment}
+                        onShare={(postId) => console.log('Share:', postId)}
+                        onEdit={handleEditPost}
+                        onRefreshMedia={refreshPostMedia}
+                        onBookmark={handleBookmark}
+                      />
+                    </div>
+                  )}
                 </div>
-              )
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

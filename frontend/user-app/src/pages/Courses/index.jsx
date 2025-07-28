@@ -5,7 +5,7 @@
 * Description: This file is a component/module for the student application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { fetchEnrolledCourses, addEnrolledCourse, loadCachedAllCourses, preloadAllCourses } from '@/store/slices/courseSlice';
@@ -306,6 +306,59 @@ const Courses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState(''); // Thêm state cho tìm kiếm
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const carouselRef = useRef(null);
+  
+  // Course showcase images for the banner
+  const courseImages = [
+    {
+      url: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80",
+      title: "Lập trình Web"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80",
+      title: "Phát triển ứng dụng"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80",
+      title: "Khoa học dữ liệu"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=872&q=80",
+      title: "Thiết kế UX/UI"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80",
+      title: "Machine Learning"
+    }
+  ];
+  
+  // Function to handle manual navigation
+  const navigateCarousel = (direction) => {
+    if (direction === "prev") {
+      setCurrentImageIndex((prevIndex) => {
+        const newIndex = prevIndex === 0 ? courseImages.length - 1 : prevIndex - 1;
+        return newIndex;
+      });
+    } else {
+      setCurrentImageIndex((prevIndex) => {
+        const newIndex = (prevIndex + 1) % courseImages.length;
+        return newIndex;
+      });
+    }
+  };
+
+  // Handle image carousel rotation with automatic adjustment for infinite scroll
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => {
+        const newIndex = (prevIndex + 1) % courseImages.length;
+        return newIndex;
+      });
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [courseImages.length]);
   
   // Immediately try to load cached data without loading state
   useEffect(() => {
@@ -623,8 +676,242 @@ const Courses = () => {
             display: inline;
           }
         }
+        
+        /* Image Carousel Styles */
+        .carousel-container {
+          position: relative;
+          width: 100%;
+          overflow: visible;
+        }
+        
+        .carousel-track {
+          display: flex;
+          transition: transform 0.5s ease;
+          position: relative;
+          justify-content: center;
+        }
+        
+        .carousel-item {
+          flex: 0 0 50%;
+          position: relative;
+          transition: all 0.5s ease;
+          transform-origin: center center;
+          margin: 0 -10%;
+        }
+        
+        .carousel-item.active {
+          transform: scale(1.1);
+          opacity: 1;
+          z-index: 10;
+          filter: brightness(1.1);
+        }
+        
+        .carousel-item.side {
+          transform: scale(0.8);
+          opacity: 0.7;
+          filter: blur(2px) brightness(0.8);
+          z-index: 1;
+        }
+
+        /* Navigation button positioning */
+        .carousel-nav-button {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 30;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.3);
+          backdrop-filter: blur(4px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: white;
+          transition: all 0.2s;
+        }
+
+        .carousel-nav-button:hover {
+          background: rgba(0, 0, 0, 0.5);
+          border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .carousel-nav-button.prev {
+          left: 0;
+        }
+
+        .carousel-nav-button.next {
+          right: 0;
+        }
       `}</style>
       
+      {/* Modern Banner - Positioned at the very top */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-indigo-800 to-blue-700">
+        {/* Decorative elements */}
+        <div className="absolute inset-0">
+          <svg className="absolute left-0 h-full w-48 text-white/5" viewBox="0 0 100 100" preserveAspectRatio="none" fill="currentColor">
+            <polygon points="50,0 100,0 50,100 0,100" />
+          </svg>
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-indigo-700/30 mix-blend-multiply" />
+          <div className="absolute right-0 top-0 -mt-20 -mr-32 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl"></div>
+          <div className="absolute left-0 bottom-0 -mb-20 -ml-32 h-72 w-72 rounded-full bg-indigo-600/20 blur-3xl"></div>
+        </div>
+
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center md:items-start justify-between py-6 md:py-12 relative z-10">
+            <div className="mb-6 md:mb-0 md:w-1/2 lg:w-2/5 md:mr-4">
+              <div className="flex items-center mb-3">
+                <div className="bg-blue-400/30 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold text-white inline-flex items-center">
+                  <span className="animate-pulse mr-1.5 h-2 w-2 rounded-full bg-blue-200"></span>
+                  Đang diễn ra
+                </div>
+                <div className="h-0.5 w-6 bg-blue-300/30 mx-3"></div>
+                <div className="text-blue-100 text-xs font-medium">Cập nhật mới 2025</div>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
+                Khám phá thế giới kiến thức <br className="hidden sm:block" />
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-indigo-200 to-purple-200">
+                  với CampusLearing
+                </span>
+              </h2>
+              <p className="text-blue-100 mb-6 text-base md:text-lg opacity-80 max-w-xl">
+                Truy cập hơn 100+ khóa học chất lượng cao, được thiết kế bởi những chuyên gia hàng đầu trong lĩnh vực.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <button className="px-6 py-3 bg-white text-blue-700 rounded-lg font-medium hover:bg-blue-50 transition-colors shadow-md flex items-center group">
+                  <span>Khám phá khóa học</span>
+                  <svg className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                  </svg>
+                </button>
+                <button className="px-6 py-3 bg-blue-700/30 backdrop-blur-sm border border-blue-300/20 text-white rounded-lg font-medium hover:bg-blue-600/30 transition-colors">
+                  Tìm hiểu thêm
+                </button>
+              </div>
+            </div>
+            
+            {/* Image Carousel - Completely redesigned */}
+            <div className="w-full md:w-1/2 lg:w-3/5 md:pl-6 lg:pl-10 flex justify-center overflow-visible">
+              <div className="relative w-full max-w-[600px] h-[280px] md:h-[320px]">
+                {/* Carousel Container */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="relative w-full h-full px-8">
+                    {/* Main center image */}
+                    <div className="absolute inset-0 z-20 flex items-center justify-center">
+                      <div className="relative w-[60%] h-[75%] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/40 transform transition-all duration-700 ease-out hover:scale-105">
+                        <img 
+                          src={courseImages[currentImageIndex].url}
+                          alt={courseImages[currentImageIndex].title}
+                          className="w-full h-full object-cover transition-all duration-700 ease-out"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <div className="bg-white/10 backdrop-blur-md rounded-lg p-3 border border-white/20">
+                            <h3 className="text-white font-semibold text-sm">{courseImages[currentImageIndex].title}</h3>
+                            <p className="text-white/80 text-xs mt-1">Khóa học chất lượng cao</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Left side image */}
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-[45%] h-[55%] transition-all duration-700 ease-out">
+                      <div className="relative w-full h-full rounded-xl overflow-hidden shadow-xl opacity-60 transform scale-80 blur-[1.5px] hover:opacity-80 hover:scale-85 transition-all duration-500">
+                        <img 
+                          src={courseImages[(currentImageIndex - 1 + courseImages.length) % courseImages.length].url}
+                          alt={courseImages[(currentImageIndex - 1 + courseImages.length) % courseImages.length].title}
+                          className="w-full h-full object-cover transition-all duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/30"></div>
+                      </div>
+                    </div>
+                    
+                    {/* Right side image */}
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-[45%] h-[55%] transition-all duration-700 ease-out">
+                      <div className="relative w-full h-full rounded-xl overflow-hidden shadow-xl opacity-60 transform scale-80 blur-[1.5px] hover:opacity-80 hover:scale-85 transition-all duration-500">
+                        <img 
+                          src={courseImages[(currentImageIndex + 1) % courseImages.length].url}
+                          alt={courseImages[(currentImageIndex + 1) % courseImages.length].title}
+                          className="w-full h-full object-cover transition-all duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-l from-transparent to-black/30"></div>
+                      </div>
+                    </div>
+                    
+                    {/* Additional side images for extended view */}
+                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 z-5 w-[30%] h-[40%] transition-all duration-700 ease-out">
+                      <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg opacity-30 transform scale-60 blur-[2px]">
+                        <img 
+                          src={courseImages[(currentImageIndex - 2 + courseImages.length) % courseImages.length].url}
+                          alt={courseImages[(currentImageIndex - 2 + courseImages.length) % courseImages.length].title}
+                          className="w-full h-full object-cover transition-all duration-700"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="absolute -right-4 top-1/2 -translate-y-1/2 z-5 w-[30%] h-[40%] transition-all duration-700 ease-out">
+                      <div className="relative w-full h-full rounded-lg overflow-hidden shadow-lg opacity-30 transform scale-60 blur-[2px]">
+                        <img 
+                          src={courseImages[(currentImageIndex + 2) % courseImages.length].url}
+                          alt={courseImages[(currentImageIndex + 2) % courseImages.length].title}
+                          className="w-full h-full object-cover transition-all duration-700"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Enhanced Navigation buttons */}
+                <button 
+                  onClick={() => navigateCarousel('prev')}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-all duration-300 border border-white/30 hover:border-white/50 hover:scale-110 group"
+                  aria-label="Previous image"
+                >
+                  <svg className="w-6 h-6 transform group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                
+                <button 
+                  onClick={() => navigateCarousel('next')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-all duration-300 border border-white/30 hover:border-white/50 hover:scale-110 group"
+                  aria-label="Next image"
+                >
+                  <svg className="w-6 h-6 transform group-hover:translate-x-0.5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                
+                {/* Enhanced Carousel indicators */}
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-3 z-30">
+                  {courseImages.map((_, idx) => (
+                    <button 
+                      key={idx} 
+                      onClick={() => setCurrentImageIndex(idx)}
+                      className={`rounded-full transition-all duration-300 hover:scale-110 ${
+                        idx === currentImageIndex 
+                          ? 'bg-white w-8 h-2.5 shadow-lg' 
+                          : 'bg-white/50 w-2.5 h-2.5 hover:bg-white/70'
+                      }`} 
+                      aria-label={`Go to image ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+                
+                {/* Progress bar */}
+                <div className="absolute bottom-1 left-8 right-8 h-0.5 bg-white/20 rounded-full z-30">
+                  <div 
+                    className="h-full bg-white rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${((currentImageIndex + 1) / courseImages.length) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Redesigned Header section */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 py-4 md:py-6">
@@ -778,6 +1065,8 @@ const Courses = () => {
           </div>
         </div>
       </div>
+
+      {/* Promotional Banner - Removing the old banner */}
 
       <div className="container mx-auto px-4 py-5 md:py-8">
         {/* Course Grid */}

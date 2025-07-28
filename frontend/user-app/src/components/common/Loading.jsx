@@ -8,7 +8,7 @@
 import React from 'react';
 import { CheckCircleIcon } from '@heroicons/react/24/solid';
 
-const Loading = ({ size = 'default', message = 'Đang tải...', variant = 'default' }) => {
+const Loading = ({ size = 'default', message = 'Đang tải...', variant = 'default', fullscreen = true }) => {
   let spinnerSize;
   let textSize;
   let containerClass;
@@ -19,7 +19,7 @@ const Loading = ({ size = 'default', message = 'Đang tải...', variant = 'defa
       spinnerSize = 'h-8 w-8';
       iconSize = 'h-10 w-10';
       textSize = 'text-sm';
-      containerClass = 'min-h-[200px]';
+      containerClass = fullscreen ? 'min-h-screen' : 'min-h-[200px]';
       break;
     case 'large':
       spinnerSize = 'h-16 w-16';
@@ -31,7 +31,7 @@ const Loading = ({ size = 'default', message = 'Đang tải...', variant = 'defa
       spinnerSize = 'h-12 w-12';
       iconSize = 'h-16 w-16';
       textSize = 'text-lg';
-      containerClass = 'min-h-[400px]';
+      containerClass = fullscreen ? 'min-h-screen' : 'min-h-[400px]';
   }
 
   // Color schemes based on variant
@@ -54,8 +54,10 @@ const Loading = ({ size = 'default', message = 'Đang tải...', variant = 'defa
 
   const colors = colorSchemes[variant] || colorSchemes.default;
   
+  const fullscreenClass = fullscreen ? 'fixed inset-0 z-50' : '';
+  
   return (
-    <div className={`flex flex-col items-center justify-center ${containerClass} ${colors.bg}`}>
+    <div className={`flex flex-col items-center justify-center ${containerClass} ${colors.bg} ${fullscreenClass}`}>
       {/* Modern animated background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className={`absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br ${colors.blobs[0]} rounded-full mix-blend-multiply filter blur-xl animate-pulse`}></div>

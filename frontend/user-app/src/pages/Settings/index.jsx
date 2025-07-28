@@ -53,6 +53,9 @@ import Account from './Account';
 // Import Interface component
 import Interface from './Interface';
 
+// Import Loading component
+import Loading from '../../components/common/Loading';
+
 const Settings = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -80,6 +83,7 @@ const Settings = () => {
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Fetch user settings on component mount
   useEffect(() => {
@@ -278,9 +282,23 @@ const Settings = () => {
   };
 
   // Handle logout
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate('/login');
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // Add a 5-second delay to ensure the logout process isn't too quick
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      // Dispatch logout action
+      await dispatch(logout());
+      
+      // Navigate to login page after logout
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Đã xảy ra lỗi khi đăng xuất');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   // Create a persistent loading state that doesn't flicker on navigation
@@ -300,6 +318,11 @@ const Settings = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
+  }
+  
+  // Show loading when logging out
+  if (isLoggingOut) {
+    return <Loading message="Đang đăng xuất..." variant="default" fullscreen={true} />;
   }
 
   const tabs = [
@@ -488,13 +511,15 @@ const Settings = () => {
           </div>
 
           <div className="mt-8">
-          <button
-            onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 mb-1 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all border border-transparent hover:border-red-300 rounded-md"
-          >
-              <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-2 text-red-500" />
-            <span>Đăng xuất</span>
-          </button>
+            <div className="flex justify-center">
+              <button
+                onClick={handleLogout}
+                className="flex items-center px-6 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors shadow-sm"
+              >
+                <ArrowLeftOnRectangleIcon className="h-5 w-5 mr-2" />
+                <span>Đăng xuất</span>
+              </button>
+            </div>
           </div>
         </div>
         

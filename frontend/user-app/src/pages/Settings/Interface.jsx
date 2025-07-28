@@ -371,6 +371,64 @@ const Interface = () => {
           </div>
           <div className="p-5 space-y-5">
             <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Kiểu điều hướng (Desktop)
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => handleSettingChange('preferences', 'navigationLayout', 'sidebar')}
+                  className={`relative rounded-xl p-4 border-2 cursor-pointer transition-all ${
+                    localSettings?.preferences?.navigationLayout === 'sidebar' || !localSettings?.preferences?.navigationLayout
+                      ? 'border-theme-primary bg-theme-accent bg-opacity-50' 
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                  }`}
+                >
+                  <div className="h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex mb-3">
+                    <div className="w-1/4 bg-theme-primary rounded-l-lg opacity-80"></div>
+                    <div className="flex-1 p-2">
+                      <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded mb-1"></div>
+                      <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                    </div>
+                  </div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">Sidebar</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Menu điều hướng bên trái
+                  </p>
+                  {(localSettings?.preferences?.navigationLayout === 'sidebar' || !localSettings?.preferences?.navigationLayout) && (
+                    <div className="absolute top-2 right-2 h-4 w-4 bg-theme-primary rounded-full"></div>
+                  )}
+                </div>
+                
+                <div 
+                  onClick={() => handleSettingChange('preferences', 'navigationLayout', 'header')}
+                  className={`relative rounded-xl p-4 border-2 cursor-pointer transition-all ${
+                    localSettings?.preferences?.navigationLayout === 'header'
+                      ? 'border-theme-primary bg-theme-accent bg-opacity-50' 
+                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                  }`}
+                >
+                  <div className="h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex flex-col mb-3">
+                    <div className="h-1/3 bg-theme-primary rounded-t-lg opacity-80"></div>
+                    <div className="flex-1 p-2">
+                      <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded mb-1"></div>
+                      <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                    </div>
+                  </div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">Header</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Menu điều hướng trên đầu
+                  </p>
+                  {localSettings?.preferences?.navigationLayout === 'header' && (
+                    <div className="absolute top-2 right-2 h-4 w-4 bg-theme-primary rounded-full"></div>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                Chọn cách hiển thị menu điều hướng chính trên màn hình desktop
+              </p>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Hiển thị thanh bên
               </label>
@@ -379,6 +437,7 @@ const Interface = () => {
                   value={localSettings?.preferences?.sidebarPosition || 'left'}
                   onChange={(e) => handleSettingChange('preferences', 'sidebarPosition', e.target.value)}
                   className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  disabled={localSettings?.preferences?.navigationLayout === 'header'}
                 >
                   <option value="left">Bên trái</option>
                   <option value="right">Bên phải</option>
@@ -391,7 +450,9 @@ const Interface = () => {
                 </div>
               </div>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Vị trí hiển thị của thanh điều hướng bên
+                {localSettings?.preferences?.navigationLayout === 'header' 
+                  ? 'Tùy chọn này không khả dụng khi sử dụng header navigation' 
+                  : 'Vị trí hiển thị của thanh điều hướng bên'}
               </p>
             </div>
 

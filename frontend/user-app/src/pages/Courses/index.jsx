@@ -8,10 +8,11 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { fetchEnrolledCourses, addEnrolledCourse, loadCachedAllCourses, preloadAllCourses } from '@/store/slices/courseSlice';
+import { enrollFreeCourse, fetchEnrolledCourses, addEnrolledCourse, loadCachedAllCourses, preloadAllCourses } from '@/store/slices/courseSlice';
 import courseApi from '@/api/courseApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
+import Loading from '@/components/common/Loading';
 import CoursesRoutes from './CoursesRoutes';
 
 // Hàm helper để format giá
@@ -127,13 +128,18 @@ const CourseCardSkeleton = () => (
   </div>
 );
 
-const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enrolledCourses }) => {
+const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enrolledCourses, onNavigate }) => {
   const courseId = course.CourseID || course.id;
   const isFreeCourse = formatPrice(course.Price) === 0;
   const enrolled = course.enrolled === true || isEnrolledCourse(course, enrolledCourses);
   const courseType = isITCourse(course) ? 'it' : 'regular';
   const dispatch = useDispatch();
   const { isAuthenticated } = useAuth();
+
+  const handleCourseClick = () => {
+    onNavigate();
+    navigate(`/courses/${courseId}`);
+  };
 
   const handleEnrollFreeCourse = async (e) => {
     e.stopPropagation();
@@ -145,22 +151,21 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
 
     if (isFreeCourse) {
       try {
-        const response = await courseApi.enrollFreeCourse(courseId);
-        if (response && (response.success || response.alreadyEnrolled)) {
+        toast.info('Đang xử lý đăng ký khóa học...', { autoClose: 2000 });
+        const result = await dispatch(enrollFreeCourse(courseId)).unwrap();
+        if (result.success || result.alreadyEnrolled) {
           toast.success('Đăng ký khóa học thành công!');
-          dispatch(addEnrolledCourse(course));
-          setTimeout(() => {
-            navigate(`/courses/${courseId}/learn`);
-          }, 1000);
+          dispatch(fetchEnrolledCourses());
+          setTimeout(() => navigate(`/courses/${courseId}/learn`), 1000);
         } else {
-          toast.error(response?.message || 'Không thể đăng ký khóa học');
+          toast.error(result.message || 'Không thể đăng ký khóa học');
         }
       } catch (error) {
-        toast.error('Đã xảy ra lỗi khi đăng ký khóa học');
         console.error('Error enrolling in course:', error);
+        toast.error(error.message || 'Đã xảy ra lỗi khi đăng ký khóa học');
       }
     } else {
-      navigate(`/payment/${courseId}`);
+      navigate(`/payment/${courseId}`, { state: { initialPaymentMethod: 'paypal' } });
     }
   };
 
@@ -178,7 +183,7 @@ const CourseCard = ({ course, enrollmentFilter, courseCategory, navigate, enroll
   return (
     <div 
       className="group bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg cursor-pointer h-full flex flex-col transition-shadow"
-      onClick={() => navigate(`/courses/${courseId}`)}
+      onClick={handleCourseClick}
     >
       {/* Course Image */}
       <div className="relative overflow-hidden">
@@ -299,16 +304,29 @@ const Courses = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, currentUser } = useAuth();
   const { enrolledCourses, allCourses, loading: enrolledLoading, dataLoaded } = useSelector((state) => state.course);
-  const [courseCategory, setCourseCategory] = useState('it'); // 'it' or 'regular'
-  const [enrollmentFilter, setEnrollmentFilter] = useState('all'); // 'all' or 'enrolled'
+  const [courseCategory, setCourseCategory] = useState('all');
+  const [enrollmentFilter, setEnrollmentFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState(''); // Thêm state cho tìm kiếm
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [navigatingToCourse, setNavigatingToCourse] = useState(false);
   const carouselRef = useRef(null);
-  
+
+  // Define course categories
+  const courseCategories = [
+    { id: 'all', name: 'Tất cả', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
+    { id: 'programming', name: 'Lập trình', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
+    { id: 'security', name: 'Bảo mật', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+    { id: 'data', name: 'Dữ liệu', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+    { id: 'web', name: 'Web', icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
+    { id: 'mobile', name: 'Mobile', icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z' },
+    { id: 'ai', name: 'AI & ML', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+    { id: 'life', name: 'Đời sống', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' }
+  ];
+
   // Course showcase images for the banner
   const courseImages = [
     {
@@ -359,6 +377,22 @@ const Courses = () => {
     
     return () => clearInterval(interval);
   }, [courseImages.length]);
+
+  // Reset navigation loading state after timeout to prevent getting stuck
+  useEffect(() => {
+    if (navigatingToCourse) {
+      const timeout = setTimeout(() => {
+        setNavigatingToCourse(false);
+      }, 5000); // Reset after 5 seconds if still loading
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [navigatingToCourse]);
+
+  // Reset navigation loading when location changes (user has successfully navigated)
+  useEffect(() => {
+    setNavigatingToCourse(false);
+  }, [location.pathname]);
   
   // Immediately try to load cached data without loading state
   useEffect(() => {
@@ -375,7 +409,7 @@ const Courses = () => {
 
   // Check if we're coming from payment success page with activeTab in state
   useEffect(() => {
-    if (location.state?.activeTab && isAuthenticated) {
+    if (location.state?.activeTab && isAuthenticated && currentUser?.id) {
       if (location.state.activeTab === 'enrolled') {
         setEnrollmentFilter('enrolled');
       }
@@ -388,14 +422,14 @@ const Courses = () => {
         toast.success('Thanh toán thành công! Bạn đã đăng ký khóa học thành công.');
       }
     }
-  }, [location.state, isAuthenticated, dispatch]);
+  }, [location.state, isAuthenticated, currentUser?.id, dispatch]);
 
   // Reset to 'all' tab if not authenticated and tried to view enrolled courses
   useEffect(() => {
     if (!isAuthenticated && enrollmentFilter === 'enrolled') {
       setEnrollmentFilter('all');
     }
-  }, [isAuthenticated, enrollmentFilter]);
+  }, [isAuthenticated, currentUser?.id, enrollmentFilter]);
 
   // Main data loading effect - separated for better performance
   useEffect(() => {
@@ -445,33 +479,44 @@ const Courses = () => {
   
   // Separate effect for enrolled courses - lower priority
   useEffect(() => {
-    // Only fetch enrolled courses if user is authenticated
-    if (isAuthenticated && !enrolledCourses.length) {
-      console.log('Fetching enrolled courses...');
+    // Only fetch enrolled courses if user is authenticated and has valid user ID
+    if (isAuthenticated && currentUser?.id && !enrolledCourses.length) {
+      console.log('Fetching enrolled courses for user:', currentUser.id);
       dispatch(fetchEnrolledCourses());
     }
-  }, [dispatch, isAuthenticated, enrolledCourses.length]);
+  }, [dispatch, isAuthenticated, currentUser?.id, enrolledCourses.length]);
 
   // Separate effect for handling payment success
   useEffect(() => {
-    if (isAuthenticated && location.state?.paymentSuccess) {
-      toast.success('Thanh toán thành công! Bạn đã đăng ký khóa học thành công.');
-      // Force refresh enrollment data to ensure updated UI
-      dispatch(fetchEnrolledCourses({ forceRefresh: true }))
-        .then(() => {
-          console.log("Successfully refreshed enrollment data after payment");
-        })
-        .catch(err => {
-          console.error("Error refreshing enrollment data after payment:", err);
-        });
+    if (isAuthenticated && currentUser?.id && location.state?.paymentSuccess) {
+      const processPaymentCallback = async () => {
+        try {
+          console.log('Processing payment callback from location state');
+          
+          // Get course ID and transaction ID from location state
+          const { courseId, transactionId } = location.state;
+          
+          if (courseId) {
+            console.log(`Payment successful for course ${courseId}`);
+            
+            // Force refresh enrolled courses to show the newly purchased course
+            await dispatch(fetchEnrolledCourses({ forceRefresh: true }));
+            
+            // Show success message
+            toast.success('Thanh toán thành công! Khóa học đã được thêm vào danh sách của bạn.');
       
-      // Clear the payment success flag from location state to prevent multiple refreshes
-      window.history.replaceState(
-        { ...window.history.state, state: { ...location.state, paymentSuccess: false } },
-        document.title
-      );
+            // Clear the payment success state to prevent re-processing
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          }
+        } catch (error) {
+          console.error('Error processing payment callback:', error);
+          toast.error('Có lỗi xảy ra khi xử lý thanh toán. Vui lòng kiểm tra lại.');
+        }
+      };
+      
+      processPaymentCallback();
     }
-  }, [dispatch, isAuthenticated, location.state?.paymentSuccess]);
+  }, [isAuthenticated, currentUser?.id, location.state?.paymentSuccess, dispatch]);
 
   // Check URL for course ID and payment status - this handles direct navigation from payment pages
   useEffect(() => {
@@ -539,62 +584,66 @@ const Courses = () => {
   };
 
   // Cập nhật logic lọc courses để bao gồm cả tìm kiếm
+  const getCourseCategory = (course) => {
+    const title = (course.Title || course.title || '').toLowerCase();
+    const description = (course.Description || course.description || '').toLowerCase();
+    const category = (course.Category || course.category || '').toLowerCase();
+
+    if (category.includes('security') || title.includes('bảo mật') || description.includes('bảo mật')) {
+      return 'security';
+    }
+    if (category.includes('data') || title.includes('dữ liệu') || description.includes('dữ liệu')) {
+      return 'data';
+    }
+    if (category.includes('web') || title.includes('web') || description.includes('web')) {
+      return 'web';
+    }
+    if (category.includes('mobile') || title.includes('mobile') || title.includes('android') || title.includes('ios')) {
+      return 'mobile';
+    }
+    if (category.includes('ai') || title.includes('ai') || title.includes('machine learning') || description.includes('trí tuệ nhân tạo')) {
+      return 'ai';
+    }
+    if (title.includes('lập trình') || category.includes('programming') || 
+        title.includes('code') || title.includes('python') || title.includes('java')) {
+      return 'programming';
+    }
+    if (title.includes('đời sống') || category.includes('life') || 
+        title.includes('kỹ năng') || title.includes('soft skill')) {
+      return 'life';
+    }
+    return 'programming'; // Default category
+  };
+
   const filteredCourses = useMemo(() => {
-    // Create sets for faster lookups
     const addedCourseIds = new Set();
     const result = [];
     
-    // If we're in the enrolled tab and user is authenticated
-    if (enrollmentFilter === 'enrolled' && isAuthenticated) {
-      // Only process enrolled courses
-      enrolledCourses.forEach(course => {
-        const courseId = course.CourseID || course.id;
-        const matchesCategory = courseCategory === 'all' || 
-                              (courseCategory === 'it' ? isITCourse(course) : !isITCourse(course));
-        
-        // Thêm điều kiện tìm kiếm
-        const matchesSearch = !searchTerm || 
-          (course.Title || course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (course.Description || course.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-        
-        if (courseId && matchesCategory && matchesSearch && !addedCourseIds.has(courseId)) {
-          addedCourseIds.add(courseId);
-          result.push({...course, enrolled: true});
-        }
-      });
-      return result;
-    } 
-    // In the "all" tab - prioritize showing available courses
-    else {
-      // Quick lookup for enrolled course IDs
-      const enrolledIds = new Set(
-        enrolledCourses.map(course => course.CourseID || course.id).filter(Boolean)
-      );
+    const coursesToProcess = enrollmentFilter === 'enrolled' && isAuthenticated
+      ? enrolledCourses
+      : allCourses;
+
+    coursesToProcess?.forEach(course => {
+      const courseId = course.CourseID || course.id;
+      if (!courseId || addedCourseIds.has(courseId)) return;
+
+      const isEnrolled = enrolledCourses.some(ec => (ec.CourseID || ec.id) === courseId);
+      if (enrollmentFilter === 'enrolled' && !isEnrolled) return;
       
-      // Process all courses that match the category and aren't enrolled
-      if (allCourses && allCourses.length > 0) {
-        allCourses.forEach(course => {
-          const courseId = course.CourseID || course.id;
-          if (!courseId || addedCourseIds.has(courseId)) return;
-          
-          const isEnrolled = enrolledIds.has(courseId);
-          const matchesCategory = courseCategory === 'all' || 
-                                (courseCategory === 'it' ? isITCourse(course) : !isITCourse(course));
-          
-          // Thêm điều kiện tìm kiếm
-          const matchesSearch = !searchTerm || 
-            (course.Title || course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (course.Description || course.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-          
-          if (matchesCategory && matchesSearch && !isEnrolled) {
-            addedCourseIds.add(courseId);
-            result.push({...course, enrolled: false});
-          }
-        });
+      const courseCat = getCourseCategory(course);
+      const matchesCategory = courseCategory === 'all' || courseCat === courseCategory;
+      
+      const matchesSearch = !searchTerm || 
+        (course.Title || course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (course.Description || course.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      if (matchesCategory && matchesSearch && (enrollmentFilter === 'all' || isEnrolled)) {
+        addedCourseIds.add(courseId);
+        result.push({...course, enrolled: isEnrolled, category: courseCat});
       }
-      
-      return result;
-    }
+    });
+    
+    return result;
   }, [courseCategory, enrollmentFilter, allCourses, enrolledCourses, isAuthenticated, searchTerm]);
 
   // Determine loading state - only show loading when actually needed
@@ -657,6 +706,15 @@ const Courses = () => {
   };
 
   return (
+    <>
+      {navigatingToCourse && (
+        <Loading 
+          message="Đang tải thông tin khóa học..." 
+          variant="default"
+          size="default"
+          fullscreen={true}
+        />
+      )}
     <div className="bg-gray-50 min-h-screen pb-12">
       {/* Thêm CSS cho phần header */}
       <style jsx>{`
@@ -898,14 +956,6 @@ const Courses = () => {
                     />
                   ))}
                 </div>
-                
-                {/* Progress bar */}
-                <div className="absolute bottom-1 left-8 right-8 h-0.5 bg-white/20 rounded-full z-30">
-                  <div 
-                    className="h-full bg-white rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${((currentImageIndex + 1) / courseImages.length) * 100}%` }}
-                  ></div>
-                </div>
               </div>
             </div>
           </div>
@@ -945,6 +995,26 @@ const Courses = () => {
                   </svg>
                 </div>
                 
+                {/* My Courses button for authenticated users */}
+                {isAuthenticated && (
+                  <button
+                    onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors text-sm ${
+                      enrollmentFilter === 'enrolled'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-green-600 border border-green-600 hover:bg-green-50'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="hidden sm:inline">Khóa học của tôi</span>
+                    <span className="bg-white bg-opacity-20 px-1.5 py-0.5 rounded-full text-xs">
+                      {enrolledCourses.length}
+                    </span>
+                  </button>
+                )}
+                
                 {/* Payment History button for authenticated users */}
                 {isAuthenticated && (
                   <button
@@ -960,108 +1030,101 @@ const Courses = () => {
               </div>
             </div>
             
-            {/* Search and filter row */}
-            <div className="flex flex-col sm:flex-row gap-3 items-stretch">
-              {/* Mobile search box */}
-              <div className="relative flex-1 sm:hidden">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  placeholder="Tìm kiếm khóa học..."
-                  className="w-full px-4 py-2.5 pl-10 rounded-lg text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <svg 
-                  className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" 
-                  fill="none" 
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-              </div>
+            {/* Mobile search box */}
+            <div className="relative mb-4 sm:hidden">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Tìm kiếm khóa học..."
+                className="w-full px-4 py-2.5 pl-10 rounded-lg text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <svg 
+                className="w-5 h-5 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" 
+                fill="none" 
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
               
-              {/* Filter tabs */}
-              <div className="flex items-center gap-2 whitespace-nowrap">
-                {/* Course type filters */}
-                <div className="flex rounded-md bg-white shadow-sm border border-gray-200 overflow-hidden w-[70%] h-9">
+            {/* Centered Categories and Filters Bar */}
+            <div className="flex justify-center w-full">
+              {/* Categories horizontal scroll container */}
+              <div 
+                className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth py-3 px-6 backdrop-blur-md rounded-3xl border border-white/20 shadow-xl bg-gradient-to-r from-blue-50/30 via-white/40 to-blue-50/30"
+                style={{ 
+                  scrollBehavior: 'smooth',
+                  msOverflowStyle: 'none',
+                  scrollbarWidth: 'none'
+                }}
+              >
+                {courseCategories.map((category, index) => (
                   <button
-                    onClick={() => setCourseCategory('it')}
-                    className={`px-2.5 h-full text-xs font-medium transition-colors flex-1 ${
-                      courseCategory === 'it' 
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 hover:bg-gray-50'
+                    key={category.id}
+                    onClick={() => setCourseCategory(category.id)}
+                    className={`relative flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-medium transition-all duration-500 whitespace-nowrap min-w-fit backdrop-blur-sm ${
+                      courseCategory === category.id
+                        ? 'bg-gradient-to-r from-blue-600/90 to-blue-700/90 text-white shadow-lg transform scale-110 border border-blue-400/30'
+                        : 'bg-white/60 text-gray-700 hover:bg-white/80 hover:text-blue-700 shadow-md border border-white/40 hover:shadow-lg hover:scale-105 hover:border-blue-200/50'
                     }`}
                   >
-                    <span className="flex items-center gap-1.5 justify-center h-full">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <span>Công nghệ</span>
-                    </span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setCourseCategory('regular')}
-                    className={`px-2.5 h-full text-xs font-medium transition-colors flex-1 ${
-                      courseCategory === 'regular'
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 justify-center h-full">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                      <span>Thường</span>
-                    </span>
-                  </button>
-                </div>
-                
-                <div className="flex gap-2 w-[30%] h-9">
-                  {/* Enrollment filter */}
-                  {isAuthenticated && (
-                    <button
-                      onClick={() => setEnrollmentFilter(enrollmentFilter === 'enrolled' ? 'all' : 'enrolled')}
-                      className={`px-2.5 h-full text-xs font-medium rounded-md flex items-center justify-center gap-1.5 transition-colors flex-1 ${
-                        enrollmentFilter === 'enrolled'
-                          ? 'bg-green-600 text-white shadow-sm'
-                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm'
-                      }`}
+                    {/* Glass effect for active state */}
+                    {courseCategory === category.id && (
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-white/10 to-white/20 rounded-2xl"></div>
+                    )}
+                    
+                    <svg 
+                      className={`relative z-10 w-4 h-4 ${courseCategory === category.id ? 'text-white' : 'text-gray-500'}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="hidden sm:inline">
-                        Đã đăng ký
-                      </span>
-                      <span className="sm:inline ml-1 bg-white bg-opacity-20 text-xs font-semibold px-1.5 py-0.5 rounded-full">
-                        {enrolledCourses.filter(course => 
-                          courseCategory === 'it' ? isITCourse(course) : !isITCourse(course)
-                        ).length}
-                      </span>
-                    </button>
-                  )}
-                  
-                  {/* Reset filters button - only show when filters are applied */}
-                  {(courseCategory !== 'it' || enrollmentFilter !== 'all' || searchTerm) && (
-                    <button
-                      onClick={() => {
-                        setCourseCategory('it');
-                        setEnrollmentFilter('all');
-                        setSearchTerm('');
-                      }}
-                      className="px-2.5 h-full text-xs font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 shadow-sm flex items-center justify-center gap-1.5 flex-1"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <span className="hidden sm:inline">Đặt lại bộ lọc</span>
-                    </button>
-                  )}
-                </div>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={category.icon}></path>
+                    </svg>
+                    <span className="relative z-10">{category.name}</span>
+                    {courseCategory === category.id && (
+                      <div className="relative z-10 w-2 h-2 bg-blue-200/80 rounded-full animate-pulse"></div>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
+
+            {/* Enhanced styles for glass morphism and scrollbar */}
+            <style jsx>{`
+              .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+              .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+              }
+              
+              /* Additional glass morphism effects */
+              @keyframes shimmer {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+              
+              .glass-effect {
+                position: relative;
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+              }
+              
+              .glass-effect::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+                animation: shimmer 3s infinite;
+              }
+            `}</style>
           </div>
         </div>
       </div>
@@ -1076,12 +1139,13 @@ const Courses = () => {
           ) : filteredCourses.length > 0 ? (
             filteredCourses.map((course) => (
               <CourseCard
-                key={`course-${courseCategory}-${course.CourseID || course.id}`}
+                key={`course-${course.CourseID || course.id}`}
                 course={course}
                 enrollmentFilter={enrollmentFilter}
                 courseCategory={courseCategory}
                 navigate={navigate}
                 enrolledCourses={enrolledCourses}
+                onNavigate={() => setNavigatingToCourse(true)}
               />
             ))
           ) : (
@@ -1120,7 +1184,9 @@ const Courses = () => {
           )}
         </div>
       </div>
+      
     </div>
+    </>
   );
 };
 

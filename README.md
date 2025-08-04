@@ -4,9 +4,9 @@ A unified repository containing all frontend applications and backend services f
 
 ---
 
-## 🗺 Repository Map
+## Repository Map
 
-### 🎨 Frontend Apps
+### Frontend Apps
 
 * [User App](frontend/user-app/README.md) – Main student interface
 * [Student Web App](frontend/user-sinhvienapp/README.md) – Campus Learning-specific student portal
@@ -14,7 +14,7 @@ A unified repository containing all frontend applications and backend services f
 * [Admin App](frontend/admin-app/README.md) – System administration UI
 * [Student Admin App](frontend/admin-sinhvienapp/README.md) – Student record management
 
-### 🧠 Backend Services
+### Backend Services
 
 * [User Service](services/user-service/README.md)
 * [Student Service](services/user-sinhvienservice/README.md)
@@ -26,7 +26,7 @@ A unified repository containing all frontend applications and backend services f
 
 ---
 
-## 🚀 Quick Start (Local Development)
+## Quick Start (Local Development)
 
 ```bash
 # 1. Clone the repo
@@ -43,17 +43,17 @@ $ cd frontend/user-app && npm run dev
 $ cd services/user-service && npm run dev
 ```
 
-> 📌 Check each sub-project’s README for detailed setup and environment configuration.
+> Check each sub-project’s README for detailed setup and environment configuration.
 
 ---
 
-## 💖 Support Me
+## Support Me
 
 This project is built and maintained by [**Nguyen Duc Quyen**](https://github.com/DucQuyen199) to empower modern digital learning platforms. If you find this project helpful and want to support its continued development:
 
-- ⭐ Star this repository  
-- 📣 Share it with your friends or community  
-- 💸 Donate via MB Bank QR (Account: **9999991909 – Nguyen Duc Quyen**):
+- Star this repository  
+- Share it with your friends or community  
+- Donate via MB Bank QR (Account: **9999991909 – Nguyen Duc Quyen**):
 
 <p align="center">
   <img src="https://iili.io/F8JsIef.png" alt="Donate via MB Bank QR" width="300" />

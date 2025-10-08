@@ -1,8 +1,8 @@
 /*-----------------------------------------------------------------
 * File: index.jsx
 * Author: Quyen Nguyen Duc
-* Date: 2025-07-24
-* Description: Adventure-style landing page optimized for responsive layout - Campus Learning platform.
+* Date: 2025-01-27
+* Description: Simple, clean educational homepage for Campus Learning platform
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 "use client"
@@ -18,43 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from "framer-motion"
 import SEOHelmet from '@/components/SEO/SEOHelmet';
-import {
-  BookOpenIcon,
-  UserGroupIcon,
-  CodeBracketIcon,
-  RocketLaunchIcon,
-  ArrowRightIcon,
-  PlayIcon,
-  ChatBubbleLeftRightIcon,
-  ChevronRightIcon,
-  LightBulbIcon,
-  ServerIcon,
-  ShieldCheckIcon,
-  GlobeAltIcon,
-  DevicePhoneMobileIcon,
-  CommandLineIcon,
-  StarIcon,
-  SparklesIcon,
-  AcademicCapIcon,
-  TrophyIcon,
-  CheckBadgeIcon,
-  FireIcon,
-  BoltIcon,
-  CheckIcon,
-  HeartIcon,
-  CpuChipIcon,
-  CloudIcon,
-  ChartBarIcon,
-  CalendarIcon,
-  MapPinIcon,
-  EyeIcon,
-  HandRaisedIcon,
-  BuildingOfficeIcon,
-  MagnifyingGlassIcon,
-  ClockIcon,
-  UsersIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline"
+// Removed unused icon imports for better performance
 import { setUser } from '@/store/slices/authSlice';
 import { injectJsonLdScript, removeJsonLdScript } from '../../utils/safeScriptInjection';
 
@@ -238,7 +202,7 @@ const Home = () => {
           const courses = response.data.data || []
           const sortedCourses = courses
             .sort((a, b) => (b.EnrolledCount || 0) - (a.EnrolledCount || 0))
-            .slice(0, 4) // Lấy 4 khóa học cho adventure categories
+            .slice(0, 6) // Lấy 6 khóa học cho homepage
 
           setPopularCourses(sortedCourses)
         }
@@ -265,7 +229,7 @@ const Home = () => {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        const response = await fetch('http://localhost:5001/api/posts?limit=3', {
+        const response = await fetch('https://campuslearning.onrender.com/api/posts?limit=3', {
           headers
         });
         
@@ -315,76 +279,28 @@ const Home = () => {
     fetchBlogPosts()
   }, [])
 
-  const adventureCategories = [
+  // Educational categories for Campus Learning
+  const educationalCategories = [
     {
-      title: "Lập trình cơ bản",
-      subtitle: "services",
-      description: "Khởi đầu hành trình với HTML, CSS, JavaScript cơ bản",
+      title: "Frontend",
       image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=300&fit=crop",
-      icon: CodeBracketIcon,
-      courses: "25+",
-      students: "5,240"
+      courses: "25+"
     },
     {
-      title: "Framework hiện đại",
-      subtitle: "và thư viện",
-      description: "React, Vue, Angular - Công nghệ frontend hàng đầu",
-      image: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=300&fit=crop",
-      icon: RocketLaunchIcon,
-      courses: "30+",
-      students: "8,150"
+      title: "Backend", 
+      image: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=300&fit=crop",
+      courses: "30+"
     },
     {
-      title: "Backend và API",
-      subtitle: "Development",
-      description: "Node.js, Python, Database - Xây dựng hệ thống mạnh mẽ",
-      image:"https://vtiacademy.edu.vn/upload/images/front-end-back-end-la-gi-phan-biet-va-so-sanh-front-end-va-back-end-trong-lap-trinh.jpg",
-      icon: ServerIcon,
-      courses: "40+",
-      students: "6,890"
+      title: "Mobile",
+      image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop",
+      courses: "20+"
     },
     {
-      title: "Mobile & AI",
-      subtitle: "Technologies",
-      description: "React Native, Flutter, Machine Learning - Tương lai công nghệ",
-      image: "https://www.addevice.io/storage/ckeditor/uploads/images/65f82dcd3866a_ai.in.mobile.app.development.1920.1080.png",
-      icon: DevicePhoneMobileIcon,
-      courses: "20+",
-      students: "4,320"
+      title: "AI & ML",
+      image: "https://images.unsplash.com/photo-1518773553398-650c184e0bb3?w=400&h=300&fit=crop",
+      courses: "15+"
     },
-  ]
-
-  const features = [
-    {
-      title: "An toàn và uy tín",
-      description: "Chúng tôi đảm bảo an toàn thông tin và chất lượng giáo dục hàng đầu với chứng chỉ quốc tế.",
-      icon: ShieldCheckIcon,
-    },
-    {
-      title: "Giá ưu đãi và hấp dẫn",
-      description: "Chúng tôi đưa ra giá ưu đãi và mỗi ngày đều có khóa học tốt nhất theo từng thể loại.",
-      icon: StarIcon,
-    },
-    {
-      title: "Hướng dẫn viên đáng tin cậy",
-      description: "Đội ngũ mentor giàu kinh nghiệm từ các công ty lớn như Google, Facebook, Amazon hướng dẫn trực tiếp.",
-      icon: CheckBadgeIcon,
-    },
-  ]
-
-  const experienceFeatures = [
-    { label: "Lập trình Frontend", percentage: 89 },
-    { label: "Backend Development", percentage: 76 },
-    { label: "Mobile Apps", percentage: 95 },
-    { label: "AI & Machine Learning", percentage: 82 },
-    { label: "DevOps & Cloud", percentage: 68 },
-  ]
-
-  const stats = [
-    { number: "50K+", label: "Học viên thành công", icon: UserGroupIcon },
-    { number: "500+", label: "Khóa học chất lượng", icon: BookOpenIcon },
-    { number: "98%", label: "Tỷ lệ hài lòng", icon: HeartIcon },
-    { number: "24/7", label: "Hỗ trợ mentor", icon: TrophyIcon },
   ]
 
   // Hàm xử lý navigation - cho phép xem public content, yêu cầu login cho chi tiết
@@ -444,1613 +360,1049 @@ const Home = () => {
       {/* Main Container */}
       <main className="min-h-screen bg-white overflow-x-hidden">
         
-        {/* Hero Section with Large Background Image */}
-        <section className="relative min-h-screen bg-cover bg-center bg-no-repeat flex items-center" 
+        {/* Hero Section - Coursera Style */}
+        <section className="py-24 text-white relative overflow-hidden">
+          {/* Background Image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat scale-110"
                  style={{
-                   backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')`
-                 }}>
+              backgroundImage: `url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80')`
+            }}
+          >
+          </div>
           
-          <div className="w-full">
-            <div className="text-center text-white px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
-              
-              {/* Course & Training Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-                className="inline-block bg-orange-500 text-white px-4 py-2 rounded-full text-sm font-bold mb-6 sm:mb-8"
-              >
-                Course & Training
-              </motion.div>
-
-              {/* Main Title */}
-              <motion.h1
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.2 }}
-                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight"
-              >
-                Khám phá vùng đất lập trình
-              </motion.h1>
-
-              {/* Subtitle */}
-              <motion.p
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.4 }}
-                className="text-lg sm:text-xl md:text-2xl mb-6 sm:mb-8 opacity-90 max-w-4xl mx-auto leading-relaxed px-4"
-              >
-                Hành trình chinh phục công nghệ cùng đội ngũ mentor chuyên nghiệp.
-                <span className="block mt-2">
-                  Từ zero đến hero, cùng phát triển kỹ năng coding của bạn thực sự.
-                </span>
-              </motion.p>
-
-              {/* CTA Button */}
-                <motion.button
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.6 }}
-                                      onClick={() => handlePublicNavigation("/courses")}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg text-base sm:text-lg font-semibold transition-all duration-300 hover:scale-105 shadow-lg"
-                >
-                Bắt đầu ngay
-                </motion.button>
+          {/* Background Graphics */}
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Main sphere */}     
             </div>
-
-            {/* Search Bar at Bottom - Compact & Aligned */}
-              <motion.div
-              initial={{ opacity: 0, y: 50 }}
+          
+          <div className="max-w-7xl mx-auto px-6 relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              {/* Left side - Content */}
+              <motion.div 
+                className="text-left"
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+              >
+              <motion.h1
+                    className="text-3xl lg:text-4xl font-bold mb-6 leading-tight"
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.8 }}
-              className="absolute bottom-2 sm:bottom-4 left-4 right-4 max-w-6xl mx-auto"
-            >
-              <div className="bg-white rounded-lg sm:rounded-xl shadow-xl p-3 sm:p-4">
-                
-                {/* Mobile: Stacked Layout */}
-                <div className="block md:hidden space-y-2">
-                  {/* Row 1: Field and Course Type */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[60px]">
-                      <CodeBracketIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 truncate">Chọn lĩnh vực</div>
-                        <div className="font-medium text-gray-900 text-xs truncate">Frontend, Backend...</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[60px]">
-                      <BookOpenIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 truncate">Chọn loại khóa học</div>
-                        <div className="font-medium text-gray-900 text-xs truncate">Cơ bản, Nâng cao</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Row 2: Schedule and Level */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[60px]">
-                      <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 truncate">Chọn lịch học</div>
-                        <div className="font-medium text-gray-900 text-xs truncate">Linh hoạt</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer min-h-[60px]">
-                      <UsersIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 truncate">Trình độ</div>
-                        <div className="font-medium text-gray-900 text-xs truncate">Tất cả level</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Search Button - Full Width */}
-                  <button 
-                    onClick={() => handlePublicNavigation("/courses")}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white rounded-lg px-3 py-2.5 font-medium text-sm transition-all duration-300 flex items-center justify-center space-x-2 mt-2"
+                    transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+              >
+                  Nâng cao kỹ năng lập trình để phát triển sự nghiệp
+              </motion.h1>
+              <motion.p
+                    className="text-lg mb-8 opacity-90 leading-relaxed"
+                    initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+              >
+                  Tham gia cộng đồng học viên hàng đầu Việt Nam
+              </motion.p>
+                  <motion.div 
+                    className="flex flex-col sm:flex-row gap-4"
+                    initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
                   >
-                    <MagnifyingGlassIcon className="w-4 h-4" />
-                    <span>Tìm khóa học</span>
-                  </button>
-                </div>
+                    <motion.button 
+                      onClick={() => handlePublicNavigation("/register")}
+                      className="bg-white text-blue-900 px-8 py-4 font-semibold rounded-lg hover:bg-gray-100 transition-colors shadow-lg"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Tham gia miễn phí
+                    </motion.button>
+                    <motion.button 
+                                      onClick={() => handlePublicNavigation("/courses")}
+                      className="border-2 border-white text-white hover:bg-white hover:text-blue-900 px-8 py-4 font-semibold rounded-lg transition-all shadow-lg"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                >
+                      Xem khóa học
+                </motion.button>
+                  </motion.div>
+                </motion.div>
 
-                {/* Desktop: Horizontal Layout */}
-                <div className="hidden md:grid md:grid-cols-5 gap-2 items-center">
-                  
-                  {/* Choose Field */}
-                  <div className="flex items-center space-x-2 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer h-[56px]">
-                    <CodeBracketIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-gray-500 truncate">Chọn lĩnh vực</div>
-                      <div className="font-medium text-gray-900 text-sm truncate">Frontend, Backend, AI...</div>
-                    </div>
-                  </div>
-
-                  {/* Choose Course Type */}
-                  <div className="flex items-center space-x-2 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer h-[56px]">
-                    <BookOpenIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-gray-500 truncate">Chọn loại khóa học</div>
-                      <div className="font-medium text-gray-900 text-sm truncate">Cơ bản, Nâng cao, Dự án</div>
-                    </div>
-                  </div>
-
-                  {/* Choose Schedule */}
-                  <div className="flex items-center space-x-2 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer h-[56px]">
-                    <CalendarIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-gray-500 truncate">Chọn lịch học</div>
-                      <div className="font-medium text-gray-900 text-sm truncate">Linh hoạt</div>
-                    </div>
-                  </div>
-
-                  {/* Choose Level */}
-                  <div className="flex items-center space-x-2 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer h-[56px]">
-                    <UsersIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs text-gray-500 truncate">Trình độ</div>
-                      <div className="font-medium text-gray-900 text-sm truncate">Tất cả level</div>
-                    </div>
-                  </div>
-
-                  {/* Search Button */}
-                  <button 
-                    onClick={() => handlePublicNavigation("/courses")}
-                    className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-3 font-medium text-sm transition-all duration-300 hover:scale-105 flex items-center justify-center space-x-2 h-[56px] min-w-[140px]"
-                  >
-                    <MagnifyingGlassIcon className="w-4 h-4" />
-                    <span>Tìm khóa học</span>
-                  </button>
-                </div>
-                </div>
-              </motion.div>
+              {/* Right side - Visual elements */}
+            </div>
         </div>
       </section>
 
-        {/* Adventure Categories Section */}
-        <section className="py-16 sm:py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            
-            {/* Section Header */}
-            <div className="text-center mb-12 sm:mb-16">
-              <div className="text-orange-500 font-semibold text-base sm:text-lg mb-4">HOẠT ĐỘNG NỔI BẬT</div>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                Khám phá lĩnh vực lập trình
-              </h2>
-            </div>
+        {/* Partners Section */}
+        <section className="py-8 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+            <motion.p 
+              className="text-center text-gray-600 mb-6"
+              initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              Chúng tôi hợp tác với 50+ trường đại học và công ty hàng đầu
+            </motion.p>
+            <motion.div 
+              className="flex flex-wrap justify-center items-center gap-8"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              {[
+                { src: "https://upload.wikimedia.org/wikipedia/commons/5/51/RMIT_University_Logo.svg", alt: "RMIT" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/200px-Google_2015_logo.svg.png", alt: "Google" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/200px-Microsoft_logo.svg.png", alt: "Microsoft" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/IBM_logo.svg/200px-IBM_logo.svg.png", alt: "IBM" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/200px-Amazon_logo.svg.png", alt: "Amazon" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/200px-Apple_logo_black.svg.png", alt: "Apple" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Meta_Platforms_Inc._logo.svg/200px-Meta_Platforms_Inc._logo.svg.png", alt: "Meta" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Intel_logo_%282006-2020%29.svg/200px-Intel_logo_%282006-2020%29.svg.png", alt: "Intel" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Cisco_logo_blue_2016.svg/200px-Cisco_logo_blue_2016.svg.png", alt: "Cisco" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dell_logo_2016.svg/200px-Dell_logo_2016.svg.png", alt: "Dell" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/HP_logo_2012.svg/200px-HP_logo_2012.svg.png", alt: "HP" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/Netflix_2015_logo.svg/200px-Netflix_2015_logo.svg.png", alt: "Netflix" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/React-icon.svg/200px-React-icon.svg.png", alt: "React" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Laravel.svg/200px-Laravel.svg.png", alt: "Laravel" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Ubuntu-logo-2022.svg/2560px-Ubuntu-logo-2022.svg.png", alt: "Ubuntu" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/95/Vue.js_Logo_2.svg/200px-Vue.js_Logo_2.svg.png", alt: "Vue.js" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/Node.js_logo.svg/200px-Node.js_logo.svg.png", alt: "Node.js" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/GraphQL_Logo.svg/200px-GraphQL_Logo.svg.png", alt: "GraphQL" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/MongoDB_Logo.svg/1280px-MongoDB_Logo.svg.png", alt: "MongoDB" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Postgresql_elephant.svg/200px-Postgresql_elephant.svg.png", alt: "PostgreSQL" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Docker_%28container_engine%29_logo.svg/200px-Docker_%28container_engine%29_logo.svg.png", alt: "Docker" },
+                { src: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Jupyter_logo.svg/200px-Jupyter_logo.svg.png", alt: "Jupyter" }
+              ].map((logo, index) => (
+                <motion.img 
+                  key={index}
+                  src={logo.src} 
+                  alt={logo.alt} 
+                  className="h-12 object-contain hover:scale-110 transition-transform"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  whileHover={{ scale: 1.1 }}
+                />
+              ))}
+          </motion.div>
+        </div>
+      </section>
 
-            {/* Categories Grid - Responsive */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-              {adventureCategories.map((category, index) => (
-              <motion.div
-                key={index}
+        {/* Categories Section */}
+        <section className="py-12 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+            <motion.h2 
+              className="text-2xl font-bold text-center mb-8"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                  className="group cursor-pointer"
+              transition={{ duration: 0.6 }}
+            >
+              Chọn vai trò của bạn
+            </motion.h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {educationalCategories.slice(0, 3).map((category, index) => (
+                <motion.div
+                key={index}
+                  className="bg-white border cursor-pointer hover:shadow-md rounded-lg overflow-hidden"
                   onClick={() => handlePublicNavigation("/courses")}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.2 }}
+                  whileHover={{ y: -5, scale: 1.02 }}
                 >
-                  <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-2">
-                    {/* Background Image */}
-                    <div className="relative h-64 sm:h-80">
+                  <div className="relative h-48 bg-gradient-to-br from-yellow-400 to-orange-500">
                       <img
                         src={category.image}
                         alt={category.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover opacity-80"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
                 </div>
-
-                    {/* Content Overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-lg sm:text-xl font-bold truncate pr-2">{category.title}</h3>
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
-                          <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </div>
-                      </div>
-                      <p className="text-sm opacity-90 mb-2 truncate">{category.subtitle}</p>
-                      <p className="text-sm opacity-75 line-clamp-2 mb-3">{category.description}</p>
-                      
-                      {/* Stats */}
-                      <div className="flex items-center space-x-4 text-xs">
-                        <span className="flex items-center">
-                          <BookOpenIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                          <span className="truncate">{category.courses} khóa học</span>
-                        </span>
-                        <span className="flex items-center">
-                          <UserGroupIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                          <span className="truncate">{category.students} học viên</span>
-                        </span>
-                      </div>
-                    </div>
+                  <div className="p-6">
+                    <h3 className="text-lg font-bold mb-2">{category.title}</h3>
+                    <p className="text-gray-600 text-sm mb-4">
+                      Phát triển kỹ năng {category.title.toLowerCase()} chuyên nghiệp
+                    </p>
+                    <button className="text-blue-600 font-semibold text-sm">
+                      Tìm hiểu thêm →
+                    </button>
                 </div>
               </motion.div>
             ))}
           </div>
-        </div>
+              <motion.div
+              className="text-center mt-6"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.8 }}
+            >
+              <motion.button
+                onClick={() => handlePublicNavigation("/courses")}
+                className="bg-blue-600 text-white px-6 py-2 font-semibold"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Xem tất cả
+              </motion.button>
+                    </motion.div>
+                </div>
       </section>
 
-        {/* Amazing Learning Experience Section */}
-        <section className="py-16 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              
-              {/* Left Column - Image */}
+        {/* Filter Buttons */}
+        <section className="py-8 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
               <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-                className="relative order-2 lg:order-1"
-              >
-                <div className="relative">
-                  {/* Main Image */}
-                  <img
-                    src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                    alt="Amazing Learning Experience"
-                    className="w-full rounded-2xl shadow-2xl"
-                  />
-                  
-                  {/* Small Overlay Image */}
-                  <div className="absolute -bottom-4 sm:-bottom-8 -left-4 sm:-left-8 w-24 h-24 sm:w-32 sm:h-32 bg-white rounded-2xl shadow-xl p-2">
-                    <img
-                      src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
-                      alt="Student Success"
-                      className="w-full h-full object-cover rounded-xl"
-                    />
-                  </div>
-
-                  {/* Success Badge */}
-                  <div className="absolute -bottom-2 sm:-bottom-4 -right-2 sm:-right-4 bg-orange-500 text-white rounded-2xl p-3 sm:p-4 shadow-xl">
-                    <div className="text-center">
-                      <div className="text-xl sm:text-2xl font-bold">18</div>
-                      <div className="text-xs">Tuần kinh nghiệm</div>
-                    </div>
-                  </div>
-
-                  {/* Green Circle Decoration */}
-                  <div className="absolute -top-4 sm:-top-8 -left-4 sm:-left-8 w-16 h-16 sm:w-20 sm:h-20 bg-green-600 rounded-full opacity-80"></div>
-                </div>
-              </motion.div>
-
-              {/* Right Column - Content */}
-              <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
-                viewport={{ once: true }}
-                className="space-y-6 sm:space-y-8 order-1 lg:order-2"
-              >
-                <div>
-                  <div className="text-orange-500 font-semibold text-base sm:text-lg mb-4">HỌC TẬP CÓ CÁO CHỖ</div>
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight">
-                    Trải nghiệm học tập tuyệt vời
-            </h2>
-                </div>
-
-                {/* Features List */}
-                <div className="space-y-6">
-                  {features.map((feature, index) => (
-              <motion.div
-                key={index}
+              className="flex justify-center gap-4"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                      className="flex items-start space-x-4"
-              >
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <feature.icon className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
-                </div>
-                      <div className="min-w-0">
-                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">{feature.title}</h3>
-                        <p className="text-gray-600 leading-relaxed text-sm sm:text-base">{feature.description}</p>
-                </div>
-              </motion.div>
-            ))}
-                </div>
-              </motion.div>
-          </div>
-        </div>
-      </section>
-
-        {/* Experience Adventure Section - Dark Theme */}
-        <section className="py-16 sm:py-20 bg-gray-900 text-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              
-              {/* Left Column - Content */}
-          <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-                className="space-y-6 sm:space-y-8"
-              >
-                <div>
-                  <div className="text-orange-500 font-semibold text-base sm:text-lg mb-4">HOẠT ĐỘNG NỔI BẬT</div>
-                  <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 leading-tight">
-                    Cảm giác thành thạo lập trình
-            </h2>
-                </div>
-
-                {/* Description */}
-                <p className="text-gray-300 text-base sm:text-lg leading-relaxed mb-6 sm:mb-8">
-                  <strong>Cuộc phiêu lưu thực sự với việc tận hưởng những chuyến đi mạo hiểm của học</strong>
-                </p>
-
-                <p className="text-gray-400 leading-relaxed mb-6 sm:mb-8 text-sm sm:text-base">
-                  Chúng tôi đều trải qua cảm xúc này với nhóm vốn câu sáng tóa. 
-                  dũ lên, đó chính là những phút giây đã mà hiếu có thể đưa hướng dẫn vũ trụ của họ trở nên.
-                </p>
-
-                {/* Progress Bars */}
-                <div className="space-y-4 mb-6 sm:mb-8">
-                  {experienceFeatures.map((item, index) => (
-              <motion.div
-                key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                      className="space-y-2"
-                    >
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-300 truncate pr-4">{item.label}</span>
-                        <span className="text-sm text-gray-300 flex-shrink-0">{item.percentage}%</span>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: `${item.percentage}%` }}
-                          transition={{ duration: 1, delay: index * 0.1 }}
-                          viewport={{ once: true }}
-                          className="bg-green-600 h-2 rounded-full"
-                        ></motion.div>
-                      </div>
-          </motion.div>
-                  ))}
-                  </div>
-                  
-                                {/* Tech Stack Icons */}
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-3">
-                    {/* React */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
-                      <img 
-                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" 
-                        alt="React" 
-                        className="w-6 h-6"
-                      />
-                    </div>
-                    
-                    {/* JavaScript */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
-                      <img 
-                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" 
-                        alt="JavaScript" 
-                        className="w-6 h-6"
-                      />
-                  </div>
-                  
-                    {/* Python */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
-                      <img 
-                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" 
-                        alt="Python" 
-                        className="w-6 h-6"
-                      />
-                      </div>
-                    
-                    {/* Node.js */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-700 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
-                      <img 
-                        src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg" 
-                        alt="Node.js" 
-                        className="w-6 h-6"
-                      />
-                      </div>
-                    
-                    {/* Plus Icon for more */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-lg flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
-                      <PlusIcon className="w-5 h-5 text-white" />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Right Column - Image */}
-                <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
+              transition={{ duration: 0.6 }}
+            >
+              {[
+                { text: "Mới", active: true },
+                { text: "Sơ cấp", active: false },
+                { text: "Phổ biến", active: false },
+                { text: "Công cụ", active: false }
+              ].map((button, index) => (
+                <motion.button 
+                  key={index}
+                  className={`px-6 py-2 rounded-full text-sm font-medium ${
+                    button.active 
+                      ? "bg-gray-800 text-white" 
+                      : "bg-white text-gray-800 border border-gray-300 hover:bg-gray-50"
+                  }`}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
-                className="relative"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                  alt="Coding Adventure"
-                  className="w-full rounded-2xl shadow-2xl"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent rounded-2xl"></div>
-              </motion.div>
-                      </div>
-                      </div>
-
-          {/* Tent Icon */}
-          <div className="absolute top-8 sm:top-16 left-8 sm:left-16 text-green-600 opacity-20 hidden lg:block">
-            <div className="w-16 h-16 sm:w-24 sm:h-24 border-4 border-current rounded-lg flex items-center justify-center">
-              <CodeBracketIcon className="w-8 h-8 sm:w-12 sm:h-12" />
-                    </div>
-                    </div>
-        </section>
-
-        {/* CTA Section - Green Theme */}
-        <section className="py-12 sm:py-16 bg-gradient-to-r from-green-600 to-green-700 relative overflow-hidden">
-          <div className="absolute inset-0 bg-black/10"></div>
-          
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 sm:p-8"
-            >
-              {/* Mobile: Stacked Layout */}
-              <div className="block sm:hidden text-center space-y-6">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto">
-                  <RocketLaunchIcon className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2 leading-tight">
-                    Sẵn sàng phiêu lưu và tận hưởng thiên nhiên
-                      </h3>
-                  <p className="text-green-100 text-base">
-                    Hãy cùng chúng tôi khám phá thế giới lập trình đầy thú vị
-                      </p>
-                        </div>
-                <motion.button
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    if (isAuthenticated) {
-                      handleNavigation("/courses");
-                    } else {
-                      navigateWithScrollToTop("/register");
-                    }
-                  }}
-                  className="w-full bg-white text-green-600 px-6 py-3 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center space-x-2"
                 >
-                      <span>Khám phá ngay</span>
-                  <ArrowRightIcon className="w-5 h-5" />
+                  {button.text}
                 </motion.button>
-                      </div>
-
-              {/* Desktop: Horizontal Layout */}
-              <div className="hidden sm:flex items-center justify-between">
-                <div className="flex items-center space-x-6">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <RocketLaunchIcon className="w-8 h-8 text-white" />
-                    </div>
-                  <div className="min-w-0">
-                    <h3 className="text-2xl lg:text-3xl font-bold text-white mb-2 leading-tight">
-                      Sẵn sàng phiêu lưu và tận hưởng thiên nhiên
-                    </h3>
-                    <p className="text-green-100 text-lg">
-                      Hãy cùng chúng tôi khám phá thế giới lập trình đầy thú vị
-                    </p>
-                  </div>
-          </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    if (isAuthenticated) {
-                      handleNavigation("/courses");
-                    } else {
-                      navigateWithScrollToTop("/register");
-                    }
-                  }}
-                  className="bg-white text-green-600 px-6 lg:px-8 py-3 lg:py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center space-x-2 flex-shrink-0"
-                >
-                  <span>Khám phá ngay</span>
-                  <ArrowRightIcon className="w-5 h-5" />
-                </motion.button>
-                </div>
+              ))}
               </motion.div>
         </div>
       </section>
 
-        {/* Popular Courses Section */}
-        <section className="py-16 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Popular Certificates Section */}
+        <section className="py-16 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
           <motion.div
+               className="text-center mb-12"
+               initial={{ opacity: 0, y: 30 }}
+               whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+               transition={{ duration: 0.6 }}
+             >
+               <motion.h2 
+                 className="text-3xl font-bold text-gray-900 mb-4"
+                 initial={{ opacity: 0, y: 20 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.2 }}
+               >
+                 Chứng chỉ phổ biến nhất
+               </motion.h2>
+               <motion.p 
+                 className="text-lg text-gray-600 max-w-3xl mx-auto"
+                 initial={{ opacity: 0, y: 20 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.4 }}
+               >
+                 Khám phá các chương trình phổ biến nhất của chúng tôi, sẵn sàng cho công việc trong những ngành nghề đang được săn đón.
+               </motion.p>
+             </motion.div>
+            
+              <motion.div
+               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+               initial={{ opacity: 0 }}
+               whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+               transition={{ duration: 0.8, delay: 0.6 }}
+             >
+              {/* Google Data Analytics */}
+                        <motion.div
+                 className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                 initial={{ opacity: 0, y: 50 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.8 }}
+                 whileHover={{ y: -5, scale: 1.02 }}
+               >
+                <div className="relative">
+                  <img 
+                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&h=200&fit=crop" 
+                    alt="Google Data Analytics" 
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="absolute top-4 left-4 flex gap-2">
+                    <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">
+                      Dùng thử miễn phí
+                    </span>
+                    <span className="bg-gray-800 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                      ⭐ Kỹ năng AI
+                    </span>
+                      </div>
+                  </div>
+                <div className="p-4">
+                  <div className="flex items-center mb-3">
+                    <img 
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/200px-Google_2015_logo.svg.png" 
+                      alt="Google" 
+                      className="h-6 w-auto mr-2"
+                      />
+                    </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Phân tích dữ liệu của Google</h3>
+                  <div className="flex items-center text-blue-600 text-sm mb-2">
+                    <span className="mr-1">🎓</span>
+                    Xây dựng hướng tới một bằng cấp
+                </div>
+                  <p className="text-gray-500 text-sm">Chứng chỉ Chuyên môn</p>
+          </div>
+         </motion.div>
+
+              {/* Google Project Management */}
+               <motion.div 
+                 className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                 initial={{ opacity: 0, y: 50 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 1.0 }}
+                 whileHover={{ y: -5, scale: 1.02 }}
+               >
+                <div className="relative">
+                  <img 
+                    src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=200&fit=crop" 
+                    alt="Google Project Management" 
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="absolute top-4 left-4 flex gap-2">
+                    <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">
+                      Dùng thử miễn phí
+                    </span>
+                    <span className="bg-gray-800 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                      ⭐ Kỹ năng AI
+                    </span>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="flex items-center mb-3">
+                    <img 
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/200px-Google_2015_logo.svg.png" 
+                      alt="Google" 
+                      className="h-6 w-auto mr-2"
+                      />
+                      </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Quản lý dự án của Google</h3>
+                  <div className="flex items-center text-blue-600 text-sm mb-2">
+                    <span className="mr-1">🎓</span>
+                    Xây dựng hướng tới một bằng cấp
+                </div>
+                  <p className="text-gray-500 text-sm">Chứng chỉ Chuyên môn</p>
+          </div>
+         </motion.div>
+                  
+              {/* Google IT Support */}
+               <motion.div 
+                 className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                 initial={{ opacity: 0, y: 50 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 1.2 }}
+                 whileHover={{ y: -5, scale: 1.02 }}
+               >
+                <div className="relative">
+                  <img 
+                    src="https://vbee.vn/blog/wp-content/uploads/2025/03/Lich-su-phat-trien-cua-Google-AI.webp" 
+                    alt="Google IT Support" 
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="absolute top-4 left-4 flex gap-2">
+                    <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">
+                      Dùng thử miễn phí
+                    </span>
+                    <span className="bg-gray-800 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                      ⭐ Kỹ năng AI
+                    </span>
+                      </div>
+                    </div>
+                <div className="p-4">
+                  <div className="flex items-center mb-3">
+                    <img 
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/200px-Google_2015_logo.svg.png" 
+                      alt="Google" 
+                      className="h-6 w-auto mr-2"
+                      />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Hỗ trợ CNTT của Google</h3>
+                  <div className="flex items-center text-blue-600 text-sm mb-2">
+                    <span className="mr-1">🎓</span>
+                    Xây dựng hướng tới một bằng cấp
+                    </div>
+                  <p className="text-gray-500 text-sm">Chứng chỉ Chuyên môn</p>
+                </div>
+              </motion.div>
+
+              {/* Google UX Design */}
+                <motion.div
+                 className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                 initial={{ opacity: 0, y: 50 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 1.4 }}
+                 whileHover={{ y: -5, scale: 1.02 }}
+               >
+                <div className="relative">
+                  <img 
+                    src="https://images.unsplash.com/photo-1558655146-d09347e92766?w=400&h=200&fit=crop" 
+                    alt="Google UX Design" 
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="absolute top-4 left-4 flex gap-2">
+                    <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium">
+                      Dùng thử miễn phí
+                    </span>
+                    <span className="bg-gray-800 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                      ⭐ Kỹ năng AI
+                    </span>
+                      </div>
+                      </div>
+                <div className="p-4">
+                  <div className="flex items-center mb-3">
+                    <img 
+                      src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/200px-Google_2015_logo.svg.png" 
+                      alt="Google" 
+                      className="h-6 w-auto mr-2"
+                    />
+                    </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Thiết kế UX của Google</h3>
+                  <div className="flex items-center text-blue-600 text-sm mb-2">
+                    <span className="mr-1">🎓</span>
+                    Xây dựng hướng tới một bằng cấp
+                    </div>
+                  <p className="text-gray-500 text-sm">Chứng chỉ Chuyên môn</p>
+                </div>
+                         </motion.div>
+                       </motion.div>
+
+            {/* Action Buttons */}
+            <motion.div
+               className="flex justify-center gap-4"
+               initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+               transition={{ duration: 0.6, delay: 1.6 }}
+             >
+                <motion.button
+                 className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+               >
+                 Hiển thị thêm 8
+                </motion.button>
+                <motion.button
+                 className="bg-white text-blue-600 border border-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center gap-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+               >
+                 Xem tất cả →
+                </motion.button>
+              </motion.div>
+        </div>
+      </section>
+
+
+        {/* New Courses Section */}
+        <section className="py-16 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+          <motion.div
+               className="text-center mb-12"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
             viewport={{ once: true }}
-              className="text-center mb-12"
-            >
-              <div className="text-green-600 font-semibold text-base sm:text-lg mb-4">TÍNH NĂNG TUYỆT VỜI</div>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-                Các khóa học thú vị
-            </h2>
+               transition={{ duration: 0.6 }}
+             >
+               <motion.h2 
+                 className="text-3xl font-bold text-gray-900 mb-4"
+                 initial={{ opacity: 0, y: 20 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.2 }}
+               >
+                 Mới trên CampusLearning
+               </motion.h2>
+               <motion.p 
+                 className="text-lg text-gray-600 max-w-3xl mx-auto"
+                 initial={{ opacity: 0, y: 20 }}
+                 whileInView={{ opacity: 1, y: 0 }}
+                 viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.4 }}
+               >
+                 Khám phá những khóa học mới nhất được cập nhật hàng tuần, mang đến cho bạn kiến thức và kỹ năng mới nhất trong lĩnh vực công nghệ.
+               </motion.p>
           </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {loading ? (
-                // Loading skeleton
                 Array(4).fill(0).map((_, index) => (
-                  <div key={index} className="bg-gray-200 animate-pulse rounded-lg h-80"></div>
+                  <div key={index} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                    <div className="bg-gray-200 h-40"></div>
+                    <div className="p-4">
+                      <div className="bg-gray-200 h-4 rounded mb-2"></div>
+                      <div className="bg-gray-200 h-3 rounded mb-2"></div>
+                      <div className="bg-gray-200 h-3 rounded w-2/3"></div>
+                    </div>
+                  </div>
               ))
             ) : (
                 popularCourses.slice(0, 4).map((course, index) => (
-                <motion.div
+                  <div
                   key={course.CourseID || index}
-                    initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                    className="bg-white rounded-lg overflow-hidden shadow-lg group hover:shadow-xl transition-all duration-300 cursor-pointer"
+                    className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
                       if (!isAuthenticated) {
-                        toast.info("Vui lòng đăng nhập để xem chi tiết khóa học", {
-                          position: "top-center",
-                          autoClose: 3000
-                        });
-                        setTimeout(() => {
-                          navigate("/login", { 
-                            state: { 
-                              from: `/courses/${course.CourseID}`,
-                              message: "Đăng nhập để xem chi tiết khóa học" 
-                            }
-                          });
-                        }, 1000);
+                        navigate("/login");
                       } else {
                         handleNavigation(`/courses/${course.CourseID}`);
                       }
                     }}
                 >
-                    <div className="relative h-48">
+                    <div className="relative">
                       <img
-                        src={course.ImageUrl || `https://images.unsplash.com/photo-${1461749280684 + index}-dccba630e2f6?w=400&h=300&fit=crop`}
+                        src={course.ImageUrl || `https://images.unsplash.com/photo-${1461749280684 + index}-dccba630e2f6?w=400&h=200&fit=crop`}
                         alt={course.Title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-40 object-cover"
                       />
-                      <div className="absolute top-3 left-3">
-                        <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-semibold">
-                          MỚI NHẤT
+                      <div className="absolute top-4 left-4 flex gap-2">
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">
+                          Mới
+                        </span>
+                        <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                          ⭐ Hot
                         </span>
                         </div>
                       </div>
                     <div className="p-4">
-                      <div className="flex items-center mb-2">
-                        {[...Array(5)].map((_, i) => (
-                          <StarIcon 
-                            key={i} 
-                            className={`w-4 h-4 ${i < Math.floor(course.Rating || 4) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} 
-                          />
-                        ))}
-                        <span className="text-sm text-gray-600 ml-2">{course.Rating || '4.0'}</span>
+                      <div className="flex items-center mb-3">
+                        <span className="text-lg font-bold text-blue-600 mr-2">&lt;/&gt;</span>
+                        <span className="text-sm text-gray-600">CampusLearning</span>
                       </div>
-                      <h3 className="font-bold text-gray-900 mb-2 text-sm line-clamp-2 min-h-[2.5rem]">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
                         {course.Title || `Khóa học ${index + 1}`}
                       </h3>
-                      <p className="text-gray-600 text-xs mb-3 line-clamp-2 min-h-[2rem]">
-                        {course.ShortDescription || `Mô tả khóa học ${index + 1}`}
-                      </p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>{course.EnrolledCount || 0} học viên</span>
-                        <span className="font-semibold text-green-600">
-                          {course.DiscountPrice > 0 
-                            ? `${new Intl.NumberFormat('vi-VN').format(course.DiscountPrice)}₫`
-                            : course.Price > 0 
-                              ? `${new Intl.NumberFormat('vi-VN').format(course.Price)}₫`
-                              : 'Miễn phí'
-                          }
-                        </span>
+                      <div className="flex items-center text-blue-600 text-sm mb-2">
+                        <span className="mr-1">🎓</span>
+                        Khóa học mới nhất
                       </div>
+                      <p className="text-gray-500 text-sm">Khóa học Chuyên môn</p>
                     </div>
-                  </motion.div>
+                  </div>
                 ))
               )}
                         </div>
+
+            {/* Action Buttons */}
+              <motion.div
+              className="flex justify-center gap-4"
+              initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.6 }}
+            >
+              <motion.button 
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Hiển thị thêm 8
+              </motion.button>
+              <motion.button 
+                onClick={() => handlePublicNavigation("/courses")}
+                className="bg-white text-blue-600 border border-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center gap-2"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Xem tất cả →
+              </motion.button>
+                </motion.div>
+        </div>
+        </section>
+
+        {/* Stats Section */}
+        <section className="py-8 bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4">
+          <motion.div
+               className="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center"
+               initial={{ opacity: 0 }}
+               whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+               transition={{ duration: 0.8 }}
+             >
+               {[
+                 { number: "50K+", label: "Học viên" },
+                 { number: "500+", label: "Khóa học" },
+                 { number: "98%", label: "Hài lòng" },
+                 { number: "24/7", label: "Hỗ trợ" }
+               ].map((stat, index) => (
+          <motion.div
+                   key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+                   transition={{ duration: 0.6, delay: index * 0.2 }}
+                 >
+          <motion.div
+                     className="text-2xl font-bold"
+                     initial={{ scale: 0 }}
+                     whileInView={{ scale: 1 }}
+            viewport={{ once: true }}
+                     transition={{ duration: 0.6, delay: index * 0.2 + 0.3, type: "spring", stiffness: 200 }}
+                   >
+                     {stat.number}
+          </motion.div>
+                   <div className="text-xs text-gray-600">{stat.label}</div>
+           </motion.div>
+               ))}
+              </motion.div>
+        </div>
+      </section>
+
+        {/* Explore Categories Section */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4">
+             <motion.h2 
+               className="text-4xl font-bold text-center mb-12"
+              initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                transition={{ duration: 0.6 }}
+             >
+               Khám phá CampusLearning
+             </motion.h2>
+              <motion.div
+               className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+               initial={{ opacity: 0 }}
+               whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+               transition={{ duration: 0.8, delay: 0.2 }}
+             >
+               {educationalCategories.map((category, index) => (
+            <motion.div
+                   key={index}
+                   className="bg-white border cursor-pointer hover:shadow-lg rounded-lg overflow-hidden transition-shadow duration-300 min-h-[280px] flex flex-col"
+                   onClick={() => handlePublicNavigation("/courses")}
+                   initial={{ opacity: 0, y: 50 }}
+                   whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+                   transition={{ duration: 0.6, delay: index * 0.1 }}
+                   whileHover={{ y: -10, scale: 1.05 }}
+            >
+              <img
+                    src={category.image}
+                    alt={category.title}
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="p-6 flex-1 flex flex-col justify-center">
+                    <h3 className="font-bold text-lg">{category.title}</h3>
+                    <p className="text-base text-blue-600 mt-3">Xem tất cả</p>
+                        </div>
+            </motion.div>
+               ))}
+              </motion.div>
                       </div>
         </section>
 
-        {/* Features Grid Section */}
-        <section className="py-16 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              
+        {/* Community Section */}
+        <section className="bg-blue-50">
+          <div className="max-w-6xl mx-auto">
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
+               className="grid grid-cols-1 lg:grid-cols-2 gap-0 items-stretch"
+               initial={{ opacity: 0 }}
+               whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
-                className="flex items-start space-x-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <CheckIcon className="w-6 h-6 text-green-600" />
-                      </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Chuyên tự do chính</h3>
-                  <p className="text-gray-600 text-sm">
-                    Tự do chọn thời gian học phù hợp với lịch trình cá nhân và hoạt động khác.
-                  </p>
-                </div>
-              </motion.div>
-
+               transition={{ duration: 0.8 }}
+             >
               <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
+                 className="p-8"
+                 initial={{ opacity: 0, x: -50 }}
+                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                className="flex items-start space-x-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <UserGroupIcon className="w-6 h-6 text-green-600" />
-                        </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Hướng dẫn viên chuyên nghiệp</h3>
-                  <p className="text-gray-600 text-sm">
-                    Đội ngũ mentor giàu kinh nghiệm từ các công ty công nghệ hàng đầu.
-                  </p>
-                        </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="flex items-start space-x-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <HeartIcon className="w-6 h-6 text-green-600" />
-                      </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Chất lượng dịch vụ cao</h3>
-                  <p className="text-gray-600 text-sm">
-                    Cam kết chất lượng cao với hệ thống đánh giá và phản hồi liên tục.
-                  </p>
-                    </div>
-                </motion.div>
-
-            <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              viewport={{ once: true }}
-                className="flex items-start space-x-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <MapPinIcon className="w-6 h-6 text-green-600" />
-        </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Địa điểm đa dạng</h3>
-                  <p className="text-gray-600 text-sm">
-                    Học tập mọi lúc mọi nơi với nền tảng online hiện đại và tiện lợi.
-                  </p>
-                  </div>
-                </motion.div>
-
-          <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
+                 transition={{ duration: 0.6 }}
+               >
+                 <motion.h2 
+                   className="text-2xl font-bold mb-4"
+                   initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-                className="flex items-start space-x-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <AcademicCapIcon className="w-6 h-6 text-green-600" />
-          </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Trải nghiệm độc đáo</h3>
-                  <p className="text-gray-600 text-sm">
-                    Phương pháp học tập sáng tạo với AI và công nghệ VR/AR tiên tiến.
-                  </p>
-                </div>
-          </motion.div>
-
-          <motion.div
-                initial={{ opacity: 0, y: 30 }}
+                   transition={{ duration: 0.6, delay: 0.2 }}
+                 >
+                   Kết quả học tập trên CampusLearning
+                 </motion.h2>
+                 <motion.p 
+                   className="text-gray-600 mb-6"
+                   initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-            viewport={{ once: true }}
-                className="flex items-start space-x-4"
-              >
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <ClockIcon className="w-6 h-6 text-green-600" />
-                  </div>
-                <div>
-                  <h3 className="font-bold text-gray-900 mb-2">Hỗ trợ dịch vụ 24/7</h3>
-                  <p className="text-gray-600 text-sm">
-                    Đội ngũ hỗ trợ sẵn sàng giải đáp mọi thắc mắc 24/7 qua nhiều kênh.
-                  </p>
-                </div>
+                viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.4 }}
+                 >
+                   Hơn 50,000 học viên đã thành công trong sự nghiệp lập trình với các khóa học của chúng tôi. 
+                   Tham gia cộng đồng và bắt đầu hành trình học tập của bạn ngay hôm nay.
+                 </motion.p>
+                 <motion.button
+                   onClick={() => handlePublicNavigation("/register")}
+                   className="bg-blue-600 text-white px-6 py-3 font-semibold"
+                   initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                   transition={{ duration: 0.6, delay: 0.6 }}
+                   whileHover={{ scale: 1.05 }}
+                   whileTap={{ scale: 0.95 }}
+                 >
+                   Tham gia miễn phí
+                 </motion.button>
+              </motion.div>
+              <motion.div
+                 className="grid grid-cols-2 gap-0 overflow-hidden"
+                 initial={{ opacity: 0, x: 50 }}
+                 whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.2 }}
+               >
+                 {[
+                   { src: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=300&fit=crop", alt: "Students learning" },
+                   { src: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop", alt: "Programming workspace" },
+                   { src: "https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=400&h=300&fit=crop", alt: "Team collaboration" },
+                   { src: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop", alt: "Success celebration" }
+                 ].map((image, index) => (
+                   <motion.img
+                     key={index}
+                     src={image.src}
+                     alt={image.alt}
+                     className="w-full h-full object-cover"
+                     initial={{ opacity: 0, scale: 0.8 }}
+                 whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                     transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
+                     whileHover={{ scale: 1.05 }}
+                   />
+                 ))}
+                 </motion.div>
           </motion.div>
-          </div>
         </div>
       </section>
 
-        {/* Video Hero Section */}
-        <section 
-          className="py-20 bg-cover bg-center bg-no-repeat relative"
-          style={{
-            backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')`
-          }}
-        >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              
-              {/* Left Column - Content */}
-          <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-                className="text-white"
-              >
-                <div className="text-green-400 font-semibold text-lg mb-4">BẠN ĐÃ SẴN SÀNG ĐỂ HỌC CHƯA?</div>
-                <h2 className="text-4xl lg:text-5xl font-bold mb-8 leading-tight">
-                  Sẵn sàng học tập với cuộc
-                  <br />
-                  phiêu lưu thực sự
-            </h2>
-                
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handlePublicNavigation("/courses")}
-                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center space-x-3"
-                >
-                  <PlayIcon className="w-6 h-6" />
-                  <span>Bắt đầu ngay</span>
-                </motion.button>
-          </motion.div>
-
-              {/* Right Column - Features */}
-              <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
-                viewport={{ once: true }}
-                className="grid grid-cols-2 gap-6"
-              >
-                <div className="text-center text-white">
-                  <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <UserGroupIcon className="w-8 h-8" />
-                      </div>
-                  <h3 className="font-bold mb-2">Chuyên lập trình</h3>
-                  <h3 className="font-bold">ứng dụng thực tế</h3>
-                    </div>
-                
-                <div className="text-center text-white">
-                  <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <LightBulbIcon className="w-8 h-8" />
-                  </div>
-                  <h3 className="font-bold mb-2">Trải nghiệm</h3>
-                  <h3 className="font-bold">Công nghệ tiên tiến</h3>
-                </div>
-                  
-                <div className="text-center text-white">
-                  <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MapPinIcon className="w-8 h-8" />
-                  </div>
-                  <h3 className="font-bold mb-2">Công nghệ tương lai</h3>
-                  <h3 className="font-bold">AI và VR/AR</h3>
-                </div>
-                
-                <div className="text-center text-white">
-                  <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <GlobeAltIcon className="w-8 h-8" />
-                  </div>
-                  <h3 className="font-bold mb-2">Công nghệ hiện đại</h3>
-                  <h3 className="font-bold">Đa dạng</h3>
-                </div>
-              </motion.div>
-          </div>
-        </div>
-      </section>
-
-        {/* Tech Stack Gallery */}
-        <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <motion.div
-              initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-                  viewport={{ once: true }}
-              className="text-center mb-16"
-            >
-              <div className="text-green-600 font-semibold text-lg mb-4">NHỮNG CÔNG NGHỆ TUYỆT VỜI</div>
-              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-                Công nghệ nổi bật tại Campus Learning
-              </h2>
-            </motion.div>
-              
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {/* Tech Stack Items */}
-                  <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6 }}
-                    viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=300&h=200&fit=crop"
-                  alt="React"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                                    <span className="bg-indigo-500 text-white px-2 py-1 rounded text-xs font-bold">
-                    10 KHÓA HỌC
-                        </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">React.js</h3>
-                  <p className="text-xs opacity-90">Frontend Framework</p>
-                        </div>
-                  </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=300&h=200&fit=crop"
-                  alt="Python"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold">
-                    22 KHÓA HỌC
-                  </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">Python</h3>
-                  <p className="text-xs opacity-90">AI & Backend</p>
-                          </div>
-            </motion.div>
-
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-            >
-              <img
-                  src="https://www.infoworld.com/wp-content/uploads/2025/05/2263137-0-24139200-1747637392-shutterstock_1361674454-100939444-orig.jpg?quality=50&strip=all"
-                  alt="JavaScript"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-yellow-600 text-white px-2 py-1 rounded text-xs font-bold">
-                    28 KHÓA HỌC
-                  </span>
-                          </div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">JavaScript</h3>
-                  <p className="text-xs opacity-90">Full-stack Development</p>
-                        </div>
-            </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=300&h=200&fit=crop"
-                  alt="Node.js"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-green-500 text-white px-2 py-1 rounded text-xs font-bold">
-                    12 KHÓA HỌC
-                  </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">Node.js</h3>
-                  <p className="text-xs opacity-90">Backend Runtime</p>
-                    </div>
-              </motion.div>
-
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1518773553398-650c184e0bb3?w=300&h=200&fit=crop"
-                  alt="AI & ML"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-purple-500 text-white px-2 py-1 rounded text-xs font-bold">
-                    8 KHÓA HỌC
-                  </span>
-                      </div>
-                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">AI & ML</h3>
-                  <p className="text-xs opacity-90">Machine Learning</p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-              >
-                <img
-                  src="https://phoenixnap.com/glossary/wp-content/uploads/2024/03/what-is-a-website-database.jpg"
-                  alt="Database"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold">
-                    15 KHÓA HỌC
-                          </span>
-                        </div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">Database</h3>
-                  <p className="text-xs opacity-90">SQL & NoSQL</p>
-                        </div>
-            </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer"
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=300&h=200&fit=crop"
-                  alt="DevOps"
-                  className="w-full h-40 object-cover group-hover:scale-110 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute top-3 left-3">
-                  <span className="bg-cyan-500 text-white px-2 py-1 rounded text-xs font-bold">
-                    6 KHÓA HỌC
-                  </span>
-                      </div>
-                                <div className="absolute bottom-3 left-3 text-white">
-                  <h3 className="font-bold text-lg">DevOps</h3>
-                  <p className="text-xs opacity-90">Cloud & CI/CD</p>
-                  </div>
-                </motion.div>
-
-              {/* CTA Box */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.7 }}
-              viewport={{ once: true }}
-                className="bg-green-600 rounded-lg p-6 flex flex-col justify-center items-center text-white cursor-pointer hover:bg-green-700 transition-colors duration-300 h-40"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <AcademicCapIcon className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg mb-2 text-center">Đăng ký khóa học</h3>
-                <h3 className="font-bold text-lg mb-4 text-center">với ưu đãi đặc biệt</h3>
-                <button className="bg-white text-green-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors">
-                  Khám phá ngay
-              </button>
-            </motion.div>
-        </div>
-        </div>
-      </section>
-
-        {/* Achievement Stats */}
-        <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Testimonials Section - Infinite Scroll */}
+        <section className="py-12 bg-white overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 mb-8 sm:mb-12">
           <motion.div
               initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-              <div className="text-green-600 font-semibold text-lg mb-4">CHUYÊN GIA TUYỆT VỜI</div>
-              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-                Thành tựu đạt được
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              className="text-center"
+            >
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-gray-800 px-4 mb-4">
+                50,000+ người đã tham gia CampusLearning
             </h2>
-          </motion.div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                viewport={{ once: true }}
-                className="bg-white p-8 rounded-lg shadow-lg"
-              >
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <UserGroupIcon className="w-8 h-8 text-green-600" />
-                  </div>
-                <div className="text-4xl font-bold text-gray-900 mb-2">3500+</div>
-                <div className="text-gray-600 font-semibold">Học viên thân thiết</div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                viewport={{ once: true }}
-                className="bg-white p-8 rounded-lg shadow-lg"
-              >
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <BookOpenIcon className="w-8 h-8 text-green-600" />
-                </div>
-                <div className="text-4xl font-bold text-gray-900 mb-2">1650+</div>
-                <div className="text-gray-600 font-semibold">Khóa học hoạt động</div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                viewport={{ once: true }}
-                className="bg-white p-8 rounded-lg shadow-lg"
-              >
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <HeartIcon className="w-8 h-8 text-green-600" />
-                </div>
-                <div className="text-4xl font-bold text-gray-900 mb-2">99.5%</div>
-                <div className="text-gray-600 font-semibold">Đánh giá tốt tuyệt</div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                viewport={{ once: true }}
-                className="bg-white p-8 rounded-lg shadow-lg"
-              >
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <TrophyIcon className="w-8 h-8 text-green-600" />
-            </div>
-                <div className="text-4xl font-bold text-gray-900 mb-2">62+</div>
-                <div className="text-gray-600 font-semibold">Chuyên viên kinh nghiệm</div>
-          </motion.div>
-          </div>
-        </div>
-      </section>
-
-        {/* Customer Reviews Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              
-              {/* Left Column - Content */}
-          <motion.div
-                initial={{ opacity: 0, x: -50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-                className="space-y-6"
-              >
-                <div className="text-green-600 font-semibold text-lg mb-4">CHẤT LƯỢNG DỊCH VỤ</div>
-                <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
-                  Đánh giá tích cực từ
-                  <br />
-                  khách hàng
-            </h2>
-                <p className="text-gray-600 leading-relaxed">
-                  Đánh giá tích cực từ khách hàng là động lực để chúng tôi tiếp
-                  tục cung cấp dịch vụ du lịch tốt nhất. Chúng tôi luôn cố gắng
-                  không ngừng nâng cao chất lượng dịch vụ và mang đến những trải
-                  nghiệm tuyệt vời cho mọi khách hàng.
+              <p className="text-gray-600 text-lg">
+                Những câu chuyện thành công từ học viên của chúng tôi
             </p>
           </motion.div>
+                  </div>
 
-              {/* Right Column - Testimonial Card */}
+          {/* Row 1 - Scroll Left to Right */}
+          <div className="relative mb-4 sm:mb-6">
               <motion.div
-                initial={{ opacity: 0, x: 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
-                viewport={{ once: true }}
-                className="relative"
-              >
-                <div className="bg-gray-50 rounded-2xl p-8 relative">
+              animate={{ x: [0, -1920] }}
+              transition={{
+                duration: 40,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              className="flex gap-3 sm:gap-6"
+              style={{ width: 'max-content' }}
+            >
+              {[...Array(2)].map((_, setIndex) => (
+                <React.Fragment key={setIndex}>
+                  {[
+                    {
+                      name: "Anh Minh",
+                      role: "Full Stack Developer",
+                      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+                      review: "CampusLearning đã giúp tôi có được công việc mơ ước trong lĩnh vực lập trình."
+                    },
+                    {
+                      name: "Chị Lan",
+                      role: "Frontend Developer",
+                      avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+                      review: "Khóa học chất lượng cao với giảng viên có kinh nghiệm thực tế."
+                    },
+                    {
+                      name: "Anh Tuấn",
+                      role: "Backend Developer",
+                      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+                      review: "Nền tảng học tập tốt nhất cho người mới bắt đầu học lập trình."
+                    },
+                    {
+                      name: "Chị Hương",
+                      role: "Mobile Developer",
+                      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+                      review: "Từ con số 0 đến developer trong 6 tháng nhờ CampusLearning."
+                    },
+                    {
+                      name: "Anh Đức",
+                      role: "DevOps Engineer",
+                      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+                      review: "Community hỗ trợ tuyệt vời, không bao giờ cảm thấy cô đơn trong hành trình học."
+                    },
+                  ].map((testimonial, index) => (
+                    <div
+                      key={`${setIndex}-${index}`}
+                      className="bg-white border border-gray-200 rounded-lg p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative flex-shrink-0 w-[320px] sm:w-[400px] shadow-sm"
+                    >
                   {/* Quote Icon */}
-                  <div className="absolute top-4 right-4 w-16 h-16 bg-green-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-2xl font-bold">"</span>
+                      <div className="absolute top-4 right-4 text-gray-300 text-4xl">
+                        "
                   </div>
                   
-                  {/* Stars */}
-                  <div className="flex items-center mb-6">
-                    {[...Array(5)].map((_, i) => (
-                      <StarIcon key={i} className="w-5 h-5 text-yellow-400 fill-current" />
-                    ))}
-                  </div>
-                  
-                  {/* Testimonial Text */}
-                  <blockquote className="text-gray-800 text-lg leading-relaxed mb-6 italic">
-                    "Chúng tôi đã được trải qua những điều tốt đẹp nhất, với các
-                    hướng dẫn viên rất chuyên nghiệp và tận tâm. Cảm ơn vì đã mang đến
-                    cho chúng tôi những kỷ niệm đáng nhớ!"
-                  </blockquote>
-                  
-                  {/* Author */}
-                  <div className="flex items-center">
-                    <img
-                      src="https://upload.wikimedia.org/wikipedia/commons/a/a9/Jessica_Brown_Findlay_in_2017.png"
-                      alt="Jessica Brown"
-                      className="w-12 h-12 rounded-full mr-4 object-cover"
-                    />
+                      {/* User Info Section */}
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                          <img 
+                            src={testimonial.avatar} 
+                            alt={testimonial.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+            </div>
                     <div>
-                      <div className="font-bold text-gray-900">Jessica Brown</div>
-                      <div className="text-sm text-gray-600">Khách hàng</div>
+                          <p className="text-gray-800 font-semibold text-sm">{testimonial.name}</p>
+                          <p className="text-gray-500 text-xs">{testimonial.role}</p>
                       </div>
                     </div>
+                      
+                      
+                      {/* Review Text */}
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        "{testimonial.review}"
+                      </p>
                   </div>
+                  ))}
+                </React.Fragment>
+              ))}
               </motion.div>
           </div>
-        </div>
-      </section>
 
-        {/* Blog Articles Section */}
-        <section className="py-20 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            
-            {/* Section Header */}
-            <div className="flex justify-between items-end mb-12">
+          {/* Row 2 - Scroll Right to Left */}
+          <div className="relative mb-4 sm:mb-6">
             <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
+              animate={{ x: [-1920, 0] }}
+              transition={{
+                duration: 40,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              className="flex gap-3 sm:gap-6"
+              style={{ width: 'max-content' }}
             >
-                <div className="text-green-600 font-semibold text-lg mb-4">TIN TỨC MỚI NHẤT</div>
-                <h2 className="text-4xl lg:text-5xl font-bold text-gray-900">
-                  Bài viết và tin tức
-                  <br />
-                  về công nghệ
-              </h2>
-              </motion.div>
-              
-              <motion.button
-                initial={{ opacity: 0, x: 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
-                    viewport={{ once: true }}
-                onClick={() => handlePublicNavigation("/posts")}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold transition-colors duration-300"
-              >
-                Xem tất cả
-              </motion.button>
+              {[...Array(2)].map((_, setIndex) => (
+                <React.Fragment key={setIndex}>
+                  {[
+                    {
+                      name: "Chị Mai",
+                      role: "UI/UX Designer",
+                      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face",
+                      review: "Giá cả hợp lý, chất lượng không thua kém các khóa học đắt tiền."
+                    },
+                    {
+                      name: "Anh Nam",
+                      role: "Tech Lead",
+                      avatar: "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150&h=150&fit=crop&crop=face",
+                      review: "Sau khóa học, tôi đã tự tin apply vào các công ty lớn và được nhận."
+                    },
+                    {
+                      name: "Chị Linh",
+                      role: "Product Manager",
+                      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
+                      review: "Học theo dự án thực tế giúp tôi có portfolio ấn tượng khi xin việc."
+                    },
+                    {
+                      name: "Anh Hùng",
+                      role: "Data Scientist",
+                      avatar: "https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=150&h=150&fit=crop&crop=face",
+                      review: "Chương trình học được thiết kế rất khoa học và thực tế."
+                    },
+                    {
+                      name: "Chị Thu",
+                      role: "QA Engineer",
+                      avatar: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop&crop=face",
+                      review: "Đội ngũ hỗ trợ nhiệt tình, luôn sẵn sàng giải đáp mọi thắc mắc."
+                    },
+                  ].map((testimonial, index) => (
+                    <div
+                      key={`${setIndex}-${index}`}
+                      className="bg-white border border-gray-200 rounded-lg p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative flex-shrink-0 w-[320px] sm:w-[400px] shadow-sm"
+                    >
+                      {/* Quote Icon */}
+                      <div className="absolute top-4 right-4 text-gray-300 text-4xl">
+                        "
                   </div>
 
-            {/* Blog Articles Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {postsLoading ? (
-                // Loading skeleton
-                Array(3).fill(0).map((_, index) => (
-                  <div key={index} className="bg-gray-200 animate-pulse rounded-xl h-80"></div>
-                ))
-              ) : blogPosts.length > 0 ? (
-                blogPosts.map((post, index) => {
-                  // Helper function to get category color based on post type
-                  const getCategoryColor = (post) => {
-                    if (post.Type) {
-                      const colors = {
-                        'article': 'bg-blue-500',
-                        'question': 'bg-green-500', 
-                        'announcement': 'bg-purple-500',
-                        'regular': 'bg-orange-500'
-                      };
-                      return colors[post.Type] || 'bg-gray-500';
-                    }
-                    // Fallback to tags if available
-                    if (post.tags && post.tags.length > 0) {
-                      const tag = post.tags[0].Name || post.tags[0];
-                      const colors = {
-                        'Technology': 'bg-blue-500',
-                        'Programming': 'bg-green-500', 
-                        'Tutorial': 'bg-purple-500',
-                        'News': 'bg-orange-500',
-                        'Tips': 'bg-yellow-500'
-                      };
-                      return colors[tag] || 'bg-gray-500';
-                    }
-                    return 'bg-gray-500';
-                  };
+                      {/* User Info Section */}
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                          <img 
+                            src={testimonial.avatar} 
+                            alt={testimonial.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                </div>
+                        <div>
+                          <p className="text-gray-800 font-semibold text-sm">{testimonial.name}</p>
+                          <p className="text-gray-500 text-xs">{testimonial.role}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Review Text */}
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        "{testimonial.review}"
+                      </p>
+                      </div>
+                  ))}
+                </React.Fragment>
+              ))}
+                  </motion.div>
+              </div>
 
-                  // Helper function to get post image
-                  const getPostImage = (media) => {
-                    if (media && media.length > 0 && media[0].MediaUrl) {
-                      return media[0].MediaUrl;
-                    }
-                    // Fallback images based on index
-                    const fallbackImages = [
-                      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=250&fit=crop",
-                      "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=250&fit=crop", 
-                      "https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=400&h=250&fit=crop"
-                    ];
-                    return fallbackImages[index % 3];
-                  };
+          {/* Row 3 - Scroll Left to Right (different speed) */}
+          <div className="relative">
+            <motion.div
+              animate={{ x: [0, -1920] }}
+              transition={{
+                duration: 35,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              className="flex gap-3 sm:gap-6"
+              style={{ width: 'max-content' }}
+            >
+              {[...Array(2)].map((_, setIndex) => (
+                <React.Fragment key={setIndex}>
+                  {[
+                    {
+                      name: "Anh Long",
+                      role: "System Admin",
+                      avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&h=150&fit=crop&crop=face",
+                      review: "Kiến thức học được áp dụng ngay vào công việc thực tế."
+                    },
+                    {
+                      name: "Chị Nga",
+                      role: "Business Analyst",
+                      avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop&crop=face",
+                      review: "Cách giảng dạy dễ hiểu, phù hợp với người mới bắt đầu."
+                    },
+                    {
+                      name: "Anh Quang",
+                      role: "Cloud Engineer",
+                      avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&h=150&fit=crop&crop=face",
+                      review: "Được học từ những chuyên gia có kinh nghiệm trong ngành."
+                    },
+                    {
+                      name: "Chị Phương",
+                      role: "Security Engineer",
+                      avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&h=150&fit=crop&crop=face",
+                      review: "Nội dung cập nhật liên tục theo xu hướng công nghệ mới."
+                    },
+                    {
+                      name: "Anh Tùng",
+                      role: "AI Engineer",
+                      avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=face",
+                      review: "Đầu tư vào học tập tại CampusLearning là quyết định đúng đắn nhất."
+                    },
+                  ].map((testimonial, index) => (
+                    <div
+                      key={`${setIndex}-${index}`}
+                      className="bg-white border border-gray-200 rounded-lg p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative flex-shrink-0 w-[320px] sm:w-[400px] shadow-sm"
+                    >
+                      {/* Quote Icon */}
+                      <div className="absolute top-4 right-4 text-gray-300 text-4xl">
+                        "
+          </div>
+                      
+                      {/* User Info Section */}
+                      <div className="flex items-center space-x-4 mb-4">
+                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                          <img 
+                            src={testimonial.avatar} 
+                            alt={testimonial.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+          </div>
+                        <div>
+                          <p className="text-gray-800 font-semibold text-sm">{testimonial.name}</p>
+                          <p className="text-gray-500 text-xs">{testimonial.role}</p>
+              </div>
+              </div>
+                      
+                      {/* Review Text */}
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        "{testimonial.review}"
+                      </p>
+          </div>
+                  ))}
+                </React.Fragment>
+              ))}
+              </motion.div>
+        </div>
+        </section>
 
-                  // Helper function to format date
-                  const formatDate = (dateString) => {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('vi-VN', { 
-                      day: '2-digit', 
-                      month: '2-digit' 
-                    });
-                  };
-
-                  // Helper function to extract excerpt from content
-                  const getExcerpt = (content) => {
-                    if (!content) return 'Nội dung bài viết...';
-                    // Remove HTML tags and limit to 100 characters
-                    const text = content.replace(/<[^>]*>/g, '');
-                    return text.length > 100 ? text.substring(0, 100) + '...' : text;
-                  };
-
-                  return (
-                    <motion.article
-                      key={post.PostID}
-                      initial={{ opacity: 0, y: 30 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.6, delay: index * 0.1 }}
-              viewport={{ once: true }}
-                      className="bg-white rounded-xl overflow-hidden shadow-lg group hover:shadow-xl transition-all duration-300 cursor-pointer"
+        {/* Final CTA Section */}
+        <section className="py-12 bg-blue-600 text-white">
+          <div className="max-w-4xl mx-auto px-4 text-center">
+             <motion.h2 
+               className="text-2xl font-bold mb-4"
+               initial={{ opacity: 0, y: 30 }}
+                     whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+                 transition={{ duration: 0.6 }}
+             >
+               Thực hiện bước tiếp theo trong sự nghiệp của bạn
+             </motion.h2>
+             <motion.p 
+               className="mb-6"
+               initial={{ opacity: 0, y: 20 }}
+               whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.2 }}
+             >
+               Tham gia hàng nghìn học viên đã thành công với CampusLearning
+             </motion.p>
+             <motion.button
                       onClick={() => {
-                        if (!isAuthenticated) {
-                          toast.info("Vui lòng đăng nhập để xem chi tiết bài viết", {
-                            position: "top-center",
-                            autoClose: 3000
-                          });
-                          setTimeout(() => {
-                            navigate("/login", { 
-                              state: { 
-                                from: `/posts?postId=${post.PostID}`,
-                                message: "Đăng nhập để xem chi tiết bài viết" 
-                              }
-                            });
-                          }, 1000);
+                if (isAuthenticated) {
+                  handleNavigation("/courses");
                         } else {
-                          handleNavigation(`/posts?postId=${post.PostID}`);
-                        }
-                      }}
-                    >
-                      <div className="relative">
-                        <img
-                          src={getPostImage(post.media)}
-                          alt={post.Content ? post.Content.substring(0, 50) : 'Bài viết'}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute top-3 left-3">
-                          <span className={`${getCategoryColor(post)} text-white px-2 py-1 rounded text-xs font-bold`}>
-                            {post.Type === 'article' && 'Bài viết' ||
-                             post.Type === 'question' && 'Câu hỏi' ||
-                             post.Type === 'announcement' && 'Thông báo' ||
-                             post.Type === 'regular' && 'Chia sẻ' ||
-                             (post.tags && post.tags.length > 0 ? (post.tags[0].Name || post.tags[0]) : 'Bài viết')}
-                          </span>
-                </div>
-                        <div className="absolute top-3 right-3">
-                          <span className="bg-green-600 text-white px-2 py-1 rounded text-xs font-bold">
-                            {formatDate(post.CreatedAt)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="p-6">
-                        <div className="flex items-center text-xs text-gray-500 mb-3">
-                          <UserGroupIcon className="w-4 h-4 mr-1" />
-                          <span className="mr-4">{post.FullName || post.Username || 'Tác giả'}</span>
-                          <ChatBubbleLeftRightIcon className="w-4 h-4 mr-1" />
-                          <span>{post.CommentsCount || 0} Comments</span>
-                        </div>
-                        <h3 className="font-bold text-gray-900 mb-3 line-clamp-2">
-                          {post.Title || 
-                           (post.Content ? 
-                             (post.Content.length > 60 ? post.Content.substring(0, 60) + '...' : post.Content) : 
-                             `Bài viết ${index + 1}`)}
-                        </h3>
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                          {getExcerpt(post.Content)}
-                        </p>
-                        <button className="text-green-600 font-semibold text-sm hover:text-green-700 transition-colors">
-                          Xem thêm →
-                        </button>
-                      </div>
-                    </motion.article>
-                  );
-                })
-              ) : (
-                // No posts fallback
-                <div className="col-span-3 text-center py-12">
-                  <p className="text-gray-500">Hiện tại chưa có bài viết nào.</p>
-                  <p className="text-sm text-gray-400 mt-2">
-                    {!isAuthenticated 
-                      ? "Đăng nhập để xem thêm bài viết hoặc tạo bài viết mới."
-                      : "Hãy tạo bài viết đầu tiên của bạn!"
-                    }
-                  </p>
-                  {!isAuthenticated && (
-                    <button
-                      onClick={() => navigate("/login")}
-                      className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Đăng nhập ngay
-                    </button>
-                  )}
-                </div>
-              )}
-          </div>
-        </div>
-      </section>
-
-        {/* IT Learning Gallery Section */}
-        <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            
-            {/* Section Header */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="text-center mb-16"
+                  navigateWithScrollToTop("/register");
+                }
+              }}
+              className="bg-white text-blue-600 px-8 py-3 font-semibold"
+               initial={{ opacity: 0, y: 20 }}
+               whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                 transition={{ duration: 0.6, delay: 0.4 }}
+               whileHover={{ scale: 1.05 }}
+               whileTap={{ scale: 0.95 }}
             >
-              <div className="text-green-600 font-semibold text-lg mb-4">TRẢI NGHIỆM HỌC TẬP</div>
-              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
-                Không gian học tập IT hiện đại
-              </h2>
-                  </motion.div>
-            
-            {/* Gallery Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-              
-              {/* Large Image 1 - Programming */}
-                  <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6 }}
-                    viewport={{ once: true }}
-                className="col-span-2 md:col-span-2 row-span-2 relative group overflow-hidden rounded-lg cursor-pointer"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&h=600&fit=crop"
-                  alt="Programming Workspace"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <h3 className="font-bold text-xl">Frontend Development</h3>
-                  <p className="text-sm opacity-90">HTML, CSS, JavaScript</p>
-              </div>
-                  </motion.div>
-
-              {/* Small Image 1 - Code Editor */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-              viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-            >
-              <img
-                  src="https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=300&h=300&fit=crop"
-                  alt="Code Editor"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">Code Editor</p>
-              </div>
-            </motion.div>
-
-              {/* Small Image 2 - AI/ML */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-            >
-              <img
-                  src="https://images.unsplash.com/photo-1518773553398-650c184e0bb3?w=300&h=300&fit=crop"
-                  alt="AI Machine Learning"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">AI & ML</p>
-          </div>
-            </motion.div>
-
-              {/* Small Image 3 - Mobile Development */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=300&h=300&fit=crop"
-                  alt="Mobile Development"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">Mobile Dev</p>
-          </div>
-              </motion.div>
-
-              {/* Small Image 4 - Database */}
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://cloud-web-cms-beta.s3.cloud.cmctelecom.vn/cac_loai_data_base_602449a39f.jpeg"
-                  alt="Database Management"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">Database</p>
-              </div>
-            </motion.div>
-
-              {/* Large Image 2 - Team Collaboration */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-                viewport={{ once: true }}
-                className="col-span-2 md:col-span-2 row-span-2 relative group overflow-hidden rounded-lg cursor-pointer"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=600&fit=crop"
-                  alt="Team Collaboration"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <h3 className="font-bold text-xl">Team Collaboration</h3>
-                  <p className="text-sm opacity-90">Agile & Project Management</p>
-              </div>
-            </motion.div>
-
-              {/* Small Image 5 - Cloud Computing */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?w=300&h=300&fit=crop"
-                  alt="Cloud Computing"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">Cloud & DevOps</p>
-          </div>
-              </motion.div>
-
-              {/* Small Image 6 - Cybersecurity */}
-          <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.7 }}
-            viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=300&h=300&fit=crop"
-                  alt="Cybersecurity"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">Cybersecurity</p>
-        </div>
-              </motion.div>
-
-              {/* CTA Box */}
-          <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.8 }}
-            viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48 bg-gradient-to-br from-green-600 to-green-700 flex flex-col justify-center items-center text-white p-4"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <CodeBracketIcon className="w-6 h-6" />
-            </div>
-                  <div className="font-bold text-sm mb-1">Bắt đầu học</div>
-                  <div className="font-bold text-sm">NGAY HÔM NAY</div>
-                </div>
-              </motion.div>
-
-                            {/* Small Image 7 - Data Science */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.9 }}
-                viewport={{ once: true }}
-                className="relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=300&h=300&fit=crop"
-                  alt="Data Science"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                <div className="absolute bottom-2 left-2 text-white">
-                  <p className="text-xs font-semibold">Data Science</p>
-            </div>
-              </motion.div>
-
-              {/* Horizontal Image - UI/UX Design */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 1.0 }}
-                viewport={{ once: true }}
-                className="col-span-2 relative group overflow-hidden rounded-lg cursor-pointer h-32 md:h-48"
-                onClick={() => handlePublicNavigation("/courses")}
-              >
-                <img
-                  src="https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=600&h=300&fit=crop"
-                  alt="UI/UX Design & Web Development"
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                <div className="absolute bottom-4 left-4 text-white">
-                  <h3 className="font-bold text-lg">UI/UX Design</h3>
-                  <p className="text-sm opacity-90">Creative & User Experience</p>
-            </div>
-          </motion.div>
-            </div>
+              Tham gia miễn phí
+                        </motion.button>
         </div>
       </section>
     </main>

@@ -40,7 +40,7 @@
     "mssql": "^11.0.1",
     "multer": "^2.0.2",
     "mysql2": "^3.14.1",
-    "nodemailer": "^6.6.3",
+    "nodemailer": "^8.0.4",
     "pyodide": "^0.27.5",
     "quickjs-emscripten": "^0.31.0",
     "react-markdown": "^10.1.0",

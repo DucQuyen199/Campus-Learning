@@ -43,7 +43,7 @@
     "@mui/material": "^6.4.8",
     "@mui/x-date-pickers": "^7.28.0",
     "antd": "^5.24.7",
-    "axios": "^1.11.0",
+    "axios": "^1.15.2",
     "date-fns": "^2.30.0",
     "formik": "^2.4.6",
     "framer-motion": "^12.7.4",

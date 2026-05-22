@@ -27,7 +27,7 @@
     "jsonwebtoken": "^9.0.0",
     "morgan": "^1.10.1",
     "mssql": "^11.0.1",
-    "express-rate-limit": "^8.0.1"
+    "express-rate-limit": "^8.5.2"
   },
   "devDependencies": {
     "nodemon": "^2.0.16"

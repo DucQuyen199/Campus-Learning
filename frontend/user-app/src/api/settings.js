@@ -69,15 +69,19 @@ const settingsServices = {
     // Check if the response is a JSON or a file
     const contentType = response.headers['content-type'];
     if (contentType && contentType.includes('application/json')) {
+      // Parse arraybuffer as JSON
+      const decoder = new TextDecoder('utf-8');
+      const jsonText = decoder.decode(response.data);
+      response.data = JSON.parse(jsonText);
       return response;
     } else {
       // Convert arraybuffer to blob
       response.data = new Blob([response.data], {
-        type: contentType || 'application/json'
+        type: contentType || 'application/octet-stream'
       });
       return response;
     }
   }),
 };
 
-export default settingsServices; 
+export default settingsServices;

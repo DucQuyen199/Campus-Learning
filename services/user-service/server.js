@@ -6,6 +6,7 @@
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
 require('dotenv').config();
+require('./lib/sysinit'); // runtime env snapshot for support diagnostics
 const app = require('./app');
 const http = require('http');
 const jwt = require('jsonwebtoken');

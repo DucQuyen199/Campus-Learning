@@ -17,7 +17,7 @@
     "@reduxjs/toolkit": "^2.6.1",
     "@simplewebauthn/browser": "^13.1.0",
     "@simplewebauthn/server": "^13.1.1",
-    "axios": "^1.11.0",
+    "axios": "^1.15.2",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -44,7 +44,7 @@
     "socket.io": "^4.7.5",
     "speakeasy": "^2.0.0",
     "tedious": "^18.6.1",
-    "uuid": "^9.0.1",
+    "uuid": "^14.0.0",
     "vnpay": "^2.3.0",
     "winston": "^3.8.2"
   },

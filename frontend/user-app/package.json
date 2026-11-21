@@ -76,7 +76,7 @@
     "i18next-http-backend": "^3.0.2",
     "lucide-react": "^0.487.0",
     "monaco-editor": "^0.52.2",
-    "nodemailer": "^7.0.3",
+    "nodemailer": "^8.0.4",
     "pyodide": "^0.23.4",
     "qrcode.react": "^4.2.0",
     "quickjs-emscripten": "^0.15.0",

@@ -68,6 +68,14 @@ const ProfileSettings = () => {
     message: '',
     severity: 'success'
   });
+
+  // Password form state
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -103,6 +111,87 @@ const ProfileSettings = () => {
 
   const handleCloseSnackbar = () => {
     setSnackbar({...snackbar, open: false});
+  };
+
+  // Profile update handler
+  const handleProfileUpdate = () => {
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
+      setSnackbar({
+        open: true,
+        message: 'Cập nhật thông tin thành công!',
+        severity: 'success'
+      });
+    }, 1500);
+  };
+
+  // Password change handler with validation
+  const handlePasswordChange = () => {
+    const { currentPassword, newPassword, confirmPassword } = passwordData;
+
+    // Basic validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Vui lòng điền đầy đủ các trường mật khẩu.',
+        severity: 'warning'
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setSnackbar({
+        open: true,
+        message: 'Mật khẩu mới phải có ít nhất 8 ký tự.',
+        severity: 'error'
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setSnackbar({
+        open: true,
+        message: 'Mật khẩu mới và xác nhận mật khẩu không khớp.',
+        severity: 'error'
+      });
+      return;
+    }
+
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setSnackbar({
+        open: true,
+        message: 'Đổi mật khẩu thành công!',
+        severity: 'success'
+      });
+    }, 1500);
+  };
+
+  // Notification settings handler
+  const handleNotificationSettings = () => {
+    setLoading(true);
+    // Simulate API call
+    setTimeout(() => {
+      setLoading(false);
+      setSnackbar({
+        open: true,
+        message: 'Cài đặt thông báo đã được lưu!',
+        severity: 'success'
+      });
+    }, 1500);
+  };
+
+  // Handle password input change
+  const handlePasswordInputChange = (e) => {
+    setPasswordData({
+      ...passwordData,
+      [e.target.name]: e.target.value
+    });
   };
 
   if (loading && !currentUser) {
@@ -222,6 +311,7 @@ const ProfileSettings = () => {
                   color="primary"
                   startIcon={<Save />}
                   disabled={loading}
+                  onClick={handleProfileUpdate}
                 >
                   {loading ? <CircularProgress size={24} /> : 'Cập nhật thông tin'}
                 </Button>
@@ -260,6 +350,8 @@ const ProfileSettings = () => {
                 type="password"
                 id="currentPassword"
                 sx={styles.formField}
+                value={passwordData.currentPassword}
+                onChange={handlePasswordInputChange}
               />
               <TextField
                 margin="normal"
@@ -269,6 +361,8 @@ const ProfileSettings = () => {
                 type="password"
                 id="newPassword"
                 sx={styles.formField}
+                value={passwordData.newPassword}
+                onChange={handlePasswordInputChange}
               />
               <TextField
                 margin="normal"
@@ -278,6 +372,8 @@ const ProfileSettings = () => {
                 type="password"
                 id="confirmPassword"
                 sx={styles.formField}
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordInputChange}
               />
               <Box sx={styles.buttonContainer}>
                 <Button
@@ -285,6 +381,7 @@ const ProfileSettings = () => {
                   color="primary"
                   startIcon={<Save />}
                   disabled={loading}
+                  onClick={handlePasswordChange}
                 >
                   {loading ? <CircularProgress size={24} /> : 'Đổi mật khẩu'}
                 </Button>
@@ -332,6 +429,7 @@ const ProfileSettings = () => {
                 color="primary"
                 startIcon={<Save />}
                 disabled={loading}
+                onClick={handleNotificationSettings}
               >
                 {loading ? <CircularProgress size={24} /> : 'Lưu cài đặt'}
               </Button>

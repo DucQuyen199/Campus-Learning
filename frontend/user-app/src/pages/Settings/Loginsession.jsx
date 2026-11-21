@@ -5,7 +5,7 @@
 * Description: This file is a component/module for the student application.
 * Apache 2.0 License - Copyright 2025 Quyen Nguyen Duc
 -----------------------------------------------------------------*/
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
 import { 
@@ -28,23 +28,36 @@ const LoginSession = () => {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const isMounted = useRef(true);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
   
   // Fetch sessions on mount
   useEffect(() => {
     userServices.getSessions()
       .then(res => {
-        setSessions(res.data.sessions);
+        if (isMounted.current) {
+          setSessions(res.data.sessions);
+        }
       })
       .catch(err => {
-        console.error('Error fetching sessions:', err);
-        toast.error('Không thể tải danh sách phiên đăng nhập');
+        if (isMounted.current) {
+          console.error('Error fetching sessions:', err);
+          toast.error('Không thể tải danh sách phiên đăng nhập');
+        }
       });
   }, []);
   
   // Format date to relative time
   const formatRelativeTime = (date) => {
     const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
+    const dateObj = new Date(date);
+    const diffInSeconds = Math.floor((now - dateObj) / 1000);
     
     if (diffInSeconds < 60) {
       return 'Vừa xong';
@@ -78,12 +91,16 @@ const LoginSession = () => {
   const handleTerminateSession = (sessionId) => {
     userServices.deleteSession(sessionId)
       .then(() => {
-        toast.success('Phiên đăng nhập đã được kết thúc');
-        setSessions(sessions.filter(s => s.id !== sessionId));
+        if (isMounted.current) {
+          toast.success('Phiên đăng nhập đã được kết thúc');
+          setSessions(prev => prev.filter(s => s.id !== sessionId));
+        }
       })
       .catch(err => {
-        console.error('Error terminating session:', err);
-        toast.error('Lỗi khi kết thúc phiên đăng nhập');
+        if (isMounted.current) {
+          console.error('Error terminating session:', err);
+          toast.error('Lỗi khi kết thúc phiên đăng nhập');
+        }
       });
   };
   
@@ -91,13 +108,17 @@ const LoginSession = () => {
   const handleTerminateAllOtherSessions = () => {
     userServices.terminateOtherSessions()
       .then(() => {
-        const currentSession = sessions.find(s => s.isCurrent);
-        setSessions(currentSession ? [currentSession] : []);
-        toast.success('Tất cả các phiên khác đã được kết thúc');
+        if (isMounted.current) {
+          const currentSession = sessions.find(s => s.isCurrent);
+          setSessions(currentSession ? [currentSession] : []);
+          toast.success('Tất cả các phiên khác đã được kết thúc');
+        }
       })
       .catch(err => {
-        console.error('Error terminating other sessions:', err);
-        toast.error('Lỗi khi kết thúc các phiên khác');
+        if (isMounted.current) {
+          console.error('Error terminating other sessions:', err);
+          toast.error('Lỗi khi kết thúc các phiên khác');
+        }
       });
   };
 
@@ -108,16 +129,21 @@ const LoginSession = () => {
       // Add a 5-second delay to ensure the logout process isn't too quick
       await new Promise(resolve => setTimeout(resolve, 5000));
       
-      await userServices.terminateAllSessions();
-      toast.success('Đã đăng xuất khỏi tất cả thiết bị');
+      if (!isMounted.current) return;
       
-      // Logout from current session
-      await dispatch(logout());
-      navigate('/login');
+      await userServices.terminateAllSessions();
+      if (isMounted.current) {
+        toast.success('Đã đăng xuất khỏi tất cả thiết bị');
+        // Logout from current session
+        await dispatch(logout());
+        navigate('/login');
+      }
     } catch (err) {
-      console.error('Error logging out from all devices:', err);
-      toast.error('Lỗi khi đăng xuất khỏi tất cả thiết bị');
-      setIsLoggingOut(false);
+      if (isMounted.current) {
+        console.error('Error logging out from all devices:', err);
+        toast.error('Lỗi khi đăng xuất khỏi tất cả thiết bị');
+        setIsLoggingOut(false);
+      }
     }
   };
   
@@ -304,4 +330,3 @@ const LoginSession = () => {
 };
 
 export default LoginSession;
-
